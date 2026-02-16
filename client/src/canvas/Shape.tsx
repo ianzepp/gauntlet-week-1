@@ -1,6 +1,7 @@
+import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import React, { useCallback, useEffect, useState } from "react";
-import { Group, Ellipse as KonvaEllipse, Rect } from "react-konva";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Ellipse as KonvaEllipse, Rect } from "react-konva";
 import type { BoardObject } from "../lib/types";
 import { useBoardStore } from "../store/board";
 
@@ -28,19 +29,31 @@ function useIsDark() {
 
 interface ShapeProps {
     object: BoardObject;
+    isSelected: boolean;
+    onSelect: () => void;
+    onShapeRef: (id: string, node: Konva.Node | null) => void;
 }
 
-export const Shape = React.memo(function Shape({ object }: ShapeProps) {
-    const selection = useBoardStore((s) => s.selection);
-    const setSelection = useBoardStore((s) => s.setSelection);
+export const Shape = function Shape({
+    object,
+    isSelected,
+    onSelect,
+    onShapeRef,
+}: ShapeProps) {
     const updateObject = useBoardStore((s) => s.updateObject);
     const isDark = useIsDark();
 
-    const isSelected = selection.has(object.id);
     const palette = isDark ? COLORS.dark : COLORS.light;
     const fillColor = (object.props.color as string) ?? palette.fill;
     const strokeColor = isSelected ? palette.selected : palette.stroke;
     const strokeWidth = isSelected ? 2 : 1;
+
+    const refCallback = useCallback(
+        (node: Konva.Rect | Konva.Ellipse | null) => {
+            onShapeRef(object.id, node);
+        },
+        [object.id, onShapeRef],
+    );
 
     const handleDragEnd = useCallback(
         (e: KonvaEventObject<DragEvent>) => {
@@ -52,14 +65,6 @@ export const Shape = React.memo(function Shape({ object }: ShapeProps) {
         [object.id, updateObject],
     );
 
-    const handleClick = useCallback(
-        (e: KonvaEventObject<MouseEvent>) => {
-            e.cancelBubble = true;
-            setSelection(new Set([object.id]));
-        },
-        [object.id, setSelection],
-    );
-
     const handleTransformEnd = useCallback(
         (e: KonvaEventObject<Event>) => {
             const node = e.target;
@@ -67,48 +72,66 @@ export const Shape = React.memo(function Shape({ object }: ShapeProps) {
             const scaleY = node.scaleY();
             node.scaleX(1);
             node.scaleY(1);
-            updateObject(object.id, {
-                x: node.x(),
-                y: node.y(),
-                width: Math.max(5, object.width * scaleX),
-                height: Math.max(5, object.height * scaleY),
-                rotation: node.rotation(),
-            });
+
+            if (object.kind === "ellipse") {
+                const ellipse = node as Konva.Ellipse;
+                updateObject(object.id, {
+                    x: node.x() - ellipse.radiusX(),
+                    y: node.y() - ellipse.radiusY(),
+                    width: Math.max(5, ellipse.radiusX() * 2),
+                    height: Math.max(5, ellipse.radiusY() * 2),
+                    rotation: node.rotation(),
+                });
+            } else {
+                updateObject(object.id, {
+                    x: node.x(),
+                    y: node.y(),
+                    width: Math.max(5, node.width() * scaleX),
+                    height: Math.max(5, node.height() * scaleY),
+                    rotation: node.rotation(),
+                });
+            }
         },
-        [object.id, object.width, object.height, updateObject],
+        [object.id, object.kind, updateObject],
     );
 
+    if (object.kind === "ellipse") {
+        return (
+            <KonvaEllipse
+                ref={refCallback}
+                x={object.x + object.width / 2}
+                y={object.y + object.height / 2}
+                radiusX={object.width / 2}
+                radiusY={object.height / 2}
+                rotation={object.rotation}
+                draggable
+                onClick={onSelect}
+                onTap={onSelect}
+                onDragEnd={handleDragEnd}
+                onTransformEnd={handleTransformEnd}
+                fill={fillColor}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+            />
+        );
+    }
+
     return (
-        <Group
-            name={`obj-${object.id}`}
+        <Rect
+            ref={refCallback}
             x={object.x}
             y={object.y}
+            width={object.width}
+            height={object.height}
             rotation={object.rotation}
-            draggable={true}
+            draggable
+            onClick={onSelect}
+            onTap={onSelect}
             onDragEnd={handleDragEnd}
-            onClick={handleClick}
             onTransformEnd={handleTransformEnd}
-        >
-            {object.kind === "rectangle" && (
-                <Rect
-                    width={object.width}
-                    height={object.height}
-                    fill={fillColor}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                />
-            )}
-            {object.kind === "ellipse" && (
-                <KonvaEllipse
-                    x={object.width / 2}
-                    y={object.height / 2}
-                    radiusX={object.width / 2}
-                    radiusY={object.height / 2}
-                    fill={fillColor}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                />
-            )}
-        </Group>
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+        />
     );
-});
+};

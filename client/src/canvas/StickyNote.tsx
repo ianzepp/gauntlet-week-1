@@ -8,6 +8,9 @@ import { TextEditor } from "./TextEditor";
 
 interface StickyNoteProps {
     object: BoardObject;
+    isSelected: boolean;
+    onSelect: () => void;
+    onShapeRef: (id: string, node: Konva.Node | null) => void;
 }
 
 function darkenColor(hex: string): string {
@@ -17,21 +20,27 @@ function darkenColor(hex: string): string {
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
-export const StickyNote = React.memo(function StickyNote({
+export const StickyNote = function StickyNote({
     object,
+    isSelected,
+    onSelect,
+    onShapeRef,
 }: StickyNoteProps) {
     const [editing, setEditing] = useState(false);
-    const groupRef = useRef<Konva.Group>(null);
 
-    const selection = useBoardStore((s) => s.selection);
-    const setSelection = useBoardStore((s) => s.setSelection);
     const updateObject = useBoardStore((s) => s.updateObject);
     const viewport = useBoardStore((s) => s.viewport);
 
-    const isSelected = selection.has(object.id);
     const color = (object.props.color as string) ?? "#F5F0E8";
     const text = (object.props.text as string) ?? "";
     const borderColor = darkenColor(color);
+
+    const refCallback = useCallback(
+        (node: Konva.Group | null) => {
+            onShapeRef(object.id, node);
+        },
+        [object.id, onShapeRef],
+    );
 
     const handleDragEnd = useCallback(
         (e: KonvaEventObject<DragEvent>) => {
@@ -41,14 +50,6 @@ export const StickyNote = React.memo(function StickyNote({
             });
         },
         [object.id, updateObject],
-    );
-
-    const handleClick = useCallback(
-        (e: KonvaEventObject<MouseEvent>) => {
-            e.cancelBubble = true;
-            setSelection(new Set([object.id]));
-        },
-        [object.id, setSelection],
     );
 
     const handleDblClick = useCallback(() => {
@@ -87,39 +88,39 @@ export const StickyNote = React.memo(function StickyNote({
     const screenY = object.y * viewport.scale + viewport.y;
 
     return (
-        <>
-            <Group
-                ref={groupRef}
-                name={`obj-${object.id}`}
-                x={object.x}
-                y={object.y}
-                rotation={object.rotation}
-                draggable
-                onDragEnd={handleDragEnd}
-                onClick={handleClick}
-                onDblClick={handleDblClick}
-                onTransformEnd={handleTransformEnd}
-            >
-                <Rect
-                    width={object.width}
-                    height={object.height}
-                    fill={color}
-                    stroke={isSelected ? "#2C2824" : borderColor}
-                    strokeWidth={isSelected ? 2 : 1}
-                />
-                <Text
-                    text={text}
-                    width={object.width - 16}
-                    height={object.height - 16}
-                    x={8}
-                    y={8}
-                    fontFamily="Caveat"
-                    fontSize={20}
-                    fill="#2C2824"
-                    wrap="word"
-                    listening={false}
-                />
-            </Group>
+        <Group
+            ref={refCallback}
+            x={object.x}
+            y={object.y}
+            width={object.width}
+            height={object.height}
+            rotation={object.rotation}
+            draggable
+            onClick={onSelect}
+            onTap={onSelect}
+            onDragEnd={handleDragEnd}
+            onDblClick={handleDblClick}
+            onTransformEnd={handleTransformEnd}
+        >
+            <Rect
+                width={object.width}
+                height={object.height}
+                fill={color}
+                stroke={isSelected ? "#2C2824" : borderColor}
+                strokeWidth={isSelected ? 2 : 1}
+            />
+            <Text
+                text={text}
+                width={object.width - 16}
+                height={object.height - 16}
+                x={8}
+                y={8}
+                fontFamily="Caveat"
+                fontSize={20}
+                fill="#2C2824"
+                wrap="word"
+                listening={false}
+            />
             {editing && (
                 <TextEditor
                     x={screenX}
@@ -131,6 +132,6 @@ export const StickyNote = React.memo(function StickyNote({
                     onCancel={() => setEditing(false)}
                 />
             )}
-        </>
+        </Group>
     );
-});
+};

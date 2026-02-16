@@ -74,8 +74,8 @@ function GridLines({
 export function Canvas() {
     const { width, height } = useCanvasSize();
     const stageRef = useRef<Konva.Stage>(null);
-    const transformerRef = useRef<Konva.Transformer>(null);
-    const layerRef = useRef<Konva.Layer>(null);
+    const trRef = useRef<Konva.Transformer>(null);
+    const nodeMapRef = useRef<Map<string, Konva.Node>>(new Map());
 
     const [isDark, setIsDark] = useState(() =>
         document.documentElement.classList.contains("dark-mode"),
@@ -104,32 +104,36 @@ export function Canvas() {
 
     const objectList = useMemo(() => Array.from(objects.values()), [objects]);
 
-    // Attach Transformer to selected nodes whenever selection or objects change.
-    // We derive a primitive string key from the selection Set so the effect
-    // dependency is a value comparison, not a reference comparison. This avoids
-    // subtle issues where React/Zustand/useSyncExternalStore may skip re-renders
-    // when comparing Set objects with Object.is in concurrent rendering scenarios.
+    // Track shape refs via callback
+    const handleShapeRef = useCallback((id: string, node: Konva.Node | null) => {
+        if (node) {
+            nodeMapRef.current.set(id, node);
+        } else {
+            nodeMapRef.current.delete(id);
+        }
+    }, []);
+
+    // Derive primitive key for selection
     const selectionKey = useMemo(
         () => Array.from(selection).sort().join(","),
         [selection],
     );
 
+    // Attach transformer to selected nodes
     useEffect(() => {
-        const tr = transformerRef.current;
-        const layer = layerRef.current;
-        if (!tr || !layer) return;
+        const tr = trRef.current;
+        if (!tr) return;
 
-        // Parse IDs back from the primitive key
         const ids = selectionKey ? selectionKey.split(",") : [];
         const nodes: Konva.Node[] = [];
         for (const id of ids) {
-            const node = layer.findOne(`.obj-${id}`);
+            const node = nodeMapRef.current.get(id);
             if (node) nodes.push(node);
         }
+        console.log("[Transformer]", { selectionKey, foundNodes: nodes.length, totalRefs: nodeMapRef.current.size });
         tr.nodes(nodes);
-        // Force synchronous redraw to ensure Transformer anchors render
-        layer.draw();
-    }, [selectionKey, objects]);
+        tr.getLayer()?.batchDraw();
+    }, [selectionKey]);
 
     const handleWheel = useCallback(
         (e: KonvaEventObject<WheelEvent>) => {
@@ -168,20 +172,31 @@ export function Canvas() {
         [viewport, setViewport],
     );
 
-    const handleStageClick = useCallback(
+    const handleStageMouseDown = useCallback(
         (e: KonvaEventObject<MouseEvent>) => {
             const target = e.target;
-            // Ignore clicks on shapes, transformer anchors, etc.
-            const isStage = target === target.getStage();
-            const isTransformer = target.getParent()?.className === "Transformer";
-            if (!isStage && !isTransformer) return;
-
-            if (isTransformer) return; // Don't clear when clicking transformer controls
-
-            if (activeTool === "select") {
+            // Don't deselect when clicking transformer anchors
+            if (target.getParent()?.className === "Transformer") return;
+            const clickedOnEmpty = target === target.getStage();
+            console.log("[mousedown]", {
+                clickedOnEmpty,
+                targetClassName: target.className,
+                targetName: target.name?.(),
+                parentClassName: target.getParent()?.className,
+            });
+            if (clickedOnEmpty) {
                 clearSelection();
-                return;
             }
+        },
+        [clearSelection],
+    );
+
+    const handleStageClick = useCallback(
+        (e: KonvaEventObject<MouseEvent>) => {
+            // Only handle object creation on empty canvas click
+            const clickedOnEmpty = e.target === e.target.getStage();
+            if (!clickedOnEmpty) return;
+            if (activeTool === "select") return;
 
             const stage = stageRef.current;
             if (!stage) return;
@@ -239,7 +254,6 @@ export function Canvas() {
             objects.size,
             addObject,
             setSelection,
-            clearSelection,
             setTool,
         ],
     );
@@ -255,6 +269,7 @@ export function Canvas() {
                 x={viewport.x}
                 y={viewport.y}
                 onWheel={handleWheel}
+                onMouseDown={handleStageMouseDown}
                 onClick={handleStageClick}
             >
                 <Layer listening={false}>
@@ -265,29 +280,43 @@ export function Canvas() {
                         isDark={isDark}
                     />
                 </Layer>
-                <Layer ref={layerRef}>
+                <Layer>
                     {objectList.map((obj) => {
                         if (obj.kind === "sticky_note") {
-                            return <StickyNote key={obj.id} object={obj} />;
+                            return (
+                                <StickyNote
+                                    key={obj.id}
+                                    object={obj}
+                                    isSelected={selection.has(obj.id)}
+                                    onSelect={() =>
+                                        setSelection(new Set([obj.id]))
+                                    }
+                                    onShapeRef={handleShapeRef}
+                                />
+                            );
                         }
                         if (
                             obj.kind === "rectangle" ||
                             obj.kind === "ellipse"
                         ) {
-                            return <Shape key={obj.id} object={obj} />;
+                            return (
+                                <Shape
+                                    key={obj.id}
+                                    object={obj}
+                                    isSelected={selection.has(obj.id)}
+                                    onSelect={() =>
+                                        setSelection(new Set([obj.id]))
+                                    }
+                                    onShapeRef={handleShapeRef}
+                                />
+                            );
                         }
                         return null;
                     })}
                     <Transformer
-                        ref={transformerRef}
+                        ref={trRef}
+                        flipEnabled={false}
                         rotateEnabled={true}
-                        padding={8}
-                        anchorSize={8}
-                        anchorCornerRadius={0}
-                        borderStroke={isDark ? "#e8e0d2" : "#2c2824"}
-                        borderStrokeWidth={1}
-                        anchorStroke={isDark ? "#e8e0d2" : "#2c2824"}
-                        anchorFill={isDark ? "#1c1a18" : "#f5f0e8"}
                         boundBoxFunc={(_oldBox, newBox) => {
                             if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
                                 return _oldBox;
