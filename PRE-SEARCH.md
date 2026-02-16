@@ -22,16 +22,17 @@
 
 ### 2. Budget & Cost Ceiling
 
-**Decision:** $0/month infrastructure target, $20/month hard ceiling (LLM API costs are the only real variable).
+**Decision:** $100/month budget ceiling. Spend where it buys time.
 
-**Why:** Program project. Use free tiers aggressively. Fly.io free tier for compute. Neon or Supabase free tier for Postgres. The only meaningful spend is Anthropic API calls for the AI agent.
+**Why:** $100/mo unlocks real infrastructure without overthinking free-tier limits. This removes friction from hosting, database, and LLM usage decisions.
 
-**Where to trade money for time:**
-- **LLM calls:** Pay for a smarter model (Claude Sonnet) rather than spending days prompt-engineering a cheaper one. Budget ~$5-10 for development iteration and demo usage.
-- **Deployment:** Fly.io free tier. Don't pay for managed WebSocket services — run your own.
-- **Database:** Neon free tier (0.5 GB, branching) or Supabase free tier (500 MB). Both provide managed Postgres with no cost at this scale.
+**Where to spend:**
+- **LLM calls ($20-40/mo):** Use Claude Sonnet freely during dev and demo without worrying about token counts. Budget for heavy iteration on AI agent prompts.
+- **Deployment ($5-10/mo):** Fly.io dedicated machine. No cold starts, no free-tier resource limits, reliable WebSocket connections.
+- **Database ($0-25/mo):** Neon Pro or Supabase Pro if free tier hits limits. Otherwise stay on free tier and pocket the savings.
+- **Buffer (~$30-50/mo):** Headroom for unexpected API usage spikes during demo/evaluation.
 
-**Key tradeoff:** Running WebSockets and HTTP on a single Fly.io free-tier VM means a deploy = brief downtime. Acceptable for a demo.
+**Key tradeoff:** Spending money on infrastructure means fewer constraints to work around. The $100/mo ceiling is generous for a demo project — most of it will go to LLM API calls during development.
 
 ---
 
@@ -41,22 +42,32 @@
 
 **Why:** The 24-hour MVP gate is a hard requirement. Ship or fail. After that, ~6 days to layer on connectors, frames, multi-select, AI agent, and polish. There is no "long-term" — this project's useful life is the evaluation period.
 
-**Concrete time allocation:**
+**Concrete time allocation (MVP, 24 hours):**
 
 | Block | Hours | Deliverable |
 |-------|-------|-------------|
-| Hours 0-4 | 4h | Rust project scaffold, Frame type, kernel router, Postgres schema |
-| Hours 4-8 | 4h | Axum gateway: `/api/auth`, `/api/ws` with frame relay |
-| Hours 8-12 | 4h | Board subsystem: object CRUD via frames, persistence |
-| Hours 12-16 | 4h | React+Konva frontend: canvas, sticky notes, shapes, WS client |
-| Hours 16-20 | 4h | Real-time sync: cursor broadcast, object sync, presence |
-| Hours 20-22 | 2h | Auth (anonymous sessions), deploy to Fly.io |
+| Hours 0-3 | 3h | Cargo project, Frame type, Postgres schema + migrations, AppState |
+| Hours 3-5 | 2h | GitHub OAuth (`/api/auth/*`) + session management + `/api/ws` frame relay |
+| Hours 5-6 | 1h | **Tests: frame serialization, session lifecycle, WS connect** |
+| Hours 6-9 | 3h | Board + Object services (CRUD, in-memory state, Postgres persist) |
+| Hours 9-10 | 1h | **Tests: object CRUD, board state hydration, LWW** |
+| Hours 10-14 | 4h | React+Konva frontend: canvas, sticky notes, shapes, toolbar |
+| Hours 14-18 | 4h | Frame client (WS), real-time sync, cursor broadcast, presence UI |
+| Hours 18-19 | 1h | **Tests: frame client dispatch, multi-client sync smoke test** |
+| Hours 19-22 | 3h | Deploy to Fly.io, integration testing, bug fixes |
 | Hours 22-24 | 2h | Buffer for the inevitable fire |
+
+**Post-MVP (Days 2-7):**
+
+| Block | Hours | Deliverable |
+|-------|-------|-------------|
 | Days 2-3 | 16h | Connectors, text, multi-select, rotate, board CRUD UI |
 | Days 4-5 | 16h | AI agent subsystem (LLM tool calling, 6+ commands) |
 | Days 6-7 | 16h | Copy/paste, disconnect recovery, polish, performance |
 
-**Key tradeoff:** No tests until day 6 at earliest. Manual testing only during the sprint. The cost of test infrastructure exceeds its value at this timeline.
+**Testing approach:** Unit tests (happy path + smoke) are woven into the MVP build at 3 checkpoints — after backend core, after object subsystem, and after real-time sync. Each test block is 1 hour. Tests cover kernel routing, frame serialization, object CRUD, LWW conflict resolution, door lifecycle, and a multi-client sync smoke test. This is the minimum needed for confidence without slowing the sprint.
+
+**Key tradeoff:** 3 hours of testing in a 24-hour MVP is tight but non-negotiable. Prior's proven patterns reduce the risk of architectural surprises, making this feasible.
 
 ---
 
@@ -77,11 +88,13 @@
 
 ### 5. Team & Skill Constraints
 
-**Decision:** Solo build. Rust backend (porting proven patterns from Prior), React+Konva frontend.
+**Decision:** Solo build. Rust backend (porting proven patterns from Prior), React + Konva.js frontend (new, no prior experience with Konva).
 
 **Why:** The Prior project provides a battle-tested monokernel, frame protocol, and Axum gateway pattern. Porting these to a new domain (whiteboard) is faster than building from scratch in any stack — the architecture is already debugged.
 
-**Key tradeoff:** Rust is slower to iterate on than TypeScript for the backend. But the patterns are already proven, and the type system catches entire classes of bugs at compile time that would be runtime surprises in TS. For a solo dev, fewer runtime surprises is worth the compilation cost.
+**Frontend rationale (Konva.js):** No prior experience with Konva, but it's the right choice for iteration speed. Konva gives the hardest whiteboard primitives for free: drag-and-drop, `Transformer` (resize/rotate handles), hit detection, text editing overlays. `react-konva` means writing React components that render to canvas — not a new paradigm. The API surface is small (~10 components). The alternative (raw Canvas 2D) would add 2+ days of boilerplate for features Konva provides out of the box.
+
+**Key tradeoff:** Rust is slower to iterate on than TypeScript for the backend, but the patterns are already proven and the type system catches bugs at compile time. Konva is new but the learning curve is small relative to the time it saves on whiteboard UI primitives.
 
 ---
 
@@ -94,9 +107,11 @@
 2. **Railway** — Simple container hosting, easy deploys, but less control.
 3. **VPS** — Full control, cheap, but manual ops burden.
 
-**Decision:** Fly.io
+**Decision:** Fly.io, `dfw` region (Dallas — evaluators are Austin-based).
 
-**Why:** Purpose-built for long-lived WebSocket connections on container infrastructure with zero DevOps overhead. `fly deploy` from a Dockerfile gives you TLS and health checks in one command. Free tier (3 shared VMs) is sufficient. Rust's small binary and low memory footprint fit the free tier well.
+**Why:** Purpose-built for long-lived WebSocket connections on container infrastructure with zero DevOps overhead. `fly deploy` from a Dockerfile gives you TLS and health checks in one command. Rust compiles to a static binary — the final Docker image is ~10-20MB. Dedicated machine ($5-10/mo) eliminates cold starts and free-tier resource limits.
+
+**Why not DigitalOcean:** App Platform supports Docker but has worse WebSocket support (idle timeouts, no persistent connections). Fly is purpose-built for this.
 
 **CI/CD:** None for a 7-day sprint. `fly deploy` from the terminal.
 
@@ -106,15 +121,22 @@
 
 ### 7. Authentication & Authorization
 
-**Decision:** Anonymous with display name for MVP; add simple email/password or GitHub OAuth for Full phase.
+**Decision:** GitHub OAuth from day one. Google OAuth as secondary if time allows. No local auth (no passwords).
 
-**Why:** The MVP gate is 24 hours. Every minute on auth is a minute not on canvas or real-time sync. For MVP: `/api/auth/connect` generates a session UUID, client picks a display name and color. The Door pattern (from Prior) handles session lifecycle — connect, join board, disconnect.
+**Why:** The MVP requires auth. OAuth eliminates password hashing, email verification, and forgot-password flows — all time sinks. GitHub OAuth is one redirect flow: `GET /api/auth/github` -> GitHub authorize -> callback -> create/find user -> set session cookie -> redirect to app. This is ~2 hours of work including the user table and session management.
+
+**Implementation:**
+- `GET /api/auth/github` — redirect to GitHub OAuth authorize URL
+- `GET /api/auth/github/callback` — exchange code for token, upsert user, create session
+- `GET /api/auth/me` — return current user from session
+- `POST /api/auth/logout` — clear session
+- Session stored as a signed cookie (JWT or opaque token -> server-side session in Postgres).
 
 **RBAC:** Not needed. Two roles max: board owner (can delete) and collaborator (can edit). Simple `role` column on `board_members` table.
 
-**Multi-tenancy:** Boards shared via link. Anyone with the link can collaborate (MVP). This is the Miro/Figma model.
+**Multi-tenancy:** Boards shared via link. Anyone with the link can collaborate. This is the Miro/Figma model.
 
-**Key tradeoff:** Anonymous MVP means no persistent identity across sessions. Acceptable — add real auth in days 2-3.
+**Key tradeoff:** GitHub OAuth requires a GitHub OAuth App registration (takes 2 minutes). Users without GitHub accounts can't use the app at MVP — acceptable for a developer-audience demo. Google OAuth added post-MVP if time allows.
 
 ---
 
@@ -125,9 +147,11 @@
 2. **PostgreSQL (managed, Neon/Supabase)** — Proper concurrent writes, JSONB for flexible object storage, full SQL.
 3. **Redis + PostgreSQL** — Redis for ephemeral state, Postgres for durable.
 
-**Decision:** PostgreSQL (managed via Neon or Supabase free tier) + in-memory board state.
+**Decision:** PostgreSQL (Neon, `us-east` region) + in-memory board state.
 
 **Why:** Postgres gives proper concurrent writes, JSONB columns for flexible board object properties, and a migration path to production. The `frames` table (append-only frame log, ported from Prior) provides audit trail and history replay. Live board state still lives in-memory for performance — Postgres is the durable backing store, not the hot path.
+
+**Why Neon over Supabase:** Neon is pure Postgres with zero extra services — lighter, faster to provision, has database branching for dev workflows. Supabase bundles auth/storage/REST that we won't use. ~20-30ms round-trip from Dallas to `us-east` is fine since the DB is off the hot path (in-memory state handles real-time reads).
 
 ### Schema Design
 
@@ -205,25 +229,13 @@ On board load: hydrate in-memory state from `board_objects`. On mutation: update
 
 ### 9. Backend / API Architecture
 
-**Decision:** Rust monokernel with Axum gateway (ported from Prior).
+**Decision:** Traditional Axum route handlers with shared services (option B). Frames on the WebSocket wire, but internally it's standard async fn handlers and shared state. Refactor to kernel/subsystem pattern later if complexity warrants it.
 
-**Why:** The Prior project already has a debugged monokernel, frame protocol, and Axum WebSocket gateway. Porting these patterns to a new domain saves days of architecture work. The monokernel gives clean subsystem isolation without microservice complexity.
+**Why:** For a 24-hour MVP, the kernel scaffold (channel routing, subsystem registration, dispatch loop) adds ~4 hours of infrastructure before any business logic. Standard Axum with shared services takes ~1 hour to scaffold and is immediately readable. The frame protocol on the wire gives the same client-side architecture regardless — the kernel is an internal concern.
 
-### Monokernel Design
+**Upgrade path:** If post-MVP complexity demands it (e.g., AI agent needs to make board mutations that trigger further processing), refactor handlers into subsystems behind the kernel's channel-based routing. The frame protocol doesn't change.
 
-```
-Kernel::new()
-  -> register("door")   -> Door subsystem (session lifecycle, board membership)
-  -> register("board")  -> Board subsystem (CRUD, object management)
-  -> register("object") -> Object subsystem (create, move, resize, delete board objects)
-  -> register("cursor") -> Cursor subsystem (ephemeral position broadcast)
-  -> register("ai")     -> AI subsystem (LLM tool calling)
-  -> start()            -> Spawn routing loop
-```
-
-The kernel routes frames by syscall prefix. Each subsystem receives a channel endpoint. No subsystem knows about any other — they communicate only through the kernel.
-
-### Frame Protocol
+### Frame Protocol (wire format, regardless of backend architecture)
 
 ```rust
 pub struct Frame {
@@ -243,23 +255,50 @@ Status lifecycle (identical to Prior):
 - `Request -> Error` (failure)
 - `Cancel` (abort by parent_id)
 
+### Server Architecture
+
+```
+Axum Router
+├── /api/auth/github           GET  -> redirect to GitHub OAuth
+├── /api/auth/github/callback  GET  -> exchange code, upsert user, set session
+├── /api/auth/me               GET  -> current user from session
+├── /api/auth/logout           POST -> clear session
+├── /api/ws                    GET  -> WebSocket upgrade
+│
+WebSocket Handler (frame relay)
+├── on_connect  -> validate session, send board:state
+├── on_message  -> parse Frame, dispatch by syscall prefix:
+│   ├── "board:*"   -> board_service.*()
+│   ├── "object:*"  -> object_service.*()
+│   ├── "cursor:*"  -> cursor broadcast (in-memory only)
+│   └── "ai:*"      -> ai_service.prompt()
+├── on_close    -> remove from presence, notify peers
+│
+Shared Services (injected via Axum state)
+├── BoardService    { pool: PgPool, boards: Arc<RwLock<HashMap<Uuid, BoardState>>> }
+├── ObjectService   { pool: PgPool, ... }
+├── CursorService   { boards: Arc<RwLock<...>> }  // ephemeral only
+├── AiService       { llm_client: LlmClient, ... }
+└── SessionService  { pool: PgPool }
+```
+
 ### API Surface
 
-Two HTTP endpoints only:
-
-**`/api/auth/*`** — REST endpoints for session management:
-- `POST /api/auth/connect` — create anonymous session, returns `{ session, user_id }`
-- `POST /api/auth/login` — email/password (Full phase)
+**`/api/auth/*`** — GitHub OAuth flow:
+- `GET /api/auth/github` — redirect to GitHub authorize URL
+- `GET /api/auth/github/callback` — exchange code, upsert user, create session
+- `GET /api/auth/me` — return current user
+- `POST /api/auth/logout` — clear session
 
 **`/api/ws`** — Single WebSocket endpoint, bidirectional frames:
 
 ```
 Client connects: GET /api/ws?token=<session_token>
-Server sends:    { status: "item", syscall: "door:connected", data: { session: "uuid" } }
+Server sends:    { status: "item", syscall: "session:connected", data: { user_id: "uuid", name: "Ian" } }
 
-Client sends:    { syscall: "door:join", data: { board_id: "uuid" } }
+Client sends:    { syscall: "board:join", data: { board_id: "uuid" } }
 Server sends:    { status: "item", syscall: "board:state", data: { objects: [...], users: [...] } }
-Server sends:    { status: "done", syscall: "door:join" }
+Server sends:    { status: "done", syscall: "board:join" }
 
 Client sends:    { syscall: "object:create", data: { kind: "sticky_note", x: 100, y: 200, props: { text: "Hello", color: "#FFEB3B" } } }
 Server broadcasts: { status: "item", syscall: "object:created", data: { id: "uuid", kind: "sticky_note", ... } }
@@ -268,33 +307,33 @@ Client sends:    { syscall: "cursor:move", data: { x: 450, y: 300 } }
 Server broadcasts: { status: "item", syscall: "cursor:moved", data: { user_id: "uuid", x: 450, y: 300 } }
 
 Client sends:    { syscall: "ai:prompt", data: { prompt: "Create a SWOT analysis" } }
-Server streams:  { status: "item", syscall: "object:created", data: { ... } }  // repeated for each object
+Server streams:  { status: "item", syscall: "object:created", data: { ... } }  // repeated per object
 Server sends:    { status: "done", syscall: "ai:prompt" }
 ```
 
 ### AI Agent Integration
 
-The AI subsystem is registered as `"ai"` in the kernel. When it receives a request:
+The AI service is called from the WS handler when `syscall` starts with `ai:`. It:
 
-1. Serialize current board state from the board subsystem
-2. Call Anthropic Claude with board state + user prompt + tool definitions
-3. For each tool call returned, emit a request frame to the appropriate subsystem (`object:create`, `object:move`, etc.)
-4. Each subsystem processes the mutation normally — persists, broadcasts to clients
-5. When all tool calls complete, emit `done` on the original `ai:prompt` frame
+1. Reads current board state from shared `BoardState`
+2. Calls LLM with board state + user prompt + tool definitions
+3. For each tool call returned, calls `object_service` directly (same shared state)
+4. Each mutation updates in-memory state, persists to Postgres, broadcasts frame to peers
+5. When all tool calls complete, sends `done` frame for the original `ai:prompt`
 
-The AI agent is just another subsystem making mutations through the kernel. No special path.
+The AI agent's mutations flow through the same code path as human mutations — `object_service.create()`, `object_service.update()`, etc.
 
-### Subsystem Syscalls
+### Syscalls
 
 | Prefix | Syscalls | Description |
 |--------|----------|-------------|
-| `door` | `connect`, `disconnect`, `join`, `part` | Session lifecycle, board membership |
-| `board` | `create`, `list`, `get`, `delete`, `state` | Board CRUD and state hydration |
-| `object` | `create`, `update`, `delete`, `lock`, `unlock` | Board object mutations |
-| `cursor` | `move` | Ephemeral cursor position broadcast |
+| `session` | `connected` | Server -> client on WS connect |
+| `board` | `join`, `part`, `create`, `list`, `get`, `delete`, `state` | Board lifecycle and CRUD |
+| `object` | `create`, `created`, `update`, `updated`, `delete`, `deleted`, `lock`, `unlock` | Board object mutations + broadcasts |
+| `cursor` | `move`, `moved` | Ephemeral cursor position (send vs broadcast naming) |
 | `ai` | `prompt` | Natural language -> tool calls -> board mutations |
 
-**Key tradeoff:** Rust compilation is slower than TS hot-reload. Mitigated by `cargo watch` and the fact that the architecture is already proven from Prior.
+**Key tradeoff:** Option B is flatter and faster to build, but if the WS handler grows to 500+ lines of dispatch logic, it becomes a maintenance problem. The kernel refactor is the escape hatch.
 
 ---
 
@@ -344,9 +383,26 @@ The Frame Client speaks the same protocol as the server. Incoming frames are dis
 
 ### 11. Third-Party Integrations
 
-**Decision:** Anthropic Claude (claude-sonnet-4-20250514) via the Rust `anthropic` crate or direct HTTP calls.
+**Decision:** Multi-provider LLM adapter supporting Anthropic + OpenAI formats. Provider and model configured via env/config. Default: Claude Sonnet. Prior has reference implementations for both providers.
 
-**Why:** Claude's tool-use/function-calling is reliable. Sonnet balances cost and quality: fast enough for interactive use (~1-2s), smart enough for spatial reasoning. From Rust, use `reqwest` + manual JSON serialization to the Anthropic Messages API — avoids depending on a potentially immature Rust SDK.
+**Why:** Provider lock-in is unnecessary when the adapter pattern is straightforward. Prior already has working Anthropic (`llm/client.rs`) and OpenAI (`llm/openai_client.rs`) clients behind a trait interface. Port the trait-based dispatch: a `LlmClient` trait with `chat()` method, concrete implementations for Anthropic Messages API and OpenAI Chat Completions API, provider selection from config.
+
+**Implementation:**
+```rust
+#[async_trait]
+pub trait LlmClient: Send + Sync {
+    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError>;
+}
+
+struct AnthropicClient { api_key: String, model: String, client: reqwest::Client }
+struct OpenAiClient { api_key: String, model: String, client: reqwest::Client }
+
+// Config-driven selection
+// LLM_PROVIDER=anthropic  LLM_MODEL=claude-sonnet-4-20250514  LLM_API_KEY=sk-...
+// LLM_PROVIDER=openai     LLM_MODEL=gpt-4o                     LLM_API_KEY=sk-...
+```
+
+Both providers support tool/function calling. Tool definitions are provider-agnostic (converted at the adapter boundary).
 
 ### AI Agent Tool Definitions (6+ commands)
 
@@ -362,15 +418,15 @@ The Frame Client speaks the same protocol as the server. Incoming frames are dis
 
 ### Other External Services
 
-- **PostgreSQL** — Neon or Supabase free tier (managed).
-- **Anthropic API** — Only external API call.
+- **PostgreSQL** — Neon (managed).
+- **LLM API** — Anthropic or OpenAI, config-driven.
 - No Redis, no S3, no CDN. Static frontend assets served by Axum or a CDN fronting the Fly.io container.
 
 ### Pricing
 
-- **Anthropic:** Sonnet is $3/M input, $15/M output. Each AI command ~$0.01-0.05. Rate limit: 10 AI commands/min/board. Budget: ~$5-10 total.
-- **Fly.io:** Free tier. Cost: $0.
-- **Neon/Supabase:** Free tier. Cost: $0.
+- **Anthropic:** Sonnet is $3/M input, $15/M output. Each AI command ~$0.01-0.05. Rate limit: 10 AI commands/min/board. Budget: ~$20-40/mo.
+- **Fly.io:** Dedicated machine, ~$5-10/mo.
+- **Neon/Supabase:** Free tier initially, Pro ($25/mo) if needed.
 - **Domain/TLS:** Fly provides `*.fly.dev` with TLS for free.
 
 **Key tradeoff:** Single LLM provider, no fallback. Acceptable for a demo.
@@ -382,18 +438,18 @@ The Frame Client speaks the same protocol as the server. Incoming frames are dis
 | Layer | Choice |
 |-------|--------|
 | **Backend runtime** | Rust |
-| **HTTP framework** | Axum |
-| **Architecture** | Monokernel with frame-routed subsystems (ported from Prior) |
+| **HTTP framework** | Axum (traditional route handlers + shared services) |
+| **Architecture** | Standard Axum server, frame-based WS protocol. Kernel refactor post-MVP if needed. |
 | **Wire protocol** | Frames: `{ id, parent_id, syscall, status, data }` over WebSocket |
-| **Database** | PostgreSQL (Neon/Supabase free tier) |
+| **Database** | PostgreSQL (Neon, `us-east`) |
 | **Real-time state** | In-memory HashMap, LWW, server-authoritative |
 | **Frontend** | React (Vite SPA) + Konva.js (react-konva) + Zustand |
-| **Auth** | Anonymous sessions via Door subsystem (MVP), real auth (Full) |
-| **AI** | Anthropic Claude Sonnet, tool calling via AI subsystem |
-| **Hosting** | Fly.io (single container) |
+| **Auth** | GitHub OAuth from day one, Google OAuth post-MVP |
+| **AI** | Multi-provider adapter (Anthropic + OpenAI), config-driven, tool calling |
+| **Hosting** | Fly.io dedicated machine, `dfw` region (Dallas) |
 | **CI/CD** | `fly deploy` from terminal |
 
-**Total external dependencies:** Anthropic API + managed Postgres. Everything else runs in a single Rust binary on a single Fly.io VM.
+**Total external dependencies:** LLM API (Anthropic or OpenAI) + Neon Postgres + GitHub OAuth. Everything else runs in a single Rust binary on a single Fly.io VM.
 
 ---
 
@@ -442,57 +498,47 @@ Axum tower-http CORS layer with explicit origin allowlist. Not `*`.
 
 ### 13. File Structure & Project Organization
 
-Cargo workspace with two crates (kernel library + binary) plus a `client/` directory for the React frontend.
+Single Rust crate (no workspace needed for option B) plus a `client/` directory for the React frontend.
 
 ```
 collaboard/
-├── Cargo.toml                  # Workspace: kernel, server
+├── Cargo.toml                  # Single crate
 ├── .env.example
 ├── Dockerfile
 ├── fly.toml
 │
-├── kernel/                     # Core library crate
-│   ├── Cargo.toml
-│   └── src/
-│       ├── lib.rs              # Module declarations
-│       ├── frame.rs            # Frame type, Status, builders
-│       ├── kernel/
-│       │   ├── mod.rs          # Kernel struct, register(), start()
-│       │   └── router.rs       # Frame dispatch by syscall prefix
-│       ├── door/
-│       │   ├── mod.rs          # Session lifecycle
-│       │   ├── connect.rs      # door:connect
-│       │   ├── disconnect.rs   # door:disconnect
-│       │   └── join.rs         # door:join (enter board)
-│       ├── board/
-│       │   ├── mod.rs          # Board CRUD subsystem
-│       │   ├── state.rs        # In-memory board state manager
-│       │   └── persist.rs      # Postgres read/write
-│       ├── object/
-│       │   ├── mod.rs          # Object mutation subsystem
-│       │   ├── create.rs
-│       │   ├── update.rs
-│       │   └── delete.rs
-│       ├── cursor/
-│       │   └── mod.rs          # Ephemeral cursor broadcast
-│       ├── ai/
-│       │   ├── mod.rs          # AI subsystem: prompt -> tool calls -> mutations
-│       │   ├── tools.rs        # Tool definitions for Claude
-│       │   └── client.rs       # Anthropic API client (reqwest)
-│       └── db/
-│           ├── mod.rs          # Pool init, migrations
-│           └── migrations/     # SQL migration files
+├── src/
+│   ├── main.rs                 # Entry: env, init state, start Axum
+│   ├── frame.rs                # Frame type, Status, builders (ported from Prior)
+│   ├── state.rs                # AppState: PgPool + shared board state + LLM client
+│   │
+│   ├── routes/
+│   │   ├── mod.rs              # Axum router assembly
+│   │   ├── auth.rs             # /api/auth/github, /callback, /me, /logout
+│   │   └── ws.rs               # /api/ws: upgrade, frame dispatch loop
+│   │
+│   ├── services/
+│   │   ├── mod.rs
+│   │   ├── session.rs          # Session CRUD (Postgres-backed)
+│   │   ├── board.rs            # Board CRUD + in-memory state management
+│   │   ├── object.rs           # Board object mutations + persistence
+│   │   ├── cursor.rs           # Ephemeral cursor broadcast
+│   │   └── ai.rs               # LLM prompt -> tool calls -> object mutations
+│   │
+│   ├── llm/
+│   │   ├── mod.rs              # LlmClient trait + provider dispatch
+│   │   ├── anthropic.rs        # Anthropic Messages API (ported from Prior)
+│   │   ├── openai.rs           # OpenAI Chat Completions API (ported from Prior)
+│   │   └── tools.rs            # Tool definitions (provider-agnostic)
+│   │
+│   └── db/
+│       ├── mod.rs              # Pool init
+│       └── migrations/         # SQL migration files (sqlx)
 │
-├── server/                     # Binary crate (thin wrapper)
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs             # Entry: env, init kernel, start Axum
-│       ├── gateway.rs          # Axum router: /api/auth/*, /api/ws
-│       └── ws.rs               # WebSocket handler: frame relay
-│
-├── client/                     # React frontend (separate, not a Rust crate)
+├── client/                     # React frontend
 │   ├── package.json
 │   ├── tsconfig.json
+│   ├── biome.json
 │   ├── vite.config.ts
 │   ├── index.html
 │   └── src/
@@ -520,8 +566,11 @@ collaboard/
 │       └── styles/
 │           └── global.css
 │
-└── spec/                       # Integration tests
-    └── (Rust tests inline + client tests via bun:test)
+└── tests/                      # Integration tests (Rust)
+    ├── frame_test.rs
+    ├── board_test.rs
+    ├── object_test.rs
+    └── sync_test.rs
 ```
 
 ### Shared Types
@@ -567,36 +616,37 @@ export interface Frame {
 | Directories | kebab-case | `canvas/` |
 
 **Tooling:**
-- Rust: `cargo fmt` + `cargo clippy` (standard, no config needed)
-- TypeScript: Biome for lint + format
+- Rust: `cargo fmt` + `cargo clippy` — mandatory, run before every commit
+- TypeScript: Biome for lint + format, K&R style, 4-space indentation
 
 ---
 
 ### 15. Testing Strategy
 
-**Coverage target:** 40-50% for a 7-day sprint. Focus on logic that is hard to debug manually.
+**Coverage target:** Happy path + smoke tests for every subsystem at MVP. Expand to edge cases and error paths post-MVP.
 
-**Priority 1 — Must have:**
+**MVP tests (built during the 24-hour sprint):**
 
-| What | Type | Why |
-|------|------|-----|
-| Frame routing (kernel dispatch) | Unit (Rust) | Wrong prefix silently drops frames |
-| Object CRUD (subsystem) | Integration (Rust) | Validates Postgres schema + business logic |
-| LWW conflict resolution | Unit (Rust) | Timestamp bugs corrupt state |
-| Auth/Door session lifecycle | Unit (Rust) | Broken auth blocks all development |
+| What | Type | When | Why |
+|------|------|------|-----|
+| Frame serialization/deserialization | Unit (Rust) | Hour 5-6 | Foundation — everything breaks if frames are wrong |
+| Kernel routing (prefix dispatch) | Unit (Rust) | Hour 5-6 | Wrong prefix silently drops frames |
+| Door connect/join/disconnect | Unit (Rust) | Hour 5-6 | Session lifecycle is the auth boundary |
+| Object create/update/delete | Integration (Rust) | Hour 9-10 | Validates Postgres schema + business logic |
+| Board state hydration from Postgres | Integration (Rust) | Hour 9-10 | State must survive server restart |
+| LWW conflict resolution | Unit (Rust) | Hour 9-10 | Timestamp bugs corrupt state |
+| Multi-client sync smoke test | Integration (Rust) | Hour 18-19 | Core product promise — two clients see each other's changes |
+| Frame client dispatch (TS) | Unit (bun:test) | Hour 18-19 | Client-side syscall routing |
 
-**Priority 2 — Should have:**
+**Post-MVP tests (Days 2-7):**
 
 | What | Type | Why |
 |------|------|-----|
 | AI tool dispatch | Unit (Rust, mocked) | Validates tool execution without API credits |
-| Multi-client WS sync | Integration (Rust) | Core product promise |
-| Frame client (TS) | Unit (bun:test) | Validates client-side frame dispatch |
-
-**Priority 3 — Skip for MVP:**
-- Canvas rendering tests
-- E2E browser tests
-- Performance/load tests
+| Error paths (invalid frames, bad board IDs, unauthorized) | Unit (Rust) | Robustness |
+| Disconnect/reconnect recovery | Integration (Rust) | Resilience requirement |
+| Canvas component rendering | Skipped | Visual — verify manually |
+| E2E browser tests | Skipped | Playwright setup cost exceeds value |
 
 **Test commands:**
 ```bash
@@ -618,8 +668,8 @@ cd client && bun test
 | Tool | Purpose |
 |------|---------|
 | `cargo watch -x run` | Auto-restart on file changes |
-| `cargo clippy` | Lint |
-| `cargo fmt` | Format |
+| `cargo clippy` | Lint (mandatory before commit) |
+| `cargo fmt` | Format (mandatory before commit) |
 | `sqlx-cli` | Postgres migrations (`sqlx migrate run`) |
 | `tracing` + `tracing-subscriber` | Structured logging with span context |
 | `wscat` | CLI WebSocket testing |
@@ -629,9 +679,17 @@ cd client && bun test
 | Tool | Purpose |
 |------|---------|
 | Vite | Build + HMR |
-| Biome | Lint + format |
+| Biome | Lint + format (K&R, 4-space indent) |
 | Zustand | State management |
 | Bun | Package manager + test runner |
+
+**Frame logging:**
+
+All frames are logged to a `frames` table in Postgres (append-only, ported from Prior's `frame_db`). This provides a complete audit trail of every operation on every board. Useful for debugging sync issues, replaying state, and understanding AI agent behavior.
+
+**CLI tool:**
+
+A Rust CLI binary will be added toward the end of the implementation for inspecting frames, querying board state, and operational tasks. Design deferred — not needed for MVP. Will live alongside the server binary in the same crate (via `[[bin]]` entries in `Cargo.toml`).
 
 **Dev workflow:**
 ```bash
@@ -656,6 +714,7 @@ server: {
 - Chrome DevTools > Network > WS tab for frame inspection
 - `wscat -c "ws://localhost:3000/api/ws?token=dev-token"` for CLI testing
 - Structured `tracing` spans in Rust: one span per frame, includes syscall + board_id + user_id
+- Query the `frames` table directly for post-hoc debugging (`SELECT * FROM frames WHERE board_id = '...' ORDER BY seq`)
 
 ---
 
@@ -664,14 +723,14 @@ server: {
 | Decision | Choice | Key Tradeoff |
 |----------|--------|--------------|
 | Scale | 5-20 users, single server | No horizontal scaling |
-| Budget | $0 infra, ~$10 LLM | Single VM, brief deploy downtime |
-| Timeline | 24hr MVP, 7 days total | No tests until day 6 |
+| Budget | $100/mo ceiling (LLM + hosting + DB) | Generous for demo, most goes to LLM |
+| Timeline | 24hr MVP, 7 days total | Tests woven into MVP (3 checkpoints) |
 | Compliance | None | Not production-grade |
-| Backend | Rust monokernel + Axum (from Prior) | Slower iteration than TS, but proven patterns |
+| Backend | Rust + Axum (route handlers, not kernel) | Slower iteration than TS, but type safety. Kernel refactor later if needed. |
 | Wire protocol | Frames over WebSocket | Must keep Rust/TS Frame types in sync |
-| Database | PostgreSQL (Neon/Supabase free) | External dependency, but proper SQL |
+| Database | PostgreSQL (Neon) | External dependency, but proper SQL |
 | Sync | LWW, server-authoritative | No CRDT, same-object conflicts go to last writer |
 | Frontend | React + Konva.js + Zustand | Konva ceiling ~1-2K objects |
-| Auth | Anonymous MVP via Door subsystem | No persistent identity at MVP |
-| AI | Claude Sonnet via AI subsystem | Single provider, no fallback |
-| Hosting | Fly.io free tier | One process, one VM |
+| Auth | GitHub OAuth from day one | Users need GitHub account |
+| AI | Multi-provider (Anthropic + OpenAI), config-driven | Two adapters to maintain |
+| Hosting | Fly.io dedicated, `dfw` | $5-10/mo |
