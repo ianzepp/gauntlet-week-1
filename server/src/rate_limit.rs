@@ -28,6 +28,7 @@ const TOKEN_WINDOW: Duration = Duration::from_secs(3600);
 // =============================================================================
 
 #[derive(Debug, thiserror::Error)]
+#[allow(clippy::enum_variant_names)]
 pub enum RateLimitError {
     #[error("per-client rate limit exceeded (max {PER_CLIENT_LIMIT} requests/min)")]
     PerClientExceeded,
@@ -51,7 +52,7 @@ struct RateLimiterInner {
     client_requests: HashMap<Uuid, VecDeque<Instant>>,
     /// Global request timestamps.
     global_requests: VecDeque<Instant>,
-    /// Per-client token usage: (timestamp, token_count).
+    /// Per-client token usage: (timestamp, `token_count`).
     client_tokens: HashMap<Uuid, VecDeque<(Instant, u64)>>,
 }
 
@@ -170,10 +171,7 @@ mod tests {
         let now = Instant::now();
 
         for i in 0..PER_CLIENT_LIMIT {
-            assert!(
-                rl.check_and_record_at(client, now).is_ok(),
-                "request {i} should succeed"
-            );
+            assert!(rl.check_and_record_at(client, now).is_ok(), "request {i} should succeed");
         }
         assert!(matches!(
             rl.check_and_record_at(client, now),
@@ -189,10 +187,7 @@ mod tests {
         // Use distinct clients to avoid hitting per-client limit first.
         for i in 0..GLOBAL_LIMIT {
             let client = Uuid::new_v4();
-            assert!(
-                rl.check_and_record_at(client, now).is_ok(),
-                "request {i} should succeed"
-            );
+            assert!(rl.check_and_record_at(client, now).is_ok(), "request {i} should succeed");
         }
         let client = Uuid::new_v4();
         assert!(matches!(

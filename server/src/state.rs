@@ -49,7 +49,7 @@ pub struct BoardObject {
 pub struct BoardState {
     /// Current objects keyed by object ID.
     pub objects: HashMap<Uuid, BoardObject>,
-    /// Connected clients: client_id -> sender for outgoing frames.
+    /// Connected clients: `client_id` -> sender for outgoing frames.
     pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,
     /// Object IDs modified since last flush.
     pub dirty: HashSet<Uuid>,
@@ -87,12 +87,7 @@ pub struct AppState {
 impl AppState {
     #[must_use]
     pub fn new(pool: PgPool, llm: Option<Arc<dyn LlmChat>>) -> Self {
-        Self {
-            pool,
-            boards: Arc::new(RwLock::new(HashMap::new())),
-            llm,
-            rate_limiter: RateLimiter::new(),
-        }
+        Self { pool, boards: Arc::new(RwLock::new(HashMap::new())), llm, rate_limiter: RateLimiter::new() }
     }
 }
 

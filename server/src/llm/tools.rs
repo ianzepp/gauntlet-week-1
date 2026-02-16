@@ -2,8 +2,9 @@
 
 use super::types::Tool;
 
-/// Build the set of tools available to the CollabBoard AI agent.
+/// Build the set of tools available to the `CollabBoard` AI agent.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn collaboard_tools() -> Vec<Tool> {
     vec![
         Tool {
@@ -138,4 +139,58 @@ pub fn collaboard_tools() -> Vec<Tool> {
             }),
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_count() {
+        let tools = collaboard_tools();
+        assert_eq!(tools.len(), 7);
+    }
+
+    #[test]
+    fn tool_names() {
+        let tools = collaboard_tools();
+        let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(names.contains(&"create_objects"));
+        assert!(names.contains(&"move_objects"));
+        assert!(names.contains(&"update_objects"));
+        assert!(names.contains(&"delete_objects"));
+        assert!(names.contains(&"organize_layout"));
+        assert!(names.contains(&"summarize_board"));
+        assert!(names.contains(&"group_by_theme"));
+    }
+
+    #[test]
+    fn schema_shape_is_object() {
+        let tools = collaboard_tools();
+        for tool in &tools {
+            assert_eq!(
+                tool.input_schema.get("type").and_then(|v| v.as_str()),
+                Some("object"),
+                "tool {} schema should be type=object",
+                tool.name
+            );
+        }
+    }
+
+    #[test]
+    fn create_objects_schema_requires_objects_array() {
+        let tools = collaboard_tools();
+        let create = tools.iter().find(|t| t.name == "create_objects").unwrap();
+        let required = create.input_schema.get("required").unwrap();
+        assert!(required.as_array().unwrap().iter().any(|v| v == "objects"));
+        let items = create
+            .input_schema
+            .get("properties")
+            .unwrap()
+            .get("objects")
+            .unwrap()
+            .get("items")
+            .unwrap();
+        assert_eq!(items.get("type").and_then(|v| v.as_str()), Some("object"));
+    }
 }

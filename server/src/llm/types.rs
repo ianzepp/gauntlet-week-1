@@ -1,7 +1,7 @@
 //! LLM types — provider-neutral message types and errors.
 //!
 //! Ported from Prior's `kernel/src/llm/types.rs`. Provider-neutral types
-//! shared by Anthropic and OpenAI clients.
+//! shared by Anthropic and `OpenAI` clients.
 
 use serde::{Deserialize, Serialize};
 
@@ -119,4 +119,20 @@ pub struct ChatResponse {
     pub stop_reason: String,
     pub input_tokens: u64,
     pub output_tokens: u64,
+}
+
+// =============================================================================
+// LLM CHAT TRAIT
+// =============================================================================
+
+/// Provider-neutral async trait for LLM chat. Enables mocking in tests.
+#[async_trait::async_trait]
+pub trait LlmChat: Send + Sync {
+    async fn chat(
+        &self,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError>;
 }

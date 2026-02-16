@@ -51,8 +51,7 @@ impl crate::frame::ErrorCode for AiError {
     }
 
     fn retryable(&self) -> bool {
-        matches!(self, Self::LlmError(e) if e.retryable())
-            || matches!(self, Self::RateLimited(_))
+        matches!(self, Self::LlmError(e) if e.retryable()) || matches!(self, Self::RateLimited(_))
     }
 }
 
@@ -94,23 +93,25 @@ pub async fn handle_prompt(
     // Snapshot board objects for context.
     let board_snapshot = {
         let boards = state.boards.read().await;
-        let board = boards.get(&board_id).ok_or(AiError::BoardNotLoaded(board_id))?;
+        let board = boards
+            .get(&board_id)
+            .ok_or(AiError::BoardNotLoaded(board_id))?;
         board.objects.values().cloned().collect::<Vec<_>>()
     };
 
     let system = build_system_prompt(&board_snapshot);
     let tools = collaboard_tools();
 
-    let mut messages = vec![Message {
-        role: "user".into(),
-        content: Content::Text(format!("<user_input>{prompt}</user_input>")),
-    }];
+    let mut messages =
+        vec![Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) }];
 
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
 
     for iteration in 0..MAX_TOOL_ITERATIONS {
-        let response = llm.chat(MAX_TOKENS, &system, &messages, Some(&tools)).await?;
+        let response = llm
+            .chat(MAX_TOKENS, &system, &messages, Some(&tools))
+            .await?;
 
         info!(
             iteration,
@@ -121,10 +122,9 @@ pub async fn handle_prompt(
         );
 
         // Record token usage for budget tracking.
-        state.rate_limiter.record_tokens(
-            client_id,
-            (response.input_tokens + response.output_tokens) as u64,
-        );
+        state
+            .rate_limiter
+            .record_tokens(client_id, (response.input_tokens + response.output_tokens) as u64);
 
         // Collect text blocks.
         let text_parts: Vec<&str> = response
@@ -144,9 +144,7 @@ pub async fn handle_prompt(
             .content
             .iter()
             .filter_map(|b| match b {
-                ContentBlock::ToolUse { id, name, input } => {
-                    Some((id.clone(), name.clone(), input.clone()))
-                }
+                ContentBlock::ToolUse { id, name, input } => Some((id.clone(), name.clone(), input.clone())),
                 _ => None,
             })
             .collect();
@@ -157,10 +155,7 @@ pub async fn handle_prompt(
         }
 
         // Push assistant message with the full content blocks.
-        messages.push(Message {
-            role: "assistant".into(),
-            content: Content::Blocks(response.content),
-        });
+        messages.push(Message { role: "assistant".into(), content: Content::Blocks(response.content) });
 
         // Execute each tool call and collect results.
         let mut tool_results = Vec::new();
@@ -170,18 +165,11 @@ pub async fn handle_prompt(
                 Ok(msg) => (msg, None),
                 Err(e) => (e.to_string(), Some(true)),
             };
-            tool_results.push(ContentBlock::ToolResult {
-                tool_use_id: tool_id.clone(),
-                content,
-                is_error,
-            });
+            tool_results.push(ContentBlock::ToolResult { tool_use_id: tool_id.clone(), content, is_error });
         }
 
         // Push tool results as a user message.
-        messages.push(Message {
-            role: "user".into(),
-            content: Content::Blocks(tool_results),
-        });
+        messages.push(Message { role: "user".into(), content: Content::Blocks(tool_results) });
 
         // If stop_reason is not tool_use, break.
         if response.stop_reason != "tool_use" {
@@ -208,7 +196,11 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject]) -> String {
     } else {
         for obj in objects {
             let text = obj.props.get("text").and_then(|v| v.as_str()).unwrap_or("");
-            let color = obj.props.get("color").and_then(|v| v.as_str()).unwrap_or("");
+            let color = obj
+                .props
+                .get("color")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             prompt.push_str(&format!(
                 "- id={} kind={} x={:.0} y={:.0} text={:?} color={:?}\n",
                 obj.id, obj.kind, obj.x, obj.y, text, color,
@@ -265,7 +257,10 @@ async fn execute_create_objects(
 
     let mut created_ids = Vec::new();
     for obj_def in objects {
-        let kind = obj_def.get("kind").and_then(|v| v.as_str()).unwrap_or("sticky_note");
+        let kind = obj_def
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .unwrap_or("sticky_note");
         let x = obj_def.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let y = obj_def.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let props = obj_def.get("props").cloned().unwrap_or(json!({}));
@@ -289,9 +284,13 @@ async fn execute_move_objects(
         return Ok("error: missing 'moves' array".into());
     };
 
-    let mut moved = 0;
+    let mut move_count = 0;
     for mv in moves {
-        let Some(id) = mv.get("id").and_then(|v| v.as_str()).and_then(|s| s.parse::<Uuid>().ok()) else {
+        let Some(id) = mv
+            .get("id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<Uuid>().ok())
+        else {
             continue;
         };
         let mut data = Data::new();
@@ -305,13 +304,13 @@ async fn execute_move_objects(
         match super::object::update_object(state, board_id, id, &data, 0).await {
             Ok(obj) => {
                 mutations.push(AiMutation::Updated(obj));
-                moved += 1;
+                move_count += 1;
             }
             Err(e) => warn!(error = %e, %id, "ai: move_objects failed for object"),
         }
     }
 
-    Ok(format!("moved {moved} objects"))
+    Ok(format!("moved {move_count} objects"))
 }
 
 async fn execute_update_objects(
@@ -325,9 +324,13 @@ async fn execute_update_objects(
         return Ok("error: missing 'updates' array".into());
     };
 
-    let mut updated = 0;
+    let mut update_count = 0;
     for upd in updates {
-        let Some(id) = upd.get("id").and_then(|v| v.as_str()).and_then(|s| s.parse::<Uuid>().ok()) else {
+        let Some(id) = upd
+            .get("id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<Uuid>().ok())
+        else {
             continue;
         };
         let mut data = Data::new();
@@ -344,13 +347,13 @@ async fn execute_update_objects(
         match super::object::update_object(state, board_id, id, &data, 0).await {
             Ok(obj) => {
                 mutations.push(AiMutation::Updated(obj));
-                updated += 1;
+                update_count += 1;
             }
             Err(e) => warn!(error = %e, %id, "ai: update_objects failed for object"),
         }
     }
 
-    Ok(format!("updated {updated} objects"))
+    Ok(format!("updated {update_count} objects"))
 }
 
 async fn execute_delete_objects(
@@ -388,8 +391,14 @@ async fn execute_organize_layout(
     input: &serde_json::Value,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
-    let layout = input.get("layout").and_then(|v| v.as_str()).unwrap_or("grid");
-    let spacing = input.get("spacing").and_then(|v| v.as_f64()).unwrap_or(200.0);
+    let layout = input
+        .get("layout")
+        .and_then(|v| v.as_str())
+        .unwrap_or("grid");
+    let spacing = input
+        .get("spacing")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(200.0);
 
     // Get target IDs or all objects.
     let target_ids: Vec<Uuid> = if let Some(ids) = input.get("ids").and_then(|v| v.as_array()) {
@@ -462,7 +471,12 @@ async fn execute_summarize_board(
         board
             .objects
             .values()
-            .filter_map(|obj| obj.props.get("text").and_then(|v| v.as_str()).map(String::from))
+            .filter_map(|obj| {
+                obj.props
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            })
             .collect()
     };
 
@@ -579,7 +593,9 @@ mod tests {
                 { "kind": "sticky_note", "x": 100, "y": 200, "props": { "text": "hello" } }
             ]
         });
-        let result = execute_tool(&state, board_id, "create_objects", &input, &mut mutations).await.unwrap();
+        let result = execute_tool(&state, board_id, "create_objects", &input, &mut mutations)
+            .await
+            .unwrap();
         assert!(result.contains("created 1 objects"));
         assert_eq!(mutations.len(), 1);
         assert!(matches!(&mutations[0], AiMutation::Created(obj) if obj.kind == "sticky_note"));
@@ -600,7 +616,9 @@ mod tests {
         let input = serde_json::json!({
             "moves": [{ "id": obj_id.to_string(), "x": 300, "y": 400 }]
         });
-        let result = execute_tool(&state, board_id, "move_objects", &input, &mut mutations).await.unwrap();
+        let result = execute_tool(&state, board_id, "move_objects", &input, &mut mutations)
+            .await
+            .unwrap();
         assert!(result.contains("moved 1"));
         assert!(matches!(&mutations[0], AiMutation::Updated(u) if (u.x - 300.0).abs() < f64::EPSILON));
     }
@@ -619,22 +637,28 @@ mod tests {
         let input = serde_json::json!({
             "updates": [{ "id": obj_id.to_string(), "props": { "color": "#FF0000" } }]
         });
-        let result = execute_tool(&state, board_id, "update_objects", &input, &mut mutations).await.unwrap();
+        let result = execute_tool(&state, board_id, "update_objects", &input, &mut mutations)
+            .await
+            .unwrap();
         assert!(result.contains("updated 1"));
     }
 
     #[tokio::test]
     async fn tool_organize_layout() {
         let state = test_helpers::test_app_state();
-        let objs: Vec<_> = (0..4).map(|_| {
-            let mut obj = test_helpers::dummy_object();
-            obj.version = 0;
-            obj
-        }).collect();
+        let objs: Vec<_> = (0..4)
+            .map(|_| {
+                let mut obj = test_helpers::dummy_object();
+                obj.version = 0;
+                obj
+            })
+            .collect();
         let board_id = test_helpers::seed_board_with_objects(&state, objs).await;
         let mut mutations = Vec::new();
         let input = serde_json::json!({ "layout": "grid", "spacing": 150 });
-        let result = execute_tool(&state, board_id, "organize_layout", &input, &mut mutations).await.unwrap();
+        let result = execute_tool(&state, board_id, "organize_layout", &input, &mut mutations)
+            .await
+            .unwrap();
         assert!(result.contains("organized 4 objects"));
     }
 
@@ -642,11 +666,22 @@ mod tests {
     async fn tool_summarize_board() {
         let state = test_helpers::test_app_state();
         let board_id = test_helpers::seed_board(&state).await;
-        super::super::object::create_object(&state, board_id, "sticky_note", 0.0, 0.0, serde_json::json!({"text": "idea 1"}), None)
-            .await.unwrap();
+        super::super::object::create_object(
+            &state,
+            board_id,
+            "sticky_note",
+            0.0,
+            0.0,
+            serde_json::json!({"text": "idea 1"}),
+            None,
+        )
+        .await
+        .unwrap();
         let mut mutations = Vec::new();
         let input = serde_json::json!({ "position": { "x": 500, "y": 500 } });
-        let result = execute_tool(&state, board_id, "summarize_board", &input, &mut mutations).await.unwrap();
+        let result = execute_tool(&state, board_id, "summarize_board", &input, &mut mutations)
+            .await
+            .unwrap();
         assert!(result.contains("created summary note"));
         assert!(matches!(&mutations[0], AiMutation::Created(obj) if obj.kind == "sticky_note"));
     }
@@ -656,7 +691,9 @@ mod tests {
         let state = test_helpers::test_app_state();
         let board_id = test_helpers::seed_board(&state).await;
         let mut mutations = Vec::new();
-        let result = execute_tool(&state, board_id, "nonexistent_tool", &serde_json::json!({}), &mut mutations).await.unwrap();
+        let result = execute_tool(&state, board_id, "nonexistent_tool", &serde_json::json!({}), &mut mutations)
+            .await
+            .unwrap();
         assert!(result.contains("unknown tool"));
     }
 
@@ -675,7 +712,9 @@ mod tests {
             input_tokens: 10,
             output_tokens: 5,
         }]));
-        let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "hello").await.unwrap();
+        let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "hello")
+            .await
+            .unwrap();
         assert_eq!(result.text.as_deref(), Some("Here's my answer"));
         assert!(result.mutations.is_empty());
     }
@@ -706,7 +745,9 @@ mod tests {
                 output_tokens: 5,
             },
         ]));
-        let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "create a note").await.unwrap();
+        let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "create a note")
+            .await
+            .unwrap();
         assert_eq!(result.mutations.len(), 1);
         assert!(matches!(&result.mutations[0], AiMutation::Created(_)));
         assert_eq!(result.text.as_deref(), Some("Created a note"));
@@ -748,7 +789,10 @@ mod tests {
                 messages: &[Message],
                 _tools: Option<&[crate::llm::types::Tool]>,
             ) -> Result<crate::llm::types::ChatResponse, crate::llm::types::LlmError> {
-                self.captured_messages.lock().unwrap().push(messages.to_vec());
+                self.captured_messages
+                    .lock()
+                    .unwrap()
+                    .push(messages.to_vec());
                 Ok(crate::llm::types::ChatResponse {
                     content: vec![ContentBlock::Text { text: "ok".into() }],
                     model: "mock".into(),
@@ -764,7 +808,9 @@ mod tests {
         let capture = Arc::new(CaptureLlm { captured_messages: StdMutex::new(vec![]) });
         let llm: Arc<dyn LlmChat> = capture.clone();
 
-        handle_prompt(&state, &llm, board_id, Uuid::new_v4(), "do something").await.unwrap();
+        handle_prompt(&state, &llm, board_id, Uuid::new_v4(), "do something")
+            .await
+            .unwrap();
 
         let captured = capture.captured_messages.lock().unwrap();
         assert!(!captured.is_empty());
@@ -773,7 +819,10 @@ mod tests {
         let user_msg = &first_call_messages[0];
         match &user_msg.content {
             Content::Text(t) => {
-                assert!(t.contains("<user_input>do something</user_input>"), "user message should be wrapped in XML tags, got: {t}");
+                assert!(
+                    t.contains("<user_input>do something</user_input>"),
+                    "user message should be wrapped in XML tags, got: {t}"
+                );
             }
             _ => panic!("expected text content"),
         }
