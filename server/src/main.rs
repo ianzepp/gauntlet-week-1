@@ -32,7 +32,17 @@ async fn main() {
         }
     };
 
-    let state = state::AppState::new(pool, llm);
+    // Initialize GitHub OAuth config (non-fatal: auth disabled if env vars missing).
+    let github = services::auth::GitHubConfig::from_env();
+    if github.is_some() {
+        tracing::info!("GitHub OAuth configured");
+    } else {
+        tracing::warn!(
+            "GitHub OAuth not configured — GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET / GITHUB_REDIRECT_URI missing"
+        );
+    }
+
+    let state = state::AppState::new(pool, llm, github);
 
     // Spawn background persistence task.
     let _persistence = services::persistence::spawn_persistence_task(state.clone());

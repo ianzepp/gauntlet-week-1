@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFrameClient } from "./hooks/useFrameClient";
+import { fetchCurrentUser } from "./lib/api";
 import type { User } from "./lib/types";
 import { BoardPage } from "./pages/BoardPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -21,26 +22,27 @@ function initDarkMode() {
     }
 }
 
-function loadUser(): User | null {
-    const raw = localStorage.getItem("collaboard_user");
-    if (!raw) return null;
-    try {
-        return JSON.parse(raw) as User;
-    } catch {
-        return null;
-    }
-}
-
 export function App() {
-    const [user, setUser] = useState<User | null>(loadUser);
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
     useFrameClient(true);
 
     useEffect(() => {
         initDarkMode();
     }, []);
 
+    useEffect(() => {
+        fetchCurrentUser()
+            .then((u) => setUser(u))
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) {
+        return null;
+    }
+
     if (!user) {
-        return <LoginPage onLogin={setUser} />;
+        return <LoginPage />;
     }
 
     return <BoardPage boardId={DEMO_BOARD_ID} />;

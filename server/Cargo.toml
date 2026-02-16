@@ -6,6 +6,7 @@ rust-version = "1.85"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws"] }
+axum-extra = { version = "0.10", features = ["cookie"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -17,6 +18,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 rand = "0.9"
 thiserror = "2"
+time = "0.3"
 async-trait = "0.1"
 
 [dev-dependencies]
@@ -30,3 +32,6 @@ wildcard_imports = "allow"
 needless_pass_by_value = "allow"
 unnecessary_map_or = "allow"
 unnecessary_result_map_or_else = "allow"
+
+[profile.dev]
+debug = 0

@@ -4,13 +4,14 @@ type FrameHandler = (frame: Frame) => void;
 
 export class FrameClient {
     private mockMode: boolean;
+    private ws: WebSocket | null = null;
     private handlers: Map<string, Set<FrameHandler>> = new Map();
 
     constructor(mockMode: boolean) {
         this.mockMode = mockMode;
     }
 
-    connect(_url: string, _ticket: string): void {
+    connect(url: string, ticket: string): void {
         if (this.mockMode) {
             console.log("[FrameClient] mock mode — connected");
             this.dispatch({
@@ -25,12 +26,37 @@ export class FrameClient {
             });
             return;
         }
+
+        const wsUrl = `${url}?ticket=${encodeURIComponent(ticket)}`;
+        const ws = new WebSocket(wsUrl);
+        this.ws = ws;
+
+        ws.onmessage = (event) => {
+            try {
+                const frame = JSON.parse(event.data as string) as Frame;
+                this.dispatch(frame);
+            } catch {
+                console.warn("[FrameClient] failed to parse frame:", event.data);
+            }
+        };
+
+        ws.onclose = () => {
+            this.ws = null;
+        };
+
+        ws.onerror = (err) => {
+            console.error("[FrameClient] ws error:", err);
+        };
     }
 
     send(frame: Partial<Frame>): void {
         if (this.mockMode) {
             console.log("[FrameClient] mock send:", frame.syscall, frame);
             return;
+        }
+
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(frame));
         }
     }
 
@@ -46,8 +72,9 @@ export class FrameClient {
     }
 
     disconnect(): void {
-        if (this.mockMode) {
-            console.log("[FrameClient] mock mode — disconnected");
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
         }
         this.handlers.clear();
     }

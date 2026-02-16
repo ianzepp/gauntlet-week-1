@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createWsTicket } from "../lib/api";
 import { FrameClient } from "../lib/frameClient";
 import type { BoardObject, Frame } from "../lib/types";
 import { useBoardStore } from "../store/board";
@@ -36,6 +37,15 @@ export function useFrameClient(
         client.on("object:created", handleCreated);
         client.on("object:updated", handleUpdated);
         client.on("object:deleted", handleDeleted);
+
+        if (!mockMode) {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsBase = `${protocol}//${window.location.host}`;
+
+            createWsTicket().then((ticket) => {
+                client.connect(`${wsBase}/api/ws`, ticket);
+            });
+        }
 
         return () => {
             client.disconnect();

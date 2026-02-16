@@ -15,9 +15,12 @@
 //! 3. Broadcast frames from peers → forwarded to client
 //! 4. Close → `board:part` → cleanup
 
-use axum::extract::State;
+use std::collections::HashMap;
+
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::response::Response;
+use axum::extract::{Query, State};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -30,27 +33,47 @@ use crate::state::AppState;
 // UPGRADE
 // =============================================================================
 
-pub async fn handle_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(move |socket| run_ws(socket, state))
+pub async fn handle_ws(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+    ws: WebSocketUpgrade,
+) -> Response {
+    // Validate WS ticket.
+    let Some(ticket) = params.get("ticket") else {
+        return (StatusCode::UNAUTHORIZED, "ticket required").into_response();
+    };
+
+    let user_id = match services::session::consume_ws_ticket(&state.pool, ticket).await {
+        Ok(Some(uid)) => uid,
+        Ok(None) => return (StatusCode::UNAUTHORIZED, "invalid or expired ticket").into_response(),
+        Err(e) => {
+            tracing::error!(error = %e, "ws ticket validation failed");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "ticket validation error").into_response();
+        }
+    };
+
+    ws.on_upgrade(move |socket| run_ws(socket, state, user_id))
 }
 
 // =============================================================================
 // CONNECTION
 // =============================================================================
 
-async fn run_ws(mut socket: WebSocket, state: AppState) {
+async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
     let client_id = Uuid::new_v4();
 
     // Per-connection channel for receiving broadcast frames from peers.
     let (client_tx, mut client_rx) = mpsc::channel::<Frame>(256);
 
-    // Send session:connected.
-    let welcome = Frame::request("session:connected", Data::new()).with_data("client_id", client_id.to_string());
+    // Send session:connected with user_id.
+    let welcome = Frame::request("session:connected", Data::new())
+        .with_data("client_id", client_id.to_string())
+        .with_data("user_id", user_id.to_string());
     if send_frame(&mut socket, &welcome).await.is_err() {
         return;
     }
 
-    info!(%client_id, "ws: client connected");
+    info!(%client_id, %user_id, "ws: client connected");
 
     // Track which board this client has joined.
     let mut current_board: Option<Uuid> = None;
@@ -63,7 +86,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState) {
                 let Ok(msg) = msg else { break };
                 match msg {
                     Message::Text(text) => {
-                        dispatch_frame(&state, &mut socket, &mut current_board, client_id, &client_tx, &text).await;
+                        dispatch_frame(&state, &mut socket, &mut current_board, client_id, user_id, &client_tx, &text).await;
                     }
                     Message::Close(_) => break,
                     _ => {}
@@ -94,6 +117,7 @@ async fn dispatch_frame(
     socket: &mut WebSocket,
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
+    user_id: Uuid,
     client_tx: &mpsc::Sender<Frame>,
     text: &str,
 ) {
@@ -113,7 +137,7 @@ async fn dispatch_frame(
 
     match prefix {
         "board" => handle_board(state, socket, current_board, client_id, client_tx, &req).await,
-        "object" => handle_object(state, socket, current_board, client_id, &req).await,
+        "object" => handle_object(state, socket, current_board, client_id, user_id, &req).await,
         "cursor" => handle_cursor(state, current_board, client_id, &req).await,
         "ai" => handle_ai(state, socket, current_board, client_id, &req).await,
         _ => {
@@ -237,6 +261,7 @@ async fn handle_object(
     socket: &mut WebSocket,
     current_board: &Option<Uuid>,
     client_id: Uuid,
+    user_id: Uuid,
     req: &WsRequest,
 ) {
     let Some(board_id) = *current_board else {
@@ -263,7 +288,7 @@ async fn handle_object(
                 .cloned()
                 .unwrap_or(serde_json::json!({}));
 
-            match services::object::create_object(state, board_id, kind, x, y, props, None).await {
+            match services::object::create_object(state, board_id, kind, x, y, props, Some(user_id)).await {
                 Ok(obj) => {
                     let data = object_to_data(&obj);
                     let broadcast = Frame::request("object:created", data.clone()).with_board_id(board_id);

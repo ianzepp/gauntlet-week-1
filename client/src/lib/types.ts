@@ -52,4 +52,6 @@ export type ToolType = "select" | "sticky" | "rectangle" | "ellipse";
 export interface User {
     id: string;
     name: string;
+    avatar_url?: string;
+    color: string;
 }

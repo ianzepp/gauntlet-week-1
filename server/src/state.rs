@@ -18,6 +18,7 @@ use uuid::Uuid;
 use crate::frame::Frame;
 use crate::llm::LlmChat;
 use crate::rate_limit::RateLimiter;
+use crate::services::auth::GitHubConfig;
 
 // =============================================================================
 // BOARD OBJECT
@@ -82,12 +83,14 @@ pub struct AppState {
     pub llm: Option<Arc<dyn LlmChat>>,
     /// In-memory rate limiter for AI requests.
     pub rate_limiter: RateLimiter,
+    /// Optional GitHub OAuth config. `None` disables OAuth endpoints.
+    pub github: Option<GitHubConfig>,
 }
 
 impl AppState {
     #[must_use]
-    pub fn new(pool: PgPool, llm: Option<Arc<dyn LlmChat>>) -> Self {
-        Self { pool, boards: Arc::new(RwLock::new(HashMap::new())), llm, rate_limiter: RateLimiter::new() }
+    pub fn new(pool: PgPool, llm: Option<Arc<dyn LlmChat>>, github: Option<GitHubConfig>) -> Self {
+        Self { pool, boards: Arc::new(RwLock::new(HashMap::new())), llm, rate_limiter: RateLimiter::new(), github }
     }
 }
 
@@ -106,7 +109,7 @@ pub mod test_helpers {
         let pool = PgPoolOptions::new()
             .connect_lazy("postgres://test:test@localhost:5432/test_collaboard")
             .expect("connect_lazy should not fail");
-        AppState::new(pool, None)
+        AppState::new(pool, None, None)
     }
 
     /// Create a test `AppState` with a mock LLM.
@@ -115,7 +118,7 @@ pub mod test_helpers {
         let pool = PgPoolOptions::new()
             .connect_lazy("postgres://test:test@localhost:5432/test_collaboard")
             .expect("connect_lazy should not fail");
-        AppState::new(pool, Some(llm))
+        AppState::new(pool, Some(llm), None)
     }
 
     /// Seed an empty board into the app state and return its ID.

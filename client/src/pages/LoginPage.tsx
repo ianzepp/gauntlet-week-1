@@ -1,17 +1,6 @@
-import type { User } from "../lib/types";
-
-interface LoginPageProps {
-    onLogin: (user: User) => void;
-}
-
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage() {
     const handleLogin = () => {
-        const user: User = {
-            id: crypto.randomUUID(),
-            name: "Demo User",
-        };
-        localStorage.setItem("collaboard_user", JSON.stringify(user));
-        onLogin(user);
+        window.location.href = "/auth/github";
     };
 
     return (
