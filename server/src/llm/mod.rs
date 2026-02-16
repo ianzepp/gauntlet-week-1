@@ -17,7 +17,12 @@ use types::{ChatResponse, LlmError, Message, Tool};
 // CLIENT DISPATCH
 // =============================================================================
 
-pub enum LlmClient {
+pub struct LlmClient {
+    inner: LlmProvider,
+    model: String,
+}
+
+enum LlmProvider {
     Anthropic(anthropic::AnthropicClient),
     OpenAi(openai::OpenAiClient),
 }
@@ -26,7 +31,8 @@ impl LlmClient {
     /// Build an LLM client from environment variables.
     ///
     /// - `LLM_PROVIDER`: "anthropic" (default) or "openai"
-    /// - `LLM_API_KEY`: provider API key
+    /// - `LLM_API_KEY_ENV`: name of env var holding the API key (e.g. "ANTHROPIC_API_KEY")
+    /// - `LLM_MODEL`: model name (e.g. "claude-sonnet-4-5-20250929")
     /// - `LLM_OPENAI_MODE`: "responses" (default) or "chat_completions"
     /// - `LLM_OPENAI_BASE_URL`: custom base URL for OpenAI-compatible APIs
     ///
@@ -35,35 +41,50 @@ impl LlmClient {
     /// Returns an error if the API key is missing or the HTTP client fails.
     pub fn from_env() -> Result<Self, LlmError> {
         let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into());
-        let api_key =
-            std::env::var("LLM_API_KEY").map_err(|_| LlmError::MissingApiKey { var: "LLM_API_KEY".into() })?;
 
-        match provider.as_str() {
-            "anthropic" => Ok(Self::Anthropic(anthropic::AnthropicClient::new(api_key)?)),
+        // Indirection: LLM_API_KEY_ENV names the env var that holds the actual key.
+        let key_var = std::env::var("LLM_API_KEY_ENV")
+            .map_err(|_| LlmError::MissingApiKey { var: "LLM_API_KEY_ENV".into() })?;
+        let api_key = std::env::var(&key_var)
+            .map_err(|_| LlmError::MissingApiKey { var: key_var.clone() })?;
+
+        let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
+            "openai" => "gpt-4o".into(),
+            _ => "claude-sonnet-4-5-20250929".into(),
+        });
+
+        let inner = match provider.as_str() {
+            "anthropic" => LlmProvider::Anthropic(anthropic::AnthropicClient::new(api_key)?),
             "openai" => {
                 let mode = std::env::var("LLM_OPENAI_MODE").ok();
                 let base_url = std::env::var("LLM_OPENAI_BASE_URL").ok();
-                Ok(Self::OpenAi(openai::OpenAiClient::new(
+                LlmProvider::OpenAi(openai::OpenAiClient::new(
                     api_key,
                     mode.as_deref(),
                     base_url.as_deref(),
-                )?))
+                )?)
             }
-            other => Err(LlmError::ConfigParse(format!("unknown LLM_PROVIDER: {other}"))),
-        }
+            other => return Err(LlmError::ConfigParse(format!("unknown LLM_PROVIDER: {other}"))),
+        };
+
+        Ok(Self { inner, model })
+    }
+
+    /// The configured model name.
+    pub fn model(&self) -> &str {
+        &self.model
     }
 
     pub async fn chat(
         &self,
-        model: &str,
         max_tokens: u32,
         system: &str,
         messages: &[Message],
         tools: Option<&[Tool]>,
     ) -> Result<ChatResponse, LlmError> {
-        match self {
-            Self::Anthropic(c) => c.chat(model, max_tokens, system, messages, tools).await,
-            Self::OpenAi(c) => c.chat(model, max_tokens, system, messages, tools).await,
+        match &self.inner {
+            LlmProvider::Anthropic(c) => c.chat(&self.model, max_tokens, system, messages, tools).await,
+            LlmProvider::OpenAi(c) => c.chat(&self.model, max_tokens, system, messages, tools).await,
         }
     }
 }

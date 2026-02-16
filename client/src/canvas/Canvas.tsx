@@ -1,7 +1,7 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useCallback, useMemo, useRef } from "react";
-import { Layer, Line, Stage } from "react-konva";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Layer, Line, Stage, Transformer } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
 import type { BoardObject } from "../lib/types";
 import { useBoardStore } from "../store/board";
@@ -26,10 +26,12 @@ function GridLines({
     width,
     height,
     viewport,
+    isDark,
 }: {
     width: number;
     height: number;
     viewport: { x: number; y: number; scale: number };
+    isDark: boolean;
 }) {
     const lines = useMemo(() => {
         const result: { points: number[]; major: boolean }[] = [];
@@ -59,13 +61,9 @@ function GridLines({
                 <Line
                     key={line.points.join(",")}
                     points={line.points}
-                    stroke={
-                        line.major
-                            ? "var(--canvas-grid-major)"
-                            : "var(--canvas-grid)"
-                    }
+                    stroke={isDark ? (line.major ? "#3a3632" : "#2a2724") : (line.major ? "#c8c0b4" : "#d4cfc6")}
                     strokeWidth={1 / viewport.scale}
-                    opacity={0.5}
+                    opacity={line.major ? 0.4 : 0.2}
                     listening={false}
                 />
             ))}
@@ -76,16 +74,62 @@ function GridLines({
 export function Canvas() {
     const { width, height } = useCanvasSize();
     const stageRef = useRef<Konva.Stage>(null);
+    const transformerRef = useRef<Konva.Transformer>(null);
+    const layerRef = useRef<Konva.Layer>(null);
+
+    const [isDark, setIsDark] = useState(() =>
+        document.documentElement.classList.contains("dark-mode"),
+    );
+
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            setIsDark(document.documentElement.classList.contains("dark-mode"));
+        });
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+        });
+        return () => observer.disconnect();
+    }, []);
 
     const viewport = useBoardStore((s) => s.viewport);
     const objects = useBoardStore((s) => s.objects);
     const activeTool = useBoardStore((s) => s.activeTool);
     const setViewport = useBoardStore((s) => s.setViewport);
     const addObject = useBoardStore((s) => s.addObject);
+    const selection = useBoardStore((s) => s.selection);
+    const setSelection = useBoardStore((s) => s.setSelection);
     const clearSelection = useBoardStore((s) => s.clearSelection);
     const setTool = useBoardStore((s) => s.setTool);
 
     const objectList = useMemo(() => Array.from(objects.values()), [objects]);
+
+    // Attach Transformer to selected nodes whenever selection or objects change.
+    // We derive a primitive string key from the selection Set so the effect
+    // dependency is a value comparison, not a reference comparison. This avoids
+    // subtle issues where React/Zustand/useSyncExternalStore may skip re-renders
+    // when comparing Set objects with Object.is in concurrent rendering scenarios.
+    const selectionKey = useMemo(
+        () => Array.from(selection).sort().join(","),
+        [selection],
+    );
+
+    useEffect(() => {
+        const tr = transformerRef.current;
+        const layer = layerRef.current;
+        if (!tr || !layer) return;
+
+        // Parse IDs back from the primitive key
+        const ids = selectionKey ? selectionKey.split(",") : [];
+        const nodes: Konva.Node[] = [];
+        for (const id of ids) {
+            const node = layer.findOne(`.obj-${id}`);
+            if (node) nodes.push(node);
+        }
+        tr.nodes(nodes);
+        // Force synchronous redraw to ensure Transformer anchors render
+        layer.draw();
+    }, [selectionKey, objects]);
 
     const handleWheel = useCallback(
         (e: KonvaEventObject<WheelEvent>) => {
@@ -126,7 +170,13 @@ export function Canvas() {
 
     const handleStageClick = useCallback(
         (e: KonvaEventObject<MouseEvent>) => {
-            if (e.target !== e.target.getStage()) return;
+            const target = e.target;
+            // Ignore clicks on shapes, transformer anchors, etc.
+            const isStage = target === target.getStage();
+            const isTransformer = target.getParent()?.className === "Transformer";
+            if (!isStage && !isTransformer) return;
+
+            if (isTransformer) return; // Don't clear when clicking transformer controls
 
             if (activeTool === "select") {
                 clearSelection();
@@ -180,6 +230,7 @@ export function Canvas() {
             }
 
             addObject(newObj);
+            setSelection(new Set([newObj.id]));
             setTool("select");
         },
         [
@@ -187,6 +238,7 @@ export function Canvas() {
             viewport,
             objects.size,
             addObject,
+            setSelection,
             clearSelection,
             setTool,
         ],
@@ -210,9 +262,10 @@ export function Canvas() {
                         width={width}
                         height={height}
                         viewport={viewport}
+                        isDark={isDark}
                     />
                 </Layer>
-                <Layer>
+                <Layer ref={layerRef}>
                     {objectList.map((obj) => {
                         if (obj.kind === "sticky_note") {
                             return <StickyNote key={obj.id} object={obj} />;
@@ -225,6 +278,23 @@ export function Canvas() {
                         }
                         return null;
                     })}
+                    <Transformer
+                        ref={transformerRef}
+                        rotateEnabled={true}
+                        padding={8}
+                        anchorSize={8}
+                        anchorCornerRadius={0}
+                        borderStroke={isDark ? "#e8e0d2" : "#2c2824"}
+                        borderStrokeWidth={1}
+                        anchorStroke={isDark ? "#e8e0d2" : "#2c2824"}
+                        anchorFill={isDark ? "#1c1a18" : "#f5f0e8"}
+                        boundBoxFunc={(_oldBox, newBox) => {
+                            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+                                return _oldBox;
+                            }
+                            return newBox;
+                        }}
+                    />
                 </Layer>
             </Stage>
         </div>

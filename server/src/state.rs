@@ -16,6 +16,7 @@ use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
 
 use crate::frame::Frame;
+use crate::llm::LlmClient;
 
 // =============================================================================
 // BOARD OBJECT
@@ -76,11 +77,17 @@ impl Default for BoardState {
 pub struct AppState {
     pub pool: PgPool,
     pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+    /// Optional LLM client. `None` if LLM env vars are not configured.
+    pub llm: Option<Arc<LlmClient>>,
 }
 
 impl AppState {
     #[must_use]
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool, boards: Arc::new(RwLock::new(HashMap::new())) }
+    pub fn new(pool: PgPool, llm: Option<LlmClient>) -> Self {
+        Self {
+            pool,
+            boards: Arc::new(RwLock::new(HashMap::new())),
+            llm: llm.map(Arc::new),
+        }
     }
 }

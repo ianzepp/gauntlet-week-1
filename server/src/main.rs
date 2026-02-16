@@ -18,7 +18,20 @@ async fn main() {
     let pool = db::init_pool(&database_url)
         .await
         .expect("database init failed");
-    let state = state::AppState::new(pool);
+
+    // Initialize LLM client (non-fatal: AI features disabled if config missing).
+    let llm = match llm::LlmClient::from_env() {
+        Ok(client) => {
+            tracing::info!(model = client.model(), "LLM client initialized");
+            Some(client)
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "LLM client not configured — AI features disabled");
+            None
+        }
+    };
+
+    let state = state::AppState::new(pool, llm);
 
     // Spawn background persistence task.
     let _persistence = services::persistence::spawn_persistence_task(state.clone());

@@ -22,7 +22,7 @@ use tokio::sync::mpsc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::frame::{Data, Frame, Status};
+use crate::frame::{Data, Frame};
 use crate::services;
 use crate::state::AppState;
 
@@ -115,6 +115,7 @@ async fn dispatch_frame(
         "board" => handle_board(state, socket, current_board, client_id, client_tx, &req).await,
         "object" => handle_object(state, socket, current_board, client_id, &req).await,
         "cursor" => handle_cursor(state, current_board, client_id, &req).await,
+        "ai" => handle_ai(state, socket, current_board, client_id, &req).await,
         _ => {
             let err =
                 Frame::request("gateway:error", Data::new()).with_data("message", format!("unknown prefix: {prefix}"));
@@ -352,6 +353,88 @@ async fn handle_cursor(state: &AppState, current_board: &Option<Uuid>, client_id
         .unwrap_or("anonymous");
 
     services::cursor::broadcast_cursor(state, board_id, client_id, x, y, name).await;
+}
+
+// =============================================================================
+// AI HANDLERS
+// =============================================================================
+
+async fn handle_ai(
+    state: &AppState,
+    socket: &mut WebSocket,
+    current_board: &Option<Uuid>,
+    _client_id: Uuid,
+    req: &WsRequest,
+) {
+    let Some(board_id) = *current_board else {
+        let parent = Frame::request(&req.syscall, Data::new());
+        let _ = send_frame(socket, &parent.error("must join a board first")).await;
+        return;
+    };
+
+    let parent = Frame::request(&req.syscall, req.data.clone()).with_board_id(board_id);
+
+    let Some(llm) = &state.llm else {
+        let _ = send_frame(socket, &parent.error("AI features not configured")).await;
+        return;
+    };
+
+    let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
+    match op {
+        "prompt" => {
+            let prompt = req
+                .data
+                .get("prompt")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if prompt.is_empty() {
+                let _ = send_frame(socket, &parent.error("prompt required")).await;
+                return;
+            }
+
+            match services::ai::handle_prompt(state, llm, board_id, prompt).await {
+                Ok(result) => {
+                    // Broadcast all object mutations to board peers.
+                    for mutation in &result.mutations {
+                        match mutation {
+                            services::ai::AiMutation::Created(obj) => {
+                                let data = object_to_data(obj);
+                                let broadcast = Frame::request("object:created", data).with_board_id(board_id);
+                                services::board::broadcast(state, board_id, &broadcast, None).await;
+                            }
+                            services::ai::AiMutation::Updated(obj) => {
+                                let data = object_to_data(obj);
+                                let broadcast = Frame::request("object:updated", data).with_board_id(board_id);
+                                services::board::broadcast(state, board_id, &broadcast, None).await;
+                            }
+                            services::ai::AiMutation::Deleted(id) => {
+                                let mut data = Data::new();
+                                data.insert("id".into(), serde_json::json!(id));
+                                let broadcast = Frame::request("object:deleted", data).with_board_id(board_id);
+                                services::board::broadcast(state, board_id, &broadcast, None).await;
+                            }
+                        }
+                    }
+
+                    // Send text response to requesting client.
+                    if let Some(text) = &result.text {
+                        let mut data = Data::new();
+                        data.insert("text".into(), serde_json::json!(text));
+                        data.insert("mutations".into(), serde_json::json!(result.mutations.len()));
+                        let _ = send_frame(socket, &parent.item(data)).await;
+                    }
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        _ => {
+            let _ = send_frame(socket, &parent.error(format!("unknown ai op: {op}"))).await;
+        }
+    }
 }
 
 // =============================================================================

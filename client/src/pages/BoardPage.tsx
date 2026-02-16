@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Canvas } from "../canvas/Canvas";
+import { StatusBar } from "../components/StatusBar";
 import { Toolbar } from "../components/Toolbar";
 import { useBoardStore } from "../store/board";
 
@@ -27,6 +28,7 @@ export function BoardPage({ boardId }: BoardPageProps) {
             <div style={{ flex: 1, overflow: "hidden" }}>
                 <Canvas />
             </div>
+            <StatusBar />
         </div>
     );
 }

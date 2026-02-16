@@ -38,7 +38,6 @@ export const StickyNote = React.memo(function StickyNote({
             updateObject(object.id, {
                 x: e.target.x(),
                 y: e.target.y(),
-                rotation: 0,
             });
         },
         [object.id, updateObject],
@@ -66,6 +65,24 @@ export const StickyNote = React.memo(function StickyNote({
         [object.id, object.props, updateObject],
     );
 
+    const handleTransformEnd = useCallback(
+        (e: KonvaEventObject<Event>) => {
+            const node = e.target;
+            const scaleX = node.scaleX();
+            const scaleY = node.scaleY();
+            node.scaleX(1);
+            node.scaleY(1);
+            updateObject(object.id, {
+                x: node.x(),
+                y: node.y(),
+                width: Math.max(5, object.width * scaleX),
+                height: Math.max(5, object.height * scaleY),
+                rotation: node.rotation(),
+            });
+        },
+        [object.id, object.width, object.height, updateObject],
+    );
+
     const screenX = object.x * viewport.scale + viewport.x;
     const screenY = object.y * viewport.scale + viewport.y;
 
@@ -73,6 +90,7 @@ export const StickyNote = React.memo(function StickyNote({
         <>
             <Group
                 ref={groupRef}
+                name={`obj-${object.id}`}
                 x={object.x}
                 y={object.y}
                 rotation={object.rotation}
@@ -80,6 +98,7 @@ export const StickyNote = React.memo(function StickyNote({
                 onDragEnd={handleDragEnd}
                 onClick={handleClick}
                 onDblClick={handleDblClick}
+                onTransformEnd={handleTransformEnd}
             >
                 <Rect
                     width={object.width}

@@ -1,0 +1,41 @@
+.statusBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 24px;
+    background: var(--bg-status-bar);
+    border-top: 1px solid var(--border-default);
+    padding: 0 var(--space-sm);
+    flex-shrink: 0;
+}
+
+.section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.divider {
+    width: 1px;
+    height: 12px;
+    background: var(--border-default);
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    background: var(--text-tertiary);
+}
+
+.dot.connected {
+    background: var(--accent-green);
+}
