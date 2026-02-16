@@ -1,6 +1,7 @@
 mod db;
 mod frame;
 mod llm;
+mod rate_limit;
 mod routes;
 mod services;
 mod state;
@@ -20,10 +21,10 @@ async fn main() {
         .expect("database init failed");
 
     // Initialize LLM client (non-fatal: AI features disabled if config missing).
-    let llm = match llm::LlmClient::from_env() {
+    let llm: Option<std::sync::Arc<dyn llm::LlmChat>> = match llm::LlmClient::from_env() {
         Ok(client) => {
             tracing::info!(model = client.model(), "LLM client initialized");
-            Some(client)
+            Some(std::sync::Arc::new(client))
         }
         Err(e) => {
             tracing::warn!(error = %e, "LLM client not configured — AI features disabled");

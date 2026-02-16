@@ -363,7 +363,7 @@ async fn handle_ai(
     state: &AppState,
     socket: &mut WebSocket,
     current_board: &Option<Uuid>,
-    _client_id: Uuid,
+    client_id: Uuid,
     req: &WsRequest,
 ) {
     let Some(board_id) = *current_board else {
@@ -393,7 +393,7 @@ async fn handle_ai(
                 return;
             }
 
-            match services::ai::handle_prompt(state, llm, board_id, prompt).await {
+            match services::ai::handle_prompt(state, llm, board_id, client_id, prompt).await {
                 Ok(result) => {
                     // Broadcast all object mutations to board peers.
                     for mutation in &result.mutations {
