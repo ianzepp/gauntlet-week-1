@@ -156,7 +156,10 @@ pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
 
     if board_state.clients.is_empty() {
         // Final flush of dirty objects before eviction.
-        if !board_state.dirty.is_empty() {
+        if board_state.dirty.is_empty() {
+            boards.remove(&board_id);
+            info!(%board_id, "evicted board from memory");
+        } else {
             let dirty_objects: Vec<BoardObject> = board_state
                 .dirty
                 .iter()
@@ -178,9 +181,6 @@ pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
                     info!(%board_id, "evicted board from memory");
                 }
             }
-        } else {
-            boards.remove(&board_id);
-            info!(%board_id, "evicted board from memory");
         }
     }
 }

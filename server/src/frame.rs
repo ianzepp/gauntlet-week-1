@@ -1,11 +1,11 @@
-//! Frame — the universal message type for CollabBoard.
+//! Frame — the universal message type for `CollabBoard`.
 //!
 //! ARCHITECTURE
 //! ============
-//! Every communication in CollabBoard is a Frame. Clients send request frames
+//! Every communication in `CollabBoard` is a Frame. Clients send request frames
 //! over WebSocket, the server dispatches by syscall prefix, and responses flow
 //! back as item/done/error frames. Ported from Prior's kernel/src/frame.rs with
-//! board_id replacing room.
+//! `board_id` replacing room.
 //!
 //! DESIGN
 //! ======
@@ -310,7 +310,12 @@ mod tests {
         assert_eq!(err.status, Status::Error);
         assert_eq!(err.data.get("code").and_then(|v| v.as_str()), Some("E_NOT_FOUND"));
         assert_eq!(err.data.get("message").and_then(|v| v.as_str()), Some("not found"));
-        assert_eq!(err.data.get("retryable").and_then(|v| v.as_bool()), Some(false));
+        assert_eq!(
+            err.data
+                .get("retryable")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
     }
 
     #[test]
