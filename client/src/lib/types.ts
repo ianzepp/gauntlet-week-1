@@ -47,7 +47,7 @@ export interface Viewport {
     scale: number;
 }
 
-export type ToolType = "select" | "sticky" | "rectangle" | "ellipse";
+export type ToolType = "select" | "sticky" | "rectangle" | "ellipse" | "line" | "connector" | "text" | "draw" | "eraser";
 
 export interface User {
     id: string;

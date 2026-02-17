@@ -43,6 +43,11 @@
     background: var(--accent-green);
 }
 
+.toolButton.disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
 .toolButton svg {
     width: 20px;
     height: 20px;

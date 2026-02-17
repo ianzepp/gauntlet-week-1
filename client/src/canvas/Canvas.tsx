@@ -314,6 +314,10 @@ export function Canvas() {
             if (!clickedOnEmpty) return;
             if (activeTool === "select") return;
 
+            // Only handle tools that create objects
+            const creatableTools = ["sticky", "rectangle", "ellipse"] as const;
+            if (!creatableTools.includes(activeTool as typeof creatableTools[number])) return;
+
             const stage = stageRef.current;
             if (!stage) return;
 
@@ -347,7 +351,7 @@ export function Canvas() {
                 newObj = {
                     id: crypto.randomUUID(),
                     board_id: useBoardStore.getState().boardId ?? "",
-                    kind: activeTool,
+                    kind: activeTool as "rectangle" | "ellipse",
                     x: x - 50,
                     y: y - 50,
                     width: 100,
