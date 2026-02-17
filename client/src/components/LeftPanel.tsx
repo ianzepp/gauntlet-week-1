@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ToolType } from "../lib/types";
 import { useBoardStore } from "../store/board";
@@ -168,17 +168,43 @@ export function LeftPanel() {
     const collapseLeftPanel = useBoardStore((s) => s.collapseLeftPanel);
     const expandLeftPanel = useBoardStore((s) => s.expandLeftPanel);
     const [openStrip, setOpenStrip] = useState<ToolType | null>(null);
+    const railRef = useRef<HTMLDivElement | null>(null);
+    const stripButtonRef = useRef<HTMLButtonElement | null>(null);
+    const [stripLeft, setStripLeft] = useState(52);
     const [stripTop, setStripTop] = useState(0);
+
+    const updateStripPosition = useCallback(() => {
+        const buttonEl = stripButtonRef.current;
+        if (!buttonEl) return;
+        const buttonRect = buttonEl.getBoundingClientRect();
+        const railRect = railRef.current?.getBoundingClientRect();
+        setStripLeft(railRect?.right ?? buttonRect.right);
+        setStripTop(buttonRect.top);
+    }, []);
 
     const handleStripToggle = (type: ToolType, el: HTMLButtonElement) => {
         if (openStrip === type) {
             setOpenStrip(null);
+            stripButtonRef.current = null;
         } else {
-            const rect = el.getBoundingClientRect();
-            setStripTop(rect.top);
+            stripButtonRef.current = el;
             setOpenStrip(type);
+            updateStripPosition();
         }
     };
+
+    useEffect(() => {
+        if (!openStrip) return;
+        updateStripPosition();
+
+        const onLayoutChange = () => updateStripPosition();
+        window.addEventListener("resize", onLayoutChange);
+        window.addEventListener("scroll", onLayoutChange, true);
+        return () => {
+            window.removeEventListener("resize", onLayoutChange);
+            window.removeEventListener("scroll", onLayoutChange, true);
+        };
+    }, [expanded, openStrip, updateStripPosition]);
 
     return (
         <div className={styles.wrapper}>
@@ -199,7 +225,7 @@ export function LeftPanel() {
                     </div>
                 </div>
             )}
-            <div className={styles.rail}>
+            <div ref={railRef} className={styles.rail}>
                 <ToolGroup tools={TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
                 <div className={styles.separator} />
                 <ToolGroup tools={SHAPE_TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
@@ -226,9 +252,13 @@ export function LeftPanel() {
             {openStrip && (
                 <div
                     className={styles.stripAnchor}
-                    style={{ top: stripTop }}
+                    style={{ top: stripTop, left: stripLeft }}
                 >
-                    <ToolStrip onClose={() => setOpenStrip(null)} />
+                    <ToolStrip onClose={() => {
+                        setOpenStrip(null);
+                        stripButtonRef.current = null;
+                    }}
+                    />
                 </div>
             )}
         </div>
