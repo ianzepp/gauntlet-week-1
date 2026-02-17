@@ -615,7 +615,10 @@ async fn handle_ai(
                                 ("object:delete", d)
                             }
                         };
-                        let frame = Frame::request(syscall, data).with_board_id(board_id);
+                        let mut frame = Frame::request(syscall, data)
+                            .with_board_id(board_id)
+                            .with_from(user_id.to_string());
+                        frame.status = crate::frame::Status::Done;
                         services::persistence::enqueue_frame(state, &frame);
                         services::board::broadcast(state, board_id, &frame, None).await;
                     }

@@ -837,6 +837,8 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
     assert_eq!(sender_broadcast.syscall, "object:create");
     assert_eq!(peer_broadcast.syscall, "object:create");
+    assert_eq!(sender_broadcast.status, Status::Done);
+    assert_eq!(peer_broadcast.status, Status::Done);
     assert_eq!(sender_broadcast.data.get("kind").and_then(|v| v.as_str()), Some("sticky_note"));
     assert_eq!(peer_broadcast.data.get("kind").and_then(|v| v.as_str()), Some("sticky_note"));
     assert!(
@@ -922,6 +924,8 @@ async fn ai_prompt_resize_sticky_broadcasts_update_and_replies_with_text() {
     let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
     assert_eq!(sender_broadcast.syscall, "object:update");
     assert_eq!(peer_broadcast.syscall, "object:update");
+    assert_eq!(sender_broadcast.status, Status::Done);
+    assert_eq!(peer_broadcast.status, Status::Done);
     let target_id_str = target_id.to_string();
     assert_eq!(
         sender_broadcast.data.get("id").and_then(|v| v.as_str()),
@@ -1004,9 +1008,13 @@ async fn ai_prompt_multi_tool_single_turn_broadcasts_all_mutations_and_replies_w
     assert!(
         sender_broadcasts
             .iter()
-            .all(|f| f.syscall == "object:create")
+            .all(|f| f.syscall == "object:create" && f.status == Status::Done)
     );
-    assert!(peer_broadcasts.iter().all(|f| f.syscall == "object:create"));
+    assert!(
+        peer_broadcasts
+            .iter()
+            .all(|f| f.syscall == "object:create" && f.status == Status::Done)
+    );
     assert!(
         sender_broadcasts
             .iter()
@@ -1112,12 +1120,12 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
     assert!(
         first_sender_broadcasts
             .iter()
-            .all(|f| f.syscall == "object:create")
+            .all(|f| f.syscall == "object:create" && f.status == Status::Done)
     );
     assert!(
         first_peer_broadcasts
             .iter()
-            .all(|f| f.syscall == "object:create")
+            .all(|f| f.syscall == "object:create" && f.status == Status::Done)
     );
 
     let second_reply = process_inbound_text(
@@ -1140,12 +1148,12 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
     assert!(
         second_sender_broadcasts
             .iter()
-            .all(|f| f.syscall == "object:create")
+            .all(|f| f.syscall == "object:create" && f.status == Status::Done)
     );
     assert!(
         second_peer_broadcasts
             .iter()
-            .all(|f| f.syscall == "object:create")
+            .all(|f| f.syscall == "object:create" && f.status == Status::Done)
     );
     assert!(
         second_sender_broadcasts
