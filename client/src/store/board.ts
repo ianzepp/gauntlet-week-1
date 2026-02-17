@@ -9,7 +9,8 @@ import type {
 } from "../lib/types";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
-export type RightTab = "inspector" | "ai" | "boards" | "chat";
+export type RightTab = "ai" | "boards" | "chat";
+export type LeftTab = "inspector";
 
 export interface ChatMessage {
     id: string;
@@ -42,6 +43,8 @@ interface BoardState {
     chatMessages: ChatMessage[];
     activeRightTab: RightTab;
     rightPanelExpanded: boolean;
+    activeLeftTab: LeftTab;
+    leftPanelExpanded: boolean;
     navigateToBoard: ((id: string, name: string) => void) | null;
 
     setBoardId: (id: string | null) => void;
@@ -69,6 +72,9 @@ interface BoardState {
     setRightTab: (tab: RightTab) => void;
     expandRightPanel: (tab: RightTab) => void;
     collapseRightPanel: () => void;
+    setLeftTab: (tab: LeftTab) => void;
+    expandLeftPanel: (tab: LeftTab) => void;
+    collapseLeftPanel: () => void;
     setNavigateToBoard: (fn: ((id: string, name: string) => void) | null) => void;
 }
 
@@ -88,6 +94,8 @@ export const useBoardStore = create<BoardState>((set) => ({
     chatMessages: [],
     activeRightTab: "ai" as RightTab,
     rightPanelExpanded: true,
+    activeLeftTab: "inspector" as LeftTab,
+    leftPanelExpanded: false,
     navigateToBoard: null,
 
     setBoardId: (id) => set({ boardId: id }),
@@ -226,5 +234,16 @@ export const useBoardStore = create<BoardState>((set) => ({
         }),
 
     collapseRightPanel: () => set({ rightPanelExpanded: false }),
+
+    setLeftTab: (tab) =>
+        set({ activeLeftTab: tab }),
+
+    expandLeftPanel: (tab) =>
+        set({
+            leftPanelExpanded: true,
+            activeLeftTab: tab,
+        }),
+
+    collapseLeftPanel: () => set({ leftPanelExpanded: false }),
     setNavigateToBoard: (fn) => set({ navigateToBoard: fn }),
 }));

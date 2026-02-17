@@ -1,0 +1,151 @@
+.wrapper {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 52px;
+    background: var(--bg-nav);
+    padding: var(--space-sm) 0;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+    border-right: 1px solid var(--border-default);
+    height: 100%;
+}
+
+.railButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    color: var(--text-nav);
+    cursor: pointer;
+    transition: color 150ms ease, background 150ms ease;
+    position: relative;
+}
+
+.railButton:hover {
+    color: var(--text-nav-active);
+    background: transparent;
+}
+
+.railButton.railButtonActive {
+    color: var(--text-nav-active);
+}
+
+.railButton.railButtonActive::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--accent-green);
+}
+
+.railSpacer {
+    flex: 1;
+}
+
+.railToggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    color: var(--text-nav);
+    cursor: pointer;
+    transition: color 150ms ease;
+    flex-shrink: 0;
+}
+
+.railToggle:hover {
+    color: var(--text-nav-active);
+}
+
+.railToggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.railButton svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.panel {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-default);
+    height: 100%;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    border-bottom: 1px solid var(--border-default);
+    flex-shrink: 0;
+}
+
+.title {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+    padding-left: var(--space-sm);
+}
+
+.closeButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: color 150ms ease;
+}
+
+.closeButton:hover {
+    color: var(--text-primary);
+    background: transparent;
+}
+
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}

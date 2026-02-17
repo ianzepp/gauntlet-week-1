@@ -1,55 +1,44 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useBoardStore } from "../store/board";
-import type { RightTab } from "../store/board";
-import { AiPanel } from "./AiPanel";
-import { ChatPanel } from "./ChatPanel";
-import { MissionControl } from "./MissionControl";
-import styles from "./RightPanel.module.css";
+import type { LeftTab } from "../store/board";
+import { InspectorPanel } from "./InspectorPanel";
+import styles from "./LeftPanel.module.css";
 
-const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
+const TABS: { id: LeftTab; label: string; icon: React.ReactNode }[] = [
     {
-        id: "boards",
-        label: "Boards",
+        id: "inspector",
+        label: "Inspector",
         icon: (
             <svg viewBox="0 0 20 20">
-                <rect x="2" y="2" width="7" height="7" rx="1" />
-                <rect x="11" y="2" width="7" height="7" rx="1" />
-                <rect x="2" y="11" width="7" height="7" rx="1" />
-                <rect x="11" y="11" width="7" height="7" rx="1" />
-            </svg>
-        ),
-    },
-    {
-        id: "chat",
-        label: "Chat",
-        icon: (
-            <svg viewBox="0 0 20 20">
-                <path d="M3 4 h14 a1 1 0 0 1 1 1 v8 a1 1 0 0 1 -1 1 h-9 l-4 3 v-3 h-1 a1 1 0 0 1 -1 -1 v-8 a1 1 0 0 1 1 -1 z" />
-            </svg>
-        ),
-    },
-    {
-        id: "ai",
-        label: "Field Notes",
-        icon: (
-            <svg viewBox="0 0 20 20">
-                <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+                <rect x="3" y="3" width="14" height="14" rx="2" />
+                <line x1="3" y1="10" x2="17" y2="10" />
+                <line x1="10" y1="10" x2="10" y2="17" />
             </svg>
         ),
     },
 ];
 
-export function RightPanel() {
-    const activeTab = useBoardStore((s) => s.activeRightTab);
-    const expanded = useBoardStore((s) => s.rightPanelExpanded);
-    const collapseRightPanel = useBoardStore((s) => s.collapseRightPanel);
-    const expandRightPanel = useBoardStore((s) => s.expandRightPanel);
+export function LeftPanel() {
+    const activeTab = useBoardStore((s) => s.activeLeftTab);
+    const expanded = useBoardStore((s) => s.leftPanelExpanded);
+    const collapseLeftPanel = useBoardStore((s) => s.collapseLeftPanel);
+    const expandLeftPanel = useBoardStore((s) => s.expandLeftPanel);
+    const selection = useBoardStore((s) => s.selection);
+    const prevSelectionSize = useRef(selection.size);
 
-    const handleRailClick = (tabId: RightTab) => {
+    // Auto-raise inspector when selection changes
+    useEffect(() => {
+        if (selection.size > 0 && prevSelectionSize.current === 0) {
+            expandLeftPanel("inspector");
+        }
+        prevSelectionSize.current = selection.size;
+    }, [selection.size, expandLeftPanel]);
+
+    const handleRailClick = (tabId: LeftTab) => {
         if (expanded && activeTab === tabId) {
-            collapseRightPanel();
+            collapseLeftPanel();
         } else {
-            expandRightPanel(tabId);
+            expandLeftPanel(tabId);
         }
     };
 
@@ -72,15 +61,15 @@ export function RightPanel() {
                     type="button"
                     className={styles.railToggle}
                     onClick={() =>
-                        expanded ? collapseRightPanel() : expandRightPanel(activeTab)
+                        expanded ? collapseLeftPanel() : expandLeftPanel(activeTab)
                     }
                     title={expanded ? "Collapse panel" : "Expand panel"}
                 >
                     <svg viewBox="0 0 20 20">
                         {expanded ? (
-                            <path d="M7 4 L13 10 L7 16" />
-                        ) : (
                             <path d="M13 4 L7 10 L13 16" />
+                        ) : (
+                            <path d="M7 4 L13 10 L7 16" />
                         )}
                     </svg>
                 </button>
@@ -94,15 +83,13 @@ export function RightPanel() {
                         <button
                             type="button"
                             className={styles.closeButton}
-                            onClick={collapseRightPanel}
+                            onClick={collapseLeftPanel}
                         >
                             ✕
                         </button>
                     </div>
                     <div className={styles.content}>
-                        {activeTab === "ai" && <AiPanel />}
-                        {activeTab === "chat" && <ChatPanel />}
-                        {activeTab === "boards" && <MissionControl />}
+                        {activeTab === "inspector" && <InspectorPanel />}
                     </div>
                 </div>
             )}
