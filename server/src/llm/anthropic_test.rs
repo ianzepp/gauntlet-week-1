@@ -1,4 +1,3 @@
-
 use super::*;
 
 fn make_response(content: serde_json::Value) -> String {
