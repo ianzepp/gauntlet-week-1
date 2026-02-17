@@ -69,7 +69,7 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
             <Toolbar onBack={onBack} />
             <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
                 <LeftPanel />
-                <div style={{ flex: 1, position: "relative" }}>
+                <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
                     <Canvas />
                     <BoardStamp />
                 </div>

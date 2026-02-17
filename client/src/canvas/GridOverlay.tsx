@@ -34,24 +34,25 @@ export function GridOverlay({ width, height, viewport }: GridOverlayProps) {
         [cellH],
     );
 
-    // Column labels are positioned relative to the canvas area,
-    // but the top/bottom strips extend 52px into each rail.
-    // Offset labels by 52px so they align with the canvas grid.
-    const railWidth = 52;
-
     return (
         <>
+            {/* Four corners */}
+            <div className={`${styles.corner} ${styles.cornerTL}`} />
+            <div className={`${styles.corner} ${styles.cornerTR}`} />
+            <div className={`${styles.corner} ${styles.cornerBL}`} />
+            <div className={`${styles.corner} ${styles.cornerBR}`} />
+
             {/* Column labels: top and bottom */}
             <div className={styles.top}>
                 {colLabels.map((col) => (
-                    <span key={col.label} className={styles.label} style={{ left: col.x + railWidth }}>
+                    <span key={col.label} className={styles.label} style={{ left: col.x }}>
                         {col.label}
                     </span>
                 ))}
             </div>
             <div className={styles.bottom}>
                 {colLabels.map((col) => (
-                    <span key={col.label} className={styles.label} style={{ left: col.x + railWidth }}>
+                    <span key={col.label} className={styles.label} style={{ left: col.x }}>
                         {col.label}
                     </span>
                 ))}
