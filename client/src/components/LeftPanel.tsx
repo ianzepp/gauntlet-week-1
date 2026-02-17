@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { ToolType } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import { InspectorPanel } from "./InspectorPanel";
 import styles from "./LeftPanel.module.css";
+import { ToolStrip } from "./ToolStrip";
 
 interface ToolDef {
     type: ToolType;
@@ -115,24 +116,49 @@ const DRAW_TOOLS: ToolDef[] = [
     },
 ];
 
-function ToolGroup({ tools }: { tools: ToolDef[] }) {
+/** Tools that open a strip flyout instead of setting activeTool */
+const STRIP_TOOLS = new Set<ToolType>(["rectangle"]);
+
+function ToolGroup({
+    tools,
+    openStrip,
+    onStripToggle,
+}: {
+    tools: ToolDef[];
+    openStrip: ToolType | null;
+    onStripToggle: (type: ToolType, el: HTMLButtonElement) => void;
+}) {
     const activeTool = useBoardStore((s) => s.activeTool);
     const setTool = useBoardStore((s) => s.setTool);
 
     return (
         <>
-            {tools.map((tool) => (
-                <button
-                    key={tool.type}
-                    type="button"
-                    className={`${styles.toolButton} ${activeTool === tool.type ? styles.toolButtonActive : ""} ${tool.disabled ? styles.toolButtonDisabled : ""}`}
-                    onClick={() => !tool.disabled && setTool(tool.type)}
-                    title={tool.disabled ? `${tool.label} (coming soon)` : tool.label}
-                    disabled={tool.disabled}
-                >
-                    {tool.icon}
-                </button>
-            ))}
+            {tools.map((tool) => {
+                const isStripTool = STRIP_TOOLS.has(tool.type);
+                const isActive = isStripTool
+                    ? openStrip === tool.type
+                    : activeTool === tool.type;
+
+                return (
+                    <button
+                        key={tool.type}
+                        type="button"
+                        className={`${styles.toolButton} ${isActive ? styles.toolButtonActive : ""} ${tool.disabled ? styles.toolButtonDisabled : ""}`}
+                        onClick={(e) => {
+                            if (tool.disabled) return;
+                            if (isStripTool) {
+                                onStripToggle(tool.type, e.currentTarget);
+                            } else {
+                                setTool(tool.type);
+                            }
+                        }}
+                        title={tool.disabled ? `${tool.label} (coming soon)` : tool.label}
+                        disabled={tool.disabled}
+                    >
+                        {tool.icon}
+                    </button>
+                );
+            })}
         </>
     );
 }
@@ -141,16 +167,18 @@ export function LeftPanel() {
     const expanded = useBoardStore((s) => s.leftPanelExpanded);
     const collapseLeftPanel = useBoardStore((s) => s.collapseLeftPanel);
     const expandLeftPanel = useBoardStore((s) => s.expandLeftPanel);
-    const selection = useBoardStore((s) => s.selection);
-    const prevSelectionSize = useRef(selection.size);
+    const [openStrip, setOpenStrip] = useState<ToolType | null>(null);
+    const [stripTop, setStripTop] = useState(0);
 
-    // Auto-raise inspector when selection changes
-    useEffect(() => {
-        if (selection.size > 0 && prevSelectionSize.current === 0) {
-            expandLeftPanel("inspector");
+    const handleStripToggle = (type: ToolType, el: HTMLButtonElement) => {
+        if (openStrip === type) {
+            setOpenStrip(null);
+        } else {
+            const rect = el.getBoundingClientRect();
+            setStripTop(rect.top);
+            setOpenStrip(type);
         }
-        prevSelectionSize.current = selection.size;
-    }, [selection.size, expandLeftPanel]);
+    };
 
     return (
         <div className={styles.wrapper}>
@@ -172,11 +200,11 @@ export function LeftPanel() {
                 </div>
             )}
             <div className={styles.rail}>
-                <ToolGroup tools={TOOLS} />
+                <ToolGroup tools={TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
                 <div className={styles.separator} />
-                <ToolGroup tools={SHAPE_TOOLS} />
+                <ToolGroup tools={SHAPE_TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
                 <div className={styles.separator} />
-                <ToolGroup tools={DRAW_TOOLS} />
+                <ToolGroup tools={DRAW_TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
                 <div className={styles.railSpacer} />
                 <button
                     type="button"
@@ -195,6 +223,14 @@ export function LeftPanel() {
                     </svg>
                 </button>
             </div>
+            {openStrip && (
+                <div
+                    className={styles.stripAnchor}
+                    style={{ top: stripTop }}
+                >
+                    <ToolStrip onClose={() => setOpenStrip(null)} />
+                </div>
+            )}
         </div>
     );
 }

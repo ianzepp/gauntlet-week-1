@@ -4,6 +4,13 @@
     flex-direction: row;
     height: 100%;
     flex-shrink: 0;
+    position: relative;
+}
+
+.stripAnchor {
+    position: fixed;
+    left: 52px;
+    z-index: 10;
 }
 
 .rail {

@@ -1,0 +1,99 @@
+.strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--bg-nav);
+    border: 1px solid var(--border-default);
+    border-left: none;
+    height: 36px;
+    white-space: nowrap;
+}
+
+.options {
+    display: flex;
+    gap: 2px;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 100ms ease, border-color 100ms ease;
+}
+
+.option:hover {
+    color: var(--text-primary);
+}
+
+.option.optionActive {
+    color: var(--text-primary);
+    border-color: var(--accent-green);
+}
+
+.option svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.swatch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: border-color 100ms ease;
+}
+
+.swatch:hover {
+    border-color: var(--text-secondary);
+}
+
+.swatch.swatchActive {
+    border-color: var(--accent-green);
+}
+
+.swatchColor {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-default);
+    flex-shrink: 0;
+}
+
+.addButton {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #fff;
+    border: none;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: opacity 100ms ease;
+    line-height: 1;
+}
+
+.addButton:hover {
+    opacity: 0.85;
+}

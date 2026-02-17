@@ -445,13 +445,20 @@ async fn handle_object(
                 .get("y")
                 .and_then(serde_json::Value::as_f64)
                 .unwrap_or(0.0);
+            let width = req.data.get("width").and_then(serde_json::Value::as_f64);
+            let height = req.data.get("height").and_then(serde_json::Value::as_f64);
+            let rotation = req
+                .data
+                .get("rotation")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
             let props = req
                 .data
                 .get("props")
                 .cloned()
                 .unwrap_or(serde_json::json!({}));
 
-            match services::object::create_object(state, board_id, kind, x, y, props, Some(user_id)).await {
+            match services::object::create_object(state, board_id, kind, x, y, width, height, rotation, props, Some(user_id)).await {
                 Ok(obj) => Ok(Outcome::Broadcast(object_to_data(&obj))),
                 Err(e) => Err(req.error_from(&e)),
             }

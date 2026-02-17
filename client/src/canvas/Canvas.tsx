@@ -1,7 +1,7 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import React, { useCallback, useEffect, useRef } from "react";
-import { Circle, Layer, Line, Stage } from "react-konva";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { Circle, Layer, Line, Rect, Stage } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
 import { useBoardStore } from "../store/board";
 
@@ -88,6 +88,10 @@ export function Canvas() {
     const setViewport = useBoardStore((s) => s.setViewport);
     const setCursorPosition = useBoardStore((s) => s.setCursorPosition);
     const setViewportCenter = useBoardStore((s) => s.setViewportCenter);
+    const objects = useBoardStore((s) => s.objects);
+    const selection = useBoardStore((s) => s.selection);
+
+    const objectList = useMemo(() => Array.from(objects.values()), [objects]);
 
     // Center viewport so canvas origin (0,0) is at screen center on first mount
     useEffect(() => {
@@ -218,6 +222,29 @@ export function Canvas() {
                         viewport={viewport}
                     />
                     <Circle x={0} y={0} radius={5} fill="red" listening={false} />
+                </Layer>
+                <Layer>
+                    {objectList.map((obj) => {
+                        if (obj.kind === "rectangle") {
+                            const isSelected = selection.has(obj.id);
+                            const fill = (obj.props.color as string) ?? "#D94B4B";
+                            return (
+                                <Rect
+                                    key={obj.localKey ?? obj.id}
+                                    x={obj.x}
+                                    y={obj.y}
+                                    width={obj.width}
+                                    height={obj.height}
+                                    rotation={obj.rotation}
+                                    fill={fill}
+                                    stroke={isSelected ? "#fff" : fill}
+                                    strokeWidth={isSelected ? 2 : 0}
+                                    listening={false}
+                                />
+                            );
+                        }
+                        return null;
+                    })}
                 </Layer>
             </Stage>
         </div>

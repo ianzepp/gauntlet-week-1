@@ -459,7 +459,7 @@ async fn execute_create_sticky_note(
         .unwrap_or("#FFEB3B");
 
     let props = json!({"text": text, "color": color});
-    let obj = super::object::create_object(state, board_id, "sticky_note", x, y, props, None).await?;
+    let obj = super::object::create_object(state, board_id, "sticky_note", x, y, None, None, 0.0, props, None).await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created sticky note {id}"))
@@ -489,15 +489,10 @@ async fn execute_create_shape(
         .unwrap_or("#4CAF50");
 
     let props = json!({"color": color});
-    let mut obj = super::object::create_object(state, board_id, kind, x, y, props, None).await?;
+    let w = input.get("width").and_then(serde_json::Value::as_f64);
+    let h = input.get("height").and_then(serde_json::Value::as_f64);
+    let mut obj = super::object::create_object(state, board_id, kind, x, y, w, h, 0.0, props, None).await?;
 
-    // Apply width/height if provided.
-    if let Some(w) = input.get("width").and_then(serde_json::Value::as_f64) {
-        obj.width = Some(w);
-    }
-    if let Some(h) = input.get("height").and_then(serde_json::Value::as_f64) {
-        obj.height = Some(h);
-    }
     // Update the in-memory object with dimensions.
     if obj.width.is_some() || obj.height.is_some() {
         let mut data = Data::new();
@@ -535,10 +530,6 @@ async fn execute_create_frame(
         .unwrap_or(0.0);
 
     let props = json!({"title": title});
-    let obj = super::object::create_object(state, board_id, "frame", x, y, props, None).await?;
-    let obj_id = obj.id;
-
-    // Apply width/height.
     let w = input
         .get("width")
         .and_then(serde_json::Value::as_f64)
@@ -547,6 +538,8 @@ async fn execute_create_frame(
         .get("height")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(300.0);
+    let obj = super::object::create_object(state, board_id, "frame", x, y, Some(w), Some(h), 0.0, props, None).await?;
+    let obj_id = obj.id;
     let mut data = Data::new();
     data.insert("width".into(), json!(w));
     data.insert("height".into(), json!(h));
@@ -571,7 +564,7 @@ async fn execute_create_connector(
 
     let props = json!({"source_id": from_id, "target_id": to_id, "style": style});
     // Place connector at origin — rendering uses source/target positions.
-    let obj = super::object::create_object(state, board_id, "connector", 0.0, 0.0, props, None).await?;
+    let obj = super::object::create_object(state, board_id, "connector", 0.0, 0.0, None, None, 0.0, props, None).await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created connector {id} from {from_id} to {to_id}"))
