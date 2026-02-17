@@ -36,24 +36,39 @@ export function GridOverlay({ width, height, viewport }: GridOverlayProps) {
 
     return (
         <>
+            {/* Four corners */}
+            <div className={`${styles.corner} ${styles.cornerTL}`} />
+            <div className={`${styles.corner} ${styles.cornerTR}`} />
+            <div className={`${styles.corner} ${styles.cornerBL}`} />
+            <div className={`${styles.corner} ${styles.cornerBR}`} />
+
+            {/* Column labels: top and bottom */}
+            <div className={styles.top}>
+                {colLabels.map((col) => (
+                    <span key={col.label} className={styles.label} style={{ left: col.x }}>
+                        {col.label}
+                    </span>
+                ))}
+            </div>
             <div className={styles.bottom}>
                 {colLabels.map((col) => (
-                    <span
-                        key={col.label}
-                        className={styles.label}
-                        style={{ left: col.x }}
-                    >
+                    <span key={col.label} className={styles.label} style={{ left: col.x }}>
                         {col.label}
+                    </span>
+                ))}
+            </div>
+
+            {/* Row labels: left and right */}
+            <div className={styles.left}>
+                {rowLabels.map((row) => (
+                    <span key={row.label} className={styles.label} style={{ top: row.y }}>
+                        {row.label}
                     </span>
                 ))}
             </div>
             <div className={styles.right}>
                 {rowLabels.map((row) => (
-                    <span
-                        key={row.label}
-                        className={styles.label}
-                        style={{ top: row.y }}
-                    >
+                    <span key={row.label} className={styles.label} style={{ top: row.y }}>
                         {row.label}
                     </span>
                 ))}

@@ -1,20 +1,51 @@
+.top,
 .bottom {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    left: 20px;
+    right: 20px;
     height: 20px;
     pointer-events: none;
+    background: color-mix(in srgb, var(--canvas-bg) 50%, transparent);
+}
+
+.top {
+    top: 0;
+}
+
+.bottom {
+    bottom: 0;
+}
+
+.left,
+.right {
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    width: 20px;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--canvas-bg) 50%, transparent);
+}
+
+.left {
+    left: 0;
 }
 
 .right {
-    position: absolute;
-    top: 0;
     right: 0;
-    bottom: 0;
-    width: 20px;
-    pointer-events: none;
 }
+
+.corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--canvas-bg) 50%, transparent);
+}
+
+.cornerTL { top: 0; left: 0; }
+.cornerTR { top: 0; right: 0; }
+.cornerBL { bottom: 0; left: 0; }
+.cornerBR { bottom: 0; right: 0; }
 
 .label {
     position: absolute;
