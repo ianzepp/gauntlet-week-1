@@ -1,0 +1,61 @@
+import { useCallback } from "react";
+import type { Frame } from "../lib/types";
+import { useBoardStore } from "../store/board";
+
+export function useAI() {
+    const sendPrompt = useCallback((text: string) => {
+        const store = useBoardStore.getState();
+        const { frameClient, boardId, connectionStatus } = store;
+
+        if (!frameClient || connectionStatus !== "connected") {
+            store.addAiMessage({
+                role: "error",
+                text: "Not connected to server",
+            });
+            return;
+        }
+
+        store.addAiMessage({ role: "user", text });
+        store.setAiLoading(true);
+
+        const requestId = crypto.randomUUID();
+
+        const handler = (frame: Frame) => {
+            if (frame.parent_id !== requestId) return;
+
+            if (frame.status === "item") {
+                const data = frame.data as { text?: string; mutations?: number };
+                useBoardStore.getState().addAiMessage({
+                    role: "assistant",
+                    text: data.text ?? "",
+                    mutations: data.mutations,
+                });
+                useBoardStore.getState().setAiLoading(false);
+                frameClient.off("ai:prompt", handler);
+            } else if (frame.status === "error") {
+                const data = frame.data as { message?: string };
+                useBoardStore.getState().addAiMessage({
+                    role: "error",
+                    text: data.message ?? "An error occurred",
+                });
+                useBoardStore.getState().setAiLoading(false);
+                frameClient.off("ai:prompt", handler);
+            }
+        };
+
+        frameClient.on("ai:prompt", handler);
+
+        frameClient.send({
+            id: requestId,
+            parent_id: null,
+            ts: new Date().toISOString(),
+            board_id: boardId ?? "",
+            from: "client",
+            syscall: "ai:prompt",
+            status: "request",
+            data: { prompt: text },
+        });
+    }, []);
+
+    return { sendPrompt };
+}

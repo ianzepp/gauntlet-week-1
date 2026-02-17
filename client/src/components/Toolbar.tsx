@@ -12,6 +12,8 @@ const TOOLS: { type: ToolType; label: string; icon: string }[] = [
 export function Toolbar() {
     const activeTool = useBoardStore((s) => s.activeTool);
     const setTool = useBoardStore((s) => s.setTool);
+    const aiPanelOpen = useBoardStore((s) => s.aiPanelOpen);
+    const toggleAiPanel = useBoardStore((s) => s.toggleAiPanel);
 
     const toggleDarkMode = () => {
         const html = document.documentElement;
@@ -36,6 +38,14 @@ export function Toolbar() {
             </div>
             <div className={styles.separator} />
             <div className={styles.right}>
+                <button
+                    type="button"
+                    className={`${styles.toolButton} ${aiPanelOpen ? styles.active : ""}`}
+                    onClick={toggleAiPanel}
+                >
+                    <span className={styles.toolIcon}>{"\u2726"}</span>
+                    <span className={styles.toolLabel}>AI</span>
+                </button>
                 <button
                     type="button"
                     className={styles.toolButton}

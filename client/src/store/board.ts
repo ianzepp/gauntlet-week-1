@@ -4,6 +4,12 @@ import type { BoardObject, Presence, ToolType, User, Viewport } from "../lib/typ
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
+export interface AiMessage {
+    role: "user" | "assistant" | "error";
+    text: string;
+    mutations?: number;
+}
+
 interface BoardState {
     boardId: string | null;
     objects: Map<string, BoardObject>;
@@ -14,6 +20,9 @@ interface BoardState {
     frameClient: FrameClient | null;
     connectionStatus: ConnectionStatus;
     user: User | null;
+    aiMessages: AiMessage[];
+    aiLoading: boolean;
+    aiPanelOpen: boolean;
 
     setBoardId: (id: string | null) => void;
     setObjects: (objects: BoardObject[]) => void;
@@ -31,6 +40,9 @@ interface BoardState {
     setConnectionStatus: (status: ConnectionStatus) => void;
     setUser: (user: User | null) => void;
     replaceObjectId: (tempId: string, newId: string) => void;
+    addAiMessage: (message: AiMessage) => void;
+    setAiLoading: (loading: boolean) => void;
+    toggleAiPanel: () => void;
 }
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -43,6 +55,9 @@ export const useBoardStore = create<BoardState>((set) => ({
     frameClient: null,
     connectionStatus: "disconnected",
     user: null,
+    aiMessages: [],
+    aiLoading: false,
+    aiPanelOpen: false,
 
     setBoardId: (id) => set({ boardId: id }),
 
@@ -130,4 +145,12 @@ export const useBoardStore = create<BoardState>((set) => ({
             }
             return { objects: next, selection };
         }),
+
+    addAiMessage: (message) =>
+        set((state) => ({ aiMessages: [...state.aiMessages, message] })),
+
+    setAiLoading: (loading) => set({ aiLoading: loading }),
+
+    toggleAiPanel: () =>
+        set((state) => ({ aiPanelOpen: !state.aiPanelOpen })),
 }));

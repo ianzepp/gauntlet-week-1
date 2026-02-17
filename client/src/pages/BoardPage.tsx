@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Canvas } from "../canvas/Canvas";
+import { AiPanel } from "../components/AiPanel";
 import { StatusBar } from "../components/StatusBar";
 import { Toolbar } from "../components/Toolbar";
 import { useBoardStore } from "../store/board";
@@ -10,6 +11,7 @@ interface BoardPageProps {
 
 export function BoardPage({ boardId }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
+    const aiPanelOpen = useBoardStore((s) => s.aiPanelOpen);
 
     useEffect(() => {
         setBoardId(boardId);
@@ -25,8 +27,11 @@ export function BoardPage({ boardId }: BoardPageProps) {
             }}
         >
             <Toolbar />
-            <div style={{ flex: 1, overflow: "hidden" }}>
-                <Canvas />
+            <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+                <div style={{ flex: 1, overflow: "hidden" }}>
+                    <Canvas />
+                </div>
+                {aiPanelOpen && <AiPanel />}
             </div>
             <StatusBar />
         </div>
