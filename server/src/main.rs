@@ -12,6 +12,10 @@ fn env_or_default(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
+fn has_flag(flag: &str) -> bool {
+    std::env::args().any(|arg| arg == flag)
+}
+
 fn env_parse_or<T>(key: &str, default: T) -> T
 where
     T: std::str::FromStr + Copy,
@@ -104,6 +108,7 @@ fn log_startup_env_config(port: u16) {
 async fn main() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
+    let migrate_only = has_flag("--migrate-only");
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL required");
     let port: u16 = std::env::var("PORT")
@@ -115,6 +120,11 @@ async fn main() {
     let pool = db::init_pool(&database_url)
         .await
         .expect("database init failed");
+    if migrate_only {
+        tracing::info!("migrations completed in --migrate-only mode; exiting");
+        drop(pool);
+        return;
+    }
 
     // Initialize LLM client (non-fatal: AI features disabled if config missing).
     let llm: Option<std::sync::Arc<dyn llm::LlmChat>> = match llm::LlmClient::from_env() {

@@ -189,6 +189,54 @@ cd client && bun install && bun run dev
 
 Backend serves on `:3000`. Vite dev server proxies `/api` to the backend.
 
+## Fly.io Deployment
+
+`Dockerfile` builds both the Rust server and the React client. Axum serves the
+compiled client from `STATIC_DIR=/app/client/dist` in the runtime image.
+
+### First-time setup
+
+```bash
+fly launch --no-deploy
+```
+
+Set required secrets:
+
+```bash
+fly secrets set \
+  DATABASE_URL="postgres://..." \
+  GITHUB_CLIENT_ID="..." \
+  GITHUB_CLIENT_SECRET="..." \
+  GITHUB_REDIRECT_URI="https://<your-app>.fly.dev/auth/github/callback"
+```
+
+Optional AI secrets:
+
+```bash
+fly secrets set \
+  LLM_PROVIDER="anthropic" \
+  LLM_API_KEY_ENV="ANTHROPIC_API_KEY" \
+  ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+### Deploy
+
+```bash
+fly deploy
+```
+
+`fly.toml` runs `release_command = "collaboard --migrate-only"` so DB migrations
+complete before machines are promoted.
+
+### Important scaling note
+
+Realtime board state is process-local today. Keep a single machine until shared
+cross-instance broadcast/state is implemented:
+
+```bash
+fly scale count 1
+```
+
 ## References
 
 - [Architecture Pre-Search](docs/PRE-SEARCH.md)
