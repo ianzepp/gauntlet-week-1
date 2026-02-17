@@ -20,6 +20,7 @@ rand = "0.9"
 thiserror = "2"
 time = "0.3"
 async-trait = "0.1"
+dotenvy = "0.15"
 
 [dev-dependencies]
 tokio-tungstenite = "0.26"
