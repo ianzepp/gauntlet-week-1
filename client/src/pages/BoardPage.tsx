@@ -11,10 +11,11 @@ interface BoardPageProps {
     boardId: string;
     boardName: string;
     onBack?: () => void;
+    onLogout?: () => void;
     onNavigate?: (id: string | null, name: string | null) => void;
 }
 
-export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageProps) {
+export function BoardPage({ boardId, boardName, onBack, onLogout, onNavigate }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
     const setBoardName = useBoardStore((s) => s.setBoardName);
     const clearPresence = useBoardStore((s) => s.clearPresence);
@@ -71,7 +72,7 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
                     pointerEvents: "none",
                 }}
             >
-                <Toolbar onBack={onBack} />
+                <Toolbar onBack={onBack} onLogout={onLogout} />
                 <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
                     <LeftPanel />
                     <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>

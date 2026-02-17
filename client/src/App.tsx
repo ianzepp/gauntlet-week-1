@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFrameClient } from "./hooks/useFrameClient";
-import { fetchCurrentUser } from "./lib/api";
+import { fetchCurrentUser, logout } from "./lib/api";
 import type { User } from "./lib/types";
 import { BoardPage } from "./pages/BoardPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -31,6 +31,16 @@ export function App() {
     const setStoreUser = useBoardStore((s) => s.setUser);
     useFrameClient();
 
+    const handleLogout = () => {
+        void logout().finally(() => {
+            setUser(null);
+            setStoreUser(null);
+            setPage("dashboard");
+            setActiveBoardId(null);
+            setActiveBoardName(null);
+        });
+    };
+
     useEffect(() => {
         initDarkMode();
     }, []);
@@ -57,6 +67,7 @@ export function App() {
             <BoardPage
                 boardId={activeBoardId}
                 boardName={activeBoardName ?? "Untitled"}
+                onLogout={handleLogout}
                 onBack={() => {
                     setPage("dashboard");
                     setActiveBoardId(null);

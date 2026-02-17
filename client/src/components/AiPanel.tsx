@@ -34,11 +34,8 @@ export function AiPanel() {
                     text: m.text,
                     mutations: m.mutations,
                 }));
-                // Prepend history before any current-session messages
-                const current = useBoardStore.getState().aiMessages;
-                const combined = [...history, ...current];
-                // Replace all messages with combined
-                useBoardStore.setState({ aiMessages: combined });
+                // Replace instead of prepending to avoid duplicate history on remount.
+                useBoardStore.setState({ aiMessages: history });
                 frameClient.off("ai:history", handler);
             }
         };

@@ -405,7 +405,15 @@ export function Canvas() {
                         height={height}
                         viewport={viewport}
                     />
-                    <Circle x={0} y={0} radius={5} fill="red" listening={false} />
+                    <Circle
+                        x={0}
+                        y={0}
+                        radius={11}
+                        stroke="#000"
+                        strokeWidth={1 / viewport.scale}
+                        listening={false}
+                    />
+                    <Circle x={0} y={0} radius={4} fill="#000" listening={false} />
                 </Layer>
                 <Layer>
                     {objectList.map((obj) => {

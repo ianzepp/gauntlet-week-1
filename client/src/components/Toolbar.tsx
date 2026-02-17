@@ -5,9 +5,10 @@ import { UserFieldReport } from "./UserFieldReport";
 
 interface ToolbarProps {
     onBack?: () => void;
+    onLogout?: () => void;
 }
 
-export function Toolbar({ onBack }: ToolbarProps) {
+export function Toolbar({ onBack, onLogout }: ToolbarProps) {
     const presence = useBoardStore((s) => s.presence);
     const user = useBoardStore((s) => s.user);
 
@@ -17,12 +18,6 @@ export function Toolbar({ onBack }: ToolbarProps) {
     } | null>(null);
 
     const chipRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
-
-    const toggleDarkMode = () => {
-        const html = document.documentElement;
-        const isDark = html.classList.toggle("dark-mode");
-        localStorage.setItem("gauntlet_week_1_dark", isDark ? "true" : "false");
-    };
 
     const allUsers = [
         ...(user ? [{ id: user.id, name: user.name, color: user.color }] : []),
@@ -84,11 +79,13 @@ export function Toolbar({ onBack }: ToolbarProps) {
                 <button
                     type="button"
                     className={styles.actionButton}
-                    onClick={toggleDarkMode}
-                    title="Toggle Theme"
+                    onClick={onLogout}
+                    title="Log Out"
                 >
                     <svg viewBox="0 0 20 20" className={styles.actionIcon}>
-                        <path d="M10 3 A7 7 0 1 0 10 17 A5 5 0 1 1 10 3" />
+                        <path d="M9 4 L4 4 L4 16 L9 16" />
+                        <path d="M10 10 L17 10" />
+                        <path d="M14 7 L17 10 L14 13" />
                     </svg>
                 </button>
             </div>
