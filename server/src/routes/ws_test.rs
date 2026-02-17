@@ -3,6 +3,7 @@ use crate::frame::Status;
 use crate::llm::types::{ChatResponse, ContentBlock, LlmChat, LlmError, Message, Tool};
 use crate::state::test_helpers;
 use serde_json::json;
+use sqlx::postgres::PgPoolOptions;
 use std::sync::{Arc, Mutex};
 use tokio::time::{Duration, timeout};
 
@@ -72,6 +73,29 @@ async fn assert_no_board_broadcast(rx: &mut mpsc::Receiver<Frame>) {
         timeout(Duration::from_millis(80), rx.recv()).await.is_err(),
         "expected no broadcast frame"
     );
+}
+
+async fn integration_pool() -> sqlx::PgPool {
+    let database_url = std::env::var("TEST_DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://test:test@localhost:5432/test_collaboard".to_string());
+
+    let pool = PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&database_url)
+        .await
+        .expect("requires reachable Postgres; set TEST_DATABASE_URL");
+
+    sqlx::migrate!("src/db/migrations")
+        .run(&pool)
+        .await
+        .expect("migrations should run");
+
+    sqlx::query("TRUNCATE TABLE frames, board_objects, boards RESTART IDENTITY CASCADE")
+        .execute(&pool)
+        .await
+        .expect("test cleanup should succeed");
+
+    pool
 }
 
 async fn register_two_clients(
@@ -149,6 +173,197 @@ async fn board_unknown_op_returns_error() {
             .unwrap_or_default()
             .contains("unknown board op")
     );
+}
+
+#[tokio::test]
+async fn chat_message_requires_joined_board() {
+    let state = test_helpers::test_app_state();
+    let (client_tx, mut client_rx) = mpsc::channel(8);
+    let mut current_board = None;
+
+    let mut data = Data::new();
+    data.insert("message".into(), json!("hello"));
+    let text = request_json(Uuid::new_v4(), "chat:message", data);
+
+    let reply =
+        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].syscall, "chat:message");
+    assert_eq!(reply[0].status, Status::Error);
+    assert!(
+        reply[0]
+            .data
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("must join a board first")
+    );
+    assert_no_board_broadcast(&mut client_rx).await;
+}
+
+#[tokio::test]
+async fn chat_message_requires_non_empty_message() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
+        register_two_clients(&state, board_id).await;
+    let mut current_board = Some(board_id);
+
+    let mut data = Data::new();
+    data.insert("message".into(), json!("    "));
+    let text = request_json(board_id, "chat:message", data);
+
+    let reply =
+        process_inbound_text(&state, &mut current_board, sender_client_id, Uuid::new_v4(), &sender_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].syscall, "chat:message");
+    assert_eq!(reply[0].status, Status::Error);
+    assert!(
+        reply[0]
+            .data
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("message required")
+    );
+    assert_no_board_broadcast(&mut sender_rx).await;
+    assert_no_board_broadcast(&mut peer_rx).await;
+}
+
+#[tokio::test]
+async fn chat_message_broadcasts_to_peers_and_replies_with_trimmed_message() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
+        register_two_clients(&state, board_id).await;
+    let mut current_board = Some(board_id);
+    let user_id = Uuid::new_v4();
+
+    let mut data = Data::new();
+    data.insert("message".into(), json!("  hello board  "));
+    let text = request_json(board_id, "chat:message", data);
+
+    let sender_frames =
+        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+
+    assert_eq!(sender_frames.len(), 1);
+    assert_eq!(sender_frames[0].syscall, "chat:message");
+    assert_eq!(sender_frames[0].status, Status::Done);
+    assert_eq!(
+        sender_frames[0]
+            .data
+            .get("message")
+            .and_then(|v| v.as_str()),
+        Some("hello board")
+    );
+    let expected_from = user_id.to_string();
+    assert_eq!(sender_frames[0].from.as_deref(), Some(expected_from.as_str()));
+
+    let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
+    assert_eq!(peer_broadcast.syscall, "chat:message");
+    assert_eq!(peer_broadcast.status, Status::Done);
+    assert_eq!(peer_broadcast.data.get("message").and_then(|v| v.as_str()), Some("hello board"));
+    assert!(peer_broadcast.parent_id.is_none());
+
+    assert_no_board_broadcast(&mut sender_rx).await;
+}
+
+#[tokio::test]
+async fn chat_list_requires_joined_board() {
+    let state = test_helpers::test_app_state();
+    let (client_tx, mut client_rx) = mpsc::channel(8);
+    let mut current_board = None;
+    let text = request_json(Uuid::new_v4(), "chat:list", Data::new());
+
+    let reply =
+        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].syscall, "chat:list");
+    assert_eq!(reply[0].status, Status::Error);
+    assert!(
+        reply[0]
+            .data
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("must join a board first")
+    );
+    assert_no_board_broadcast(&mut client_rx).await;
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL/live Postgres"]
+async fn chat_list_returns_persisted_messages_for_board() {
+    let pool = integration_pool().await;
+    let board = services::board::create_board(&pool, "Chat Board")
+        .await
+        .expect("create_board should succeed");
+    let board_id = board.id;
+
+    let user_a = Uuid::new_v4();
+    let user_b = Uuid::new_v4();
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'chat:message', 'request', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(1_i64)
+    .bind(board_id)
+    .bind(user_a.to_string())
+    .bind(json!({ "message": "first" }))
+    .execute(&pool)
+    .await
+    .expect("insert first message should succeed");
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'chat:message', 'request', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(2_i64)
+    .bind(board_id)
+    .bind(user_b.to_string())
+    .bind(json!({ "message": "second" }))
+    .execute(&pool)
+    .await
+    .expect("insert second message should succeed");
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'object:update', 'request', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(3_i64)
+    .bind(board_id)
+    .bind(user_a.to_string())
+    .bind(json!({ "id": Uuid::new_v4() }))
+    .execute(&pool)
+    .await
+    .expect("insert non-chat frame should succeed");
+
+    let state = AppState::new(pool, None, None);
+    let (client_tx, _client_rx) = mpsc::channel(8);
+    let mut current_board = Some(board_id);
+    let text = request_json(board_id, "chat:list", Data::new());
+
+    let reply =
+        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].status, Status::Done);
+    assert_eq!(reply[0].syscall, "chat:list");
+    let messages = reply[0]
+        .data
+        .get("messages")
+        .and_then(|v| v.as_array())
+        .expect("messages array should be present");
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].get("message").and_then(|v| v.as_str()), Some("first"));
+    assert_eq!(messages[1].get("message").and_then(|v| v.as_str()), Some("second"));
 }
 
 #[tokio::test]
