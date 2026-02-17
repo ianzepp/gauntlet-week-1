@@ -1,11 +1,14 @@
+/* Gutter strip size — matches the rail inner padding area */
+/* 52px = rail width */
+
 .top,
 .bottom {
     position: absolute;
-    left: 20px;
-    right: 20px;
+    left: -52px;
+    right: -52px;
     height: 20px;
     pointer-events: none;
-    z-index: var(--z-grid-gutter);
+    z-index: var(--z-chrome);
     background: var(--canvas-bg);
     opacity: 0.85;
 }
@@ -21,37 +24,22 @@
 .left,
 .right {
     position: absolute;
-    top: 20px;
-    bottom: 20px;
+    top: 0;
+    bottom: 0;
     width: 20px;
     pointer-events: none;
-    z-index: var(--z-grid-gutter);
+    z-index: var(--z-chrome);
     background: var(--canvas-bg);
     opacity: 0.85;
 }
 
 .left {
-    left: 0;
+    left: -52px;
 }
 
 .right {
-    right: 0;
+    right: -52px;
 }
-
-.corner {
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    pointer-events: none;
-    z-index: var(--z-grid-gutter);
-    background: var(--canvas-bg);
-    opacity: 0.85;
-}
-
-.cornerTL { top: 0; left: 0; }
-.cornerTR { top: 0; right: 0; }
-.cornerBL { bottom: 0; left: 0; }
-.cornerBR { bottom: 0; right: 0; }
 
 .label {
     position: absolute;
