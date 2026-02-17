@@ -45,49 +45,56 @@ export function RightPanel() {
         prevSelectionSize.current = selection.size;
     }, [selection.size, setRightTab]);
 
-    if (!expanded) {
-        return (
+    const handleRailClick = (tabId: RightTab) => {
+        if (expanded && activeTab === tabId) {
+            collapseRightPanel();
+        } else {
+            expandRightPanel(tabId);
+        }
+    };
+
+    return (
+        <div className={styles.wrapper}>
             <div className={styles.rail}>
                 {TABS.map((tab) => (
                     <button
                         key={tab.id}
                         type="button"
-                        className={`${styles.railButton} ${activeTab === tab.id ? styles.railButtonActive : ""}`}
-                        onClick={() => expandRightPanel(tab.id)}
+                        className={`${styles.railButton} ${expanded && activeTab === tab.id ? styles.railButtonActive : ""}`}
+                        onClick={() => handleRailClick(tab.id)}
                         title={tab.label}
                     >
                         {tab.icon}
                     </button>
                 ))}
             </div>
-        );
-    }
-
-    return (
-        <div className={styles.panel}>
-            <div className={styles.header}>
-                {TABS.map((tab) => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}
-                        onClick={() => setRightTab(tab.id)}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
-                <button
-                    type="button"
-                    className={styles.closeButton}
-                    onClick={collapseRightPanel}
-                >
-                    ✕
-                </button>
-            </div>
-            <div className={styles.content}>
-                {activeTab === "inspector" && <InspectorPanel />}
-                {activeTab === "ai" && <AiPanel />}
-            </div>
+            {expanded && (
+                <div className={styles.panel}>
+                    <div className={styles.header}>
+                        {TABS.map((tab) => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}
+                                onClick={() => setRightTab(tab.id)}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            className={styles.closeButton}
+                            onClick={collapseRightPanel}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className={styles.content}>
+                        {activeTab === "inspector" && <InspectorPanel />}
+                        {activeTab === "ai" && <AiPanel />}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

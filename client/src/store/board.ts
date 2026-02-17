@@ -53,7 +53,6 @@ interface BoardState {
     replaceObjectId: (tempId: string, newId: string) => void;
     addAiMessage: (message: AiMessage) => void;
     setAiLoading: (loading: boolean) => void;
-    toggleAiPanel: () => void;
     setRightTab: (tab: RightTab) => void;
     expandRightPanel: (tab: RightTab) => void;
     collapseRightPanel: () => void;
@@ -192,17 +191,6 @@ export const useBoardStore = create<BoardState>((set) => ({
         set((state) => ({ aiMessages: [...state.aiMessages, message] })),
 
     setAiLoading: (loading) => set({ aiLoading: loading }),
-
-    toggleAiPanel: () =>
-        set((state) => {
-            if (state.rightPanelExpanded && state.activeRightTab === "ai") {
-                return { rightPanelExpanded: false };
-            }
-            return {
-                rightPanelExpanded: true,
-                activeRightTab: "ai" as RightTab,
-            };
-        }),
 
     setRightTab: (tab) =>
         set({ activeRightTab: tab }),
