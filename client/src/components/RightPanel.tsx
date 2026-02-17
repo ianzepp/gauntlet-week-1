@@ -90,7 +90,7 @@ export function RightPanel() {
                         {tab.icon}
                     </button>
                 ))}
-                <div className={styles.railSeparator} />
+                <div className={styles.railSpacer} />
                 <button
                     type="button"
                     className={styles.railToggle}
@@ -98,7 +98,15 @@ export function RightPanel() {
                         expanded ? collapseRightPanel() : expandRightPanel(activeTab)
                     }
                     title={expanded ? "Collapse panel" : "Expand panel"}
-                />
+                >
+                    <svg viewBox="0 0 20 20">
+                        {expanded ? (
+                            <path d="M7 4 L13 10 L7 16" />
+                        ) : (
+                            <path d="M13 4 L7 10 L13 16" />
+                        )}
+                    </svg>
+                </button>
             </div>
             {expanded && (
                 <div className={styles.panel}>

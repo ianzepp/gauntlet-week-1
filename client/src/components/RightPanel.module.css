@@ -51,24 +51,36 @@
     background: var(--accent-green);
 }
 
-.railSeparator {
-    width: 24px;
-    height: 1px;
-    background: var(--border-default);
-    flex-shrink: 0;
+.railSpacer {
+    flex: 1;
 }
 
 .railToggle {
-    flex: 1;
-    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     background: transparent;
     border: none;
+    color: var(--text-nav);
     cursor: pointer;
-    min-height: 0;
+    transition: color 150ms ease;
+    flex-shrink: 0;
 }
 
 .railToggle:hover {
-    background: color-mix(in srgb, var(--text-nav) 6%, transparent);
+    color: var(--text-nav-active);
+}
+
+.railToggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
 }
 
 .railButton svg {
