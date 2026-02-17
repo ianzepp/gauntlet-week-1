@@ -1,9 +1,9 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Layer, Line, Stage, Transformer } from "react-konva";
+import { Arrow, Circle, Group, Layer, Line, Stage, Text, Transformer } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
-import type { BoardObject } from "../lib/types";
+import type { BoardObject, Frame } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import { Shape } from "./Shape";
 import { StickyNote } from "./StickyNote";
@@ -21,6 +21,7 @@ const NOTE_COLORS = [
 
 const GRID_SIZE = 20;
 const GRID_MAJOR = 5;
+const CURSOR_THROTTLE_MS = 50;
 
 function GridLines({
     width,
@@ -71,11 +72,53 @@ function GridLines({
     );
 }
 
+function RemoteCursor({ name, color, x, y, scale }: { name: string; color: string; x: number; y: number; scale: number }) {
+    const fontSize = 11 / scale;
+    const arrowSize = 8 / scale;
+    return (
+        <Group x={x} y={y} listening={false}>
+            <Arrow
+                points={[0, 0, arrowSize, arrowSize * 1.5]}
+                fill={color}
+                stroke={color}
+                strokeWidth={1 / scale}
+                pointerLength={arrowSize * 0.6}
+                pointerWidth={arrowSize * 0.4}
+            />
+            <Circle
+                x={0}
+                y={0}
+                radius={3 / scale}
+                fill={color}
+            />
+            <Text
+                x={arrowSize * 1.2}
+                y={arrowSize * 1.8}
+                text={name}
+                fontSize={fontSize}
+                fill="#fff"
+                padding={2 / scale}
+                listening={false}
+            />
+            <Text
+                x={arrowSize * 1.2 - 1 / scale}
+                y={arrowSize * 1.8 - 1 / scale}
+                text={name}
+                fontSize={fontSize}
+                fill={color}
+                padding={2 / scale}
+                listening={false}
+            />
+        </Group>
+    );
+}
+
 export function Canvas() {
     const { width, height } = useCanvasSize();
     const stageRef = useRef<Konva.Stage>(null);
     const trRef = useRef<Konva.Transformer>(null);
     const nodeMapRef = useRef<Map<string, Konva.Node>>(new Map());
+    const lastCursorSendRef = useRef(0);
 
     const [isDark, setIsDark] = useState(() =>
         document.documentElement.classList.contains("dark-mode"),
@@ -101,8 +144,10 @@ export function Canvas() {
     const setSelection = useBoardStore((s) => s.setSelection);
     const clearSelection = useBoardStore((s) => s.clearSelection);
     const setTool = useBoardStore((s) => s.setTool);
+    const presence = useBoardStore((s) => s.presence);
 
     const objectList = useMemo(() => Array.from(objects.values()), [objects]);
+    const presenceList = useMemo(() => Array.from(presence.values()).filter(p => p.cursor), [presence]);
 
     // Track shape refs via callback
     const handleShapeRef = useCallback((id: string, node: Konva.Node | null) => {
@@ -130,7 +175,6 @@ export function Canvas() {
             const node = nodeMapRef.current.get(id);
             if (node) nodes.push(node);
         }
-        console.log("[Transformer]", { selectionKey, foundNodes: nodes.length, totalRefs: nodeMapRef.current.size });
         tr.nodes(nodes);
         tr.getLayer()?.batchDraw();
     }, [selectionKey]);
@@ -178,18 +222,90 @@ export function Canvas() {
             // Don't deselect when clicking transformer anchors
             if (target.getParent()?.className === "Transformer") return;
             const clickedOnEmpty = target === target.getStage();
-            console.log("[mousedown]", {
-                clickedOnEmpty,
-                targetClassName: target.className,
-                targetName: target.name?.(),
-                parentClassName: target.getParent()?.className,
-            });
             if (clickedOnEmpty) {
                 clearSelection();
             }
         },
         [clearSelection],
     );
+
+    const handleMouseMove = useCallback(
+        (e: KonvaEventObject<MouseEvent>) => {
+            const now = Date.now();
+            if (now - lastCursorSendRef.current < CURSOR_THROTTLE_MS) return;
+            lastCursorSendRef.current = now;
+
+            const stage = stageRef.current;
+            if (!stage) return;
+
+            const pointer = stage.getPointerPosition();
+            if (!pointer) return;
+
+            const canvasX = (pointer.x - viewport.x) / viewport.scale;
+            const canvasY = (pointer.y - viewport.y) / viewport.scale;
+
+            const store = useBoardStore.getState();
+            const client = store.frameClient;
+            const boardId = store.boardId;
+            const user = store.user;
+            if (!client || !boardId) return;
+
+            client.send({
+                id: crypto.randomUUID(),
+                parent_id: null,
+                ts: new Date().toISOString(),
+                board_id: boardId,
+                from: "client",
+                syscall: "cursor:moved",
+                status: "request",
+                data: {
+                    x: canvasX,
+                    y: canvasY,
+                    name: user?.name ?? "Anonymous",
+                },
+            });
+        },
+        [viewport],
+    );
+
+    const sendObjectCreate = useCallback((obj: BoardObject) => {
+        const store = useBoardStore.getState();
+        const client = store.frameClient;
+        if (!client) return;
+
+        const requestId = crypto.randomUUID();
+        client.send({
+            id: requestId,
+            parent_id: null,
+            ts: new Date().toISOString(),
+            board_id: obj.board_id,
+            from: "client",
+            syscall: "object:create",
+            status: "request",
+            data: {
+                kind: obj.kind,
+                x: obj.x,
+                y: obj.y,
+                width: obj.width,
+                height: obj.height,
+                rotation: obj.rotation,
+                z_index: obj.z_index,
+                props: obj.props,
+            },
+        });
+
+        // Listen for the response to replace temp ID with server ID
+        const handleCreateResponse = (frame: Frame) => {
+            if (frame.parent_id === requestId && frame.status === "item") {
+                const serverId = frame.data.id as string;
+                if (serverId && serverId !== obj.id) {
+                    useBoardStore.getState().replaceObjectId(obj.id, serverId);
+                }
+                client.off("object:create", handleCreateResponse);
+            }
+        };
+        client.on("object:create", handleCreateResponse);
+    }, []);
 
     const handleStageClick = useCallback(
         (e: KonvaEventObject<MouseEvent>) => {
@@ -245,6 +361,7 @@ export function Canvas() {
             }
 
             addObject(newObj);
+            sendObjectCreate(newObj);
             setSelection(new Set([newObj.id]));
             setTool("select");
         },
@@ -253,6 +370,7 @@ export function Canvas() {
             viewport,
             objects.size,
             addObject,
+            sendObjectCreate,
             setSelection,
             setTool,
         ],
@@ -271,6 +389,7 @@ export function Canvas() {
                 onWheel={handleWheel}
                 onMouseDown={handleStageMouseDown}
                 onClick={handleStageClick}
+                onMouseMove={handleMouseMove}
             >
                 <Layer listening={false}>
                     <GridLines
@@ -313,6 +432,16 @@ export function Canvas() {
                         }
                         return null;
                     })}
+                    {presenceList.map((p) => (
+                        <RemoteCursor
+                            key={p.user_id}
+                            name={p.name}
+                            color={p.color}
+                            x={p.cursor!.x}
+                            y={p.cursor!.y}
+                            scale={viewport.scale}
+                        />
+                    ))}
                     <Transformer
                         ref={trRef}
                         flipEnabled={false}

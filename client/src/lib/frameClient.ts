@@ -42,6 +42,16 @@ export class FrameClient {
 
         ws.onclose = () => {
             this.ws = null;
+            this.dispatch({
+                id: crypto.randomUUID(),
+                parent_id: null,
+                ts: new Date().toISOString(),
+                board_id: "",
+                from: "system",
+                syscall: "session:disconnected",
+                status: "done",
+                data: {},
+            });
         };
 
         ws.onerror = (err) => {

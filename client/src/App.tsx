@@ -4,6 +4,7 @@ import { fetchCurrentUser } from "./lib/api";
 import type { User } from "./lib/types";
 import { BoardPage } from "./pages/BoardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { useBoardStore } from "./store/board";
 
 const DEMO_BOARD_ID = "demo-board-001";
 
@@ -25,7 +26,8 @@ function initDarkMode() {
 export function App() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    useFrameClient(true);
+    const setStoreUser = useBoardStore((s) => s.setUser);
+    useFrameClient();
 
     useEffect(() => {
         initDarkMode();
@@ -33,9 +35,12 @@ export function App() {
 
     useEffect(() => {
         fetchCurrentUser()
-            .then((u) => setUser(u))
+            .then((u) => {
+                setUser(u);
+                setStoreUser(u);
+            })
             .finally(() => setLoading(false));
-    }, []);
+    }, [setStoreUser]);
 
     if (loading) {
         return null;

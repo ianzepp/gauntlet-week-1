@@ -20,6 +20,24 @@ function darkenColor(hex: string): string {
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+function sendObjectUpdate(objectId: string, fields: Record<string, unknown>) {
+    const store = useBoardStore.getState();
+    const client = store.frameClient;
+    const boardId = store.boardId;
+    if (!client || !boardId) return;
+
+    client.send({
+        id: crypto.randomUUID(),
+        parent_id: null,
+        ts: new Date().toISOString(),
+        board_id: boardId,
+        from: "client",
+        syscall: "object:update",
+        status: "request",
+        data: { id: objectId, ...fields },
+    });
+}
+
 export const StickyNote = function StickyNote({
     object,
     isSelected,
@@ -44,12 +62,12 @@ export const StickyNote = function StickyNote({
 
     const handleDragEnd = useCallback(
         (e: KonvaEventObject<DragEvent>) => {
-            updateObject(object.id, {
-                x: e.target.x(),
-                y: e.target.y(),
-            });
+            const x = e.target.x();
+            const y = e.target.y();
+            updateObject(object.id, { x, y });
+            sendObjectUpdate(object.id, { x, y, version: object.version });
         },
-        [object.id, updateObject],
+        [object.id, object.version, updateObject],
     );
 
     const handleDblClick = useCallback(() => {
@@ -58,12 +76,12 @@ export const StickyNote = function StickyNote({
 
     const handleTextSave = useCallback(
         (newText: string) => {
-            updateObject(object.id, {
-                props: { ...object.props, text: newText },
-            });
+            const newProps = { ...object.props, text: newText };
+            updateObject(object.id, { props: newProps });
+            sendObjectUpdate(object.id, { props: newProps, version: object.version });
             setEditing(false);
         },
-        [object.id, object.props, updateObject],
+        [object.id, object.props, object.version, updateObject],
     );
 
     const handleTransformEnd = useCallback(
@@ -73,15 +91,17 @@ export const StickyNote = function StickyNote({
             const scaleY = node.scaleY();
             node.scaleX(1);
             node.scaleY(1);
-            updateObject(object.id, {
+            const updates = {
                 x: node.x(),
                 y: node.y(),
                 width: Math.max(5, object.width * scaleX),
                 height: Math.max(5, object.height * scaleY),
                 rotation: node.rotation(),
-            });
+            };
+            updateObject(object.id, updates);
+            sendObjectUpdate(object.id, { ...updates, version: object.version });
         },
-        [object.id, object.width, object.height, updateObject],
+        [object.id, object.width, object.height, object.version, updateObject],
     );
 
     const screenX = object.x * viewport.scale + viewport.x;

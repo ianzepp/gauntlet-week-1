@@ -1,17 +1,47 @@
 import { useEffect, useRef } from "react";
 import { createWsTicket } from "../lib/api";
 import { FrameClient } from "../lib/frameClient";
-import type { BoardObject, Frame } from "../lib/types";
+import type { BoardObject, Frame, Presence } from "../lib/types";
 import { useBoardStore } from "../store/board";
 
 export function useFrameClient(
-    mockMode = true,
+    mockMode = false,
 ): React.RefObject<FrameClient | null> {
     const clientRef = useRef<FrameClient | null>(null);
 
     useEffect(() => {
+        const store = useBoardStore.getState();
         const client = new FrameClient(mockMode);
         clientRef.current = client;
+        store.setFrameClient(client);
+        store.setConnectionStatus("connecting");
+
+        const handleSessionConnected = (frame: Frame) => {
+            const s = useBoardStore.getState();
+            s.setConnectionStatus("connected");
+
+            // Send board:join if we have a boardId
+            const boardId = s.boardId;
+            if (boardId) {
+                client.send({
+                    id: crypto.randomUUID(),
+                    parent_id: null,
+                    ts: new Date().toISOString(),
+                    board_id: boardId,
+                    from: "client",
+                    syscall: "board:join",
+                    status: "request",
+                    data: {},
+                });
+            }
+        };
+
+        const handleBoardJoin = (frame: Frame) => {
+            if (frame.status === "item" && frame.data.objects) {
+                const objects = frame.data.objects as unknown as BoardObject[];
+                useBoardStore.getState().setObjects(objects);
+            }
+        };
 
         const handleCreated = (frame: Frame) => {
             const obj = frame.data as unknown as BoardObject;
@@ -34,9 +64,31 @@ export function useFrameClient(
             }
         };
 
+        const handleCursorMoved = (frame: Frame) => {
+            const data = frame.data;
+            const clientId = data.client_id as string;
+            if (!clientId) return;
+
+            const presence: Presence = {
+                user_id: clientId,
+                name: (data.name as string) ?? "Anonymous",
+                color: (data.color as string) ?? "#6366f1",
+                cursor: { x: data.x as number, y: data.y as number },
+            };
+            useBoardStore.getState().setPresence(presence);
+        };
+
+        const handleDisconnected = () => {
+            useBoardStore.getState().setConnectionStatus("disconnected");
+        };
+
+        client.on("session:connected", handleSessionConnected);
+        client.on("session:disconnected", handleDisconnected);
+        client.on("board:join", handleBoardJoin);
         client.on("object:created", handleCreated);
         client.on("object:updated", handleUpdated);
         client.on("object:deleted", handleDeleted);
+        client.on("cursor:moved", handleCursorMoved);
 
         if (!mockMode) {
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -50,6 +102,9 @@ export function useFrameClient(
         return () => {
             client.disconnect();
             clientRef.current = null;
+            const s = useBoardStore.getState();
+            s.setFrameClient(null);
+            s.setConnectionStatus("disconnected");
         };
     }, [mockMode]);
 

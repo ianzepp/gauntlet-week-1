@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import type { BoardObject, Presence, ToolType, Viewport } from "../lib/types";
+import type { FrameClient } from "../lib/frameClient";
+import type { BoardObject, Presence, ToolType, User, Viewport } from "../lib/types";
+
+type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 interface BoardState {
     boardId: string | null;
@@ -8,6 +11,9 @@ interface BoardState {
     selection: Set<string>;
     viewport: Viewport;
     activeTool: ToolType;
+    frameClient: FrameClient | null;
+    connectionStatus: ConnectionStatus;
+    user: User | null;
 
     setBoardId: (id: string | null) => void;
     setObjects: (objects: BoardObject[]) => void;
@@ -21,6 +27,10 @@ interface BoardState {
     clearSelection: () => void;
     setViewport: (viewport: Partial<Viewport>) => void;
     setTool: (tool: ToolType) => void;
+    setFrameClient: (client: FrameClient | null) => void;
+    setConnectionStatus: (status: ConnectionStatus) => void;
+    setUser: (user: User | null) => void;
+    replaceObjectId: (tempId: string, newId: string) => void;
 }
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -30,6 +40,9 @@ export const useBoardStore = create<BoardState>((set) => ({
     selection: new Set(),
     viewport: { x: 0, y: 0, scale: 1 },
     activeTool: "select",
+    frameClient: null,
+    connectionStatus: "disconnected",
+    user: null,
 
     setBoardId: (id) => set({ boardId: id }),
 
@@ -98,4 +111,23 @@ export const useBoardStore = create<BoardState>((set) => ({
         })),
 
     setTool: (tool) => set({ activeTool: tool }),
+
+    setFrameClient: (client) => set({ frameClient: client }),
+    setConnectionStatus: (status) => set({ connectionStatus: status }),
+    setUser: (user) => set({ user }),
+
+    replaceObjectId: (tempId, newId) =>
+        set((state) => {
+            const existing = state.objects.get(tempId);
+            if (!existing) return state;
+            const next = new Map(state.objects);
+            next.delete(tempId);
+            next.set(newId, { ...existing, id: newId });
+            const selection = new Set(state.selection);
+            if (selection.has(tempId)) {
+                selection.delete(tempId);
+                selection.add(newId);
+            }
+            return { objects: next, selection };
+        }),
 }));

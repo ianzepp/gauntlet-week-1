@@ -27,6 +27,24 @@ function useIsDark() {
     return isDark;
 }
 
+function sendObjectUpdate(objectId: string, fields: Record<string, unknown>) {
+    const store = useBoardStore.getState();
+    const client = store.frameClient;
+    const boardId = store.boardId;
+    if (!client || !boardId) return;
+
+    client.send({
+        id: crypto.randomUUID(),
+        parent_id: null,
+        ts: new Date().toISOString(),
+        board_id: boardId,
+        from: "client",
+        syscall: "object:update",
+        status: "request",
+        data: { id: objectId, ...fields },
+    });
+}
+
 interface ShapeProps {
     object: BoardObject;
     isSelected: boolean;
@@ -57,12 +75,12 @@ export const Shape = function Shape({
 
     const handleDragEnd = useCallback(
         (e: KonvaEventObject<DragEvent>) => {
-            updateObject(object.id, {
-                x: e.target.x(),
-                y: e.target.y(),
-            });
+            const x = e.target.x();
+            const y = e.target.y();
+            updateObject(object.id, { x, y });
+            sendObjectUpdate(object.id, { x, y, version: object.version });
         },
-        [object.id, updateObject],
+        [object.id, object.version, updateObject],
     );
 
     const handleTransformEnd = useCallback(
@@ -73,26 +91,29 @@ export const Shape = function Shape({
             node.scaleX(1);
             node.scaleY(1);
 
+            let updates: Partial<BoardObject>;
             if (object.kind === "ellipse") {
                 const ellipse = node as Konva.Ellipse;
-                updateObject(object.id, {
+                updates = {
                     x: node.x() - ellipse.radiusX(),
                     y: node.y() - ellipse.radiusY(),
                     width: Math.max(5, ellipse.radiusX() * 2),
                     height: Math.max(5, ellipse.radiusY() * 2),
                     rotation: node.rotation(),
-                });
+                };
             } else {
-                updateObject(object.id, {
+                updates = {
                     x: node.x(),
                     y: node.y(),
                     width: Math.max(5, node.width() * scaleX),
                     height: Math.max(5, node.height() * scaleY),
                     rotation: node.rotation(),
-                });
+                };
             }
+            updateObject(object.id, updates);
+            sendObjectUpdate(object.id, { ...updates, version: object.version });
         },
-        [object.id, object.kind, updateObject],
+        [object.id, object.kind, object.version, updateObject],
     );
 
     if (object.kind === "ellipse") {
