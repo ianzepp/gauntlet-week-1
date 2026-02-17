@@ -2,6 +2,7 @@
     position: absolute;
     top: var(--space-md);
     right: var(--space-md);
+    z-index: var(--z-canvas-ui);
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
     padding: var(--space-sm) var(--space-md);

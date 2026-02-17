@@ -5,7 +5,7 @@
     right: 20px;
     height: 20px;
     pointer-events: none;
-    z-index: 10;
+    z-index: var(--z-grid-gutter);
     background: var(--canvas-bg);
     opacity: 0.85;
 }
@@ -25,7 +25,7 @@
     bottom: 20px;
     width: 20px;
     pointer-events: none;
-    z-index: 10;
+    z-index: var(--z-grid-gutter);
     background: var(--canvas-bg);
     opacity: 0.85;
 }
@@ -43,7 +43,7 @@
     width: 20px;
     height: 20px;
     pointer-events: none;
-    z-index: 10;
+    z-index: var(--z-grid-gutter);
     background: var(--canvas-bg);
     opacity: 0.85;
 }

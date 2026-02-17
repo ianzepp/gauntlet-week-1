@@ -69,7 +69,7 @@ export function TextEditor({
                 resize: "none",
                 color: "#2C2824",
                 overflow: "hidden",
-                zIndex: 1000,
+                zIndex: 10, // --z-canvas-ui
             }}
         />
     );

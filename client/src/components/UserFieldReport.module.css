@@ -1,13 +1,13 @@
 .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 999;
+    z-index: var(--z-modal);
 }
 
 .popover {
     position: fixed;
     bottom: 32px;
-    z-index: 1000;
+    z-index: var(--z-modal);
     width: 240px;
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
