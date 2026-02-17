@@ -5,7 +5,6 @@ import { LeftPanel } from "../components/LeftPanel";
 import { RightPanel } from "../components/RightPanel";
 import { StatusBar } from "../components/StatusBar";
 import { Toolbar } from "../components/Toolbar";
-import { ToolRail } from "../components/ToolRail";
 import { useBoardStore } from "../store/board";
 
 interface BoardPageProps {
@@ -69,7 +68,6 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
         >
             <Toolbar onBack={onBack} />
             <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-                <ToolRail />
                 <LeftPanel />
                 <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
                     <Canvas />

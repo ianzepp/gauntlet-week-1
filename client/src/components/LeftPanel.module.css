@@ -18,7 +18,9 @@
     height: 100%;
 }
 
-.railButton {
+/* Tool buttons (select, shapes, draw) */
+
+.toolButton {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -32,16 +34,16 @@
     position: relative;
 }
 
-.railButton:hover {
+.toolButton:hover {
     color: var(--text-nav-active);
     background: transparent;
 }
 
-.railButton.railButtonActive {
+.toolButton.toolButtonActive {
     color: var(--text-nav-active);
 }
 
-.railButton.railButtonActive::after {
+.toolButton.toolButtonActive::after {
     content: "";
     position: absolute;
     left: 0;
@@ -50,6 +52,30 @@
     width: 2px;
     background: var(--accent-green);
 }
+
+.toolButton.toolButtonDisabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.toolButton svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.separator {
+    width: 24px;
+    height: 1px;
+    background: var(--border-default);
+    margin: var(--space-xs) 0;
+}
+
+/* Spacer + chevron toggle */
 
 .railSpacer {
     flex: 1;
@@ -83,15 +109,7 @@
     stroke-linejoin: miter;
 }
 
-.railButton svg {
-    width: 20px;
-    height: 20px;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: square;
-    stroke-linejoin: miter;
-}
+/* Expandable panel */
 
 .panel {
     width: 320px;
