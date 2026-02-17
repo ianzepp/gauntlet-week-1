@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 
-const TOOLBAR_HEIGHT = 44;
+const TOOLBAR_HEIGHT = 36;
 const STATUSBAR_HEIGHT = 24;
+const TOOLRAIL_WIDTH = 52;
 const CHROME_HEIGHT = TOOLBAR_HEIGHT + STATUSBAR_HEIGHT;
 
 export function useCanvasSize(): { width: number; height: number } {
     const [size, setSize] = useState({
-        width: window.innerWidth,
+        width: window.innerWidth - TOOLRAIL_WIDTH,
         height: window.innerHeight - CHROME_HEIGHT,
     });
 
     useEffect(() => {
         const handleResize = () => {
             setSize({
-                width: window.innerWidth,
+                width: window.innerWidth - TOOLRAIL_WIDTH,
                 height: window.innerHeight - CHROME_HEIGHT,
             });
         };

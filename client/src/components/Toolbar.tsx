@@ -1,19 +1,12 @@
-import type { ToolType } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import styles from "./Toolbar.module.css";
 
-const TOOLS: { type: ToolType; label: string; icon: string }[] = [
-    { type: "select", label: "Select", icon: "\u25B3" },
-    { type: "sticky", label: "Sticky", icon: "\u25A1" },
-    { type: "rectangle", label: "Rect", icon: "\u25AD" },
-    { type: "ellipse", label: "Ellipse", icon: "\u25CB" },
-];
-
 export function Toolbar() {
-    const activeTool = useBoardStore((s) => s.activeTool);
-    const setTool = useBoardStore((s) => s.setTool);
-    const aiPanelOpen = useBoardStore((s) => s.aiPanelOpen);
+    const rightPanelOpen = useBoardStore((s) => s.rightPanelOpen);
+    const activeRightTab = useBoardStore((s) => s.activeRightTab);
     const toggleAiPanel = useBoardStore((s) => s.toggleAiPanel);
+    const presence = useBoardStore((s) => s.presence);
+    const user = useBoardStore((s) => s.user);
 
     const toggleDarkMode = () => {
         const html = document.documentElement;
@@ -21,38 +14,56 @@ export function Toolbar() {
         localStorage.setItem("collaboard_dark", isDark ? "true" : "false");
     };
 
+    const allUsers = [
+        ...(user ? [{ id: user.id, name: user.name, color: user.color }] : []),
+        ...Array.from(presence.values()).map((p) => ({
+            id: p.user_id,
+            name: p.name,
+            color: p.color,
+        })),
+    ];
+
     return (
         <div className={styles.toolbar}>
-            <div className={styles.tools}>
-                {TOOLS.map((tool) => (
-                    <button
-                        key={tool.type}
-                        type="button"
-                        className={`${styles.toolButton} ${activeTool === tool.type ? styles.active : ""}`}
-                        onClick={() => setTool(tool.type)}
+            <div className={styles.left}>
+                <span className={styles.boardName}>CollabBoard</span>
+            </div>
+            <div className={styles.center}>
+                {allUsers.map((u) => (
+                    <span
+                        key={u.id}
+                        className={styles.presenceChip}
+                        style={{ borderColor: u.color }}
+                        title={u.name}
                     >
-                        <span className={styles.toolIcon}>{tool.icon}</span>
-                        <span className={styles.toolLabel}>{tool.label}</span>
-                    </button>
+                        <span
+                            className={styles.presenceDot}
+                            style={{ background: u.color }}
+                        />
+                        {u.name}
+                    </span>
                 ))}
             </div>
-            <div className={styles.separator} />
             <div className={styles.right}>
                 <button
                     type="button"
-                    className={`${styles.toolButton} ${aiPanelOpen ? styles.active : ""}`}
+                    className={`${styles.actionButton} ${rightPanelOpen && activeRightTab === "ai" ? styles.active : ""}`}
                     onClick={toggleAiPanel}
+                    title="AI Assistant"
                 >
-                    <span className={styles.toolIcon}>{"\u2726"}</span>
-                    <span className={styles.toolLabel}>AI</span>
+                    <svg viewBox="0 0 20 20" className={styles.actionIcon}>
+                        <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+                    </svg>
                 </button>
                 <button
                     type="button"
-                    className={styles.toolButton}
+                    className={styles.actionButton}
                     onClick={toggleDarkMode}
+                    title="Toggle Theme"
                 >
-                    <span className={styles.toolIcon}>{"\u263D"}</span>
-                    <span className={styles.toolLabel}>Theme</span>
+                    <svg viewBox="0 0 20 20" className={styles.actionIcon}>
+                        <path d="M10 3 A7 7 0 1 0 10 17 A5 5 0 1 1 10 3" />
+                    </svg>
                 </button>
             </div>
         </div>

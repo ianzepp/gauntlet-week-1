@@ -1,0 +1,96 @@
+.panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-sm);
+    gap: var(--space-md);
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: var(--space-sm);
+    color: var(--text-tertiary);
+}
+
+.emptyLabel {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.sectionTitle {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-default);
+    padding-bottom: var(--space-xs);
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.rowLabel {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.rowValue {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.colorSwatches {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+}
+
+.swatch {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border-default);
+    cursor: pointer;
+    transition: border-color 150ms ease;
+    padding: 0;
+    background: none;
+}
+
+.swatch:hover {
+    border-color: var(--text-primary);
+}
+
+.swatch.activeSwatch {
+    border: 2px solid var(--text-primary);
+}
+
+.objectKind {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+}

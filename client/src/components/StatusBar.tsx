@@ -1,47 +1,56 @@
 import { useBoardStore } from "../store/board";
 import styles from "./StatusBar.module.css";
 
-const STATUS_LABELS: Record<string, string> = {
-    connected: "Connected",
-    connecting: "Connecting...",
-    disconnected: "Offline",
-};
-
 export function StatusBar() {
     const objects = useBoardStore((s) => s.objects);
     const viewport = useBoardStore((s) => s.viewport);
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
     const presence = useBoardStore((s) => s.presence);
+    const user = useBoardStore((s) => s.user);
+    const boardId = useBoardStore((s) => s.boardId);
 
     const objectCount = objects.size;
     const zoom = Math.round(viewport.scale * 100);
-    const userCount = presence.size + 1; // +1 for self
     const isConnected = connectionStatus === "connected";
+
+    const allUsers = [
+        ...(user ? [{ id: user.id, name: user.name, color: user.color }] : []),
+        ...Array.from(presence.values()).map((p) => ({
+            id: p.user_id,
+            name: p.name,
+            color: p.color,
+        })),
+    ];
 
     return (
         <div className={styles.statusBar}>
             <div className={styles.section}>
                 <span className={styles.item}>
-                    <span className={`${styles.dot} ${isConnected ? styles.connected : ""}`} />
-                    {STATUS_LABELS[connectionStatus] ?? "Offline"}
+                    <span
+                        className={`${styles.dot} ${isConnected ? styles.connected : ""}`}
+                    />
                 </span>
-                {isConnected && (
+                {boardId && (
                     <>
                         <span className={styles.divider} />
-                        <span className={styles.item}>
-                            {userCount} {userCount === 1 ? "user" : "users"}
-                        </span>
+                        <span className={styles.boardName}>{boardId}</span>
                     </>
                 )}
                 <span className={styles.divider} />
                 <span className={styles.item}>
-                    {objectCount} {objectCount === 1 ? "object" : "objects"}
+                    {objectCount} {objectCount === 1 ? "obj" : "objs"}
                 </span>
             </div>
             <div className={styles.section}>
-                <span className={styles.item}>
-                    {viewport.x.toFixed(0)}, {viewport.y.toFixed(0)}
-                </span>
+                {allUsers.map((u) => (
+                    <span key={u.id} className={styles.userChip}>
+                        <span
+                            className={styles.userDot}
+                            style={{ background: u.color }}
+                        />
+                        {u.name}
+                    </span>
+                ))}
                 <span className={styles.divider} />
                 <span className={styles.item}>{zoom}%</span>
             </div>

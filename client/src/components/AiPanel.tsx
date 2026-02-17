@@ -6,7 +6,6 @@ import styles from "./AiPanel.module.css";
 export function AiPanel() {
     const messages = useBoardStore((s) => s.aiMessages);
     const loading = useBoardStore((s) => s.aiLoading);
-    const togglePanel = useBoardStore((s) => s.toggleAiPanel);
     const { sendPrompt } = useAI();
 
     const [input, setInput] = useState("");
@@ -32,16 +31,6 @@ export function AiPanel() {
 
     return (
         <div className={styles.panel}>
-            <div className={styles.header}>
-                <span className={styles.headerTitle}>AI Assistant</span>
-                <button
-                    type="button"
-                    className={styles.closeButton}
-                    onClick={togglePanel}
-                >
-                    ✕
-                </button>
-            </div>
             <div className={styles.messages}>
                 {messages.map((msg, i) => (
                     <div
@@ -57,7 +46,8 @@ export function AiPanel() {
                         {msg.text}
                         {msg.mutations != null && msg.mutations > 0 && (
                             <div className={styles.mutations}>
-                                {msg.mutations} object{msg.mutations !== 1 ? "s" : ""} modified
+                                {msg.mutations} object
+                                {msg.mutations !== 1 ? "s" : ""} modified
                             </div>
                         )}
                     </div>

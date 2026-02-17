@@ -13,7 +13,10 @@
     display: flex;
     align-items: center;
     gap: var(--space-sm);
+    font-family: var(--font-mono);
     font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--text-secondary);
     line-height: 1;
 }
@@ -38,4 +41,23 @@
 
 .dot.connected {
     background: var(--accent-green);
+}
+
+.boardName {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.userChip {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.userDot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
 }

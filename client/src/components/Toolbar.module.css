@@ -1,68 +1,90 @@
 .toolbar {
     display: flex;
     align-items: center;
-    height: 44px;
+    height: 36px;
     background: var(--bg-nav);
     padding: 0 var(--space-sm);
-    gap: var(--space-xs);
     flex-shrink: 0;
 }
 
-.tools {
+.left {
     display: flex;
     align-items: center;
-    gap: 0;
+    gap: var(--space-sm);
 }
 
-.toolButton {
+.boardName {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-nav-active);
+}
+
+.center {
+    flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: var(--space-xs) var(--space-sm);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--text-nav);
-    cursor: pointer;
-    transition: color 150ms ease, border-color 150ms ease;
-    height: 44px;
+    gap: var(--space-sm);
 }
 
-.toolButton:hover {
-    color: var(--text-nav-active);
-    background: transparent;
-}
-
-.toolButton.active {
-    color: var(--text-nav-active);
-    border-bottom-color: var(--accent-green);
-}
-
-.toolIcon {
-    font-size: 18px;
-    line-height: 1;
-}
-
-.toolLabel {
+.presenceChip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    line-height: 1;
+    color: var(--text-nav);
+    border-left: 2px solid;
+    padding-left: var(--space-xs);
 }
 
-.separator {
-    width: 1px;
-    height: 24px;
-    background: var(--border-default);
-    margin: 0 var(--space-xs);
+.presenceDot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
 }
 
 .right {
-    margin-left: auto;
     display: flex;
     align-items: center;
+    gap: var(--space-xs);
+}
+
+.actionButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-nav);
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+}
+
+.actionButton:hover {
+    color: var(--text-nav-active);
+    background: transparent;
+}
+
+.actionButton.active {
+    color: var(--text-nav-active);
+    border-color: var(--accent-green);
+}
+
+.actionIcon {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
 }

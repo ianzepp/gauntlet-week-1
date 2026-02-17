@@ -3,6 +3,7 @@ import type { FrameClient } from "../lib/frameClient";
 import type { BoardObject, Presence, ToolType, User, Viewport } from "../lib/types";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
+export type RightTab = "inspector" | "ai";
 
 export interface AiMessage {
     role: "user" | "assistant" | "error";
@@ -23,6 +24,8 @@ interface BoardState {
     aiMessages: AiMessage[];
     aiLoading: boolean;
     aiPanelOpen: boolean;
+    activeRightTab: RightTab;
+    rightPanelOpen: boolean;
 
     setBoardId: (id: string | null) => void;
     setObjects: (objects: BoardObject[]) => void;
@@ -43,6 +46,9 @@ interface BoardState {
     addAiMessage: (message: AiMessage) => void;
     setAiLoading: (loading: boolean) => void;
     toggleAiPanel: () => void;
+    setRightTab: (tab: RightTab) => void;
+    openRightPanel: (tab: RightTab) => void;
+    closeRightPanel: () => void;
 }
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -58,6 +64,8 @@ export const useBoardStore = create<BoardState>((set) => ({
     aiMessages: [],
     aiLoading: false,
     aiPanelOpen: false,
+    activeRightTab: "inspector" as RightTab,
+    rightPanelOpen: false,
 
     setBoardId: (id) => set({ boardId: id }),
 
@@ -152,5 +160,19 @@ export const useBoardStore = create<BoardState>((set) => ({
     setAiLoading: (loading) => set({ aiLoading: loading }),
 
     toggleAiPanel: () =>
-        set((state) => ({ aiPanelOpen: !state.aiPanelOpen })),
+        set((state) => {
+            if (state.rightPanelOpen && state.activeRightTab === "ai") {
+                return { rightPanelOpen: false, aiPanelOpen: false };
+            }
+            return { rightPanelOpen: true, activeRightTab: "ai" as RightTab, aiPanelOpen: true };
+        }),
+
+    setRightTab: (tab) =>
+        set({ activeRightTab: tab, aiPanelOpen: tab === "ai" }),
+
+    openRightPanel: (tab) =>
+        set({ rightPanelOpen: true, activeRightTab: tab, aiPanelOpen: tab === "ai" }),
+
+    closeRightPanel: () =>
+        set({ rightPanelOpen: false, aiPanelOpen: false }),
 }));

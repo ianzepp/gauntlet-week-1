@@ -1,97 +1,79 @@
 .panel {
-    width: 360px;
-    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    background: var(--bg-secondary);
-    border-left: 1px solid var(--border-default);
-    height: 100%;
-}
-
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 36px;
-    padding: 0 var(--space-sm);
-    border-bottom: 1px solid var(--border-default);
-    flex-shrink: 0;
-}
-
-.headerTitle {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-primary);
-}
-
-.closeButton {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 16px;
-    padding: 0;
-    line-height: 1;
-}
-
-.closeButton:hover {
-    color: var(--text-primary);
+    flex: 1;
+    overflow: hidden;
 }
 
 .messages {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-sm);
+    padding: var(--space-md) var(--space-sm);
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: 0;
+    background: var(--bg-primary);
+    background-image: repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        var(--border-subtle) 27px,
+        var(--border-subtle) 28px
+    );
+    background-size: 100% 28px;
+    background-position: 0 0;
 }
 
 .message {
-    max-width: 85%;
-    padding: var(--space-xs) var(--space-sm);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.4;
+    padding: 0 var(--space-sm);
+    font-family: var(--font-script);
+    font-size: 18px;
+    line-height: 28px;
     white-space: pre-wrap;
     word-break: break-word;
+    color: var(--text-primary);
+    border: none;
+    background: none;
 }
 
 .messageUser {
-    align-self: flex-end;
-    background: var(--accent-green);
-    color: var(--bg-primary);
-}
-
-.messageAssistant {
-    align-self: flex-start;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
     color: var(--text-primary);
 }
 
+.messageAssistant {
+    color: var(--text-secondary);
+    border-left: 2px solid var(--accent-green);
+    margin-left: var(--space-xs);
+    padding-left: var(--space-sm);
+}
+
 .messageError {
-    align-self: flex-start;
-    background: var(--bg-primary);
-    border: 1px solid var(--accent-red, #e55);
-    color: var(--accent-red, #e55);
+    color: var(--accent-error);
+    border-left: 2px solid var(--accent-error);
+    margin-left: var(--space-xs);
+    padding-left: var(--space-sm);
 }
 
 .mutations {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    line-height: 28px;
 }
 
 .loading {
-    align-self: flex-start;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-secondary);
-    padding: var(--space-xs) var(--space-sm);
+    font-family: var(--font-script);
+    font-size: 18px;
+    line-height: 28px;
+    color: var(--text-tertiary);
+    padding: 0 var(--space-sm);
+    animation: pulse 1.5s ease infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
 }
 
 .inputArea {
@@ -100,6 +82,7 @@
     padding: var(--space-sm);
     border-top: 1px solid var(--border-default);
     flex-shrink: 0;
+    background: var(--bg-secondary);
 }
 
 .input {
@@ -107,10 +90,11 @@
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
     color: var(--text-primary);
-    font-family: var(--font-mono);
-    font-size: 13px;
+    font-family: var(--font-script);
+    font-size: 18px;
     padding: var(--space-xs) var(--space-sm);
     outline: none;
+    line-height: 1.4;
 }
 
 .input:focus {
@@ -119,6 +103,7 @@
 
 .input::placeholder {
     color: var(--text-tertiary);
+    font-family: var(--font-script);
 }
 
 .sendButton {
@@ -126,7 +111,7 @@
     border: none;
     color: var(--bg-primary);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     padding: var(--space-xs) var(--space-sm);
