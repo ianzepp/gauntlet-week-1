@@ -9,22 +9,14 @@ import styles from "./RightPanel.module.css";
 
 const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
     {
-        id: "inspector",
-        label: "Inspector",
+        id: "boards",
+        label: "Boards",
         icon: (
             <svg viewBox="0 0 20 20">
-                <rect x="3" y="3" width="14" height="14" rx="2" />
-                <line x1="3" y1="10" x2="17" y2="10" />
-                <line x1="10" y1="10" x2="10" y2="17" />
-            </svg>
-        ),
-    },
-    {
-        id: "ai",
-        label: "Field Notes",
-        icon: (
-            <svg viewBox="0 0 20 20">
-                <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+                <rect x="2" y="2" width="7" height="7" rx="1" />
+                <rect x="11" y="2" width="7" height="7" rx="1" />
+                <rect x="2" y="11" width="7" height="7" rx="1" />
+                <rect x="11" y="11" width="7" height="7" rx="1" />
             </svg>
         ),
     },
@@ -38,14 +30,22 @@ const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
         ),
     },
     {
-        id: "boards",
-        label: "Boards",
+        id: "ai",
+        label: "Field Notes",
         icon: (
             <svg viewBox="0 0 20 20">
-                <rect x="2" y="2" width="7" height="7" rx="1" />
-                <rect x="11" y="2" width="7" height="7" rx="1" />
-                <rect x="2" y="11" width="7" height="7" rx="1" />
-                <rect x="11" y="11" width="7" height="7" rx="1" />
+                <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+            </svg>
+        ),
+    },
+    {
+        id: "inspector",
+        label: "Inspector",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="3" y="3" width="14" height="14" rx="2" />
+                <line x1="3" y1="10" x2="17" y2="10" />
+                <line x1="10" y1="10" x2="10" y2="17" />
             </svg>
         ),
     },
