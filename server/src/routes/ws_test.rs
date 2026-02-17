@@ -271,6 +271,45 @@ async fn chat_message_broadcasts_to_peers_and_replies_with_trimmed_message() {
 }
 
 #[tokio::test]
+async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
+        register_two_clients(&state, board_id).await;
+    let mut current_board = Some(board_id);
+    let user_id = Uuid::new_v4();
+
+    let mut data = Data::new();
+    data.insert("x".into(), json!(321.5));
+    data.insert("y".into(), json!(654.25));
+    data.insert("name".into(), json!("Alice"));
+    data.insert("color".into(), json!("#22c55e"));
+    let text = request_json(board_id, "cursor:moved", data);
+
+    let sender_frames =
+        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+
+    // Cursor events are peer-only and do not echo a response frame to sender.
+    assert!(sender_frames.is_empty());
+    assert_no_board_broadcast(&mut sender_rx).await;
+
+    let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
+    assert_eq!(peer_broadcast.syscall, "cursor:moved");
+    let expected_client_id = sender_client_id.to_string();
+    assert_eq!(
+        peer_broadcast
+            .data
+            .get("client_id")
+            .and_then(|v| v.as_str()),
+        Some(expected_client_id.as_str())
+    );
+    assert_eq!(peer_broadcast.data.get("x").and_then(|v| v.as_f64()), Some(321.5));
+    assert_eq!(peer_broadcast.data.get("y").and_then(|v| v.as_f64()), Some(654.25));
+    assert_eq!(peer_broadcast.data.get("name").and_then(|v| v.as_str()), Some("Alice"));
+    assert_eq!(peer_broadcast.data.get("color").and_then(|v| v.as_str()), Some("#22c55e"));
+}
+
+#[tokio::test]
 async fn chat_history_requires_joined_board() {
     let state = test_helpers::test_app_state();
     let (client_tx, mut client_rx) = mpsc::channel(8);
@@ -484,10 +523,7 @@ async fn multi_user_single_change_reaches_other_user() {
         .expect("sender reply should include object id")
         .to_string();
     assert_eq!(
-        a_reply[0]
-            .data
-            .get("created_by")
-            .and_then(|v| v.as_str()),
+        a_reply[0].data.get("created_by").and_then(|v| v.as_str()),
         Some(user_a_str.as_str())
     );
 
@@ -495,10 +531,7 @@ async fn multi_user_single_change_reaches_other_user() {
     assert_eq!(b_broadcast.syscall, "object:create");
     assert_eq!(b_broadcast.data.get("id").and_then(|v| v.as_str()), Some(created_id.as_str()));
     assert_eq!(
-        b_broadcast
-            .data
-            .get("created_by")
-            .and_then(|v| v.as_str()),
+        b_broadcast.data.get("created_by").and_then(|v| v.as_str()),
         Some(user_a_str.as_str())
     );
     assert_eq!(
@@ -806,8 +839,18 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     assert_eq!(peer_broadcast.syscall, "object:create");
     assert_eq!(sender_broadcast.data.get("kind").and_then(|v| v.as_str()), Some("sticky_note"));
     assert_eq!(peer_broadcast.data.get("kind").and_then(|v| v.as_str()), Some("sticky_note"));
-    assert!(sender_broadcast.data.get("created_by").is_some_and(serde_json::Value::is_null));
-    assert!(peer_broadcast.data.get("created_by").is_some_and(serde_json::Value::is_null));
+    assert!(
+        sender_broadcast
+            .data
+            .get("created_by")
+            .is_some_and(serde_json::Value::is_null)
+    );
+    assert!(
+        peer_broadcast
+            .data
+            .get("created_by")
+            .is_some_and(serde_json::Value::is_null)
+    );
 
     let boards = state.boards.read().await;
     let board = boards.get(&board_id).expect("board should be present");

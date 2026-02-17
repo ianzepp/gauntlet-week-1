@@ -1,12 +1,15 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Circle, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
+import type { Presence } from "../lib/types";
 import { useBoardStore } from "../store/board";
 
 const GRID_SIZE = 20;
 const GRID_MAJOR = 5;
+const CURSOR_SEND_INTERVAL_MS = 50;
+const CURSOR_SEND_MIN_DELTA = 0.5;
 
 function GridLines({
     width,
@@ -91,7 +94,12 @@ export function Canvas() {
         objectX: number;
         objectY: number;
     } | null>(null);
+    const lastCursorSendTsRef = useRef(0);
+    const lastCursorSentPosRef = useRef<{ x: number; y: number } | null>(null);
 
+    const boardId = useBoardStore((s) => s.boardId);
+    const user = useBoardStore((s) => s.user);
+    const presence = useBoardStore((s) => s.presence);
     const viewport = useBoardStore((s) => s.viewport);
     const setViewport = useBoardStore((s) => s.setViewport);
     const setCursorPosition = useBoardStore((s) => s.setCursorPosition);
@@ -113,6 +121,13 @@ export function Canvas() {
         [objects],
     );
     const editingObject = editingObjectId ? objects.get(editingObjectId) ?? null : null;
+    const remoteCursors = useMemo(
+        () =>
+            Array.from(presence.values()).filter(
+                (p): p is Presence & { cursor: { x: number; y: number } } => p.cursor !== null,
+            ),
+        [presence],
+    );
 
     const findTopRectangleAtPoint = useCallback(
         (canvasX: number, canvasY: number) =>
@@ -318,11 +333,11 @@ export function Canvas() {
 
             const pointer = stage.getPointerPosition();
             if (!pointer) return;
+            const canvasX = (pointer.x - viewport.x) / viewport.scale;
+            const canvasY = (pointer.y - viewport.y) / viewport.scale;
 
             if (objectDragRef.current) {
                 const drag = objectDragRef.current;
-                const canvasX = (pointer.x - viewport.x) / viewport.scale;
-                const canvasY = (pointer.y - viewport.y) / viewport.scale;
                 updateObject(drag.id, {
                     x: drag.objectX + (canvasX - drag.pointerX),
                     y: drag.objectY + (canvasY - drag.pointerY),
@@ -335,11 +350,37 @@ export function Canvas() {
                 setViewport({ x: v.x + dx, y: v.y + dy });
             }
 
-            const canvasX = Math.round((pointer.x - viewport.x) / viewport.scale);
-            const canvasY = Math.round((pointer.y - viewport.y) / viewport.scale);
-            setCursorPosition({ x: canvasX, y: canvasY });
+            setCursorPosition({ x: Math.round(canvasX), y: Math.round(canvasY) });
+
+            if (frameClient && boardId) {
+                const now = Date.now();
+                const last = lastCursorSentPosRef.current;
+                const movedEnough =
+                    !last ||
+                    Math.abs(canvasX - last.x) >= CURSOR_SEND_MIN_DELTA ||
+                    Math.abs(canvasY - last.y) >= CURSOR_SEND_MIN_DELTA;
+                if (movedEnough && now - lastCursorSendTsRef.current >= CURSOR_SEND_INTERVAL_MS) {
+                    frameClient.send({
+                        id: crypto.randomUUID(),
+                        parent_id: null,
+                        ts: now,
+                        board_id: boardId,
+                        from: null,
+                        syscall: "cursor:moved",
+                        status: "request",
+                        data: {
+                            x: canvasX,
+                            y: canvasY,
+                            name: user?.name ?? "Anonymous",
+                            color: user?.color ?? "#6366f1",
+                        },
+                    });
+                    lastCursorSendTsRef.current = now;
+                    lastCursorSentPosRef.current = { x: canvasX, y: canvasY };
+                }
+            }
         },
-        [setCursorPosition, setViewport, updateObject, viewport],
+        [boardId, frameClient, setCursorPosition, setViewport, updateObject, user, viewport],
     );
 
     const handleMouseUp = useCallback(() => {
@@ -355,6 +396,7 @@ export function Canvas() {
         const container = stageRef.current?.container();
         if (container) container.style.cursor = "";
         setCursorPosition(null);
+        lastCursorSentPosRef.current = null;
     }, [commitDraggedObject, setCursorPosition]);
 
     const handleDoubleClick = useCallback(
@@ -448,6 +490,53 @@ export function Canvas() {
                                 fill="#1F1A17"
                                 listening={false}
                             />
+                        );
+                    })}
+                </Layer>
+                <Layer listening={false}>
+                    {remoteCursors.map((presenceItem) => {
+                        const label = presenceItem.name || "Anonymous";
+                        const labelWidth = Math.max(54, Math.min(190, label.length * 7 + 16));
+                        return (
+                            <Group
+                                key={`cursor-${presenceItem.user_id}`}
+                                x={presenceItem.cursor.x}
+                                y={presenceItem.cursor.y}
+                                scaleX={1 / viewport.scale}
+                                scaleY={1 / viewport.scale}
+                                listening={false}
+                            >
+                                <Line
+                                    points={[0, 0, 0, 18, 5, 13, 9, 24, 13, 22, 9, 12, 18, 12]}
+                                    closed
+                                    fill={presenceItem.color}
+                                    stroke="#ffffff"
+                                    strokeWidth={1}
+                                    listening={false}
+                                />
+                                <Rect
+                                    x={18}
+                                    y={-11}
+                                    width={labelWidth}
+                                    height={22}
+                                    cornerRadius={7}
+                                    fill="rgba(17,17,17,0.82)"
+                                    stroke={presenceItem.color}
+                                    strokeWidth={1}
+                                    listening={false}
+                                />
+                                <Text
+                                    x={25}
+                                    y={-6}
+                                    width={labelWidth - 10}
+                                    height={12}
+                                    text={label}
+                                    fontFamily="monospace"
+                                    fontSize={12}
+                                    fill="#ffffff"
+                                    listening={false}
+                                />
+                            </Group>
                         );
                     })}
                 </Layer>

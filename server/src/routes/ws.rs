@@ -458,7 +458,20 @@ async fn handle_object(
                 .cloned()
                 .unwrap_or(serde_json::json!({}));
 
-            match services::object::create_object(state, board_id, kind, x, y, width, height, rotation, props, Some(user_id)).await {
+            match services::object::create_object(
+                state,
+                board_id,
+                kind,
+                x,
+                y,
+                width,
+                height,
+                rotation,
+                props,
+                Some(user_id),
+            )
+            .await
+            {
                 Ok(obj) => Ok(Outcome::Broadcast(object_to_data(&obj))),
                 Err(e) => Err(req.error_from(&e)),
             }
@@ -532,12 +545,18 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
         .get("name")
         .and_then(|v| v.as_str())
         .unwrap_or("anonymous");
+    let color = req
+        .data
+        .get("color")
+        .and_then(|v| v.as_str())
+        .unwrap_or("#6366f1");
 
     let mut data = Data::new();
     data.insert("client_id".into(), serde_json::json!(client_id));
     data.insert("x".into(), serde_json::json!(x));
     data.insert("y".into(), serde_json::json!(y));
     data.insert("name".into(), serde_json::json!(name));
+    data.insert("color".into(), serde_json::json!(color));
 
     Outcome::BroadcastExcludeSender(data)
 }
