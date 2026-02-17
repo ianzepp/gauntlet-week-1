@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { BoardCard } from "../components/BoardCard";
 import type { Frame } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import styles from "./DashboardPage.module.css";
@@ -99,20 +100,12 @@ export function DashboardPage({ onOpenBoard }: DashboardPageProps) {
                     </svg>
                 </button>
                 {boards.map((board) => (
-                    <div
+                    <BoardCard
                         key={board.id}
-                        className={styles.card}
+                        id={board.id}
+                        name={board.name}
                         onClick={() => onOpenBoard(board.id, board.name)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") onOpenBoard(board.id, board.name);
-                        }}
-                        role="button"
-                        tabIndex={0}
-                    >
-                        <div className={styles.cardName}>{board.name}</div>
-                        <div className={styles.cardId}>{board.id.slice(0, 8)}</div>
-                        <div className={styles.cardPreview} />
-                    </div>
+                    />
                 ))}
             </div>
 

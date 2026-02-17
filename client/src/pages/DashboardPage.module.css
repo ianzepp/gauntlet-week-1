@@ -33,45 +33,6 @@
     align-content: start;
 }
 
-.card {
-    aspect-ratio: 4 / 3;
-    border: 1px solid var(--border-default);
-    background: var(--bg-primary);
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-sm) var(--space-md);
-    cursor: pointer;
-    transition: border-color 150ms ease;
-}
-
-.card:hover {
-    border-color: var(--text-secondary);
-}
-
-.cardName {
-    font-family: var(--font-script);
-    font-size: 22px;
-    color: var(--text-primary);
-    line-height: 1.2;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.cardId {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-tertiary);
-    margin-top: 2px;
-}
-
-.cardPreview {
-    flex: 1;
-}
-
 .newCard {
     aspect-ratio: 4 / 3;
     border: 1px dashed var(--border-default);

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Canvas } from "../canvas/Canvas";
 import { BoardStamp } from "../components/BoardStamp";
+import { MissionControl } from "../components/MissionControl";
 import { RightPanel } from "../components/RightPanel";
 import { StatusBar } from "../components/StatusBar";
 import { Toolbar } from "../components/Toolbar";
@@ -11,9 +12,10 @@ interface BoardPageProps {
     boardId: string;
     boardName: string;
     onBack?: () => void;
+    onNavigate?: (id: string | null, name: string | null) => void;
 }
 
-export function BoardPage({ boardId, boardName, onBack }: BoardPageProps) {
+export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
     const setBoardName = useBoardStore((s) => s.setBoardName);
     const clearPresence = useBoardStore((s) => s.clearPresence);
@@ -55,6 +57,14 @@ export function BoardPage({ boardId, boardName, onBack }: BoardPageProps) {
             }}
         >
             <Toolbar onBack={onBack} />
+            <MissionControl
+                currentBoardId={boardId}
+                onSelectBoard={(id, name) => {
+                    if (onNavigate) {
+                        onNavigate(id, name);
+                    }
+                }}
+            />
             <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
                 <ToolRail />
                 <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>

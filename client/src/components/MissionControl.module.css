@@ -1,0 +1,21 @@
+.bar {
+    width: 100%;
+    height: 28px;
+    background: var(--bg-nav);
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+}
+
+.bar::-webkit-scrollbar {
+    display: none;
+}
+
+.barInner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 0 var(--space-sm);
+    height: 100%;
+}

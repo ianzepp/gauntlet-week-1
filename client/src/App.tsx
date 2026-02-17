@@ -62,6 +62,16 @@ export function App() {
                     setActiveBoardId(null);
                     setActiveBoardName(null);
                 }}
+                onNavigate={(id, name) => {
+                    if (id === null) {
+                        setPage("dashboard");
+                        setActiveBoardId(null);
+                        setActiveBoardName(null);
+                    } else {
+                        setActiveBoardId(id);
+                        setActiveBoardName(name);
+                    }
+                }}
             />
         );
     }
