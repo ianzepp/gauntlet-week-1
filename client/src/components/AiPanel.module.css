@@ -40,6 +40,8 @@
 }
 
 .messageAssistant {
+    font-family: var(--font-mono);
+    font-size: 13px;
     color: var(--text-secondary);
     border-left: 2px solid var(--accent-green);
     margin-left: var(--space-xs);
@@ -47,6 +49,8 @@
 }
 
 .messageError {
+    font-family: var(--font-mono);
+    font-size: 13px;
     color: var(--accent-error);
     border-left: 2px solid var(--accent-error);
     margin-left: var(--space-xs);
@@ -63,8 +67,8 @@
 }
 
 .loading {
-    font-family: var(--font-script);
-    font-size: 18px;
+    font-family: var(--font-mono);
+    font-size: 13px;
     line-height: 28px;
     color: var(--text-tertiary);
     padding: 0 var(--space-sm);
@@ -90,8 +94,8 @@
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
     color: var(--text-primary);
-    font-family: var(--font-script);
-    font-size: 18px;
+    font-family: var(--font-mono);
+    font-size: 13px;
     padding: var(--space-xs) var(--space-sm);
     outline: none;
     line-height: 1.4;
@@ -103,7 +107,7 @@
 
 .input::placeholder {
     color: var(--text-tertiary);
-    font-family: var(--font-script);
+    font-family: var(--font-mono);
 }
 
 .sendButton {
