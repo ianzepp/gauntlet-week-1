@@ -2,11 +2,18 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "==> Building client..."
-cd client
-bun run build
-cd ..
+echo "==> Starting CollabBoard with Docker Compose..."
+BUILD_FLAG=""
+if [[ "${1:-}" == "--build" ]]; then
+  BUILD_FLAG="--build"
+  shift
+fi
 
-echo "==> Starting server..."
-cd server
-cargo run
+if docker compose version >/dev/null 2>&1; then
+  docker compose up ${BUILD_FLAG} "$@"
+elif command -v docker-compose >/dev/null 2>&1; then
+  docker-compose up ${BUILD_FLAG} "$@"
+else
+  echo "Docker Compose is not installed (tried 'docker compose' and 'docker-compose')." >&2
+  exit 1
+fi
