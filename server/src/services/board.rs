@@ -203,6 +203,9 @@ pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude:
         // Best-effort: if a client's channel is full, skip it.
         let _ = tx.try_send(frame.clone());
     }
+
+    // Buffer the broadcast frame once for persistence.
+    state.buffer_frame(frame);
 }
 
 // =============================================================================

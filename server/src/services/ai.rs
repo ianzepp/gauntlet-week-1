@@ -10,6 +10,7 @@
 //! createStickyNote, createShape, createFrame, createConnector,
 //! moveObject, resizeObject, updateText, changeColor, getBoardState.
 
+use std::fmt::Write;
 use std::sync::Arc;
 
 use serde_json::json;
@@ -225,8 +226,9 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject]) -> String {
             } else {
                 ""
             };
-            prompt.push_str(&format!(
-                "- id={} kind={} x={:.0} y={:.0} w={} h={} label={:?} color={:?}\n",
+            let _ = writeln!(
+                prompt,
+                "- id={} kind={} x={:.0} y={:.0} w={} h={} label={:?} color={:?}",
                 obj.id,
                 obj.kind,
                 obj.x,
@@ -235,7 +237,7 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject]) -> String {
                 obj.height.map_or("-".into(), |h| format!("{h:.0}")),
                 label,
                 color,
-            ));
+            );
         }
     }
 
