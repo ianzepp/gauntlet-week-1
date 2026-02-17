@@ -154,6 +154,23 @@ export function LeftPanel() {
 
     return (
         <div className={styles.wrapper}>
+            {expanded && (
+                <div className={styles.panel}>
+                    <div className={styles.header}>
+                        <span className={styles.title}>Inspector</span>
+                        <button
+                            type="button"
+                            className={styles.closeButton}
+                            onClick={collapseLeftPanel}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className={styles.content}>
+                        <InspectorPanel />
+                    </div>
+                </div>
+            )}
             <div className={styles.rail}>
                 <ToolGroup tools={TOOLS} />
                 <div className={styles.separator} />
@@ -178,23 +195,6 @@ export function LeftPanel() {
                     </svg>
                 </button>
             </div>
-            {expanded && (
-                <div className={styles.panel}>
-                    <div className={styles.header}>
-                        <span className={styles.title}>Inspector</span>
-                        <button
-                            type="button"
-                            className={styles.closeButton}
-                            onClick={collapseLeftPanel}
-                        >
-                            ✕
-                        </button>
-                    </div>
-                    <div className={styles.content}>
-                        <InspectorPanel />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
