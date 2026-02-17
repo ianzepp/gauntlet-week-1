@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { deleteObjectsWithConfirm } from "../lib/objectActions";
 import type { BoardObject } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import styles from "./InspectorPanel.module.css";
@@ -362,6 +363,13 @@ export function InspectorPanel() {
                     <span className={styles.rowLabel}>ID</span>
                     <span className={styles.rowValue}>{obj.id.slice(0, 8)}</span>
                 </div>
+                <button
+                    type="button"
+                    className={styles.deleteButton}
+                    onClick={() => deleteObjectsWithConfirm([obj.id])}
+                >
+                    Delete Object
+                </button>
             </div>
         </div>
     );

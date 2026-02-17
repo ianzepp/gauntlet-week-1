@@ -3,6 +3,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
+import { deleteObjectsWithConfirm } from "../lib/objectActions";
 import type { Presence } from "../lib/types";
 import { useBoardStore } from "../store/board";
 
@@ -160,6 +161,35 @@ export function Canvas() {
         const cy = Math.round((-viewport.y + height / 2) / viewport.scale);
         setViewportCenter({ x: cx, y: cy });
     }, [viewport, width, height, setViewportCenter]);
+
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Delete" && e.key !== "Backspace") return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            const target = e.target as HTMLElement | null;
+            if (target) {
+                const tag = target.tagName;
+                if (
+                    tag === "INPUT" ||
+                    tag === "TEXTAREA" ||
+                    tag === "SELECT" ||
+                    target.isContentEditable
+                ) {
+                    return;
+                }
+            }
+
+            const selectedIds = Array.from(useBoardStore.getState().selection);
+            if (selectedIds.length === 0) return;
+
+            e.preventDefault();
+            deleteObjectsWithConfirm(selectedIds);
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
 
     // Pan: wheel/trackpad scroll; Zoom: ctrl/cmd + wheel
     const handleWheel = useCallback(
