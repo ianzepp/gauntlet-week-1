@@ -3,7 +3,8 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Arrow, Circle, Group, Layer, Line, Stage, Text, Transformer } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
-import type { BoardObject, Frame } from "../lib/types";
+import { sendObjectCreate } from "../hooks/useFrameClient";
+import type { BoardObject } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import { Shape } from "./Shape";
 import { StickyNote } from "./StickyNote";
@@ -177,7 +178,7 @@ export function Canvas() {
         }
         tr.nodes(nodes);
         tr.getLayer()?.batchDraw();
-    }, [selectionKey]);
+    }, [selectionKey, objects]);
 
     const handleWheel = useCallback(
         (e: KonvaEventObject<WheelEvent>) => {
@@ -268,45 +269,6 @@ export function Canvas() {
         [viewport],
     );
 
-    const sendObjectCreate = useCallback((obj: BoardObject) => {
-        const store = useBoardStore.getState();
-        const client = store.frameClient;
-        if (!client) return;
-
-        const requestId = crypto.randomUUID();
-        client.send({
-            id: requestId,
-            parent_id: null,
-            ts: Date.now(),
-            board_id: obj.board_id,
-            from: null,
-            syscall: "object:create",
-            status: "request",
-            data: {
-                kind: obj.kind,
-                x: obj.x,
-                y: obj.y,
-                width: obj.width,
-                height: obj.height,
-                rotation: obj.rotation,
-                z_index: obj.z_index,
-                props: obj.props,
-            },
-        });
-
-        // Listen for the response to replace temp ID with server ID
-        const handleCreateResponse = (frame: Frame) => {
-            if (frame.parent_id === requestId && frame.status === "item") {
-                const serverId = frame.data.id as string;
-                if (serverId && serverId !== obj.id) {
-                    useBoardStore.getState().replaceObjectId(obj.id, serverId);
-                }
-                client.off("object:create", handleCreateResponse);
-            }
-        };
-        client.on("object:create", handleCreateResponse);
-    }, []);
-
     const handleStageClick = useCallback(
         (e: KonvaEventObject<MouseEvent>) => {
             // Only handle object creation on empty canvas click
@@ -374,7 +336,6 @@ export function Canvas() {
             viewport,
             objects.size,
             addObject,
-            sendObjectCreate,
             setSelection,
             setTool,
         ],
@@ -408,7 +369,7 @@ export function Canvas() {
                         if (obj.kind === "sticky_note") {
                             return (
                                 <StickyNote
-                                    key={obj.id}
+                                    key={obj.localKey ?? obj.id}
                                     object={obj}
                                     isSelected={selection.has(obj.id)}
                                     onSelect={() =>
@@ -424,7 +385,7 @@ export function Canvas() {
                         ) {
                             return (
                                 <Shape
-                                    key={obj.id}
+                                    key={obj.localKey ?? obj.id}
                                     object={obj}
                                     isSelected={selection.has(obj.id)}
                                     onSelect={() =>

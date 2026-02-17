@@ -32,6 +32,8 @@ export interface BoardObject {
     props: Record<string, unknown>;
     created_by: string;
     version: number;
+    /** Local-only stable key for React rendering; never sent to server */
+    localKey?: string;
 }
 
 export interface Presence {

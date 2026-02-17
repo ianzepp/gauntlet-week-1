@@ -4,6 +4,38 @@ import { FrameClient } from "../lib/frameClient";
 import type { BoardObject, Frame, Presence } from "../lib/types";
 import { useBoardStore } from "../store/board";
 
+/** Maps request ID → temp object ID for locally-created objects */
+const pendingCreates = new Map<string, string>();
+
+export function sendObjectCreate(obj: BoardObject): void {
+    const store = useBoardStore.getState();
+    const client = store.frameClient;
+    if (!client) return;
+
+    const requestId = crypto.randomUUID();
+    pendingCreates.set(requestId, obj.id);
+
+    client.send({
+        id: requestId,
+        parent_id: null,
+        ts: Date.now(),
+        board_id: obj.board_id,
+        from: null,
+        syscall: "object:create",
+        status: "request",
+        data: {
+            kind: obj.kind,
+            x: obj.x,
+            y: obj.y,
+            width: obj.width,
+            height: obj.height,
+            rotation: obj.rotation,
+            z_index: obj.z_index,
+            props: obj.props,
+        },
+    });
+}
+
 export function useFrameClient(
     mockMode = false,
 ): React.RefObject<FrameClient | null> {
@@ -45,7 +77,18 @@ export function useFrameClient(
 
         const handleCreated = (frame: Frame) => {
             const obj = frame.data as unknown as BoardObject;
-            if (obj?.id) {
+            if (!obj?.id) return;
+
+            // Check if this is a response to a local create
+            const parentId = frame.parent_id;
+            if (parentId && pendingCreates.has(parentId)) {
+                const tempId = pendingCreates.get(parentId)!;
+                pendingCreates.delete(parentId);
+                if (tempId !== obj.id) {
+                    useBoardStore.getState().replaceObjectId(tempId, obj.id);
+                }
+            } else {
+                // Remote user created an object
                 useBoardStore.getState().addObject(obj);
             }
         };

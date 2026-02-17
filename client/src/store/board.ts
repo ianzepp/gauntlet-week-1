@@ -77,7 +77,7 @@ export const useBoardStore = create<BoardState>((set) => ({
     addObject: (object) =>
         set((state) => {
             const next = new Map(state.objects);
-            next.set(object.id, object);
+            next.set(object.id, { ...object, localKey: object.localKey ?? object.id });
             return { objects: next };
         }),
 
@@ -145,7 +145,8 @@ export const useBoardStore = create<BoardState>((set) => ({
             if (!existing) return state;
             const next = new Map(state.objects);
             next.delete(tempId);
-            next.set(newId, { ...existing, id: newId });
+            // Preserve the localKey so React key stays stable (no remount)
+            next.set(newId, { ...existing, id: newId, localKey: existing.localKey ?? tempId });
             const selection = new Set(state.selection);
             if (selection.has(tempId)) {
                 selection.delete(tempId);
