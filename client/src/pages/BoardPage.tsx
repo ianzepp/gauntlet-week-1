@@ -13,7 +13,6 @@ interface BoardPageProps {
 
 export function BoardPage({ boardId }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
-    const rightPanelOpen = useBoardStore((s) => s.rightPanelOpen);
 
     useEffect(() => {
         setBoardId(boardId);
@@ -35,7 +34,7 @@ export function BoardPage({ boardId }: BoardPageProps) {
                     <Canvas />
                     <BoardStamp />
                 </div>
-                {rightPanelOpen && <RightPanel />}
+                <RightPanel />
             </div>
             <StatusBar />
         </div>

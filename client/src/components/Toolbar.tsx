@@ -2,7 +2,7 @@ import { useBoardStore } from "../store/board";
 import styles from "./Toolbar.module.css";
 
 export function Toolbar() {
-    const rightPanelOpen = useBoardStore((s) => s.rightPanelOpen);
+    const rightPanelExpanded = useBoardStore((s) => s.rightPanelExpanded);
     const activeRightTab = useBoardStore((s) => s.activeRightTab);
     const toggleAiPanel = useBoardStore((s) => s.toggleAiPanel);
     const presence = useBoardStore((s) => s.presence);
@@ -47,7 +47,7 @@ export function Toolbar() {
             <div className={styles.right}>
                 <button
                     type="button"
-                    className={`${styles.actionButton} ${rightPanelOpen && activeRightTab === "ai" ? styles.active : ""}`}
+                    className={`${styles.actionButton} ${rightPanelExpanded && activeRightTab === "ai" ? styles.active : ""}`}
                     onClick={toggleAiPanel}
                     title="AI Assistant"
                 >

@@ -1,19 +1,39 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useBoardStore } from "../store/board";
 import type { RightTab } from "../store/board";
 import { AiPanel } from "./AiPanel";
 import { InspectorPanel } from "./InspectorPanel";
 import styles from "./RightPanel.module.css";
 
-const TABS: { id: RightTab; label: string }[] = [
-    { id: "inspector", label: "Inspector" },
-    { id: "ai", label: "Field Notes" },
+const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
+    {
+        id: "inspector",
+        label: "Inspector",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="3" y="3" width="14" height="14" rx="2" />
+                <line x1="3" y1="10" x2="17" y2="10" />
+                <line x1="10" y1="10" x2="10" y2="17" />
+            </svg>
+        ),
+    },
+    {
+        id: "ai",
+        label: "Field Notes",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+            </svg>
+        ),
+    },
 ];
 
 export function RightPanel() {
     const activeTab = useBoardStore((s) => s.activeRightTab);
+    const expanded = useBoardStore((s) => s.rightPanelExpanded);
     const setRightTab = useBoardStore((s) => s.setRightTab);
-    const closeRightPanel = useBoardStore((s) => s.closeRightPanel);
+    const collapseRightPanel = useBoardStore((s) => s.collapseRightPanel);
+    const expandRightPanel = useBoardStore((s) => s.expandRightPanel);
     const selection = useBoardStore((s) => s.selection);
     const prevSelectionSize = useRef(selection.size);
 
@@ -24,6 +44,24 @@ export function RightPanel() {
         }
         prevSelectionSize.current = selection.size;
     }, [selection.size, setRightTab]);
+
+    if (!expanded) {
+        return (
+            <div className={styles.rail}>
+                {TABS.map((tab) => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        className={`${styles.railButton} ${activeTab === tab.id ? styles.railButtonActive : ""}`}
+                        onClick={() => expandRightPanel(tab.id)}
+                        title={tab.label}
+                    >
+                        {tab.icon}
+                    </button>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className={styles.panel}>
@@ -41,7 +79,7 @@ export function RightPanel() {
                 <button
                     type="button"
                     className={styles.closeButton}
-                    onClick={closeRightPanel}
+                    onClick={collapseRightPanel}
                 >
                     ✕
                 </button>

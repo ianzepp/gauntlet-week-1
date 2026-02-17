@@ -29,9 +29,8 @@ interface BoardState {
     user: User | null;
     aiMessages: AiMessage[];
     aiLoading: boolean;
-    aiPanelOpen: boolean;
     activeRightTab: RightTab;
-    rightPanelOpen: boolean;
+    rightPanelExpanded: boolean;
 
     setBoardId: (id: string | null) => void;
     setObjects: (objects: BoardObject[]) => void;
@@ -53,8 +52,8 @@ interface BoardState {
     setAiLoading: (loading: boolean) => void;
     toggleAiPanel: () => void;
     setRightTab: (tab: RightTab) => void;
-    openRightPanel: (tab: RightTab) => void;
-    closeRightPanel: () => void;
+    expandRightPanel: (tab: RightTab) => void;
+    collapseRightPanel: () => void;
 }
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -69,9 +68,8 @@ export const useBoardStore = create<BoardState>((set) => ({
     user: null,
     aiMessages: [],
     aiLoading: false,
-    aiPanelOpen: false,
-    activeRightTab: "inspector" as RightTab,
-    rightPanelOpen: false,
+    activeRightTab: "ai" as RightTab,
+    rightPanelExpanded: true,
 
     setBoardId: (id) => set({ boardId: id }),
 
@@ -190,25 +188,23 @@ export const useBoardStore = create<BoardState>((set) => ({
 
     toggleAiPanel: () =>
         set((state) => {
-            if (state.rightPanelOpen && state.activeRightTab === "ai") {
-                return { rightPanelOpen: false, aiPanelOpen: false };
+            if (state.rightPanelExpanded && state.activeRightTab === "ai") {
+                return { rightPanelExpanded: false };
             }
             return {
-                rightPanelOpen: true,
+                rightPanelExpanded: true,
                 activeRightTab: "ai" as RightTab,
-                aiPanelOpen: true,
             };
         }),
 
     setRightTab: (tab) =>
-        set({ activeRightTab: tab, aiPanelOpen: tab === "ai" }),
+        set({ activeRightTab: tab }),
 
-    openRightPanel: (tab) =>
+    expandRightPanel: (tab) =>
         set({
-            rightPanelOpen: true,
+            rightPanelExpanded: true,
             activeRightTab: tab,
-            aiPanelOpen: tab === "ai",
         }),
 
-    closeRightPanel: () => set({ rightPanelOpen: false, aiPanelOpen: false }),
+    collapseRightPanel: () => set({ rightPanelExpanded: false }),
 }));
