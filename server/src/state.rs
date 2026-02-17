@@ -8,7 +8,7 @@
 //! for debounced persistence.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -85,28 +85,12 @@ pub struct AppState {
     pub rate_limiter: RateLimiter,
     /// Optional GitHub OAuth config. `None` disables OAuth endpoints.
     pub github: Option<GitHubConfig>,
-    /// Buffered frames awaiting persistence (flushed every ~1s).
-    pub dirty_frames: Arc<Mutex<Vec<Frame>>>,
 }
 
 impl AppState {
     #[must_use]
     pub fn new(pool: PgPool, llm: Option<Arc<dyn LlmChat>>, github: Option<GitHubConfig>) -> Self {
-        Self {
-            pool,
-            boards: Arc::new(RwLock::new(HashMap::new())),
-            llm,
-            rate_limiter: RateLimiter::new(),
-            github,
-            dirty_frames: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
-    /// Buffer a frame for persistence. Called after sending/broadcasting.
-    pub fn buffer_frame(&self, frame: &Frame) {
-        if let Ok(mut buf) = self.dirty_frames.lock() {
-            buf.push(frame.clone());
-        }
+        Self { pool, boards: Arc::new(RwLock::new(HashMap::new())), llm, rate_limiter: RateLimiter::new(), github }
     }
 }
 

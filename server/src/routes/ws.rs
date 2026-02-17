@@ -521,7 +521,14 @@ async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> 
         .await
         .map_err(|_| ());
     if result.is_ok() {
-        state.buffer_frame(frame);
+        // Fire-and-forget: persist frame directly to DB.
+        let pool = state.pool.clone();
+        let frame = frame.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crate::services::persistence::persist_frame(&pool, &frame).await {
+                warn!(error = %e, "ws: frame persist failed");
+            }
+        });
     }
     result
 }

@@ -204,8 +204,14 @@ pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude:
         let _ = tx.try_send(frame.clone());
     }
 
-    // Buffer the broadcast frame once for persistence.
-    state.buffer_frame(frame);
+    // Fire-and-forget: persist broadcast frame directly to DB.
+    let pool = state.pool.clone();
+    let frame = frame.clone();
+    tokio::spawn(async move {
+        if let Err(e) = crate::services::persistence::persist_frame(&pool, &frame).await {
+            tracing::warn!(error = %e, "broadcast: frame persist failed");
+        }
+    });
 }
 
 // =============================================================================

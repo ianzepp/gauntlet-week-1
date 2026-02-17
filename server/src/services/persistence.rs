@@ -1,10 +1,9 @@
-//! Persistence service — sleep-after-flush with 100ms pause.
+//! Persistence service — background flush for dirty objects.
 //!
 //! DESIGN
 //! ======
-//! A background task flushes dirty objects and buffered frames, then
-//! sleeps 100ms before the next cycle. Using sleep-after-flush (not
-//! interval) avoids overlap when flushes take longer than 100ms.
+//! A background task flushes dirty objects, then sleeps 100ms before
+//! the next cycle. Frames are persisted immediately on send (no buffer).
 
 use std::time::Duration;
 
@@ -54,44 +53,29 @@ async fn flush_all_dirty(state: &AppState) {
             error!(error = %e, count = dirty_objects.len(), "persistence flush failed");
         }
     }
-
-    // Drain buffered frames and flush to DB.
-    let dirty_frames: Vec<Frame> = {
-        let Ok(mut buf) = state.dirty_frames.lock() else {
-            return;
-        };
-        std::mem::take(&mut *buf)
-    };
-
-    if !dirty_frames.is_empty() {
-        if let Err(e) = flush_frames(&state.pool, &dirty_frames).await {
-            error!(error = %e, count = dirty_frames.len(), "frame persistence flush failed");
-        }
-    }
 }
 
-async fn flush_frames(pool: &PgPool, frames: &[Frame]) -> Result<(), sqlx::Error> {
-    for frame in frames {
-        let status = serde_json::to_value(frame.status)
-            .ok()
-            .and_then(|v| v.as_str().map(String::from))
-            .unwrap_or_default();
-        let data = serde_json::to_value(&frame.data).unwrap_or_default();
+/// Persist a single frame to the database. Called inline from the WS handler.
+pub async fn persist_frame(pool: &PgPool, frame: &Frame) -> Result<(), sqlx::Error> {
+    let status = serde_json::to_value(frame.status)
+        .ok()
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+    let data = serde_json::to_value(&frame.data).unwrap_or_default();
 
-        sqlx::query(
-            r#"INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, ts)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
-        )
-        .bind(frame.id)
-        .bind(frame.parent_id)
-        .bind(&frame.syscall)
-        .bind(&status)
-        .bind(frame.board_id)
-        .bind(&frame.from)
-        .bind(&data)
-        .bind(frame.ts)
-        .execute(pool)
-        .await?;
-    }
+    sqlx::query(
+        r#"INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, ts)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+    )
+    .bind(frame.id)
+    .bind(frame.parent_id)
+    .bind(&frame.syscall)
+    .bind(&status)
+    .bind(frame.board_id)
+    .bind(&frame.from)
+    .bind(&data)
+    .bind(frame.ts)
+    .execute(pool)
+    .await?;
     Ok(())
 }
