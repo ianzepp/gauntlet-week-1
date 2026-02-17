@@ -255,7 +255,7 @@ export function Canvas() {
                 parent_id: null,
                 ts: Date.now(),
                 board_id: boardId,
-                from: "client",
+                from: null,
                 syscall: "cursor:moved",
                 status: "request",
                 data: {
@@ -279,7 +279,7 @@ export function Canvas() {
             parent_id: null,
             ts: Date.now(),
             board_id: obj.board_id,
-            from: "client",
+            from: null,
             syscall: "object:create",
             status: "request",
             data: {

@@ -4,8 +4,8 @@ export interface Frame {
     id: string;
     parent_id: string | null;
     ts: number;
-    board_id: string;
-    from: string;
+    board_id: string | null;
+    from: string | null;
     syscall: string;
     status: FrameStatus;
     data: Record<string, unknown>;

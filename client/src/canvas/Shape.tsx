@@ -38,7 +38,7 @@ function sendObjectUpdate(objectId: string, fields: Record<string, unknown>) {
         parent_id: null,
         ts: Date.now(),
         board_id: boardId,
-        from: "client",
+        from: null,
         syscall: "object:update",
         status: "request",
         data: { id: objectId, ...fields },

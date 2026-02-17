@@ -28,7 +28,7 @@ export function useFrameClient(
                     parent_id: null,
                     ts: Date.now(),
                     board_id: boardId,
-                    from: "client",
+                    from: null,
                     syscall: "board:join",
                     status: "request",
                     data: {},

@@ -64,7 +64,7 @@ export function InspectorPanel() {
                 parent_id: null,
                 ts: Date.now(),
                 board_id: obj.board_id,
-                from: "",
+                from: null,
                 syscall: "object:update",
                 status: "request",
                 data: {
