@@ -132,8 +132,10 @@ pub async fn handle_prompt(
     let system = build_system_prompt(&board_snapshot, grid_context);
     let tools = collaboard_tools();
 
-    let mut messages =
-        vec![Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) }];
+    // Load recent conversation history for multi-turn context.
+    let mut messages = load_conversation_history(&state.pool, board_id).await;
+    messages
+        .push(Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) });
 
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
@@ -233,6 +235,54 @@ pub async fn handle_prompt(
     );
 
     Ok(AiResult { mutations: all_mutations, text: final_text })
+}
+
+// =============================================================================
+// CONVERSATION HISTORY
+// =============================================================================
+
+/// Load the last few AI conversation turns from persisted frames.
+/// Returns up to 10 exchanges (user prompt + assistant response pairs).
+async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid) -> Vec<Message> {
+    // Query the most recent ai:prompt request/done pairs (last 20 frames = 10 exchanges).
+    // We use a subquery to get the tail, then re-order chronologically.
+    let rows = sqlx::query_as::<_, (String, Option<String>, Option<String>)>(
+        "SELECT sub.status::text, sub.prompt, sub.text FROM (
+             SELECT f.status, f.seq,
+                    f.data->>'prompt' AS prompt,
+                    f.data->>'text' AS text
+             FROM frames f
+             WHERE f.board_id = $1
+               AND f.syscall = 'ai:prompt'
+               AND f.status IN ('request', 'done')
+             ORDER BY f.seq DESC
+             LIMIT 20
+         ) sub
+         ORDER BY sub.seq ASC",
+    )
+    .bind(board_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let mut messages = Vec::new();
+    for (status, prompt, text) in rows {
+        if status == "request" {
+            if let Some(p) = prompt {
+                if !p.is_empty() {
+                    messages.push(Message {
+                        role: "user".into(),
+                        content: Content::Text(format!("<user_input>{p}</user_input>")),
+                    });
+                }
+            }
+        } else if let Some(t) = text {
+            if !t.is_empty() {
+                messages.push(Message { role: "assistant".into(), content: Content::Text(t) });
+            }
+        }
+    }
+    messages
 }
 
 // =============================================================================
