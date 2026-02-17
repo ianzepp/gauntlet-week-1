@@ -27,6 +27,26 @@ export interface AiMessage {
     mutations?: number;
 }
 
+function mergeObjectPreservingKnownFields(
+    existing: BoardObject,
+    partial: Partial<BoardObject>,
+): BoardObject {
+    const merged: BoardObject = { ...existing, ...partial };
+
+    // Guard against null/undefined payloads clobbering previously known values.
+    if (partial.width == null && existing.width != null) {
+        merged.width = existing.width;
+    }
+    if (partial.height == null && existing.height != null) {
+        merged.height = existing.height;
+    }
+    if (partial.created_by == null && existing.created_by != null) {
+        merged.created_by = existing.created_by;
+    }
+
+    return merged;
+}
+
 interface BoardState {
     boardId: string | null;
     boardName: string | null;
@@ -112,10 +132,13 @@ export const useBoardStore = create<BoardState>((set) => ({
             const nextObjects = new Map(
                 objects.map((o) => {
                     const existing = state.objects.get(o.id);
+                    const merged = existing
+                        ? mergeObjectPreservingKnownFields(existing, o)
+                        : o;
                     return [
                         o.id,
                         {
-                            ...o,
+                            ...merged,
                             localKey: existing?.localKey ?? o.localKey ?? o.id,
                         },
                     ];
@@ -142,7 +165,7 @@ export const useBoardStore = create<BoardState>((set) => ({
             const existing = state.objects.get(id);
             if (!existing) return state;
             const next = new Map(state.objects);
-            next.set(id, { ...existing, ...partial });
+            next.set(id, mergeObjectPreservingKnownFields(existing, partial));
             return { objects: next };
         }),
 

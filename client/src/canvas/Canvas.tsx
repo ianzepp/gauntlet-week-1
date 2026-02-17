@@ -233,8 +233,8 @@ export function Canvas() {
                                     key={obj.localKey ?? obj.id}
                                     x={obj.x}
                                     y={obj.y}
-                                    width={obj.width}
-                                    height={obj.height}
+                                    width={obj.width ?? 0}
+                                    height={obj.height ?? 0}
                                     rotation={obj.rotation}
                                     fill={fill}
                                     stroke={isSelected ? "#fff" : fill}

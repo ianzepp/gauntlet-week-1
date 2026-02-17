@@ -70,6 +70,7 @@ export function InspectorPanel() {
                 data: {
                     id: obj.id,
                     props: { ...obj.props, color },
+                    version: obj.version,
                 },
             });
         }
@@ -102,13 +103,13 @@ export function InspectorPanel() {
                 <div className={styles.row}>
                     <span className={styles.rowLabel}>W</span>
                     <span className={styles.rowValue}>
-                        {Math.round(obj.width)}
+                        {Math.round(obj.width ?? 0)}
                     </span>
                 </div>
                 <div className={styles.row}>
                     <span className={styles.rowLabel}>H</span>
                     <span className={styles.rowValue}>
-                        {Math.round(obj.height)}
+                        {Math.round(obj.height ?? 0)}
                     </span>
                 </div>
                 {obj.rotation !== 0 && (

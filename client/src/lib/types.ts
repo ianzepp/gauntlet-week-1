@@ -25,12 +25,12 @@ export interface BoardObject {
     kind: ObjectKind;
     x: number;
     y: number;
-    width: number;
-    height: number;
+    width: number | null;
+    height: number | null;
     rotation: number;
     z_index: number;
     props: Record<string, unknown>;
-    created_by: string;
+    created_by: string | null;
     version: number;
     /** Local-only stable key for React rendering; never sent to server */
     localKey?: string;

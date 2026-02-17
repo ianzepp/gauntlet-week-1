@@ -476,16 +476,31 @@ async fn multi_user_single_change_reaches_other_user() {
     assert_eq!(a_reply.len(), 1);
     assert_eq!(a_reply[0].status, Status::Done);
     assert_eq!(a_reply[0].syscall, "object:create");
+    let user_a_str = user_a.to_string();
     let created_id = a_reply[0]
         .data
         .get("id")
         .and_then(|v| v.as_str())
         .expect("sender reply should include object id")
         .to_string();
+    assert_eq!(
+        a_reply[0]
+            .data
+            .get("created_by")
+            .and_then(|v| v.as_str()),
+        Some(user_a_str.as_str())
+    );
 
     let b_broadcast = recv_board_broadcast(&mut client_b_rx).await;
     assert_eq!(b_broadcast.syscall, "object:create");
     assert_eq!(b_broadcast.data.get("id").and_then(|v| v.as_str()), Some(created_id.as_str()));
+    assert_eq!(
+        b_broadcast
+            .data
+            .get("created_by")
+            .and_then(|v| v.as_str()),
+        Some(user_a_str.as_str())
+    );
     assert_eq!(
         b_broadcast
             .data
@@ -791,6 +806,8 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     assert_eq!(peer_broadcast.syscall, "object:create");
     assert_eq!(sender_broadcast.data.get("kind").and_then(|v| v.as_str()), Some("sticky_note"));
     assert_eq!(peer_broadcast.data.get("kind").and_then(|v| v.as_str()), Some("sticky_note"));
+    assert!(sender_broadcast.data.get("created_by").is_some_and(serde_json::Value::is_null));
+    assert!(peer_broadcast.data.get("created_by").is_some_and(serde_json::Value::is_null));
 
     let boards = state.boards.read().await;
     let board = boards.get(&board_id).expect("board should be present");

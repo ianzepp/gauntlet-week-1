@@ -30,7 +30,6 @@ export function sendObjectCreate(obj: BoardObject): void {
             width: obj.width,
             height: obj.height,
             rotation: obj.rotation,
-            z_index: obj.z_index,
             props: obj.props,
         },
     });

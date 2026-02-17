@@ -728,6 +728,7 @@ fn object_to_data(obj: &crate::state::BoardObject) -> Data {
     data.insert("rotation".into(), serde_json::json!(obj.rotation));
     data.insert("z_index".into(), serde_json::json!(obj.z_index));
     data.insert("props".into(), obj.props.clone());
+    data.insert("created_by".into(), serde_json::json!(obj.created_by));
     data.insert("version".into(), serde_json::json!(obj.version));
     data
 }
