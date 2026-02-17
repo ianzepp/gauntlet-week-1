@@ -367,6 +367,93 @@ async fn chat_history_returns_persisted_messages_for_board() {
 }
 
 #[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL/live Postgres"]
+async fn ai_history_returns_only_messages_for_requesting_user() {
+    let pool = integration_pool().await;
+    let board = services::board::create_board(&pool, "AI History Board")
+        .await
+        .expect("create_board should succeed");
+    let board_id = board.id;
+
+    let user_a = Uuid::new_v4();
+    let user_b = Uuid::new_v4();
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'ai:prompt', 'request', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(1_i64)
+    .bind(board_id)
+    .bind(user_a.to_string())
+    .bind(json!({ "prompt": "user a prompt" }))
+    .execute(&pool)
+    .await
+    .expect("insert user a request should succeed");
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'ai:prompt', 'done', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(2_i64)
+    .bind(board_id)
+    .bind(user_a.to_string())
+    .bind(json!({ "text": "user a reply", "mutations": 1 }))
+    .execute(&pool)
+    .await
+    .expect("insert user a reply should succeed");
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'ai:prompt', 'request', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(3_i64)
+    .bind(board_id)
+    .bind(user_b.to_string())
+    .bind(json!({ "prompt": "user b prompt" }))
+    .execute(&pool)
+    .await
+    .expect("insert user b request should succeed");
+
+    sqlx::query(
+        r#"INSERT INTO frames (id, ts, board_id, "from", syscall, status, data)
+           VALUES ($1, $2, $3, $4, 'ai:prompt', 'done', $5)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(4_i64)
+    .bind(board_id)
+    .bind(user_b.to_string())
+    .bind(json!({ "text": "user b reply", "mutations": 1 }))
+    .execute(&pool)
+    .await
+    .expect("insert user b reply should succeed");
+
+    let llm: Arc<dyn LlmChat> = Arc::new(MockLlm::new(vec![]));
+    let state = AppState::new(pool, Some(llm), None);
+    let (client_tx, _client_rx) = mpsc::channel(8);
+    let mut current_board = Some(board_id);
+    let text = request_json(board_id, "ai:history", Data::new());
+
+    let reply = process_inbound_text(&state, &mut current_board, Uuid::new_v4(), user_a, &client_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].status, Status::Done);
+    assert_eq!(reply[0].syscall, "ai:history");
+    let messages = reply[0]
+        .data
+        .get("messages")
+        .and_then(|v| v.as_array())
+        .expect("messages array should be present");
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].get("role").and_then(|v| v.as_str()), Some("user"));
+    assert_eq!(messages[0].get("text").and_then(|v| v.as_str()), Some("user a prompt"));
+    assert_eq!(messages[1].get("role").and_then(|v| v.as_str()), Some("assistant"));
+    assert_eq!(messages[1].get("text").and_then(|v| v.as_str()), Some("user a reply"));
+}
+
+#[tokio::test]
 async fn multi_user_single_change_reaches_other_user() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;

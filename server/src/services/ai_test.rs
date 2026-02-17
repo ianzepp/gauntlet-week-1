@@ -296,7 +296,9 @@ async fn handle_prompt_text_only() {
         input_tokens: 10,
         output_tokens: 5,
     }]));
-    let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "hello", None)
+    let client_id = Uuid::new_v4();
+    let user_id = Uuid::new_v4();
+    let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, client_id, user_id, "hello", None)
         .await
         .unwrap();
     assert_eq!(result.text.as_deref(), Some("Here's my answer"));
@@ -334,6 +336,7 @@ async fn handle_prompt_with_tool_call() {
         &(mock as Arc<dyn LlmChat>),
         board_id,
         Uuid::new_v4(),
+        Uuid::new_v4(),
         "create a note",
         None,
     )
@@ -351,6 +354,7 @@ async fn handle_prompt_board_not_loaded() {
     let result = handle_prompt(
         &state,
         &(mock as Arc<dyn LlmChat>),
+        Uuid::new_v4(),
         Uuid::new_v4(),
         Uuid::new_v4(),
         "hello",
@@ -406,7 +410,7 @@ async fn user_message_wrapped_in_xml_tags() {
     let capture = Arc::new(CaptureLlm { captured_messages: StdMutex::new(vec![]) });
     let llm: Arc<dyn LlmChat> = capture.clone();
 
-    handle_prompt(&state, &llm, board_id, Uuid::new_v4(), "do something", None)
+    handle_prompt(&state, &llm, board_id, Uuid::new_v4(), Uuid::new_v4(), "do something", None)
         .await
         .unwrap();
 
@@ -443,12 +447,12 @@ async fn handle_prompt_rate_limited() {
             input_tokens: 1,
             output_tokens: 1,
         }]));
-        let _ = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, client_id, "hi", None).await;
+        let _ = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, client_id, client_id, "hi", None).await;
     }
 
     // 11th should fail.
     let mock = Arc::new(MockLlm::new(vec![]));
-    let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, client_id, "hi", None).await;
+    let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, client_id, client_id, "hi", None).await;
     assert!(matches!(result.unwrap_err(), AiError::RateLimited(_)));
 }
 
@@ -468,9 +472,17 @@ async fn handle_prompt_thinking_only_still_returns_text() {
         input_tokens: 10,
         output_tokens: 5,
     }]));
-    let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "hello", None)
-        .await
-        .unwrap();
+    let result = handle_prompt(
+        &state,
+        &(mock as Arc<dyn LlmChat>),
+        board_id,
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+        "hello",
+        None,
+    )
+    .await
+    .unwrap();
     // The result should have SOME text so the client receives an item frame.
     assert!(
         result.text.is_some(),
@@ -512,6 +524,7 @@ async fn handle_prompt_mutations_only_returns_text() {
         &state,
         &(mock as Arc<dyn LlmChat>),
         board_id,
+        Uuid::new_v4(),
         Uuid::new_v4(),
         "create a note",
         None,

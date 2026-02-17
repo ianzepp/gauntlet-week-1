@@ -109,6 +109,7 @@ pub async fn handle_prompt(
     llm: &Arc<dyn LlmChat>,
     board_id: Uuid,
     client_id: Uuid,
+    user_id: Uuid,
     prompt: &str,
     grid_context: Option<&str>,
 ) -> Result<AiResult, AiError> {
@@ -133,7 +134,7 @@ pub async fn handle_prompt(
     let tools = collaboard_tools();
 
     // Load recent conversation history for multi-turn context.
-    let mut messages = load_conversation_history(&state.pool, board_id).await;
+    let mut messages = load_conversation_history(&state.pool, board_id, user_id).await;
     messages
         .push(Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) });
 
@@ -241,9 +242,9 @@ pub async fn handle_prompt(
 // CONVERSATION HISTORY
 // =============================================================================
 
-/// Load the last few AI conversation turns from persisted frames.
+/// Load the last few AI conversation turns from persisted frames for one user.
 /// Returns up to 10 exchanges (user prompt + assistant response pairs).
-async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid) -> Vec<Message> {
+async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid, user_id: Uuid) -> Vec<Message> {
     // Query the most recent ai:prompt request/done pairs (last 20 frames = 10 exchanges).
     // We use a subquery to get the tail, then re-order chronologically.
     let rows = sqlx::query_as::<_, (String, Option<String>, Option<String>)>(
@@ -253,6 +254,7 @@ async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid) -> Vec<M
                     f.data->>'text' AS text
              FROM frames f
              WHERE f.board_id = $1
+               AND f.\"from\" = $2
                AND f.syscall = 'ai:prompt'
                AND f.status IN ('request', 'done')
              ORDER BY f.seq DESC
@@ -261,6 +263,7 @@ async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid) -> Vec<M
          ORDER BY sub.seq ASC",
     )
     .bind(board_id)
+    .bind(user_id.to_string())
     .fetch_all(pool)
     .await
     .unwrap_or_default();

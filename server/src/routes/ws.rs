@@ -552,6 +552,9 @@ async fn handle_ai(
     let Some(llm) = &state.llm else {
         return Err(req.error("AI features not configured"));
     };
+    let Some(user_id) = req.from.as_deref().and_then(|s| s.parse::<Uuid>().ok()) else {
+        return Err(req.error("missing authenticated user id"));
+    };
 
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
     match op {
@@ -572,7 +575,9 @@ async fn handle_ai(
                 return Err(req.error("prompt required"));
             }
 
-            match services::ai::handle_prompt(state, llm, board_id, client_id, prompt, grid_context.as_deref()).await {
+            match services::ai::handle_prompt(state, llm, board_id, client_id, user_id, prompt, grid_context.as_deref())
+                .await
+            {
                 Ok(result) => {
                     // AI is the one exception: broadcast mutations directly.
                     for mutation in &result.mutations {
@@ -600,12 +605,12 @@ async fn handle_ai(
                 Err(e) => Err(req.error_from(&e)),
             }
         }
-        "history" => ai_history(state, board_id, req).await,
+        "history" => ai_history(state, board_id, user_id, req).await,
         _ => Err(req.error(format!("unknown ai op: {op}"))),
     }
 }
 
-async fn ai_history(state: &AppState, board_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
+async fn ai_history(state: &AppState, board_id: Uuid, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
     let rows = match sqlx::query_as::<_, (Uuid, i64, String, Option<String>, Option<String>, Option<String>)>(
         "SELECT f.id, f.ts, f.status::text,
                 f.data->>'prompt' AS prompt,
@@ -613,12 +618,14 @@ async fn ai_history(state: &AppState, board_id: Uuid, req: &Frame) -> Result<Out
                 f.data->>'mutations' AS mutations
          FROM frames f
          WHERE f.board_id = $1
+           AND f.\"from\" = $2
            AND f.syscall = 'ai:prompt'
            AND f.status IN ('request', 'done')
          ORDER BY f.seq ASC
          LIMIT 400",
     )
     .bind(board_id)
+    .bind(user_id.to_string())
     .fetch_all(&state.pool)
     .await
     {
