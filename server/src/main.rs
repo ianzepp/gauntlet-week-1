@@ -159,6 +159,6 @@ async fn main() {
         .await
         .expect("failed to bind");
 
-    tracing::info!(%port, "collaboard listening");
+    tracing::info!(%port, "gauntlet-week-1 listening");
     axum::serve(listener, app).await.expect("server failed");
 }

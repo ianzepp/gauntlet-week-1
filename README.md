@@ -136,7 +136,7 @@ Retro-scientific "Field Survey Terminal" aesthetic. See [docs/DESIGN.md](docs/DE
 ## Project Structure
 
 ```
-collaboard/
+gauntlet-week-1/
 ├── server/
 │   ├── Cargo.toml
 │   └── src/
@@ -342,7 +342,7 @@ fly secrets set \
 fly deploy
 ```
 
-`fly.toml` runs `release_command = "collaboard --migrate-only"` so DB migrations
+`fly.toml` runs `release_command = "gauntlet-week-1 --migrate-only"` so DB migrations
 complete before machines are promoted.
 
 ### Important scaling note

@@ -5,7 +5,7 @@ use sqlx::postgres::PgPoolOptions;
 #[must_use]
 pub fn test_app_state() -> AppState {
     let pool = PgPoolOptions::new()
-        .connect_lazy("postgres://test:test@localhost:5432/test_collaboard")
+        .connect_lazy("postgres://test:test@127.0.0.1:1/test_gauntlet_week_1")
         .expect("connect_lazy should not fail");
     AppState::new(pool, None, None)
 }
@@ -14,7 +14,7 @@ pub fn test_app_state() -> AppState {
 #[must_use]
 pub fn test_app_state_with_llm(llm: Arc<dyn LlmChat>) -> AppState {
     let pool = PgPoolOptions::new()
-        .connect_lazy("postgres://test:test@localhost:5432/test_collaboard")
+        .connect_lazy("postgres://test:test@127.0.0.1:1/test_gauntlet_week_1")
         .expect("connect_lazy should not fail");
     AppState::new(pool, Some(llm), None)
 }

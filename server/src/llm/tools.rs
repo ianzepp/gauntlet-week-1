@@ -9,7 +9,7 @@ use super::types::Tool;
 /// Returns the 9 spec-required tools with exact names evaluators will test.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn collaboard_tools() -> Vec<Tool> {
+pub fn gauntlet_week_1_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "createStickyNote".into(),

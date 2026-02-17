@@ -21,7 +21,7 @@ export function Toolbar({ onBack }: ToolbarProps) {
     const toggleDarkMode = () => {
         const html = document.documentElement;
         const isDark = html.classList.toggle("dark-mode");
-        localStorage.setItem("collaboard_dark", isDark ? "true" : "false");
+        localStorage.setItem("gauntlet_week_1_dark", isDark ? "true" : "false");
     };
 
     const allUsers = [

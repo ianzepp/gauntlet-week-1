@@ -142,7 +142,7 @@ async fn part_board_evicts_dirty_board_even_if_flush_fails() {
 
 async fn integration_pool() -> sqlx::PgPool {
     let database_url = std::env::var("TEST_DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://test:test@localhost:5432/test_collaboard".to_string());
+        .unwrap_or_else(|_| "postgres://test:test@localhost:5432/test_gauntlet_week_1".to_string());
 
     let pool = PgPoolOptions::new()
         .max_connections(2)

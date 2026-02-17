@@ -12,7 +12,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       STATIC_DIR: /app/client/dist
-      DATABASE_URL: postgres://collaboard:collaboard@postgres:5432/collaboard
+      DATABASE_URL: postgres://${POSTGRES_USER:-gauntlet_week_1}:${POSTGRES_PASSWORD:-gauntlet_week_1}@postgres:5432/${POSTGRES_DB:-gauntlet_week_1_pg}
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-5}
       LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-20250514}
@@ -31,13 +31,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: collaboard
-      POSTGRES_PASSWORD: collaboard
-      POSTGRES_DB: collaboard
+      POSTGRES_USER: ${POSTGRES_USER:-gauntlet_week_1}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gauntlet_week_1}
+      POSTGRES_DB: ${POSTGRES_DB:-gauntlet_week_1_pg}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U collaboard"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s
       timeout: 5s
       retries: 10

@@ -557,7 +557,7 @@ All rate limit state is in-memory, per-process. Resets on server restart. No Red
 Single Rust crate (no workspace) plus a `client/` directory for the React frontend.
 
 ```
-collaboard/
+gauntlet-week-1/
 ├── Cargo.toml                  # Single crate
 ├── .env.example
 ├── Dockerfile

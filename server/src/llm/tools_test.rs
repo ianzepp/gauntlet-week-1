@@ -2,13 +2,13 @@ use super::*;
 
 #[test]
 fn tool_count() {
-    let tools = collaboard_tools();
+    let tools = gauntlet_week_1_tools();
     assert_eq!(tools.len(), 9);
 }
 
 #[test]
 fn tool_names_match_spec() {
-    let tools = collaboard_tools();
+    let tools = gauntlet_week_1_tools();
     let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
     let expected = [
         "createStickyNote",
@@ -28,7 +28,7 @@ fn tool_names_match_spec() {
 
 #[test]
 fn schema_shape_is_object() {
-    let tools = collaboard_tools();
+    let tools = gauntlet_week_1_tools();
     for tool in &tools {
         assert_eq!(
             tool.input_schema.get("type").and_then(|v| v.as_str()),
@@ -41,7 +41,7 @@ fn schema_shape_is_object() {
 
 #[test]
 fn create_sticky_note_schema() {
-    let tools = collaboard_tools();
+    let tools = gauntlet_week_1_tools();
     let tool = tools.iter().find(|t| t.name == "createStickyNote").unwrap();
     let required = tool
         .input_schema
@@ -57,7 +57,7 @@ fn create_sticky_note_schema() {
 
 #[test]
 fn get_board_state_has_no_required_params() {
-    let tools = collaboard_tools();
+    let tools = gauntlet_week_1_tools();
     let tool = tools.iter().find(|t| t.name == "getBoardState").unwrap();
     // No "required" key or empty
     let required = tool.input_schema.get("required");

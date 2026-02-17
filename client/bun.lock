@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "collaboard-client",
+      "name": "gauntlet-week-1-client",
       "dependencies": {
         "konva": "^9.3.18",
         "react": "^19.0.0",

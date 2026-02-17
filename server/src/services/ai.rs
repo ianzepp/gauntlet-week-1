@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::frame::Data;
 use crate::llm::LlmChat;
-use crate::llm::tools::collaboard_tools;
+use crate::llm::tools::gauntlet_week_1_tools;
 use crate::llm::types::{Content, ContentBlock, Message};
 use crate::state::{AppState, BoardObject};
 
@@ -131,7 +131,7 @@ pub async fn handle_prompt(
     };
 
     let system = build_system_prompt(&board_snapshot, grid_context);
-    let tools = collaboard_tools();
+    let tools = gauntlet_week_1_tools();
 
     // Load recent conversation history for multi-turn context.
     let mut messages = load_conversation_history(&state.pool, board_id, user_id).await;
@@ -244,6 +244,17 @@ pub async fn handle_prompt(
 
 /// Load the last few AI conversation turns from persisted frames for one user.
 /// Returns up to 10 exchanges (user prompt + assistant response pairs).
+#[cfg(test)]
+async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid, user_id: Uuid) -> Vec<Message> {
+    let _ = (pool, board_id, user_id);
+    // Unit tests use lazy pools and mocked LLM responses; skip DB history loading
+    // so tests stay fast and deterministic.
+    Vec::new()
+}
+
+/// Load the last few AI conversation turns from persisted frames for one user.
+/// Returns up to 10 exchanges (user prompt + assistant response pairs).
+#[cfg(not(test))]
 async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid, user_id: Uuid) -> Vec<Message> {
     // Query the most recent ai:prompt request/done pairs (last 20 frames = 10 exchanges).
     // We use a subquery to get the tail, then re-order chronologically.

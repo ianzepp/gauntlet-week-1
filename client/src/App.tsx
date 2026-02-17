@@ -8,7 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { useBoardStore } from "./store/board";
 
 function initDarkMode() {
-    const saved = localStorage.getItem("collaboard_dark");
+    const saved = localStorage.getItem("gauntlet_week_1_dark");
     if (saved === "true") {
         document.documentElement.classList.add("dark-mode");
     } else if (saved === null) {
@@ -17,7 +17,7 @@ function initDarkMode() {
         ).matches;
         if (prefersDark) {
             document.documentElement.classList.add("dark-mode");
-            localStorage.setItem("collaboard_dark", "true");
+            localStorage.setItem("gauntlet_week_1_dark", "true");
         }
     }
 }

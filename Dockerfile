@@ -14,10 +14,10 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=server-builder /app/server/target/release/collaboard /usr/local/bin/collaboard
+COPY --from=server-builder /app/server/target/release/gauntlet-week-1 /usr/local/bin/gauntlet-week-1
 COPY --from=client-builder /app/client/dist /app/client/dist
 ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV STATIC_DIR=/app/client/dist
 EXPOSE 3000
-CMD ["collaboard"]
+CMD ["gauntlet-week-1"]

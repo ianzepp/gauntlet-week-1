@@ -4,7 +4,7 @@ primary_region = "ord"
 [build]
 
 [deploy]
-  release_command = "collaboard --migrate-only"
+  release_command = "gauntlet-week-1 --migrate-only"
 
 [http_service]
   internal_port = 3000
