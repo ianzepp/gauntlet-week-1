@@ -94,13 +94,14 @@ export class FrameClient {
 
     private dispatch(frame: Frame): void {
         console.log("[FrameClient] recv", frame.syscall, frame.status, frame.id);
+        if (frame.syscall === "gateway:error") {
+            console.error("[FrameClient] gateway error:", frame.data);
+        }
         const handlers = this.handlers.get(frame.syscall);
         if (handlers) {
             for (const handler of handlers) {
                 handler(frame);
             }
-        } else {
-            console.warn("[FrameClient] no handler for", frame.syscall);
         }
     }
 }

@@ -69,15 +69,24 @@ impl Status {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Frame {
     pub id: Uuid,
+    #[serde(default)]
     pub parent_id: Option<Uuid>,
     /// Milliseconds since Unix epoch. Set automatically at construction.
+    #[serde(default)]
     pub ts: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub board_id: Option<Uuid>,
+    #[serde(default)]
     pub from: Option<String>,
     pub syscall: String,
+    #[serde(default = "default_status")]
     pub status: Status,
+    #[serde(default)]
     pub data: Data,
+}
+
+fn default_status() -> Status {
+    Status::Request
 }
 
 // =============================================================================
@@ -326,5 +335,105 @@ mod tests {
         assert_eq!(cancel.parent_id, Some(req.id));
         assert_eq!(cancel.status, Status::Cancel);
         assert!(cancel.status.is_terminal());
+    }
+
+    #[test]
+    fn deserialize_client_cursor_frame() {
+        // Exact JSON shape the client sends for cursor:moved.
+        let json = r#"{
+            "id": "053ffe5e-16ed-41f1-a36d-eabdd40c0ceb",
+            "parent_id": null,
+            "ts": 1739750400000,
+            "board_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "from": null,
+            "syscall": "cursor:moved",
+            "status": "request",
+            "data": { "x": 100.5, "y": 200.3, "name": "Alice" }
+        }"#;
+        let frame: Frame = serde_json::from_str(json).expect("cursor frame should deserialize");
+        assert_eq!(frame.syscall, "cursor:moved");
+        assert_eq!(frame.status, Status::Request);
+        assert!(frame.board_id.is_some());
+        assert!(frame.from.is_none());
+    }
+
+    #[test]
+    fn deserialize_client_frame_null_board_id() {
+        // Client sends board_id: null before joining a board.
+        let json = r#"{
+            "id": "053ffe5e-16ed-41f1-a36d-eabdd40c0ceb",
+            "parent_id": null,
+            "ts": 1739750400000,
+            "board_id": null,
+            "from": null,
+            "syscall": "board:list",
+            "status": "request",
+            "data": {}
+        }"#;
+        let frame: Frame = serde_json::from_str(json).expect("null board_id should deserialize");
+        assert!(frame.board_id.is_none());
+    }
+
+    #[test]
+    fn deserialize_client_frame_string_board_id() {
+        // Client sends board_id as a UUID string.
+        let json = r#"{
+            "id": "053ffe5e-16ed-41f1-a36d-eabdd40c0ceb",
+            "parent_id": null,
+            "ts": 1739750400000,
+            "board_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "from": null,
+            "syscall": "object:create",
+            "status": "request",
+            "data": {}
+        }"#;
+        let frame: Frame = serde_json::from_str(json).expect("string board_id should deserialize");
+        assert!(frame.board_id.is_some());
+    }
+
+    #[test]
+    fn deserialize_minimal_frame() {
+        // Only id and syscall — all other fields should default.
+        let json = r#"{"id": "053ffe5e-16ed-41f1-a36d-eabdd40c0ceb", "syscall": "board:list"}"#;
+        let frame: Frame = serde_json::from_str(json).expect("minimal frame should deserialize");
+        assert_eq!(frame.syscall, "board:list");
+        assert_eq!(frame.status, Status::Request);
+        assert!(frame.board_id.is_none());
+        assert!(frame.from.is_none());
+        assert!(frame.data.is_empty());
+    }
+
+    #[test]
+    fn deserialize_client_frame_empty_string_board_id_fails() {
+        // Client might send board_id: "" — this must fail Uuid parse.
+        let json = r#"{
+            "id": "053ffe5e-16ed-41f1-a36d-eabdd40c0ceb",
+            "parent_id": null,
+            "ts": 1739750400000,
+            "board_id": "",
+            "from": null,
+            "syscall": "cursor:moved",
+            "status": "request",
+            "data": {}
+        }"#;
+        let result = serde_json::from_str::<Frame>(json);
+        assert!(result.is_err(), "empty string board_id should fail deserialization");
+    }
+
+    #[test]
+    fn deserialize_client_frame_empty_string_from_ok() {
+        // Client might send from: "" — should this work?
+        let json = r#"{
+            "id": "053ffe5e-16ed-41f1-a36d-eabdd40c0ceb",
+            "parent_id": null,
+            "ts": 1739750400000,
+            "board_id": null,
+            "from": "",
+            "syscall": "board:list",
+            "status": "request",
+            "data": {}
+        }"#;
+        let frame: Frame = serde_json::from_str(json).expect("empty string from should deserialize");
+        assert_eq!(frame.from, Some(String::new()));
     }
 }

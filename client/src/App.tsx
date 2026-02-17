@@ -6,7 +6,7 @@ import { BoardPage } from "./pages/BoardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { useBoardStore } from "./store/board";
 
-const DEMO_BOARD_ID = "demo-board-001";
+const DEMO_BOARD_ID = "00000000-0000-0000-0000-000000000001";
 
 function initDarkMode() {
     const saved = localStorage.getItem("collaboard_dark");
