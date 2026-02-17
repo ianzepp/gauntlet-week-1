@@ -75,8 +75,17 @@ export function useFrameClient(
                 // Our join reply — load the object list
                 const objects = frame.data.objects as unknown as BoardObject[];
                 useBoardStore.getState().setObjects(objects);
+            } else if (frame.data.client_id) {
+                // Peer join broadcast — add presence with placeholder info
+                // Name/color will be enriched on their first cursor:moved
+                const clientId = frame.data.client_id as string;
+                useBoardStore.getState().setPresence({
+                    user_id: clientId,
+                    name: "Joining…",
+                    color: "#6366f1",
+                    cursor: null,
+                });
             }
-            // Peer join notification has { client_id, user_id } — could update presence
         };
 
         const handleBoardPart = (frame: Frame) => {

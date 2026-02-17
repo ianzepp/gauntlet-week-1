@@ -39,6 +39,7 @@ interface BoardState {
     deleteObject: (id: string) => void;
     setPresence: (presence: Presence) => void;
     removePresence: (userId: string) => void;
+    clearPresence: () => void;
     setSelection: (ids: Set<string>) => void;
     toggleSelection: (id: string) => void;
     clearSelection: () => void;
@@ -134,6 +135,8 @@ export const useBoardStore = create<BoardState>((set) => ({
             next.delete(userId);
             return { presence: next };
         }),
+
+    clearPresence: () => set({ presence: new Map() }),
 
     setSelection: (ids) => set({ selection: ids }),
 

@@ -14,13 +14,17 @@ interface BoardPageProps {
 
 export function BoardPage({ boardId, onBack }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
+    const clearPresence = useBoardStore((s) => s.clearPresence);
     const frameClient = useBoardStore((s) => s.frameClient);
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
 
     useEffect(() => {
         setBoardId(boardId);
-        return () => setBoardId(null);
-    }, [boardId, setBoardId]);
+        return () => {
+            setBoardId(null);
+            clearPresence();
+        };
+    }, [boardId, setBoardId, clearPresence]);
 
     // Send board:join when connected and boardId is set
     useEffect(() => {
