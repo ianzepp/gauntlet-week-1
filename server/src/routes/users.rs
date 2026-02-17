@@ -53,11 +53,10 @@ pub async fn user_profile(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    // Aggregate stats from frames table.
+    // Aggregate stats from frames table (match on "from" = user_id).
     let stats_row = sqlx::query(
         r#"SELECT
                COALESCE(COUNT(*), 0)                                        AS total_frames,
-               COALESCE(COUNT(*) FILTER (WHERE syscall = 'object:create'), 0) AS objects_created,
                COALESCE(COUNT(DISTINCT board_id), 0)                        AS boards_active,
                to_char(
                    MAX(to_timestamp(ts / 1000.0) AT TIME ZONE 'UTC'),
@@ -70,6 +69,13 @@ pub async fn user_profile(
     .fetch_one(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Objects created (from board_objects table, more reliable).
+    let obj_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM board_objects WHERE created_by = $1")
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Top syscalls breakdown.
     let syscall_rows = sqlx::query(
@@ -98,7 +104,7 @@ pub async fn user_profile(
         member_since: user_row.get("member_since"),
         stats: UserStats {
             total_frames: stats_row.get("total_frames"),
-            objects_created: stats_row.get("objects_created"),
+            objects_created: obj_count,
             boards_active: stats_row.get("boards_active"),
             last_active: stats_row.get("last_active"),
             top_syscalls,

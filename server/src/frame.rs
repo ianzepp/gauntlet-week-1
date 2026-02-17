@@ -165,14 +165,14 @@ impl Frame {
         self.reply(Status::Error, data)
     }
 
-    /// Build a reply frame. Inherits `parent_id`, `board_id`, and `syscall`.
+    /// Build a reply frame. Inherits `parent_id`, `board_id`, `from`, and `syscall`.
     fn reply(&self, status: Status, data: Data) -> Self {
         Self {
             id: Uuid::new_v4(),
             parent_id: Some(self.id),
             ts: now_ms(),
             board_id: self.board_id,
-            from: None,
+            from: self.from.clone(),
             syscall: self.syscall.clone(),
             status,
             data,

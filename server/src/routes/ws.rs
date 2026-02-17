@@ -136,10 +136,10 @@ async fn dispatch_frame(
         .map_or(req.syscall.as_str(), |(p, _)| p);
 
     match prefix {
-        "board" => handle_board(state, socket, current_board, client_id, client_tx, &req).await,
+        "board" => handle_board(state, socket, current_board, client_id, user_id, client_tx, &req).await,
         "object" => handle_object(state, socket, *current_board, client_id, user_id, &req).await,
-        "cursor" => handle_cursor(state, *current_board, client_id, &req).await,
-        "ai" => handle_ai(state, socket, *current_board, client_id, &req).await,
+        "cursor" => handle_cursor(state, *current_board, client_id, user_id, &req).await,
+        "ai" => handle_ai(state, socket, *current_board, client_id, user_id, &req).await,
         _ => {
             let err =
                 Frame::request("gateway:error", Data::new()).with_data("message", format!("unknown prefix: {prefix}"));
@@ -157,11 +157,12 @@ async fn handle_board(
     socket: &mut WebSocket,
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
+    user_id: Uuid,
     client_tx: &mpsc::Sender<Frame>,
     req: &WsRequest,
 ) {
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
-    let parent = Frame::request(&req.syscall, req.data.clone());
+    let parent = Frame::request(&req.syscall, req.data.clone()).with_from(user_id.to_string());
 
     match op {
         "join" => {
@@ -265,13 +266,15 @@ async fn handle_object(
     req: &WsRequest,
 ) {
     let Some(board_id) = current_board else {
-        let parent = Frame::request(&req.syscall, Data::new());
+        let parent = Frame::request(&req.syscall, Data::new()).with_from(user_id.to_string());
         let _ = send_frame(socket, state, &parent.error("must join a board first")).await;
         return;
     };
 
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
-    let parent = Frame::request(&req.syscall, req.data.clone()).with_board_id(board_id);
+    let parent = Frame::request(&req.syscall, req.data.clone())
+        .with_board_id(board_id)
+        .with_from(user_id.to_string());
 
     match op {
         "create" => {
@@ -373,7 +376,13 @@ async fn handle_object(
 // CURSOR HANDLERS
 // =============================================================================
 
-async fn handle_cursor(state: &AppState, current_board: Option<Uuid>, client_id: Uuid, req: &WsRequest) {
+async fn handle_cursor(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    client_id: Uuid,
+    _user_id: Uuid,
+    req: &WsRequest,
+) {
     let Some(board_id) = current_board else {
         return; // Silently ignore cursor moves before joining.
     };
@@ -406,15 +415,18 @@ async fn handle_ai(
     socket: &mut WebSocket,
     current_board: Option<Uuid>,
     client_id: Uuid,
+    user_id: Uuid,
     req: &WsRequest,
 ) {
     let Some(board_id) = current_board else {
-        let parent = Frame::request(&req.syscall, Data::new());
+        let parent = Frame::request(&req.syscall, Data::new()).with_from(user_id.to_string());
         let _ = send_frame(socket, state, &parent.error("must join a board first")).await;
         return;
     };
 
-    let parent = Frame::request(&req.syscall, req.data.clone()).with_board_id(board_id);
+    let parent = Frame::request(&req.syscall, req.data.clone())
+        .with_board_id(board_id)
+        .with_from(user_id.to_string());
 
     let Some(llm) = &state.llm else {
         let _ = send_frame(socket, state, &parent.error("AI features not configured")).await;
