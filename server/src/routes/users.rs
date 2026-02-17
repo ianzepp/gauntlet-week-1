@@ -41,6 +41,8 @@ pub async fn user_profile(
     _auth: AuthUser,
     Path(user_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let uid_str = user_id.to_string();
+
     // Fetch user row.
     let user_row = sqlx::query(
         r"SELECT id, name, avatar_url, color,
@@ -53,40 +55,57 @@ pub async fn user_profile(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    // Aggregate stats from frames table (match on "from" = user_id).
+    // Aggregate stats from frames table.
+    // Match on "from" (new frames) OR data->>'user_id' (legacy session frames).
     let stats_row = sqlx::query(
         r#"SELECT
-               COALESCE(COUNT(*), 0)                                        AS total_frames,
-               COALESCE(COUNT(DISTINCT board_id), 0)                        AS boards_active,
+               COALESCE(COUNT(*), 0) AS total_frames,
+               COALESCE(COUNT(DISTINCT board_id), 0) AS boards_active,
                to_char(
                    MAX(to_timestamp(ts / 1000.0) AT TIME ZONE 'UTC'),
                    'YYYY-MM-DD HH24:MI'
                ) AS last_active
            FROM frames
-           WHERE "from" = $1::text"#,
+           WHERE "from" = $1 OR data->>'user_id' = $1"#,
     )
-    .bind(user_id.to_string())
+    .bind(&uid_str)
     .fetch_one(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Objects created (from board_objects table, more reliable).
+    // Objects created: check board_objects first, fall back to in-memory count.
     let obj_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM board_objects WHERE created_by = $1")
         .bind(user_id)
         .fetch_one(&state.pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // If no persisted objects, count from in-memory board state.
+    let objects_created = if obj_count > 0 {
+        obj_count
+    } else {
+        let boards = state.boards.read().await;
+        let mut count: i64 = 0;
+        for board_state in boards.values() {
+            for obj in board_state.objects.values() {
+                if obj.created_by == Some(user_id) {
+                    count += 1;
+                }
+            }
+        }
+        count
+    };
+
     // Top syscalls breakdown.
     let syscall_rows = sqlx::query(
         r#"SELECT syscall, COUNT(*) AS cnt
            FROM frames
-           WHERE "from" = $1::text
+           WHERE "from" = $1 OR data->>'user_id' = $1
            GROUP BY syscall
            ORDER BY cnt DESC
            LIMIT 5"#,
     )
-    .bind(user_id.to_string())
+    .bind(&uid_str)
     .fetch_all(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -104,7 +123,7 @@ pub async fn user_profile(
         member_since: user_row.get("member_since"),
         stats: UserStats {
             total_frames: stats_row.get("total_frames"),
-            objects_created: obj_count,
+            objects_created,
             boards_active: stats_row.get("boards_active"),
             last_active: stats_row.get("last_active"),
             top_syscalls,
