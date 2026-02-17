@@ -103,7 +103,7 @@ pub mod test_helpers {
     use super::*;
     use sqlx::postgres::PgPoolOptions;
 
-    /// Create a test `AppState` with a dummy `PgPool` (connect_lazy, no live DB).
+    /// Create a test `AppState` with a dummy `PgPool` (`connect_lazy`, no live DB).
     #[must_use]
     pub fn test_app_state() -> AppState {
         let pool = PgPoolOptions::new()

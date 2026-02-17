@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 
-/// Initialize the PostgreSQL connection pool and run migrations.
+/// Initialize the `PostgreSQL` connection pool and run migrations.
 ///
 /// # Errors
 ///

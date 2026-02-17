@@ -1,141 +1,132 @@
 //! CollabBoard-specific tool definitions for the AI agent.
+//!
+//! Tool names match the G4 Week 1 spec exactly (issue #19).
 
 use super::types::Tool;
 
 /// Build the set of tools available to the `CollabBoard` AI agent.
+///
+/// Returns the 9 spec-required tools with exact names evaluators will test.
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn collaboard_tools() -> Vec<Tool> {
     vec![
         Tool {
-            name: "create_objects".into(),
-            description: "Create one or more objects (sticky notes, shapes, text) on the board.".into(),
+            name: "createStickyNote".into(),
+            description: "Create a sticky note on the board.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "objects": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "kind": { "type": "string", "enum": ["sticky_note", "rectangle", "ellipse", "text"] },
-                                "x": { "type": "number" },
-                                "y": { "type": "number" },
-                                "props": {
-                                    "type": "object",
-                                    "properties": {
-                                        "text": { "type": "string" },
-                                        "color": { "type": "string" }
-                                    }
-                                }
-                            },
-                            "required": ["kind", "x", "y"]
-                        }
-                    }
+                    "text": { "type": "string", "description": "Text content of the sticky note" },
+                    "x": { "type": "number", "description": "X position on canvas" },
+                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "color": { "type": "string", "description": "Background color (hex, e.g. #FFEB3B)" }
                 },
-                "required": ["objects"]
+                "required": ["text", "x", "y"]
             }),
         },
         Tool {
-            name: "move_objects".into(),
-            description: "Reposition objects by their IDs to new x,y coordinates.".into(),
+            name: "createShape".into(),
+            description: "Create a shape (rectangle or ellipse) on the board.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "moves": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": { "type": "string", "format": "uuid" },
-                                "x": { "type": "number" },
-                                "y": { "type": "number" }
-                            },
-                            "required": ["id", "x", "y"]
-                        }
-                    }
+                    "type": { "type": "string", "enum": ["rectangle", "ellipse"], "description": "Shape type" },
+                    "x": { "type": "number", "description": "X position on canvas" },
+                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "width": { "type": "number", "description": "Width in pixels" },
+                    "height": { "type": "number", "description": "Height in pixels" },
+                    "color": { "type": "string", "description": "Fill color (hex)" }
                 },
-                "required": ["moves"]
+                "required": ["type", "x", "y", "width", "height"]
             }),
         },
         Tool {
-            name: "update_objects".into(),
-            description: "Change properties (color, text, size) of objects by their IDs.".into(),
+            name: "createFrame".into(),
+            description: "Create a frame — a titled rectangular region that groups content on the board.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "updates": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": { "type": "string", "format": "uuid" },
-                                "props": { "type": "object" },
-                                "width": { "type": "number" },
-                                "height": { "type": "number" }
-                            },
-                            "required": ["id"]
-                        }
-                    }
+                    "title": { "type": "string", "description": "Frame title displayed at the top" },
+                    "x": { "type": "number", "description": "X position on canvas" },
+                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "width": { "type": "number", "description": "Width in pixels" },
+                    "height": { "type": "number", "description": "Height in pixels" }
                 },
-                "required": ["updates"]
+                "required": ["title", "x", "y", "width", "height"]
             }),
         },
         Tool {
-            name: "delete_objects".into(),
-            description: "Remove objects from the board by their IDs.".into(),
+            name: "createConnector".into(),
+            description: "Create a connector line/arrow between two objects.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "ids": {
-                        "type": "array",
-                        "items": { "type": "string", "format": "uuid" }
-                    }
+                    "fromId": { "type": "string", "format": "uuid", "description": "Source object ID" },
+                    "toId": { "type": "string", "format": "uuid", "description": "Target object ID" },
+                    "style": { "type": "string", "enum": ["line", "arrow", "dashed"], "description": "Connector visual style" }
                 },
-                "required": ["ids"]
+                "required": ["fromId", "toId"]
             }),
         },
         Tool {
-            name: "organize_layout".into(),
-            description: "Arrange objects in a grid, cluster, or tree layout.".into(),
+            name: "moveObject".into(),
+            description: "Move an object to a new position.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "layout": { "type": "string", "enum": ["grid", "cluster", "tree", "circle"] },
-                    "ids": {
-                        "type": "array",
-                        "items": { "type": "string", "format": "uuid" },
-                        "description": "Object IDs to arrange. If empty, arranges all objects."
-                    },
-                    "spacing": { "type": "number", "description": "Pixels between objects" }
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to move" },
+                    "x": { "type": "number", "description": "New X position" },
+                    "y": { "type": "number", "description": "New Y position" }
                 },
-                "required": ["layout"]
+                "required": ["objectId", "x", "y"]
             }),
         },
         Tool {
-            name: "summarize_board".into(),
-            description: "Read all text content on the board and produce a summary as a new sticky note.".into(),
+            name: "resizeObject".into(),
+            description: "Resize an object to new dimensions.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "position": {
-                        "type": "object",
-                        "properties": {
-                            "x": { "type": "number" },
-                            "y": { "type": "number" }
-                        }
-                    }
-                }
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to resize" },
+                    "width": { "type": "number", "description": "New width in pixels" },
+                    "height": { "type": "number", "description": "New height in pixels" }
+                },
+                "required": ["objectId", "width", "height"]
             }),
         },
         Tool {
-            name: "group_by_theme".into(),
-            description: "Cluster objects by semantic similarity and color-code them by group.".into(),
+            name: "updateText".into(),
+            description: "Update the text content of an object (sticky note, frame title, etc).".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "num_groups": { "type": "integer", "minimum": 2, "maximum": 10, "description": "Number of groups to create" }
-                }
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to update" },
+                    "newText": { "type": "string", "description": "New text content" }
+                },
+                "required": ["objectId", "newText"]
+            }),
+        },
+        Tool {
+            name: "changeColor".into(),
+            description: "Change the color of an object.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to recolor" },
+                    "color": { "type": "string", "description": "New color (hex, e.g. #FF5722)" }
+                },
+                "required": ["objectId", "color"]
+            }),
+        },
+        Tool {
+            name: "getBoardState".into(),
+            description: "Retrieve the current state of all objects on the board. Use this to understand \
+                          what's on the board before making changes."
+                .into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {}
             }),
         },
     ]
@@ -148,20 +139,27 @@ mod tests {
     #[test]
     fn tool_count() {
         let tools = collaboard_tools();
-        assert_eq!(tools.len(), 7);
+        assert_eq!(tools.len(), 9);
     }
 
     #[test]
-    fn tool_names() {
+    fn tool_names_match_spec() {
         let tools = collaboard_tools();
         let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-        assert!(names.contains(&"create_objects"));
-        assert!(names.contains(&"move_objects"));
-        assert!(names.contains(&"update_objects"));
-        assert!(names.contains(&"delete_objects"));
-        assert!(names.contains(&"organize_layout"));
-        assert!(names.contains(&"summarize_board"));
-        assert!(names.contains(&"group_by_theme"));
+        let expected = [
+            "createStickyNote",
+            "createShape",
+            "createFrame",
+            "createConnector",
+            "moveObject",
+            "resizeObject",
+            "updateText",
+            "changeColor",
+            "getBoardState",
+        ];
+        for name in &expected {
+            assert!(names.contains(name), "missing tool: {name}");
+        }
     }
 
     #[test]
@@ -178,19 +176,27 @@ mod tests {
     }
 
     #[test]
-    fn create_objects_schema_requires_objects_array() {
+    fn create_sticky_note_schema() {
         let tools = collaboard_tools();
-        let create = tools.iter().find(|t| t.name == "create_objects").unwrap();
-        let required = create.input_schema.get("required").unwrap();
-        assert!(required.as_array().unwrap().iter().any(|v| v == "objects"));
-        let items = create
+        let tool = tools.iter().find(|t| t.name == "createStickyNote").unwrap();
+        let required = tool
             .input_schema
-            .get("properties")
+            .get("required")
             .unwrap()
-            .get("objects")
-            .unwrap()
-            .get("items")
+            .as_array()
             .unwrap();
-        assert_eq!(items.get("type").and_then(|v| v.as_str()), Some("object"));
+        let req_strs: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
+        assert!(req_strs.contains(&"text"));
+        assert!(req_strs.contains(&"x"));
+        assert!(req_strs.contains(&"y"));
+    }
+
+    #[test]
+    fn get_board_state_has_no_required_params() {
+        let tools = collaboard_tools();
+        let tool = tools.iter().find(|t| t.name == "getBoardState").unwrap();
+        // No "required" key or empty
+        let required = tool.input_schema.get("required");
+        assert!(required.is_none() || required.unwrap().as_array().unwrap().is_empty());
     }
 }

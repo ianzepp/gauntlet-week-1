@@ -10,7 +10,7 @@
 //!
 //! LIFECYCLE
 //! =========
-//! 1. Upgrade → send `session:connected` with client_id
+//! 1. Upgrade → send `session:connected` with `client_id`
 //! 2. Client sends frames → validate prefix → dispatch to service
 //! 3. Broadcast frames from peers → forwarded to client
 //! 4. Close → `board:part` → cleanup
@@ -280,8 +280,16 @@ async fn handle_object(
                 .get("kind")
                 .and_then(|v| v.as_str())
                 .unwrap_or("sticky_note");
-            let x = req.data.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let y = req.data.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let x = req
+                .data
+                .get("x")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            let y = req
+                .data
+                .get("y")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
             let props = req
                 .data
                 .get("props")
@@ -314,7 +322,7 @@ async fn handle_object(
             let version = req
                 .data
                 .get("version")
-                .and_then(|v| v.as_i64())
+                .and_then(serde_json::Value::as_i64)
                 .unwrap_or(0) as i32;
 
             match services::object::update_object(state, board_id, object_id, &req.data, version).await {
@@ -369,8 +377,16 @@ async fn handle_cursor(state: &AppState, current_board: &Option<Uuid>, client_id
         return; // Silently ignore cursor moves before joining.
     };
 
-    let x = req.data.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let y = req.data.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let x = req
+        .data
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let y = req
+        .data
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
     let name = req
         .data
         .get("name")
