@@ -1,6 +1,6 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
 import { deleteObjectsWithConfirm } from "../lib/objectActions";
@@ -11,6 +11,13 @@ const GRID_SIZE = 20;
 const GRID_MAJOR = 5;
 const CURSOR_SEND_INTERVAL_MS = 50;
 const CURSOR_SEND_MIN_DELTA = 0.5;
+const SELECTION_RING_SCALE = 1.05;
+const SELECTION_RING_RECT_DIAGONAL_SCALE = 1.10;
+const SELECTION_RING_TICK_COUNT = 4;
+const SELECTION_RING_ROTATION_DEG_PER_SEC = 32;
+const SELECTION_RING_COLOR = "#B9B3A8";
+const SELECTION_RING_PULSE_AMPLITUDE = 0.08;
+const SELECTION_RING_PULSE_CYCLES_PER_ROTATION = 2;
 
 function GridLines({
     width,
@@ -36,9 +43,9 @@ function GridLines({
             <Line
                 key={`v${x}`}
                 points={[x, startY, x, endY]}
-                stroke={major ? "var(--grid-major, #c8c0b4)" : "var(--grid-minor, #d4cfc6)"}
+                stroke={major ? "var(--canvas-grid-major, #d7d1c7)" : "var(--canvas-grid, #e1ddd5)"}
                 strokeWidth={1 / scale}
-                opacity={major ? 0.4 : 0.2}
+                opacity={major ? 0.28 : 0.14}
                 listening={false}
             />,
         );
@@ -50,9 +57,9 @@ function GridLines({
             <Line
                 key={`h${y}`}
                 points={[startX, y, endX, y]}
-                stroke={major ? "var(--grid-major, #c8c0b4)" : "var(--grid-minor, #d4cfc6)"}
+                stroke={major ? "var(--canvas-grid-major, #d7d1c7)" : "var(--canvas-grid, #e1ddd5)"}
                 strokeWidth={1 / scale}
-                opacity={major ? 0.4 : 0.2}
+                opacity={major ? 0.28 : 0.14}
                 listening={false}
             />,
         );
@@ -96,6 +103,7 @@ export function Canvas() {
     } | null>(null);
     const lastCursorSendTsRef = useRef(0);
     const lastCursorSentPosRef = useRef<{ x: number; y: number } | null>(null);
+    const [selectionRingRotation, setSelectionRingRotation] = useState(0);
 
     const boardId = useBoardStore((s) => s.boardId);
     const user = useBoardStore((s) => s.user);
@@ -126,6 +134,53 @@ export function Canvas() {
             ),
         [presence],
     );
+    const selectionHalos = useMemo(
+        () =>
+            objectList
+                .filter(
+                    (obj) =>
+                        selection.has(obj.id) &&
+                        obj.width != null &&
+                        obj.height != null &&
+                        obj.width > 0 &&
+                        obj.height > 0,
+                )
+                .map((obj) => {
+                    const width = obj.width ?? 0;
+                    const height = obj.height ?? 0;
+                    const largest = Math.max(width, height);
+                    const diagonal = Math.hypot(width, height);
+                    const diameter =
+                        obj.kind === "rectangle" || obj.kind === "sticky_note"
+                            ? diagonal * SELECTION_RING_RECT_DIAGONAL_SCALE
+                            : largest * SELECTION_RING_SCALE;
+                    const radius = diameter / 2;
+                    return {
+                        id: obj.id,
+                        x: obj.x + width / 2,
+                        y: obj.y + height / 2,
+                        radius,
+                        tickLength: Math.max(radius * 0.08, 7 / viewport.scale),
+                    };
+                }),
+        [objectList, selection, viewport.scale],
+    );
+
+    useEffect(() => {
+        if (selectionHalos.length === 0) {
+            setSelectionRingRotation(0);
+            return;
+        }
+        let raf = 0;
+        const start = performance.now();
+        const animate = (now: number) => {
+            const angle = (((now - start) / 1000) * SELECTION_RING_ROTATION_DEG_PER_SEC) % 360;
+            setSelectionRingRotation(angle);
+            raf = window.requestAnimationFrame(animate);
+        };
+        raf = window.requestAnimationFrame(animate);
+        return () => window.cancelAnimationFrame(raf);
+    }, [selectionHalos.length]);
 
     const findTopRectangleAtPoint = useCallback(
         (canvasX: number, canvasY: number) =>
@@ -515,6 +570,56 @@ export function Canvas() {
                                 fill="#1F1A17"
                                 listening={false}
                             />
+                        );
+                    })}
+                </Layer>
+                <Layer listening={false}>
+                    {selectionHalos.map((halo) => {
+                        const phase =
+                            (selectionRingRotation / 360) *
+                            Math.PI *
+                            2 *
+                            SELECTION_RING_PULSE_CYCLES_PER_ROTATION;
+                        const pulseScale = 1 + Math.sin(phase) * SELECTION_RING_PULSE_AMPLITUDE;
+                        const pulsedRadius = halo.radius * pulseScale;
+                        const pulsedTickLength = halo.tickLength * pulseScale;
+
+                        return (
+                            <Group
+                                key={`selection-halo-${halo.id}`}
+                                x={halo.x}
+                                y={halo.y}
+                                rotation={selectionRingRotation}
+                                listening={false}
+                            >
+                                <Circle
+                                    radius={pulsedRadius}
+                                    stroke={SELECTION_RING_COLOR}
+                                    strokeWidth={2 / viewport.scale}
+                                    listening={false}
+                                />
+                                {Array.from({ length: SELECTION_RING_TICK_COUNT }, (_, i) => {
+                                    const angle = (Math.PI * 2 * i) / SELECTION_RING_TICK_COUNT;
+                                    const cos = Math.cos(angle);
+                                    const sin = Math.sin(angle);
+                                    const inner = pulsedRadius - pulsedTickLength;
+                                    const outer = pulsedRadius + pulsedTickLength * 0.35;
+                                    return (
+                                        <Line
+                                            key={`selection-halo-tick-${halo.id}-${i}`}
+                                            points={[
+                                                cos * inner,
+                                                sin * inner,
+                                                cos * outer,
+                                                sin * outer,
+                                            ]}
+                                            stroke={SELECTION_RING_COLOR}
+                                            strokeWidth={1.5 / viewport.scale}
+                                            listening={false}
+                                        />
+                                    );
+                                })}
+                            </Group>
                         );
                     })}
                 </Layer>

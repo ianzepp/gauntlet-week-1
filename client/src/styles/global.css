@@ -1,8 +1,8 @@
 :root {
     /* Canvas */
     --canvas-bg: #e8e0d2;
-    --canvas-grid: #d4cfc6;
-    --canvas-grid-major: #c8c0b4;
+    --canvas-grid: #e1ddd5;
+    --canvas-grid-major: #d7d1c7;
 
     /* UI Chrome */
     --bg-primary: #f5f0e8;
@@ -68,8 +68,8 @@
 
 .dark-mode {
     --canvas-bg: #1f1d1a;
-    --canvas-grid: #2a2724;
-    --canvas-grid-major: #3a3632;
+    --canvas-grid: #35312d;
+    --canvas-grid-major: #46413b;
 
     --bg-primary: #1c1a18;
     --bg-secondary: #252220;
