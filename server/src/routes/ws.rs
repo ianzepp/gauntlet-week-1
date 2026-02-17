@@ -496,7 +496,21 @@ async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> 
     };
     let is_cursor = frame.syscall.starts_with("cursor:");
     if !is_cursor {
-        info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
+        if frame.status == crate::frame::Status::Error {
+            let code = frame
+                .data
+                .get("code")
+                .and_then(|v| v.as_str())
+                .unwrap_or("-");
+            let message = frame
+                .data
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("-");
+            warn!(id = %frame.id, syscall = %frame.syscall, code, message, "ws: send frame status=Error");
+        } else {
+            info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
+        }
     }
     let result = socket
         .send(Message::Text(json.into()))
