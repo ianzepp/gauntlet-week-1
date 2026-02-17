@@ -1,5 +1,7 @@
+import { useCallback, useRef, useState } from "react";
 import { useBoardStore } from "../store/board";
 import styles from "./Toolbar.module.css";
+import { UserFieldReport } from "./UserFieldReport";
 
 interface ToolbarProps {
     onBack?: () => void;
@@ -8,6 +10,13 @@ interface ToolbarProps {
 export function Toolbar({ onBack }: ToolbarProps) {
     const presence = useBoardStore((s) => s.presence);
     const user = useBoardStore((s) => s.user);
+
+    const [activeReport, setActiveReport] = useState<{
+        userId: string;
+        anchorX: number;
+    } | null>(null);
+
+    const chipRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
 
     const toggleDarkMode = () => {
         const html = document.documentElement;
@@ -23,6 +32,16 @@ export function Toolbar({ onBack }: ToolbarProps) {
             color: p.color,
         })),
     ];
+
+    const handleChipClick = useCallback((userId: string) => {
+        const el = chipRefs.current.get(userId);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setActiveReport({
+            userId,
+            anchorX: rect.left + rect.width / 2,
+        });
+    }, []);
 
     return (
         <div className={styles.toolbar}>
@@ -40,14 +59,18 @@ export function Toolbar({ onBack }: ToolbarProps) {
                     </button>
                 )}
                 <span className={styles.boardName}>CollabBoard</span>
-            </div>
-            <div className={styles.center}>
+                <span className={styles.userDivider} />
                 {allUsers.map((u) => (
                     <span
                         key={u.id}
+                        ref={(el) => {
+                            if (el) chipRefs.current.set(u.id, el);
+                            else chipRefs.current.delete(u.id);
+                        }}
                         className={styles.presenceChip}
                         style={{ borderColor: u.color }}
                         title={u.name}
+                        onClick={() => handleChipClick(u.id)}
                     >
                         <span
                             className={styles.presenceDot}
@@ -69,6 +92,15 @@ export function Toolbar({ onBack }: ToolbarProps) {
                     </svg>
                 </button>
             </div>
+
+            {activeReport && (
+                <UserFieldReport
+                    userId={activeReport.userId}
+                    anchorX={activeReport.anchorX}
+                    direction="down"
+                    onClose={() => setActiveReport(null)}
+                />
+            )}
         </div>
     );
 }

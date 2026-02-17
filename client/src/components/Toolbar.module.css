@@ -8,6 +8,7 @@
 }
 
 .left {
+    flex: 1;
     display: flex;
     align-items: center;
     gap: var(--space-sm);
@@ -22,12 +23,10 @@
     color: var(--text-nav-active);
 }
 
-.center {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-sm);
+.userDivider {
+    width: 1px;
+    height: 14px;
+    background: var(--border-default);
 }
 
 .presenceChip {
@@ -42,6 +41,12 @@
     color: var(--text-nav);
     border-left: 2px solid;
     padding-left: var(--space-xs);
+    cursor: pointer;
+    transition: color 150ms ease;
+}
+
+.presenceChip:hover {
+    color: var(--text-nav-active);
 }
 
 .presenceDot {

@@ -6,12 +6,14 @@ import styles from "./UserFieldReport.module.css";
 interface UserFieldReportProps {
     userId: string;
     anchorX: number;
+    direction?: "up" | "down";
     onClose: () => void;
 }
 
 export function UserFieldReport({
     userId,
     anchorX,
+    direction = "up",
     onClose,
 }: UserFieldReportProps) {
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -27,11 +29,15 @@ export function UserFieldReport({
 
     // Position popover centered on the anchor, clamped to viewport
     const left = Math.max(8, Math.min(anchorX - 120, window.innerWidth - 248));
+    const posStyle: React.CSSProperties =
+        direction === "down"
+            ? { left, top: 36, bottom: "auto" }
+            : { left, bottom: 32, top: "auto" };
 
     return (
         <>
             <div className={styles.backdrop} onClick={onClose} />
-            <div className={styles.popover} style={{ left }}>
+            <div className={styles.popover} style={posStyle}>
                 {loading ? (
                     <div className={styles.loading}>Loading field report...</div>
                 ) : profile ? (
