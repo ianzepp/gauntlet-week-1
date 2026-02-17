@@ -30,6 +30,15 @@ use crate::frame::{Data, Frame};
 use crate::services;
 use crate::state::AppState;
 
+const DEFAULT_WS_CLIENT_CHANNEL_CAPACITY: usize = 256;
+
+fn ws_client_channel_capacity() -> usize {
+    std::env::var("WS_CLIENT_CHANNEL_CAPACITY")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(DEFAULT_WS_CLIENT_CHANNEL_CAPACITY)
+}
+
 // =============================================================================
 // OUTCOME
 // =============================================================================
@@ -84,15 +93,16 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
     let client_id = Uuid::new_v4();
 
     // Per-connection channel for receiving broadcast frames from peers.
-    let (client_tx, mut client_rx) = mpsc::channel::<Frame>(256);
+    let (client_tx, mut client_rx) = mpsc::channel::<Frame>(ws_client_channel_capacity());
 
     // Send session:connected with user_id.
     let welcome = Frame::request("session:connected", Data::new())
         .with_data("client_id", client_id.to_string())
         .with_data("user_id", user_id.to_string());
-    if send_frame(&mut socket, &state, &welcome).await.is_err() {
+    if send_frame(&mut socket, &welcome).await.is_err() {
         return;
     }
+    services::persistence::enqueue_frame(&state, &welcome);
 
     info!(%client_id, %user_id, "ws: client connected");
 
@@ -113,7 +123,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                 }
             }
             Some(frame) = client_rx.recv() => {
-                if send_frame(&mut socket, &state, &frame).await.is_err() {
+                if send_frame(&mut socket, &frame).await.is_err() {
                     break;
                 }
             }
@@ -126,6 +136,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
         part_data.insert("client_id".into(), serde_json::json!(client_id));
         part_data.insert("user_id".into(), serde_json::json!(user_id));
         let part_frame = Frame::request("board:part", part_data).with_board_id(board_id);
+        services::persistence::enqueue_frame(&state, &part_frame);
         services::board::broadcast(&state, board_id, &part_frame, Some(client_id)).await;
 
         services::board::part_board(&state, board_id, client_id).await;
@@ -149,7 +160,7 @@ async fn dispatch_frame(
 ) {
     let sender_frames = process_inbound_text(state, current_board, client_id, user_id, client_tx, text).await;
     for frame in sender_frames {
-        let _ = send_frame(socket, state, &frame).await;
+        let _ = send_frame(socket, &frame).await;
     }
 }
 
@@ -170,6 +181,7 @@ async fn process_inbound_text(
         Err(e) => {
             warn!(%client_id, error = %e, "ws: invalid inbound frame");
             let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid json: {e}"));
+            services::persistence::enqueue_frame(state, &err);
             return vec![err];
         }
     };
@@ -183,7 +195,7 @@ async fn process_inbound_text(
     // Persist inbound request (skip cursors).
     if !is_cursor {
         info!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
-        persist_fire_and_forget(&state.pool, &req);
+        services::persistence::enqueue_frame(state, &req);
     }
 
     // Dispatch to handler — returns Outcome or error Frame.
@@ -207,6 +219,7 @@ async fn process_inbound_text(
             if let Some(bid) = board_id {
                 services::board::broadcast(state, bid, &peer_frame, Some(client_id)).await;
             }
+            services::persistence::enqueue_frame(state, &sender_frame);
             vec![sender_frame]
         }
         Ok(Outcome::BroadcastExcludeSender(data)) => {
@@ -217,20 +230,27 @@ async fn process_inbound_text(
             vec![]
         }
         Ok(Outcome::Reply(data)) => {
-            vec![req.done_with(data)]
+            let sender_frame = req.done_with(data);
+            services::persistence::enqueue_frame(state, &sender_frame);
+            vec![sender_frame]
         }
         Ok(Outcome::Done) => {
-            vec![req.done()]
+            let sender_frame = req.done();
+            services::persistence::enqueue_frame(state, &sender_frame);
+            vec![sender_frame]
         }
         Ok(Outcome::ReplyAndBroadcast { reply, broadcast }) => {
             let sender_frame = req.done_with(reply);
             if let Some(bid) = board_id {
                 let notif = Frame::request(&req.syscall, broadcast).with_board_id(bid);
+                services::persistence::enqueue_frame(state, &notif);
                 services::board::broadcast(state, bid, &notif, Some(client_id)).await;
             }
+            services::persistence::enqueue_frame(state, &sender_frame);
             vec![sender_frame]
         }
         Err(err_frame) => {
+            services::persistence::enqueue_frame(state, &err_frame);
             vec![err_frame]
         }
     }
@@ -496,6 +516,7 @@ async fn handle_ai(
                             }
                         };
                         let frame = Frame::request(syscall, data).with_board_id(board_id);
+                        services::persistence::enqueue_frame(state, &frame);
                         services::board::broadcast(state, board_id, &frame, None).await;
                     }
 
@@ -517,7 +538,7 @@ async fn handle_ai(
 // HELPERS
 // =============================================================================
 
-async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> Result<(), ()> {
+async fn send_frame(socket: &mut WebSocket, frame: &Frame) -> Result<(), ()> {
     let json = match serde_json::to_string(frame) {
         Ok(j) => j,
         Err(e) => {
@@ -543,25 +564,10 @@ async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> 
             info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
         }
     }
-    let result = socket
+    socket
         .send(Message::Text(json.into()))
         .await
-        .map_err(|_| ());
-    if result.is_ok() && !is_cursor {
-        persist_fire_and_forget(&state.pool, frame);
-    }
-    result
-}
-
-/// Spawn a fire-and-forget task to persist a frame to the database.
-fn persist_fire_and_forget(pool: &sqlx::PgPool, frame: &Frame) {
-    let pool = pool.clone();
-    let frame = frame.clone();
-    tokio::spawn(async move {
-        if let Err(e) = crate::services::persistence::persist_frame(&pool, &frame).await {
-            warn!(error = %e, "frame persist failed");
-        }
-    });
+        .map_err(|_| ())
 }
 
 fn object_to_data(obj: &crate::state::BoardObject) -> Data {

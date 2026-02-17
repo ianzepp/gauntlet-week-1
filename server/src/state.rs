@@ -79,6 +79,9 @@ impl Default for BoardState {
 pub struct AppState {
     pub pool: PgPool,
     pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+    /// Optional bounded queue sender for async frame persistence.
+    /// `None` in tests or when frame persistence is disabled.
+    pub frame_persist_tx: Option<mpsc::Sender<Frame>>,
     /// Optional LLM client. `None` if LLM env vars are not configured.
     pub llm: Option<Arc<dyn LlmChat>>,
     /// In-memory rate limiter for AI requests.
@@ -90,7 +93,14 @@ pub struct AppState {
 impl AppState {
     #[must_use]
     pub fn new(pool: PgPool, llm: Option<Arc<dyn LlmChat>>, github: Option<GitHubConfig>) -> Self {
-        Self { pool, boards: Arc::new(RwLock::new(HashMap::new())), llm, rate_limiter: RateLimiter::new(), github }
+        Self {
+            pool,
+            boards: Arc::new(RwLock::new(HashMap::new())),
+            frame_persist_tx: None,
+            llm,
+            rate_limiter: RateLimiter::new(),
+            github,
+        }
     }
 }
 

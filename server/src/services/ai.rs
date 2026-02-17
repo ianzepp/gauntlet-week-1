@@ -11,7 +11,7 @@
 //! moveObject, resizeObject, updateText, changeColor, getBoardState.
 
 use std::fmt::Write;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use serde_json::json;
 use tracing::{info, warn};
@@ -23,8 +23,28 @@ use crate::llm::tools::collaboard_tools;
 use crate::llm::types::{Content, ContentBlock, Message};
 use crate::state::{AppState, BoardObject};
 
-const MAX_TOOL_ITERATIONS: usize = 10;
-const MAX_TOKENS: u32 = 4096;
+const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
+const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
+
+fn env_parse<T>(key: &str, default: T) -> T
+where
+    T: std::str::FromStr + Copy,
+{
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<T>().ok())
+        .unwrap_or(default)
+}
+
+fn ai_max_tool_iterations() -> usize {
+    static VALUE: OnceLock<usize> = OnceLock::new();
+    *VALUE.get_or_init(|| env_parse("AI_MAX_TOOL_ITERATIONS", DEFAULT_AI_MAX_TOOL_ITERATIONS))
+}
+
+fn ai_max_tokens() -> u32 {
+    static VALUE: OnceLock<u32> = OnceLock::new();
+    *VALUE.get_or_init(|| env_parse("AI_MAX_TOKENS", DEFAULT_AI_MAX_TOKENS))
+}
 
 // =============================================================================
 // TYPES
@@ -92,6 +112,8 @@ pub async fn handle_prompt(
     prompt: &str,
 ) -> Result<AiResult, AiError> {
     info!(%board_id, %client_id, prompt_len = prompt.len(), "ai: prompt received");
+    let max_tool_iterations = ai_max_tool_iterations();
+    let max_tokens = ai_max_tokens();
 
     // Rate-limit check: per-client + global request limits, then token budget.
     state.rate_limiter.check_and_record(client_id)?;
@@ -115,9 +137,9 @@ pub async fn handle_prompt(
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
 
-    for iteration in 0..MAX_TOOL_ITERATIONS {
+    for iteration in 0..max_tool_iterations {
         let response = llm
-            .chat(MAX_TOKENS, &system, &messages, Some(&tools))
+            .chat(max_tokens, &system, &messages, Some(&tools))
             .await?;
 
         info!(

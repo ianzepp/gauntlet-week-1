@@ -45,7 +45,8 @@ async fn main() {
         );
     }
 
-    let state = state::AppState::new(pool, llm, github);
+    let mut state = state::AppState::new(pool, llm, github);
+    state.frame_persist_tx = Some(services::persistence::spawn_frame_persistence_worker(state.pool.clone()));
 
     // Spawn background persistence task.
     let _persistence = services::persistence::spawn_persistence_task(state.clone());

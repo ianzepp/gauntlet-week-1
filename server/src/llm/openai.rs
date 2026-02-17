@@ -10,8 +10,23 @@ use std::time::Duration;
 use super::types::{ChatResponse, Content, ContentBlock, LlmError, Message, Tool};
 
 const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
-const REQUEST_TIMEOUT_SECS: u64 = 120;
-const CONNECT_TIMEOUT_SECS: u64 = 10;
+const DEFAULT_LLM_REQUEST_TIMEOUT_SECS: u64 = 120;
+const DEFAULT_LLM_CONNECT_TIMEOUT_SECS: u64 = 10;
+
+fn env_parse_u64(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+fn llm_request_timeout_secs() -> u64 {
+    env_parse_u64("LLM_REQUEST_TIMEOUT_SECS", DEFAULT_LLM_REQUEST_TIMEOUT_SECS)
+}
+
+fn llm_connect_timeout_secs() -> u64 {
+    env_parse_u64("LLM_CONNECT_TIMEOUT_SECS", DEFAULT_LLM_CONNECT_TIMEOUT_SECS)
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum OpenAiApiMode {
@@ -42,8 +57,8 @@ impl OpenAiClient {
             .trim_end_matches('/')
             .to_string();
         let http = reqwest::Client::builder()
-            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+            .timeout(Duration::from_secs(llm_request_timeout_secs()))
+            .connect_timeout(Duration::from_secs(llm_connect_timeout_secs()))
             .build()
             .map_err(|e| LlmError::HttpClientBuild(e.to_string()))?;
         Ok(Self { http, api_key, base_url, mode })

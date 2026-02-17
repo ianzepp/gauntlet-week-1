@@ -14,14 +14,51 @@ use std::time::{Duration, Instant};
 
 use uuid::Uuid;
 
-const PER_CLIENT_LIMIT: usize = 10;
-const PER_CLIENT_WINDOW: Duration = Duration::from_secs(60);
+const DEFAULT_PER_CLIENT_LIMIT: usize = 10;
+const DEFAULT_PER_CLIENT_WINDOW_SECS: u64 = 60;
 
-const GLOBAL_LIMIT: usize = 20;
-const GLOBAL_WINDOW: Duration = Duration::from_secs(60);
+const DEFAULT_GLOBAL_LIMIT: usize = 20;
+const DEFAULT_GLOBAL_WINDOW_SECS: u64 = 60;
 
-const TOKEN_BUDGET: u64 = 50_000;
-const TOKEN_WINDOW: Duration = Duration::from_secs(3600);
+const DEFAULT_TOKEN_BUDGET: u64 = 50_000;
+const DEFAULT_TOKEN_WINDOW_SECS: u64 = 3600;
+
+#[derive(Clone, Copy)]
+struct RateLimitConfig {
+    per_client_limit: usize,
+    per_client_window: Duration,
+    global_limit: usize,
+    global_window: Duration,
+    token_budget: u64,
+    token_window: Duration,
+}
+
+impl RateLimitConfig {
+    fn from_env() -> Self {
+        let per_client_window_secs = env_parse("RATE_LIMIT_PER_CLIENT_WINDOW_SECS", DEFAULT_PER_CLIENT_WINDOW_SECS);
+        let global_window_secs = env_parse("RATE_LIMIT_GLOBAL_WINDOW_SECS", DEFAULT_GLOBAL_WINDOW_SECS);
+        let token_window_secs = env_parse("RATE_LIMIT_TOKEN_WINDOW_SECS", DEFAULT_TOKEN_WINDOW_SECS);
+
+        Self {
+            per_client_limit: env_parse("RATE_LIMIT_PER_CLIENT", DEFAULT_PER_CLIENT_LIMIT),
+            per_client_window: Duration::from_secs(per_client_window_secs),
+            global_limit: env_parse("RATE_LIMIT_GLOBAL", DEFAULT_GLOBAL_LIMIT),
+            global_window: Duration::from_secs(global_window_secs),
+            token_budget: env_parse("RATE_LIMIT_TOKEN_BUDGET", DEFAULT_TOKEN_BUDGET),
+            token_window: Duration::from_secs(token_window_secs),
+        }
+    }
+}
+
+fn env_parse<T>(key: &str, default: T) -> T
+where
+    T: std::str::FromStr + Copy,
+{
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<T>().ok())
+        .unwrap_or(default)
+}
 
 // =============================================================================
 // ERROR TYPE
@@ -30,12 +67,12 @@ const TOKEN_WINDOW: Duration = Duration::from_secs(3600);
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::enum_variant_names)]
 pub enum RateLimitError {
-    #[error("per-client rate limit exceeded (max {PER_CLIENT_LIMIT} requests/min)")]
-    PerClientExceeded,
-    #[error("global rate limit exceeded (max {GLOBAL_LIMIT} requests/min)")]
-    GlobalExceeded,
-    #[error("token budget exceeded (max {TOKEN_BUDGET} tokens/hour)")]
-    TokenBudgetExceeded,
+    #[error("per-client rate limit exceeded (max {limit} requests/{window_secs}s)")]
+    PerClientExceeded { limit: usize, window_secs: u64 },
+    #[error("global rate limit exceeded (max {limit} requests/{window_secs}s)")]
+    GlobalExceeded { limit: usize, window_secs: u64 },
+    #[error("token budget exceeded (max {budget} tokens/{window_secs}s)")]
+    TokenBudgetExceeded { budget: u64, window_secs: u64 },
 }
 
 // =============================================================================
@@ -45,6 +82,7 @@ pub enum RateLimitError {
 #[derive(Clone)]
 pub struct RateLimiter {
     inner: std::sync::Arc<Mutex<RateLimiterInner>>,
+    config: RateLimitConfig,
 }
 
 struct RateLimiterInner {
@@ -65,6 +103,7 @@ impl RateLimiter {
                 global_requests: VecDeque::new(),
                 client_tokens: HashMap::new(),
             })),
+            config: RateLimitConfig::from_env(),
         }
     }
 
@@ -76,18 +115,25 @@ impl RateLimiter {
     /// Internal: check + record with explicit timestamp (for testing).
     fn check_and_record_at(&self, client_id: Uuid, now: Instant) -> Result<(), RateLimitError> {
         let mut inner = self.inner.lock().unwrap();
+        let cfg = self.config;
 
         // Prune and check global first (no borrow conflict).
-        prune_window(&mut inner.global_requests, now, GLOBAL_WINDOW);
-        if inner.global_requests.len() >= GLOBAL_LIMIT {
-            return Err(RateLimitError::GlobalExceeded);
+        prune_window(&mut inner.global_requests, now, cfg.global_window);
+        if inner.global_requests.len() >= cfg.global_limit {
+            return Err(RateLimitError::GlobalExceeded {
+                limit: cfg.global_limit,
+                window_secs: cfg.global_window.as_secs(),
+            });
         }
 
         // Prune and check per-client.
         let client_deque = inner.client_requests.entry(client_id).or_default();
-        prune_window(client_deque, now, PER_CLIENT_WINDOW);
-        if client_deque.len() >= PER_CLIENT_LIMIT {
-            return Err(RateLimitError::PerClientExceeded);
+        prune_window(client_deque, now, cfg.per_client_window);
+        if client_deque.len() >= cfg.per_client_limit {
+            return Err(RateLimitError::PerClientExceeded {
+                limit: cfg.per_client_limit,
+                window_secs: cfg.per_client_window.as_secs(),
+            });
         }
 
         // Record.
@@ -104,12 +150,16 @@ impl RateLimiter {
 
     fn check_token_budget_at(&self, client_id: Uuid, now: Instant) -> Result<(), RateLimitError> {
         let mut inner = self.inner.lock().unwrap();
+        let cfg = self.config;
         let token_deque = inner.client_tokens.entry(client_id).or_default();
-        prune_token_window(token_deque, now, TOKEN_WINDOW);
+        prune_token_window(token_deque, now, cfg.token_window);
 
         let total: u64 = token_deque.iter().map(|(_, t)| t).sum();
-        if total >= TOKEN_BUDGET {
-            return Err(RateLimitError::TokenBudgetExceeded);
+        if total >= cfg.token_budget {
+            return Err(RateLimitError::TokenBudgetExceeded {
+                budget: cfg.token_budget,
+                window_secs: cfg.token_window.as_secs(),
+            });
         }
         Ok(())
     }
