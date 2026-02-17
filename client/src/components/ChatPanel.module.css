@@ -15,6 +15,14 @@
     background: var(--bg-primary);
 }
 
+.empty {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: var(--space-lg) var(--space-sm);
+}
+
 .message {
     display: flex;
     flex-direction: column;

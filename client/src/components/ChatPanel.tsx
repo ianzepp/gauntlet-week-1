@@ -103,6 +103,9 @@ export function ChatPanel() {
     return (
         <div className={styles.panel}>
             <div className={styles.messages}>
+                {messages.length === 0 && (
+                    <div className={styles.empty}>No messages yet</div>
+                )}
                 {messages.map((msg) => (
                     <div key={msg.id} className={styles.message}>
                         <span

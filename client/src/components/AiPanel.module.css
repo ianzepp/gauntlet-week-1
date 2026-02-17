@@ -23,6 +23,15 @@
     background-position: 0 0;
 }
 
+.empty {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: var(--space-lg) var(--space-sm);
+    line-height: 28px;
+}
+
 .message {
     padding: 0 var(--space-sm);
     font-family: var(--font-script);

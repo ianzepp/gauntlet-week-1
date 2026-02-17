@@ -80,6 +80,9 @@ export function AiPanel() {
     return (
         <div className={styles.panel}>
             <div className={styles.messages}>
+                {messages.length === 0 && !loading && (
+                    <div className={styles.empty}>No field notes yet</div>
+                )}
                 {messages.map((msg, i) => (
                     <div
                         key={i}
