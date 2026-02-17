@@ -102,7 +102,7 @@ pub(crate) fn parse_response(json: &str) -> Result<ChatResponse, LlmError> {
     let content: Vec<ContentBlock> = api
         .content
         .into_iter()
-        .filter(|block| !matches!(block, ContentBlock::Unknown))
+        .filter(|block| !matches!(block, ContentBlock::Unknown | ContentBlock::Thinking { .. }))
         .collect();
 
     Ok(ChatResponse {
@@ -186,5 +186,27 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, LlmError::ApiParse(_)));
+    }
+
+    #[test]
+    fn parse_thinking_blocks_are_filtered() {
+        let json = make_response(serde_json::json!([
+            { "type": "thinking", "thinking": "Let me think..." },
+            { "type": "text", "text": "Here is my answer" }
+        ]));
+        let resp = parse_response(&json).unwrap();
+        // Thinking blocks should be filtered out, leaving only the text block.
+        assert_eq!(resp.content.len(), 1);
+        assert!(matches!(&resp.content[0], ContentBlock::Text { text } if text == "Here is my answer"));
+    }
+
+    #[test]
+    fn parse_thinking_only_response_is_empty() {
+        let json = make_response(serde_json::json!([
+            { "type": "thinking", "thinking": "Let me think..." }
+        ]));
+        let resp = parse_response(&json).unwrap();
+        // If only thinking blocks, content should be empty after filtering.
+        assert!(resp.content.is_empty());
     }
 }

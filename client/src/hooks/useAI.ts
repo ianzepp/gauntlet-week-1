@@ -40,6 +40,10 @@ export function useAI() {
                 });
                 useBoardStore.getState().setAiLoading(false);
                 frameClient.off("ai:prompt", handler);
+            } else if (frame.status === "done") {
+                // Ensure loading clears even if no item frame was received.
+                useBoardStore.getState().setAiLoading(false);
+                frameClient.off("ai:prompt", handler);
             }
         };
 

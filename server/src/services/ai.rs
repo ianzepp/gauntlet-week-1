@@ -182,6 +182,17 @@ pub async fn handle_prompt(
         }
     }
 
+    // Guarantee the client always receives an item frame by synthesizing
+    // fallback text when the LLM returned none (e.g. thinking-only or
+    // mutations-only responses).
+    if final_text.is_none() {
+        final_text = Some(if all_mutations.is_empty() {
+            "Done.".into()
+        } else {
+            format!("Done — {} object(s) updated.", all_mutations.len())
+        });
+    }
+
     Ok(AiResult { mutations: all_mutations, text: final_text })
 }
 
@@ -1036,5 +1047,73 @@ mod tests {
         let mock = Arc::new(MockLlm::new(vec![]));
         let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, client_id, "hi").await;
         assert!(matches!(result.unwrap_err(), AiError::RateLimited(_)));
+    }
+
+    // =========================================================================
+    // Thinking-only response
+    // =========================================================================
+
+    #[tokio::test]
+    async fn handle_prompt_thinking_only_still_returns_text() {
+        let state = test_helpers::test_app_state();
+        let board_id = test_helpers::seed_board(&state).await;
+        // LLM returns only a Thinking block, no Text block.
+        let mock = Arc::new(MockLlm::new(vec![ChatResponse {
+            content: vec![ContentBlock::Thinking { thinking: "Let me think about this...".into() }],
+            model: "mock".into(),
+            stop_reason: "end_turn".into(),
+            input_tokens: 10,
+            output_tokens: 5,
+        }]));
+        let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "hello")
+            .await
+            .unwrap();
+        // The result should have SOME text so the client receives an item frame.
+        assert!(
+            result.text.is_some(),
+            "thinking-only response must still produce text for the client"
+        );
+    }
+
+    // =========================================================================
+    // Mutations-only response (no text)
+    // =========================================================================
+
+    #[tokio::test]
+    async fn handle_prompt_mutations_only_returns_text() {
+        let state = test_helpers::test_app_state();
+        let board_id = test_helpers::seed_board(&state).await;
+        let mock = Arc::new(MockLlm::new(vec![
+            // First response: tool call only, no text
+            ChatResponse {
+                content: vec![ContentBlock::ToolUse {
+                    id: "tu_1".into(),
+                    name: "createStickyNote".into(),
+                    input: json!({ "text": "note", "x": 100, "y": 100 }),
+                }],
+                model: "mock".into(),
+                stop_reason: "tool_use".into(),
+                input_tokens: 10,
+                output_tokens: 20,
+            },
+            // Second response: done with no text
+            ChatResponse {
+                content: vec![],
+                model: "mock".into(),
+                stop_reason: "end_turn".into(),
+                input_tokens: 30,
+                output_tokens: 5,
+            },
+        ]));
+        let result = handle_prompt(&state, &(mock as Arc<dyn LlmChat>), board_id, Uuid::new_v4(), "create a note")
+            .await
+            .unwrap();
+        assert_eq!(result.mutations.len(), 1);
+        // Even with no explicit text from LLM, we must return some text so the
+        // client receives an item frame and clears the loading state.
+        assert!(
+            result.text.is_some(),
+            "mutations-only response must still produce text for the client"
+        );
     }
 }
