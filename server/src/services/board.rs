@@ -272,3 +272,7 @@ pub async fn flush_objects(pool: &PgPool, objects: &[BoardObject]) -> Result<(),
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "board_test.rs"]
+mod tests;

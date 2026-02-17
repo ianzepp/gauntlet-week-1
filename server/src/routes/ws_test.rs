@@ -102,6 +102,56 @@ async fn register_two_clients(
 }
 
 #[tokio::test]
+async fn board_join_requires_board_id() {
+    let state = test_helpers::test_app_state();
+    let (client_tx, _client_rx) = mpsc::channel(8);
+    let mut current_board = None;
+
+    let req = Frame::request("board:join", Data::new());
+    let text = serde_json::to_string(&req).expect("frame should serialize");
+
+    let reply =
+        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].syscall, "board:join");
+    assert_eq!(reply[0].status, Status::Error);
+    assert!(
+        reply[0]
+            .data
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("board_id required")
+    );
+}
+
+#[tokio::test]
+async fn board_unknown_op_returns_error() {
+    let state = test_helpers::test_app_state();
+    let (client_tx, _client_rx) = mpsc::channel(8);
+    let mut current_board = None;
+
+    let req = Frame::request("board:not_a_real_op", Data::new()).with_board_id(Uuid::new_v4());
+    let text = serde_json::to_string(&req).expect("frame should serialize");
+
+    let reply =
+        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+
+    assert_eq!(reply.len(), 1);
+    assert_eq!(reply[0].syscall, "board:not_a_real_op");
+    assert_eq!(reply[0].status, Status::Error);
+    assert!(
+        reply[0]
+            .data
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("unknown board op")
+    );
+}
+
+#[tokio::test]
 async fn multi_user_single_change_reaches_other_user() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
