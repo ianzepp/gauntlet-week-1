@@ -1,4 +1,4 @@
-export type FrameStatus = "request" | "item" | "done" | "error" | "cancel";
+export type FrameStatus = "request" | "done" | "error" | "cancel";
 
 export interface Frame {
     id: string;
