@@ -51,6 +51,26 @@
     background: var(--accent-green);
 }
 
+.railSeparator {
+    width: 24px;
+    height: 1px;
+    background: var(--border-default);
+    flex-shrink: 0;
+}
+
+.railToggle {
+    flex: 1;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    min-height: 0;
+}
+
+.railToggle:hover {
+    background: color-mix(in srgb, var(--text-nav) 6%, transparent);
+}
+
 .railButton svg {
     width: 20px;
     height: 20px;

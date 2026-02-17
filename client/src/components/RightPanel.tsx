@@ -80,6 +80,15 @@ export function RightPanel() {
                         {tab.icon}
                     </button>
                 ))}
+                <div className={styles.railSeparator} />
+                <button
+                    type="button"
+                    className={styles.railToggle}
+                    onClick={() =>
+                        expanded ? collapseRightPanel() : expandRightPanel(activeTab)
+                    }
+                    title={expanded ? "Collapse panel" : "Expand panel"}
+                />
             </div>
             {expanded && (
                 <div className={styles.panel}>
