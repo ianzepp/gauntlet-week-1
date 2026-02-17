@@ -202,6 +202,7 @@ async fn process_inbound_text(
     let result = match prefix {
         "board" => handle_board(state, current_board, client_id, user_id, client_tx, &req).await,
         "object" => handle_object(state, *current_board, user_id, &req).await,
+        "chat" => handle_chat(state, *current_board, &req).await,
         "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
@@ -345,6 +346,69 @@ async fn handle_board(
             }
         }
         _ => Err(req.error(format!("unknown board op: {op}"))),
+    }
+}
+
+// =============================================================================
+// CHAT HANDLER
+// =============================================================================
+
+async fn handle_chat(state: &AppState, current_board: Option<Uuid>, req: &Frame) -> Result<Outcome, Frame> {
+    let Some(board_id) = current_board else {
+        return Err(req.error("must join a board first"));
+    };
+
+    let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
+    match op {
+        "message" => {
+            let message = req
+                .data
+                .get("message")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .unwrap_or("");
+
+            if message.is_empty() {
+                return Err(req.error("message required"));
+            }
+
+            let mut data = Data::new();
+            data.insert("message".into(), serde_json::json!(message));
+            Ok(Outcome::Broadcast(data))
+        }
+        "list" => {
+            let rows = match sqlx::query_as::<_, (Uuid, i64, Option<String>, Option<String>)>(
+                r#"SELECT id, ts, "from", data->>'message' AS message
+                   FROM frames
+                   WHERE board_id = $1 AND syscall = 'chat:message' AND status = 'request'
+                   ORDER BY seq ASC
+                   LIMIT 200"#,
+            )
+            .bind(board_id)
+            .fetch_all(&state.pool)
+            .await
+            {
+                Ok(rows) => rows,
+                Err(e) => return Err(req.error(format!("chat list failed: {e}"))),
+            };
+
+            let messages: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(id, ts, from, message)| {
+                    serde_json::json!({
+                        "id": id,
+                        "ts": ts,
+                        "from": from,
+                        "message": message.unwrap_or_default(),
+                    })
+                })
+                .collect();
+
+            let mut data = Data::new();
+            data.insert("messages".into(), serde_json::json!(messages));
+            Ok(Outcome::Reply(data))
+        }
+        _ => Err(req.error(format!("unknown chat op: {op}"))),
     }
 }
 
@@ -498,11 +562,17 @@ async fn handle_ai(
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
 
+            let grid_context = req
+                .data
+                .get("grid_context")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
             if prompt.is_empty() {
                 return Err(req.error("prompt required"));
             }
 
-            match services::ai::handle_prompt(state, llm, board_id, client_id, prompt).await {
+            match services::ai::handle_prompt(state, llm, board_id, client_id, prompt, grid_context.as_deref()).await {
                 Ok(result) => {
                     // AI is the one exception: broadcast mutations directly.
                     for mutation in &result.mutations {

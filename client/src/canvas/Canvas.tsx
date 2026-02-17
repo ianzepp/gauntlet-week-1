@@ -15,6 +15,7 @@ import { useCanvasSize } from "../hooks/useCanvasSize";
 import { sendObjectCreate } from "../hooks/useFrameClient";
 import type { BoardObject } from "../lib/types";
 import { useBoardStore } from "../store/board";
+import { GridOverlay } from "./GridOverlay";
 import { Shape } from "./Shape";
 import { StickyNote } from "./StickyNote";
 
@@ -430,7 +431,7 @@ export function Canvas() {
     );
 
     return (
-        <div style={{ background: "var(--canvas-bg)", width, height }}>
+        <div style={{ background: "var(--canvas-bg)", width, height, position: "relative" }}>
             <Stage
                 ref={stageRef}
                 width={width}
@@ -511,6 +512,7 @@ export function Canvas() {
                     />
                 </Layer>
             </Stage>
+            <GridOverlay width={width} height={height} viewport={viewport} />
         </div>
     );
 }

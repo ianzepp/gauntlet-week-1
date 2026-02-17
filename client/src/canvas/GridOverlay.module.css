@@ -1,0 +1,27 @@
+.bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    pointer-events: none;
+}
+
+.right {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    pointer-events: none;
+}
+
+.label {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    transform: translate(-50%, -50%);
+}

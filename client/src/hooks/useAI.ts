@@ -1,11 +1,18 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
+import { buildGridContext } from "../canvas/GridOverlay";
+import { useCanvasSize } from "./useCanvasSize";
 import type { Frame } from "../lib/types";
 import { useBoardStore } from "../store/board";
 
 export function useAI() {
+    const canvasSize = useCanvasSize();
+    const sizeRef = useRef(canvasSize);
+    sizeRef.current = canvasSize;
+
     const sendPrompt = useCallback((text: string) => {
         const store = useBoardStore.getState();
-        const { frameClient, boardId, connectionStatus } = store;
+        const { frameClient, boardId, connectionStatus, viewport } = store;
+        const { width, height } = sizeRef.current;
 
         if (!frameClient || connectionStatus !== "connected") {
             store.addAiMessage({
@@ -60,7 +67,10 @@ export function useAI() {
             from: null,
             syscall: "ai:prompt",
             status: "request",
-            data: { prompt: text },
+            data: {
+                prompt: text,
+                grid_context: buildGridContext(width, height, viewport),
+            },
         });
     }, []);
 
