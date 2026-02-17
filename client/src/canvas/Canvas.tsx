@@ -1,6 +1,6 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
 import type { Presence } from "../lib/types";
@@ -83,7 +83,6 @@ function GridLines({
 export function Canvas() {
     const { width, height } = useCanvasSize();
     const stageRef = useRef<Konva.Stage>(null);
-    const editorRef = useRef<HTMLDivElement | null>(null);
     const centeredRef = useRef(false);
     const isDraggingRef = useRef(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
@@ -105,12 +104,11 @@ export function Canvas() {
     const setCursorPosition = useBoardStore((s) => s.setCursorPosition);
     const setViewportCenter = useBoardStore((s) => s.setViewportCenter);
     const setSelection = useBoardStore((s) => s.setSelection);
+    const expandLeftPanel = useBoardStore((s) => s.expandLeftPanel);
     const updateObject = useBoardStore((s) => s.updateObject);
     const frameClient = useBoardStore((s) => s.frameClient);
     const objects = useBoardStore((s) => s.objects);
     const selection = useBoardStore((s) => s.selection);
-    const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
-    const [editingText, setEditingText] = useState("");
 
     const objectList = useMemo(
         () =>
@@ -120,7 +118,6 @@ export function Canvas() {
             }),
         [objects],
     );
-    const editingObject = editingObjectId ? objects.get(editingObjectId) ?? null : null;
     const remoteCursors = useMemo(
         () =>
             Array.from(presence.values()).filter(
@@ -145,54 +142,6 @@ export function Canvas() {
         [objectList],
     );
 
-    const finishEditing = useCallback(
-        (save: boolean) => {
-            if (!editingObjectId) return;
-            const objectId = editingObjectId;
-            const obj = objects.get(objectId);
-            setEditingObjectId(null);
-
-            if (!save || !obj) return;
-
-            const previousText = (obj.props.text as string) ?? "";
-            if (previousText === editingText) return;
-
-            const nextProps = { ...obj.props, text: editingText };
-            updateObject(objectId, { props: nextProps });
-
-            if (!frameClient) return;
-            frameClient.send({
-                id: crypto.randomUUID(),
-                parent_id: null,
-                ts: Date.now(),
-                board_id: obj.board_id,
-                from: null,
-                syscall: "object:update",
-                status: "request",
-                data: {
-                    id: objectId,
-                    props: nextProps,
-                    version: obj.version,
-                },
-            });
-        },
-        [editingObjectId, editingText, frameClient, objects, updateObject],
-    );
-
-    const beginEditing = useCallback(
-        (objectId: string) => {
-            const obj = objects.get(objectId);
-            if (!obj) return;
-            const text = (obj.props.text as string) ?? "";
-            setSelection(new Set([objectId]));
-            setEditingObjectId(objectId);
-            setEditingText(text);
-            objectDragRef.current = null;
-            isDraggingRef.current = false;
-        },
-        [objects, setSelection],
-    );
-
     // Center viewport so canvas origin (0,0) is at screen center on first mount
     useEffect(() => {
         if (!centeredRef.current && width > 0 && height > 0) {
@@ -200,27 +149,6 @@ export function Canvas() {
             setViewport({ x: width / 2, y: height / 2 });
         }
     }, [width, height, setViewport]);
-
-    useEffect(() => {
-        if (!editingObjectId) return;
-        const node = editorRef.current;
-        if (!node) return;
-        node.textContent = editingText;
-        node.focus();
-        const selection = window.getSelection();
-        if (!selection) return;
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }, [editingObjectId]);
-
-    useEffect(() => {
-        if (editingObjectId && !objects.has(editingObjectId)) {
-            setEditingObjectId(null);
-        }
-    }, [editingObjectId, objects]);
 
     // Keep viewport center in sync for status bar
     useEffect(() => {
@@ -292,7 +220,6 @@ export function Canvas() {
 
     const handleMouseDown = useCallback(
         (_e: KonvaEventObject<MouseEvent>) => {
-            if (editingObjectId) return;
             const stage = stageRef.current;
             const pointer = stage?.getPointerPosition();
             if (!stage || !pointer) return;
@@ -323,7 +250,7 @@ export function Canvas() {
             const container = stage.container();
             container.style.cursor = "grabbing";
         },
-        [editingObjectId, findTopRectangleAtPoint, setSelection, viewport],
+        [findTopRectangleAtPoint, setSelection, viewport],
     );
 
     const handleMouseMove = useCallback(
@@ -407,9 +334,11 @@ export function Canvas() {
             const canvasX = (pointer.x - viewport.x) / viewport.scale;
             const canvasY = (pointer.y - viewport.y) / viewport.scale;
             const hit = findTopRectangleAtPoint(canvasX, canvasY);
-            if (hit) beginEditing(hit.id);
+            if (!hit) return;
+            setSelection(new Set([hit.id]));
+            expandLeftPanel("inspector");
         },
-        [beginEditing, findTopRectangleAtPoint, viewport],
+        [expandLeftPanel, findTopRectangleAtPoint, setSelection, viewport],
     );
 
     return (
@@ -448,7 +377,15 @@ export function Canvas() {
                     {objectList.map((obj) => {
                         if (obj.kind === "rectangle") {
                             const isSelected = selection.has(obj.id);
-                            const fill = (obj.props.color as string) ?? "#D94B4B";
+                            const fill =
+                                (obj.props.backgroundColor as string) ??
+                                (obj.props.color as string) ??
+                                "#D94B4B";
+                            const borderColor = (obj.props.borderColor as string) ?? fill;
+                            const borderWidth =
+                                typeof obj.props.borderWidth === "number"
+                                    ? obj.props.borderWidth
+                                    : 1;
                             return (
                                 <Rect
                                     id={obj.id}
@@ -459,8 +396,8 @@ export function Canvas() {
                                     height={obj.height ?? 0}
                                     rotation={obj.rotation}
                                     fill={fill}
-                                    stroke={isSelected ? "#fff" : fill}
-                                    strokeWidth={isSelected ? 2 : 0}
+                                    stroke={isSelected ? "#fff" : borderColor}
+                                    strokeWidth={isSelected ? 2 : borderWidth}
                                     listening={false}
                                 />
                             );
@@ -470,6 +407,10 @@ export function Canvas() {
                     {objectList.map((obj) => {
                         if (obj.kind !== "rectangle") return null;
                         const text = (obj.props.text as string) ?? "";
+                        const fontSize =
+                            typeof obj.props.fontSize === "number"
+                                ? Math.max(1, obj.props.fontSize)
+                                : 13;
                         if (!text) return null;
                         const widthPx = Math.max(obj.width ?? 0, 0);
                         const heightPx = Math.max(obj.height ?? 0, 0);
@@ -484,7 +425,7 @@ export function Canvas() {
                                 rotation={obj.rotation}
                                 text={text}
                                 fontFamily={"Caveat, Patrick Hand, Comic Sans MS, cursive"}
-                                fontSize={13}
+                                fontSize={fontSize}
                                 align="center"
                                 verticalAlign="middle"
                                 fill="#1F1A17"
@@ -541,44 +482,6 @@ export function Canvas() {
                     })}
                 </Layer>
             </Stage>
-            {editingObject && (
-                <div
-                    style={{
-                        position: "absolute",
-                        left: viewport.x + editingObject.x * viewport.scale,
-                        top: viewport.y + editingObject.y * viewport.scale,
-                        width: (editingObject.width ?? 0) * viewport.scale,
-                        height: (editingObject.height ?? 0) * viewport.scale,
-                        transform: `rotate(${editingObject.rotation}deg)`,
-                        transformOrigin: "top left",
-                        zIndex: 2,
-                        pointerEvents: "auto",
-                        border: "1px solid rgba(255,255,255,0.8)",
-                        background: "rgba(255,255,255,0.9)",
-                        padding: 8,
-                        color: "#1F1A17",
-                        fontSize: 16 * viewport.scale,
-                        lineHeight: 1.2,
-                        whiteSpace: "pre-wrap",
-                        overflow: "hidden",
-                        outline: "none",
-                    }}
-                    ref={editorRef}
-                    contentEditable
-                    suppressContentEditableWarning
-                    onInput={(e) => setEditingText(e.currentTarget.textContent ?? "")}
-                    onBlur={() => finishEditing(true)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                            e.preventDefault();
-                            finishEditing(false);
-                        } else if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            finishEditing(true);
-                        }
-                    }}
-                />
-            )}
         </div>
     );
 }

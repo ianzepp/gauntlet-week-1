@@ -1,80 +1,194 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { BoardObject } from "../lib/types";
 import { useBoardStore } from "../store/board";
 import styles from "./InspectorPanel.module.css";
 
-const NOTE_COLORS: { name: string; light: string; dark: string }[] = [
-    { name: "Cream", light: "#F5F0E8", dark: "#2C2824" },
-    { name: "Sage", light: "#B8C5B0", dark: "#3A4436" },
-    { name: "Terracotta", light: "#C4A882", dark: "#4A3D30" },
-    { name: "Slate", light: "#9AA3AD", dark: "#343A40" },
-    { name: "Dust", light: "#C2A8A0", dark: "#443838" },
-    { name: "Gold", light: "#C9B97A", dark: "#3E3A28" },
-    { name: "Stone", light: "#A8A298", dark: "#343230" },
-    { name: "Moss", light: "#8B9E7E", dark: "#2E3828" },
-];
+function normalizeHexColor(value: string | undefined, fallback: string): string {
+    if (!value) return fallback;
+    const trimmed = value.trim();
+    const short = /^#([0-9a-fA-F]{3})$/;
+    const full = /^#([0-9a-fA-F]{6})$/;
 
-function useIsDark() {
-    return document.documentElement.classList.contains("dark-mode");
+    const shortMatch = trimmed.match(short);
+    if (shortMatch) {
+        const s = shortMatch[1];
+        return `#${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}`.toLowerCase();
+    }
+    if (full.test(trimmed)) return trimmed.toLowerCase();
+    return fallback;
+}
+
+function formatNumberInput(value: number | null): string {
+    if (value == null || Number.isNaN(value)) return "";
+    return String(Math.round(value));
+}
+
+function parseIntegerInput(value: string): number | null {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed)) return null;
+    return parsed;
 }
 
 export function InspectorPanel() {
     const selection = useBoardStore((s) => s.selection);
     const objects = useBoardStore((s) => s.objects);
-    const updateObject = useBoardStore((s) => s.updateObject);
-    const frameClient = useBoardStore((s) => s.frameClient);
-    const isDark = useIsDark();
 
-    const selectedIds = Array.from(selection);
-    const selectedObjects = selectedIds
-        .map((id) => objects.get(id))
-        .filter(Boolean);
+    const selectedObjects = useMemo(
+        () => Array.from(selection).map((id) => objects.get(id)).filter(Boolean) as BoardObject[],
+        [objects, selection],
+    );
+
+    const obj = selectedObjects.length === 1 ? selectedObjects[0] : null;
+
+    const [draftWidth, setDraftWidth] = useState("");
+    const [draftHeight, setDraftHeight] = useState("");
+    const [draftText, setDraftText] = useState("");
+    const [draftFontSize, setDraftFontSize] = useState("13");
+    const [draftBackground, setDraftBackground] = useState("#d94b4b");
+    const [draftBorder, setDraftBorder] = useState("#d94b4b");
+    const [draftBorderWidth, setDraftBorderWidth] = useState("1");
+
+    useEffect(() => {
+        if (!obj) return;
+        setDraftWidth(formatNumberInput(obj.width));
+        setDraftHeight(formatNumberInput(obj.height));
+        setDraftText((obj.props.text as string) ?? "");
+        setDraftFontSize(formatNumberInput((obj.props.fontSize as number) ?? 13));
+
+        const background = normalizeHexColor(
+            (obj.props.backgroundColor as string) ?? (obj.props.color as string) ?? "#D94B4B",
+            "#d94b4b",
+        );
+        const border = normalizeHexColor((obj.props.borderColor as string) ?? background, background);
+        setDraftBackground(background);
+        setDraftBorder(border);
+        setDraftBorderWidth(formatNumberInput((obj.props.borderWidth as number) ?? 1));
+    }, [obj]);
+
+    const sendObjectUpdate = useCallback(
+        (objectId: string, patch: Partial<BoardObject>) => {
+            const state = useBoardStore.getState();
+            const current = state.objects.get(objectId);
+            if (!current) return;
+
+            state.updateObject(objectId, patch);
+            if (!state.frameClient) return;
+
+            const data: Record<string, unknown> = {
+                id: objectId,
+                version: current.version,
+            };
+
+            if (patch.x != null) data.x = patch.x;
+            if (patch.y != null) data.y = patch.y;
+            if (patch.width != null) data.width = patch.width;
+            if (patch.height != null) data.height = patch.height;
+            if (patch.rotation != null) data.rotation = patch.rotation;
+            if (patch.props != null) data.props = patch.props;
+
+            state.frameClient.send({
+                id: crypto.randomUUID(),
+                parent_id: null,
+                ts: Date.now(),
+                board_id: current.board_id,
+                from: null,
+                syscall: "object:update",
+                status: "request",
+                data,
+            });
+        },
+        [],
+    );
+
+    const commitDimension = (key: "width" | "height", value: string) => {
+        if (!obj) return;
+        const parsed = parseIntegerInput(value);
+        const fallback = key === "width" ? obj.width ?? 0 : obj.height ?? 0;
+        const next = Math.max(1, parsed ?? fallback);
+        const current = key === "width" ? obj.width ?? 0 : obj.height ?? 0;
+        if (Math.round(current) === Math.round(next)) {
+            if (key === "width") setDraftWidth(formatNumberInput(current));
+            else setDraftHeight(formatNumberInput(current));
+            return;
+        }
+        if (key === "width") sendObjectUpdate(obj.id, { width: next });
+        else sendObjectUpdate(obj.id, { height: next });
+        if (key === "width") setDraftWidth(String(next));
+        else setDraftHeight(String(next));
+    };
+
+    const commitText = () => {
+        if (!obj) return;
+        const current = (obj.props.text as string) ?? "";
+        if (draftText === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, text: draftText } });
+    };
+
+    const commitFontSize = (value: string) => {
+        if (!obj) return;
+        const parsed = parseIntegerInput(value);
+        const current = Math.max(1, Math.round((obj.props.fontSize as number) ?? 13));
+        const next = Math.max(1, parsed ?? current);
+        setDraftFontSize(String(next));
+        if (next === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, fontSize: next } });
+    };
+
+    const commitBackground = (value: string) => {
+        if (!obj) return;
+        const next = normalizeHexColor(value, "#d94b4b");
+        const current = normalizeHexColor(
+            (obj.props.backgroundColor as string) ?? (obj.props.color as string) ?? "#d94b4b",
+            "#d94b4b",
+        );
+        setDraftBackground(next);
+        if (next === current) return;
+        sendObjectUpdate(obj.id, {
+            props: { ...obj.props, color: next, backgroundColor: next },
+        });
+    };
+
+    const commitBorder = (value: string) => {
+        if (!obj) return;
+        const next = normalizeHexColor(value, draftBackground);
+        const current = normalizeHexColor((obj.props.borderColor as string) ?? draftBackground, draftBackground);
+        setDraftBorder(next);
+        if (next === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, borderColor: next } });
+    };
+
+    const commitBorderWidth = (value: string) => {
+        if (!obj) return;
+        const parsed = parseIntegerInput(value);
+        const current = Math.max(0, Math.round((obj.props.borderWidth as number) ?? 1));
+        const next = Math.max(0, parsed ?? current);
+        setDraftBorderWidth(String(next));
+        if (next === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, borderWidth: next } });
+    };
 
     if (selectedObjects.length === 0) {
         return (
             <div className={styles.panel}>
                 <div className={styles.empty}>
                     <span className={styles.emptyLabel}>No selection</span>
+                    <span className={styles.emptyHint}>Double click an object to inspect it.</span>
                 </div>
             </div>
         );
     }
 
-    if (selectedObjects.length > 1) {
+    if (!obj) {
         return (
             <div className={styles.panel}>
                 <div className={styles.section}>
-                    <span className={styles.objectKind}>
-                        {selectedObjects.length} objects
-                    </span>
+                    <span className={styles.objectKind}>{selectedObjects.length} objects selected</span>
                 </div>
             </div>
         );
     }
 
-    const obj = selectedObjects[0]!;
     const kindLabel = obj.kind.replace("_", " ");
-    const currentColor = (obj.props.color as string) || "#F5F0E8";
-
-    const handleColorChange = (color: string) => {
-        updateObject(obj.id, {
-            props: { ...obj.props, color },
-        });
-        if (frameClient) {
-            frameClient.send({
-                id: crypto.randomUUID(),
-                parent_id: null,
-                ts: Date.now(),
-                board_id: obj.board_id,
-                from: null,
-                syscall: "object:update",
-                status: "request",
-                data: {
-                    id: obj.id,
-                    props: { ...obj.props, color },
-                    version: obj.version,
-                },
-            });
-        }
-    };
 
     return (
         <div className={styles.panel}>
@@ -83,80 +197,130 @@ export function InspectorPanel() {
             </div>
 
             <div className={styles.section}>
-                <span className={styles.sectionTitle}>Position</span>
+                <span className={styles.sectionTitle}>Object Size</span>
+                <div className={styles.sizeSummary}>
+                    {Math.round(obj.width ?? 0)} x {Math.round(obj.height ?? 0)}
+                </div>
+                <div className={styles.fieldGrid}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-width">W</label>
+                    <input
+                        id="inspector-width"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftWidth}
+                        onChange={(e) => setDraftWidth(e.currentTarget.value)}
+                        onBlur={() => commitDimension("width", draftWidth)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitDimension("width", draftWidth);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                    <label className={styles.fieldLabel} htmlFor="inspector-height">H</label>
+                    <input
+                        id="inspector-height"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftHeight}
+                        onChange={(e) => setDraftHeight(e.currentTarget.value)}
+                        onBlur={() => commitDimension("height", draftHeight)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitDimension("height", draftHeight);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className={styles.section}>
+                <span className={styles.sectionTitle}>Text Content</span>
+                <textarea
+                    className={styles.textArea}
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.currentTarget.value)}
+                    onBlur={commitText}
+                    placeholder="Type object text"
+                />
+                <div className={styles.inlineControl}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-font-size">Font Size</label>
+                    <input
+                        id="inspector-font-size"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftFontSize}
+                        onChange={(e) => setDraftFontSize(e.currentTarget.value)}
+                        onBlur={() => commitFontSize(draftFontSize)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitFontSize(draftFontSize);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className={styles.section}>
+                <span className={styles.sectionTitle}>Appearance</span>
+                <div className={styles.colorRow}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-background">Background</label>
+                    <input
+                        id="inspector-background"
+                        className={styles.colorInput}
+                        type="color"
+                        value={draftBackground}
+                        onChange={(e) => commitBackground(e.currentTarget.value)}
+                    />
+                </div>
+                <div className={styles.colorRow}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-border">Border</label>
+                    <input
+                        id="inspector-border"
+                        className={styles.colorInput}
+                        type="color"
+                        value={draftBorder}
+                        onChange={(e) => commitBorder(e.currentTarget.value)}
+                    />
+                </div>
+                <div className={styles.inlineControl}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-border-width">Border Width</label>
+                    <input
+                        id="inspector-border-width"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftBorderWidth}
+                        onChange={(e) => setDraftBorderWidth(e.currentTarget.value)}
+                        onBlur={() => commitBorderWidth(draftBorderWidth)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitBorderWidth(draftBorderWidth);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className={`${styles.section} ${styles.metaSection}`}>
+                <span className={styles.sectionTitle}>Position / Meta</span>
                 <div className={styles.row}>
                     <span className={styles.rowLabel}>X</span>
-                    <span className={styles.rowValue}>
-                        {Math.round(obj.x)}
-                    </span>
+                    <span className={styles.rowValue}>{Math.round(obj.x)}</span>
                 </div>
                 <div className={styles.row}>
                     <span className={styles.rowLabel}>Y</span>
-                    <span className={styles.rowValue}>
-                        {Math.round(obj.y)}
-                    </span>
-                </div>
-            </div>
-
-            <div className={styles.section}>
-                <span className={styles.sectionTitle}>Size</span>
-                <div className={styles.row}>
-                    <span className={styles.rowLabel}>W</span>
-                    <span className={styles.rowValue}>
-                        {Math.round(obj.width ?? 0)}
-                    </span>
+                    <span className={styles.rowValue}>{Math.round(obj.y)}</span>
                 </div>
                 <div className={styles.row}>
-                    <span className={styles.rowLabel}>H</span>
-                    <span className={styles.rowValue}>
-                        {Math.round(obj.height ?? 0)}
-                    </span>
-                </div>
-                {obj.rotation !== 0 && (
-                    <div className={styles.row}>
-                        <span className={styles.rowLabel}>Rot</span>
-                        <span className={styles.rowValue}>
-                            {Math.round(obj.rotation)}°
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {obj.kind === "sticky_note" && (
-                <div className={styles.section}>
-                    <span className={styles.sectionTitle}>Color</span>
-                    <div className={styles.colorSwatches}>
-                        {NOTE_COLORS.map((c) => {
-                            const color = isDark ? c.dark : c.light;
-                            const isActive =
-                                currentColor === c.light ||
-                                currentColor === c.dark;
-                            return (
-                                <button
-                                    key={c.name}
-                                    type="button"
-                                    className={`${styles.swatch} ${isActive ? styles.activeSwatch : ""}`}
-                                    style={{ background: color }}
-                                    title={c.name}
-                                    onClick={() =>
-                                        handleColorChange(
-                                            isDark ? c.dark : c.light,
-                                        )
-                                    }
-                                />
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            <div className={styles.section}>
-                <span className={styles.sectionTitle}>Meta</span>
-                <div className={styles.row}>
-                    <span className={styles.rowLabel}>ID</span>
-                    <span className={styles.rowValue}>
-                        {obj.id.slice(0, 8)}
-                    </span>
+                    <span className={styles.rowLabel}>Rot</span>
+                    <span className={styles.rowValue}>{Math.round(obj.rotation)}°</span>
                 </div>
                 <div className={styles.row}>
                     <span className={styles.rowLabel}>Z</span>
@@ -165,6 +329,10 @@ export function InspectorPanel() {
                 <div className={styles.row}>
                     <span className={styles.rowLabel}>Ver</span>
                     <span className={styles.rowValue}>{obj.version}</span>
+                </div>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>ID</span>
+                    <span className={styles.rowValue}>{obj.id.slice(0, 8)}</span>
                 </div>
             </div>
         </div>
