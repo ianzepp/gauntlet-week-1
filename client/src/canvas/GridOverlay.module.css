@@ -5,7 +5,9 @@
     right: 20px;
     height: 20px;
     pointer-events: none;
-    background: color-mix(in srgb, var(--canvas-bg) 50%, transparent);
+    z-index: 10;
+    background: var(--canvas-bg);
+    opacity: 0.85;
 }
 
 .top {
@@ -23,7 +25,9 @@
     bottom: 20px;
     width: 20px;
     pointer-events: none;
-    background: color-mix(in srgb, var(--canvas-bg) 50%, transparent);
+    z-index: 10;
+    background: var(--canvas-bg);
+    opacity: 0.85;
 }
 
 .left {
@@ -39,7 +43,9 @@
     width: 20px;
     height: 20px;
     pointer-events: none;
-    background: color-mix(in srgb, var(--canvas-bg) 50%, transparent);
+    z-index: 10;
+    background: var(--canvas-bg);
+    opacity: 0.85;
 }
 
 .cornerTL { top: 0; left: 0; }
@@ -53,6 +59,5 @@
     font-size: 9px;
     font-weight: 600;
     color: var(--text-secondary);
-    opacity: 0.5;
     transform: translate(-50%, -50%);
 }
