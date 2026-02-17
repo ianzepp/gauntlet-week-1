@@ -156,6 +156,7 @@ export function Canvas() {
     const trRef = useRef<Konva.Transformer>(null);
     const nodeMapRef = useRef<Map<string, Konva.Node>>(new Map());
     const lastCursorSendRef = useRef(0);
+    const centeredRef = useRef(false);
 
     const [isDark, setIsDark] = useState(() =>
         document.documentElement.classList.contains("dark-mode"),
@@ -183,6 +184,14 @@ export function Canvas() {
     const deleteObject = useBoardStore((s) => s.deleteObject);
     const setTool = useBoardStore((s) => s.setTool);
     const presence = useBoardStore((s) => s.presence);
+
+    // Center viewport so canvas (0,0) is at screen center on first mount
+    useEffect(() => {
+        if (!centeredRef.current && width > 0 && height > 0) {
+            centeredRef.current = true;
+            setViewport({ x: width / 2, y: height / 2 });
+        }
+    }, [width, height, setViewport]);
 
     const objectList = useMemo(() => Array.from(objects.values()), [objects]);
     const presenceList = useMemo(
