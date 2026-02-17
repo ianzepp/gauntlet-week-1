@@ -88,10 +88,20 @@ export function Canvas() {
     const setViewport = useBoardStore((s) => s.setViewport);
     const setCursorPosition = useBoardStore((s) => s.setCursorPosition);
     const setViewportCenter = useBoardStore((s) => s.setViewportCenter);
+    const setSelection = useBoardStore((s) => s.setSelection);
+    const updateObject = useBoardStore((s) => s.updateObject);
+    const frameClient = useBoardStore((s) => s.frameClient);
     const objects = useBoardStore((s) => s.objects);
     const selection = useBoardStore((s) => s.selection);
 
-    const objectList = useMemo(() => Array.from(objects.values()), [objects]);
+    const objectList = useMemo(
+        () =>
+            Array.from(objects.values()).sort((a, b) => {
+                if (a.z_index !== b.z_index) return a.z_index - b.z_index;
+                return a.id.localeCompare(b.id);
+            }),
+        [objects],
+    );
 
     // Center viewport so canvas origin (0,0) is at screen center on first mount
     useEffect(() => {
@@ -149,12 +159,13 @@ export function Canvas() {
         (e: KonvaEventObject<MouseEvent>) => {
             // Only pan when clicking empty canvas
             if (e.target !== e.target.getStage()) return;
+            setSelection(new Set());
             isDraggingRef.current = true;
             dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY };
             const container = stageRef.current?.container();
             if (container) container.style.cursor = "grabbing";
         },
-        [],
+        [setSelection],
     );
 
     const handleMouseMove = useCallback(
@@ -191,6 +202,45 @@ export function Canvas() {
         if (container) container.style.cursor = "";
         setCursorPosition(null);
     }, [setCursorPosition]);
+
+    const handleObjectMouseDown = useCallback(
+        (e: KonvaEventObject<MouseEvent>, objectId: string) => {
+            e.cancelBubble = true;
+            const stage = stageRef.current;
+            const pointer = stage?.getPointerPosition();
+            if (!stage || !pointer) {
+                setSelection(new Set([objectId]));
+                return;
+            }
+
+            const overlappingIds = stage
+                .getAllIntersections(pointer)
+                .map((node) => node.id())
+                .filter((id) => id && objects.has(id));
+
+            if (overlappingIds.length <= 1) {
+                setSelection(new Set([objectId]));
+                return;
+            }
+
+            const currentSelected = selection.size === 1
+                ? Array.from(selection)[0]
+                : null;
+            if (currentSelected !== objectId) {
+                setSelection(new Set([objectId]));
+                return;
+            }
+            const currentIndex = currentSelected
+                ? overlappingIds.indexOf(currentSelected)
+                : -1;
+            const nextId = currentIndex >= 0
+                ? overlappingIds[(currentIndex + 1) % overlappingIds.length]
+                : overlappingIds[0];
+
+            setSelection(new Set([nextId]));
+        },
+        [objects, selection, setSelection],
+    );
 
     return (
         <div
@@ -230,6 +280,7 @@ export function Canvas() {
                             const fill = (obj.props.color as string) ?? "#D94B4B";
                             return (
                                 <Rect
+                                    id={obj.id}
                                     key={obj.localKey ?? obj.id}
                                     x={obj.x}
                                     y={obj.y}
@@ -239,7 +290,37 @@ export function Canvas() {
                                     fill={fill}
                                     stroke={isSelected ? "#fff" : fill}
                                     strokeWidth={isSelected ? 2 : 0}
-                                    listening={false}
+                                    draggable={isSelected}
+                                    onMouseDown={(e) => handleObjectMouseDown(e, obj.id)}
+                                    onDragMove={(e) => {
+                                        updateObject(obj.id, {
+                                            x: e.target.x(),
+                                            y: e.target.y(),
+                                        });
+                                    }}
+                                    onDragEnd={(e) => {
+                                        const x = e.target.x();
+                                        const y = e.target.y();
+                                        updateObject(obj.id, { x, y });
+
+                                        const current = useBoardStore.getState().objects.get(obj.id);
+                                        if (!frameClient || !current) return;
+                                        frameClient.send({
+                                            id: crypto.randomUUID(),
+                                            parent_id: null,
+                                            ts: Date.now(),
+                                            board_id: current.board_id,
+                                            from: null,
+                                            syscall: "object:update",
+                                            status: "request",
+                                            data: {
+                                                id: obj.id,
+                                                x,
+                                                y,
+                                                version: current.version,
+                                            },
+                                        });
+                                    }}
                                 />
                             );
                         }
