@@ -1,11 +1,10 @@
-//! Persistence service — debounced 100ms flush of dirty objects and frames.
+//! Persistence service — sleep-after-flush with 100ms pause.
 //!
 //! DESIGN
 //! ======
-//! A background task wakes every 100ms, collects dirty objects from
-//! all boards, clears the dirty sets, releases the lock, then batch
-//! upserts to Postgres. This keeps the hot path (in-memory mutations)
-//! fast while ensuring durability within a 100ms window.
+//! A background task flushes dirty objects and buffered frames, then
+//! sleeps 100ms before the next cycle. Using sleep-after-flush (not
+//! interval) avoids overlap when flushes take longer than 100ms.
 
 use std::time::Duration;
 
@@ -19,10 +18,9 @@ use crate::state::{AppState, BoardObject};
 /// Spawn the background persistence task. Returns a handle for shutdown.
 pub fn spawn_persistence_task(state: AppState) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(100));
         loop {
-            interval.tick().await;
             flush_all_dirty(&state).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     })
 }
