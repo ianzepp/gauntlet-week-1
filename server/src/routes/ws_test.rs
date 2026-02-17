@@ -271,17 +271,17 @@ async fn chat_message_broadcasts_to_peers_and_replies_with_trimmed_message() {
 }
 
 #[tokio::test]
-async fn chat_list_requires_joined_board() {
+async fn chat_history_requires_joined_board() {
     let state = test_helpers::test_app_state();
     let (client_tx, mut client_rx) = mpsc::channel(8);
     let mut current_board = None;
-    let text = request_json(Uuid::new_v4(), "chat:list", Data::new());
+    let text = request_json(Uuid::new_v4(), "chat:history", Data::new());
 
     let reply =
         process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
-    assert_eq!(reply[0].syscall, "chat:list");
+    assert_eq!(reply[0].syscall, "chat:history");
     assert_eq!(reply[0].status, Status::Error);
     assert!(
         reply[0]
@@ -296,7 +296,7 @@ async fn chat_list_requires_joined_board() {
 
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
-async fn chat_list_returns_persisted_messages_for_board() {
+async fn chat_history_returns_persisted_messages_for_board() {
     let pool = integration_pool().await;
     let board = services::board::create_board(&pool, "Chat Board")
         .await
@@ -348,14 +348,14 @@ async fn chat_list_returns_persisted_messages_for_board() {
     let state = AppState::new(pool, None, None);
     let (client_tx, _client_rx) = mpsc::channel(8);
     let mut current_board = Some(board_id);
-    let text = request_json(board_id, "chat:list", Data::new());
+    let text = request_json(board_id, "chat:history", Data::new());
 
     let reply =
         process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].status, Status::Done);
-    assert_eq!(reply[0].syscall, "chat:list");
+    assert_eq!(reply[0].syscall, "chat:history");
     let messages = reply[0]
         .data
         .get("messages")

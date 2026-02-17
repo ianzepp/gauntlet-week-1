@@ -376,7 +376,7 @@ async fn handle_chat(state: &AppState, current_board: Option<Uuid>, req: &Frame)
             data.insert("message".into(), serde_json::json!(message));
             Ok(Outcome::Broadcast(data))
         }
-        "list" => {
+        "history" => {
             let rows = match sqlx::query_as::<_, (Uuid, i64, Option<String>, Option<String>)>(
                 r#"SELECT id, ts, "from", data->>'message' AS message
                    FROM frames
@@ -389,7 +389,7 @@ async fn handle_chat(state: &AppState, current_board: Option<Uuid>, req: &Frame)
             .await
             {
                 Ok(rows) => rows,
-                Err(e) => return Err(req.error(format!("chat list failed: {e}"))),
+                Err(e) => return Err(req.error(format!("chat history failed: {e}"))),
             };
 
             let messages: Vec<serde_json::Value> = rows
@@ -600,8 +600,70 @@ async fn handle_ai(
                 Err(e) => Err(req.error_from(&e)),
             }
         }
+        "history" => ai_history(state, board_id, req).await,
         _ => Err(req.error(format!("unknown ai op: {op}"))),
     }
+}
+
+async fn ai_history(state: &AppState, board_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
+    let rows = match sqlx::query_as::<_, (Uuid, i64, String, Option<String>, Option<String>, Option<String>)>(
+        "SELECT f.id, f.ts, f.status::text,
+                f.data->>'prompt' AS prompt,
+                f.data->>'text' AS text,
+                f.data->>'mutations' AS mutations
+         FROM frames f
+         WHERE f.board_id = $1
+           AND f.syscall = 'ai:prompt'
+           AND f.status IN ('request', 'done')
+         ORDER BY f.seq ASC
+         LIMIT 400",
+    )
+    .bind(board_id)
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => return Err(req.error(format!("ai history failed: {e}"))),
+    };
+
+    let messages: Vec<serde_json::Value> = rows
+        .into_iter()
+        .filter_map(|(id, ts, status, prompt, text, mutations)| {
+            if status == "request" {
+                let prompt = prompt?;
+                if prompt.is_empty() {
+                    return None;
+                }
+                Some(serde_json::json!({
+                    "id": id,
+                    "ts": ts,
+                    "role": "user",
+                    "text": prompt,
+                }))
+            } else {
+                let text = text?;
+                if text.is_empty() {
+                    return None;
+                }
+                let mut msg = serde_json::json!({
+                    "id": id,
+                    "ts": ts,
+                    "role": "assistant",
+                    "text": text,
+                });
+                if let Some(m) = mutations {
+                    if let Ok(n) = m.parse::<u64>() {
+                        msg["mutations"] = serde_json::json!(n);
+                    }
+                }
+                Some(msg)
+            }
+        })
+        .collect();
+
+    let mut data = Data::new();
+    data.insert("messages".into(), serde_json::json!(messages));
+    Ok(Outcome::Reply(data))
 }
 
 // =============================================================================

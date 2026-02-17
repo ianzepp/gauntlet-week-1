@@ -49,24 +49,24 @@ export function ChatPanel() {
                     };
                 });
                 setChatMessages(history);
-                frameClient.off("chat:list", handler);
+                frameClient.off("chat:history", handler);
             }
         };
 
-        frameClient.on("chat:list", handler);
+        frameClient.on("chat:history", handler);
         frameClient.send({
             id: requestId,
             parent_id: null,
             ts: Date.now(),
             board_id: boardId,
             from: null,
-            syscall: "chat:list",
+            syscall: "chat:history",
             status: "request",
             data: {},
         });
 
         return () => {
-            frameClient.off("chat:list", handler);
+            frameClient.off("chat:history", handler);
         };
     }, [frameClient, connectionStatus, boardId, setChatMessages]);
 
