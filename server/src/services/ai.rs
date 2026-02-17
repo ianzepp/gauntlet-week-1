@@ -91,6 +91,8 @@ pub async fn handle_prompt(
     client_id: Uuid,
     prompt: &str,
 ) -> Result<AiResult, AiError> {
+    info!(%board_id, %client_id, prompt_len = prompt.len(), "ai: prompt received");
+
     // Rate-limit check: per-client + global request limits, then token budget.
     state.rate_limiter.check_and_record(client_id)?;
     state.rate_limiter.check_token_budget(client_id)?;
@@ -165,10 +167,17 @@ pub async fn handle_prompt(
         // Execute each tool call and collect results.
         let mut tool_results = Vec::new();
         for (tool_id, tool_name, input) in &tool_calls {
+            info!(iteration, tool = %tool_name, "ai: executing tool");
             let result = execute_tool(state, board_id, tool_name, input, &mut all_mutations).await;
-            let (content, is_error) = match result {
-                Ok(msg) => (msg, None),
-                Err(e) => (e.to_string(), Some(true)),
+            let (content, is_error) = match &result {
+                Ok(msg) => {
+                    info!(iteration, tool = %tool_name, "ai: tool ok — {msg}");
+                    (msg.clone(), None)
+                }
+                Err(e) => {
+                    warn!(iteration, tool = %tool_name, error = %e, "ai: tool error");
+                    (e.to_string(), Some(true))
+                }
             };
             tool_results.push(ContentBlock::ToolResult { tool_use_id: tool_id.clone(), content, is_error });
         }
@@ -192,6 +201,13 @@ pub async fn handle_prompt(
             format!("Done — {} object(s) updated.", all_mutations.len())
         });
     }
+
+    info!(
+        %board_id,
+        mutations = all_mutations.len(),
+        has_text = final_text.is_some(),
+        "ai: prompt complete"
+    );
 
     Ok(AiResult { mutations: all_mutations, text: final_text })
 }

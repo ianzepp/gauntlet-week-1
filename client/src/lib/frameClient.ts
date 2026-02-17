@@ -65,8 +65,11 @@ export class FrameClient {
             return;
         }
 
+        console.log("[FrameClient] send", frame.syscall, frame.status, frame.id);
         if (this.ws?.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(frame));
+        } else {
+            console.warn("[FrameClient] send failed — ws not open", this.ws?.readyState);
         }
     }
 
@@ -90,11 +93,14 @@ export class FrameClient {
     }
 
     private dispatch(frame: Frame): void {
+        console.log("[FrameClient] recv", frame.syscall, frame.status, frame.id);
         const handlers = this.handlers.get(frame.syscall);
         if (handlers) {
             for (const handler of handlers) {
                 handler(frame);
             }
+        } else {
+            console.warn("[FrameClient] no handler for", frame.syscall);
         }
     }
 }

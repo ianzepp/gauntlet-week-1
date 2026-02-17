@@ -123,6 +123,7 @@ async fn dispatch_frame(
     let mut req: Frame = match serde_json::from_str(text) {
         Ok(r) => r,
         Err(e) => {
+            warn!(%client_id, error = %e, "ws: invalid inbound frame");
             let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid json: {e}"));
             let _ = send_frame(socket, state, &err).await;
             return;
@@ -131,6 +132,8 @@ async fn dispatch_frame(
 
     // Stamp the authenticated user_id as `from`, regardless of what the client sent.
     req.from = Some(user_id.to_string());
+
+    info!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
 
     // Persist inbound frame.
     persist_fire_and_forget(&state.pool, &req);
@@ -489,6 +492,7 @@ async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> 
             return Err(());
         }
     };
+    info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
     let result = socket
         .send(Message::Text(json.into()))
         .await
