@@ -2,7 +2,7 @@ import { useBoardStore } from "../store/board";
 import styles from "./BoardStamp.module.css";
 
 export function BoardStamp() {
-    const boardId = useBoardStore((s) => s.boardId);
+    const boardName = useBoardStore((s) => s.boardName);
     const objects = useBoardStore((s) => s.objects);
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
     const presence = useBoardStore((s) => s.presence);
@@ -14,7 +14,7 @@ export function BoardStamp() {
     return (
         <div className={styles.stamp}>
             <div className={styles.stampLabel}>Station Log</div>
-            <div className={styles.stampTitle}>{boardId ?? "Untitled"}</div>
+            <div className={styles.stampTitle}>{boardName ?? "Untitled"}</div>
             <div className={styles.stampMeta}>
                 <div className={styles.stampRow}>
                     <span className={styles.stampKey}>Objects</span>

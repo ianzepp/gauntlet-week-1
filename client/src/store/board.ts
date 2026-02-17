@@ -19,6 +19,7 @@ export interface AiMessage {
 
 interface BoardState {
     boardId: string | null;
+    boardName: string | null;
     objects: Map<string, BoardObject>;
     presence: Map<string, Presence>;
     selection: Set<string>;
@@ -33,6 +34,7 @@ interface BoardState {
     rightPanelExpanded: boolean;
 
     setBoardId: (id: string | null) => void;
+    setBoardName: (name: string | null) => void;
     setObjects: (objects: BoardObject[]) => void;
     addObject: (object: BoardObject) => void;
     updateObject: (id: string, partial: Partial<BoardObject>) => void;
@@ -59,6 +61,7 @@ interface BoardState {
 
 export const useBoardStore = create<BoardState>((set) => ({
     boardId: null,
+    boardName: null,
     objects: new Map(),
     presence: new Map(),
     selection: new Set(),
@@ -73,6 +76,7 @@ export const useBoardStore = create<BoardState>((set) => ({
     rightPanelExpanded: true,
 
     setBoardId: (id) => set({ boardId: id }),
+    setBoardName: (name) => set({ boardName: name }),
 
     setObjects: (objects) =>
         set((state) => {

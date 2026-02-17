@@ -9,7 +9,7 @@ interface Board {
 }
 
 interface DashboardPageProps {
-    onOpenBoard: (id: string) => void;
+    onOpenBoard: (id: string, name: string) => void;
 }
 
 export function DashboardPage({ onOpenBoard }: DashboardPageProps) {
@@ -61,7 +61,7 @@ export function DashboardPage({ onOpenBoard }: DashboardPageProps) {
                 const boardId = frame.data.id as string;
                 if (boardId) {
                     frameClient.off("board:create", handler);
-                    onOpenBoard(boardId);
+                    onOpenBoard(boardId, newName.trim());
                 }
             }
         };
@@ -102,9 +102,9 @@ export function DashboardPage({ onOpenBoard }: DashboardPageProps) {
                     <div
                         key={board.id}
                         className={styles.card}
-                        onClick={() => onOpenBoard(board.id)}
+                        onClick={() => onOpenBoard(board.id, board.name)}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter") onOpenBoard(board.id);
+                            if (e.key === "Enter") onOpenBoard(board.id, board.name);
                         }}
                         role="button"
                         tabIndex={0}

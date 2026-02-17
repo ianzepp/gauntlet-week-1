@@ -27,6 +27,7 @@ export function App() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState<"dashboard" | "board">("dashboard");
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+    const [activeBoardName, setActiveBoardName] = useState<string | null>(null);
     const setStoreUser = useBoardStore((s) => s.setUser);
     useFrameClient();
 
@@ -55,9 +56,11 @@ export function App() {
         return (
             <BoardPage
                 boardId={activeBoardId}
+                boardName={activeBoardName ?? "Untitled"}
                 onBack={() => {
                     setPage("dashboard");
                     setActiveBoardId(null);
+                    setActiveBoardName(null);
                 }}
             />
         );
@@ -65,8 +68,9 @@ export function App() {
 
     return (
         <DashboardPage
-            onOpenBoard={(id) => {
+            onOpenBoard={(id, name) => {
                 setActiveBoardId(id);
+                setActiveBoardName(name);
                 setPage("board");
             }}
         />

@@ -9,7 +9,7 @@ export function StatusBar() {
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
     const presence = useBoardStore((s) => s.presence);
     const user = useBoardStore((s) => s.user);
-    const boardId = useBoardStore((s) => s.boardId);
+    const boardName = useBoardStore((s) => s.boardName);
 
     const [activeReport, setActiveReport] = useState<{
         userId: string;
@@ -49,10 +49,10 @@ export function StatusBar() {
                         className={`${styles.dot} ${isConnected ? styles.connected : ""}`}
                     />
                 </span>
-                {boardId && (
+                {boardName && (
                     <>
                         <span className={styles.divider} />
-                        <span className={styles.boardName}>{boardId}</span>
+                        <span className={styles.boardName}>{boardName}</span>
                     </>
                 )}
                 <span className={styles.divider} />

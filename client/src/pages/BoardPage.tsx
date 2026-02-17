@@ -9,22 +9,26 @@ import { useBoardStore } from "../store/board";
 
 interface BoardPageProps {
     boardId: string;
+    boardName: string;
     onBack?: () => void;
 }
 
-export function BoardPage({ boardId, onBack }: BoardPageProps) {
+export function BoardPage({ boardId, boardName, onBack }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
+    const setBoardName = useBoardStore((s) => s.setBoardName);
     const clearPresence = useBoardStore((s) => s.clearPresence);
     const frameClient = useBoardStore((s) => s.frameClient);
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
 
     useEffect(() => {
         setBoardId(boardId);
+        setBoardName(boardName);
         return () => {
             setBoardId(null);
+            setBoardName(null);
             clearPresence();
         };
-    }, [boardId, setBoardId, clearPresence]);
+    }, [boardId, boardName, setBoardId, setBoardName, clearPresence]);
 
     // Send board:join when connected and boardId is set
     useEffect(() => {
