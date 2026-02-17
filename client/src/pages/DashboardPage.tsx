@@ -27,9 +27,9 @@ export function DashboardPage({ onOpenBoard }: DashboardPageProps) {
 
         const handler = (frame: Frame) => {
             if (frame.parent_id !== requestId) return;
-            if (frame.status === "item") {
-                const board = frame.data as unknown as Board;
-                setBoards((prev) => [...prev, board]);
+            if (frame.status === "done" && Array.isArray(frame.data.boards)) {
+                const list = frame.data.boards as unknown as Board[];
+                setBoards(list);
             }
         };
 
