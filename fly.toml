@@ -1,5 +1,5 @@
-app = "collaboard"
-primary_region = "dfw"
+app = "gauntlet-week-1"
+primary_region = "ord"
 
 [build]
 
@@ -31,3 +31,7 @@ primary_region = "dfw"
   HOST = "0.0.0.0"
   STATIC_DIR = "/app/client/dist"
   COOKIE_SECURE = "true"
+  DB_MAX_CONNECTIONS = "5"
+  GITHUB_REDIRECT_URI = "https://gauntlet-week-1.fly.dev/auth/github/callback"
+  LLM_PROVIDER = "anthropic"
+  LLM_API_KEY_ENV = "ANTHROPIC_API_KEY"
