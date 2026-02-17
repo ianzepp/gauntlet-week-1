@@ -1,7 +1,11 @@
 import { useBoardStore } from "../store/board";
 import styles from "./Toolbar.module.css";
 
-export function Toolbar() {
+interface ToolbarProps {
+    onBack?: () => void;
+}
+
+export function Toolbar({ onBack }: ToolbarProps) {
     const rightPanelExpanded = useBoardStore((s) => s.rightPanelExpanded);
     const activeRightTab = useBoardStore((s) => s.activeRightTab);
     const toggleAiPanel = useBoardStore((s) => s.toggleAiPanel);
@@ -26,6 +30,18 @@ export function Toolbar() {
     return (
         <div className={styles.toolbar}>
             <div className={styles.left}>
+                {onBack && (
+                    <button
+                        type="button"
+                        className={styles.actionButton}
+                        onClick={onBack}
+                        title="Back to Dashboard"
+                    >
+                        <svg viewBox="0 0 20 20" className={styles.actionIcon}>
+                            <path d="M12 4 L6 10 L12 16" />
+                        </svg>
+                    </button>
+                )}
                 <span className={styles.boardName}>CollabBoard</span>
             </div>
             <div className={styles.center}>

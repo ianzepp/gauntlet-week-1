@@ -9,15 +9,34 @@ import { useBoardStore } from "../store/board";
 
 interface BoardPageProps {
     boardId: string;
+    onBack?: () => void;
 }
 
-export function BoardPage({ boardId }: BoardPageProps) {
+export function BoardPage({ boardId, onBack }: BoardPageProps) {
     const setBoardId = useBoardStore((s) => s.setBoardId);
+    const frameClient = useBoardStore((s) => s.frameClient);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
 
     useEffect(() => {
         setBoardId(boardId);
         return () => setBoardId(null);
     }, [boardId, setBoardId]);
+
+    // Send board:join when connected and boardId is set
+    useEffect(() => {
+        if (!frameClient || connectionStatus !== "connected") return;
+
+        frameClient.send({
+            id: crypto.randomUUID(),
+            parent_id: null,
+            ts: Date.now(),
+            board_id: boardId,
+            from: null,
+            syscall: "board:join",
+            status: "request",
+            data: {},
+        });
+    }, [frameClient, connectionStatus, boardId]);
 
     return (
         <div
@@ -27,7 +46,7 @@ export function BoardPage({ boardId }: BoardPageProps) {
                 height: "100vh",
             }}
         >
-            <Toolbar />
+            <Toolbar onBack={onBack} />
             <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
                 <ToolRail />
                 <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>

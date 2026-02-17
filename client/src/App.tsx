@@ -3,10 +3,9 @@ import { useFrameClient } from "./hooks/useFrameClient";
 import { fetchCurrentUser } from "./lib/api";
 import type { User } from "./lib/types";
 import { BoardPage } from "./pages/BoardPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { useBoardStore } from "./store/board";
-
-const DEMO_BOARD_ID = "00000000-0000-0000-0000-000000000001";
 
 function initDarkMode() {
     const saved = localStorage.getItem("collaboard_dark");
@@ -26,6 +25,8 @@ function initDarkMode() {
 export function App() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState<"dashboard" | "board">("dashboard");
+    const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
     const setStoreUser = useBoardStore((s) => s.setUser);
     useFrameClient();
 
@@ -50,5 +51,24 @@ export function App() {
         return <LoginPage />;
     }
 
-    return <BoardPage boardId={DEMO_BOARD_ID} />;
+    if (page === "board" && activeBoardId) {
+        return (
+            <BoardPage
+                boardId={activeBoardId}
+                onBack={() => {
+                    setPage("dashboard");
+                    setActiveBoardId(null);
+                }}
+            />
+        );
+    }
+
+    return (
+        <DashboardPage
+            onOpenBoard={(id) => {
+                setActiveBoardId(id);
+                setPage("board");
+            }}
+        />
+    );
 }
