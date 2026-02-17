@@ -79,33 +79,15 @@
     flex-shrink: 0;
 }
 
-.tab {
+.title {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 36px;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: color 150ms ease, border-color 150ms ease;
-}
-
-.tab:hover {
     color: var(--text-primary);
-    background: transparent;
-}
-
-.tab.activeTab {
-    color: var(--text-primary);
-    border-bottom-color: var(--accent-green);
+    padding-left: var(--space-sm);
 }
 
 .closeButton {

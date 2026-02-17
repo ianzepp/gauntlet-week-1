@@ -84,16 +84,9 @@ export function RightPanel() {
             {expanded && (
                 <div className={styles.panel}>
                     <div className={styles.header}>
-                        {TABS.map((tab) => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}
-                                onClick={() => setRightTab(tab.id)}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
+                        <span className={styles.title}>
+                            {TABS.find((t) => t.id === activeTab)?.label}
+                        </span>
                         <button
                             type="button"
                             className={styles.closeButton}
