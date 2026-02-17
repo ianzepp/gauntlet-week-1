@@ -41,9 +41,8 @@
 
 .messageAssistant {
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-secondary);
-    border-left: 2px solid var(--accent-green);
     margin-left: var(--space-xs);
     padding-left: var(--space-sm);
 }
