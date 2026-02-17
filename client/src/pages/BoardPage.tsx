@@ -25,6 +25,8 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
     useEffect(() => {
         setBoardId(boardId);
         setBoardName(boardName);
+        // Clear per-board state so history reloads for the new board
+        useBoardStore.setState({ aiMessages: [], chatMessages: [] });
         return () => {
             setBoardId(null);
             setBoardName(null);

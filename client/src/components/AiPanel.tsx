@@ -15,16 +15,13 @@ export function AiPanel() {
 
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const loadedRef = useRef(false);
+    const loadedBoardRef = useRef<string | null>(null);
 
-    // Load AI conversation history on mount
+    // Load AI conversation history on mount or board switch
     useEffect(() => {
-        if (!frameClient || connectionStatus !== "connected" || !boardId || loadedRef.current) return;
-        if (messages.length > 0) {
-            loadedRef.current = true;
-            return;
-        }
-        loadedRef.current = true;
+        if (!frameClient || connectionStatus !== "connected" || !boardId) return;
+        if (loadedBoardRef.current === boardId) return;
+        loadedBoardRef.current = boardId;
 
         const requestId = crypto.randomUUID();
 
@@ -60,7 +57,7 @@ export function AiPanel() {
         return () => {
             frameClient.off("ai:history", handler);
         };
-    }, [frameClient, connectionStatus, boardId, messages.length]);
+    }, [frameClient, connectionStatus, boardId]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

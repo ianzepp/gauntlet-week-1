@@ -13,12 +13,13 @@ export function ChatPanel() {
 
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const loadedRef = useRef(false);
+    const loadedBoardRef = useRef<string | null>(null);
 
-    // Load chat history on mount
+    // Load chat history on mount or board switch
     useEffect(() => {
-        if (!frameClient || connectionStatus !== "connected" || !boardId || loadedRef.current) return;
-        loadedRef.current = true;
+        if (!frameClient || connectionStatus !== "connected" || !boardId) return;
+        if (loadedBoardRef.current === boardId) return;
+        loadedBoardRef.current = boardId;
 
         const requestId = crypto.randomUUID();
 
