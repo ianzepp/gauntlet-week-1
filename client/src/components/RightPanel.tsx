@@ -3,6 +3,7 @@ import { useBoardStore } from "../store/board";
 import type { RightTab } from "../store/board";
 import { AiPanel } from "./AiPanel";
 import { InspectorPanel } from "./InspectorPanel";
+import { MissionControl } from "./MissionControl";
 import styles from "./RightPanel.module.css";
 
 const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
@@ -23,6 +24,18 @@ const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
         icon: (
             <svg viewBox="0 0 20 20">
                 <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+            </svg>
+        ),
+    },
+    {
+        id: "boards",
+        label: "Boards",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="2" width="7" height="7" rx="1" />
+                <rect x="11" y="2" width="7" height="7" rx="1" />
+                <rect x="2" y="11" width="7" height="7" rx="1" />
+                <rect x="11" y="11" width="7" height="7" rx="1" />
             </svg>
         ),
     },
@@ -92,6 +105,7 @@ export function RightPanel() {
                     <div className={styles.content}>
                         {activeTab === "inspector" && <InspectorPanel />}
                         {activeTab === "ai" && <AiPanel />}
+                        {activeTab === "boards" && <MissionControl />}
                     </div>
                 </div>
             )}

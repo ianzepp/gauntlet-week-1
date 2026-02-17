@@ -9,18 +9,12 @@ interface Board {
     name: string;
 }
 
-interface MissionControlProps {
-    currentBoardId: string;
-    onSelectBoard: (id: string, name: string) => void;
-}
-
-export function MissionControl({
-    currentBoardId,
-    onSelectBoard,
-}: MissionControlProps) {
+export function MissionControl() {
     const [boards, setBoards] = useState<Board[]>([]);
     const frameClient = useBoardStore((s) => s.frameClient);
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const boardId = useBoardStore((s) => s.boardId);
+    const navigateToBoard = useBoardStore((s) => s.navigateToBoard);
 
     useEffect(() => {
         if (!frameClient || connectionStatus !== "connected") return;
@@ -61,9 +55,8 @@ export function MissionControl({
                         key={board.id}
                         id={board.id}
                         name={board.name}
-                        variant="mini"
-                        active={board.id === currentBoardId}
-                        onClick={() => onSelectBoard(board.id, board.name)}
+                        active={board.id === boardId}
+                        onClick={() => navigateToBoard?.(board.id, board.name)}
                     />
                 ))}
             </div>

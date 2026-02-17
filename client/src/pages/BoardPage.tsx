@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { Canvas } from "../canvas/Canvas";
 import { BoardStamp } from "../components/BoardStamp";
-import { MissionControl } from "../components/MissionControl";
 import { RightPanel } from "../components/RightPanel";
 import { StatusBar } from "../components/StatusBar";
 import { Toolbar } from "../components/Toolbar";
@@ -21,6 +20,7 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
     const clearPresence = useBoardStore((s) => s.clearPresence);
     const frameClient = useBoardStore((s) => s.frameClient);
     const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const setNavigateToBoard = useBoardStore((s) => s.setNavigateToBoard);
 
     useEffect(() => {
         setBoardId(boardId);
@@ -31,6 +31,14 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
             clearPresence();
         };
     }, [boardId, boardName, setBoardId, setBoardName, clearPresence]);
+
+    // Expose navigate callback so MissionControl (in RightPanel) can trigger navigation
+    useEffect(() => {
+        if (onNavigate) {
+            setNavigateToBoard((id: string, name: string) => onNavigate(id, name));
+        }
+        return () => setNavigateToBoard(null);
+    }, [onNavigate, setNavigateToBoard]);
 
     // Send board:join when connected and boardId is set
     useEffect(() => {
@@ -57,14 +65,6 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
             }}
         >
             <Toolbar onBack={onBack} />
-            <MissionControl
-                currentBoardId={boardId}
-                onSelectBoard={(id, name) => {
-                    if (onNavigate) {
-                        onNavigate(id, name);
-                    }
-                }}
-            />
             <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
                 <ToolRail />
                 <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>

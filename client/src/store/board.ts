@@ -9,7 +9,7 @@ import type {
 } from "../lib/types";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
-export type RightTab = "inspector" | "ai";
+export type RightTab = "inspector" | "ai" | "boards";
 
 export interface AiMessage {
     role: "user" | "assistant" | "error";
@@ -32,6 +32,7 @@ interface BoardState {
     aiLoading: boolean;
     activeRightTab: RightTab;
     rightPanelExpanded: boolean;
+    navigateToBoard: ((id: string, name: string) => void) | null;
 
     setBoardId: (id: string | null) => void;
     setBoardName: (name: string | null) => void;
@@ -56,6 +57,7 @@ interface BoardState {
     setRightTab: (tab: RightTab) => void;
     expandRightPanel: (tab: RightTab) => void;
     collapseRightPanel: () => void;
+    setNavigateToBoard: (fn: ((id: string, name: string) => void) | null) => void;
 }
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -73,6 +75,7 @@ export const useBoardStore = create<BoardState>((set) => ({
     aiLoading: false,
     activeRightTab: "ai" as RightTab,
     rightPanelExpanded: true,
+    navigateToBoard: null,
 
     setBoardId: (id) => set({ boardId: id }),
     setBoardName: (name) => set({ boardName: name }),
@@ -202,4 +205,5 @@ export const useBoardStore = create<BoardState>((set) => ({
         }),
 
     collapseRightPanel: () => set({ rightPanelExpanded: false }),
+    setNavigateToBoard: (fn) => set({ navigateToBoard: fn }),
 }));
