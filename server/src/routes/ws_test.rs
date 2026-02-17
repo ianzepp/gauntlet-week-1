@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::frame::Status;
 use crate::llm::types::{ChatResponse, ContentBlock, LlmChat, LlmError, Message, Tool};
@@ -48,6 +47,11 @@ fn ai_prompt_json(board_id: Uuid, prompt: &str) -> String {
     serde_json::to_string(&req).expect("frame should serialize")
 }
 
+fn request_json(board_id: Uuid, syscall: &str, data: Data) -> String {
+    let req = Frame::request(syscall, data).with_board_id(board_id);
+    serde_json::to_string(&req).expect("frame should serialize")
+}
+
 async fn recv_board_broadcast(rx: &mut mpsc::Receiver<Frame>) -> Frame {
     timeout(Duration::from_millis(500), rx.recv())
         .await
@@ -63,10 +67,24 @@ async fn recv_board_broadcasts(rx: &mut mpsc::Receiver<Frame>, count: usize) -> 
     frames
 }
 
+async fn assert_no_board_broadcast(rx: &mut mpsc::Receiver<Frame>) {
+    assert!(
+        timeout(Duration::from_millis(80), rx.recv()).await.is_err(),
+        "expected no broadcast frame"
+    );
+}
+
 async fn register_two_clients(
     state: &AppState,
     board_id: Uuid,
-) -> (Uuid, mpsc::Sender<Frame>, mpsc::Receiver<Frame>, Uuid, mpsc::Receiver<Frame>) {
+) -> (
+    Uuid,
+    mpsc::Sender<Frame>,
+    mpsc::Receiver<Frame>,
+    Uuid,
+    mpsc::Sender<Frame>,
+    mpsc::Receiver<Frame>,
+) {
     let sender_client_id = Uuid::new_v4();
     let peer_client_id = Uuid::new_v4();
 
@@ -78,9 +96,294 @@ async fn register_two_clients(
         .get_mut(&board_id)
         .expect("board should exist in memory");
     board.clients.insert(sender_client_id, sender_tx.clone());
-    board.clients.insert(peer_client_id, peer_tx);
+    board.clients.insert(peer_client_id, peer_tx.clone());
 
-    (sender_client_id, sender_tx, sender_rx, peer_client_id, peer_rx)
+    (sender_client_id, sender_tx, sender_rx, peer_client_id, peer_tx, peer_rx)
+}
+
+#[tokio::test]
+async fn multi_user_single_change_reaches_other_user() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (client_a_id, client_a_tx, mut client_a_rx, _client_b_id, _client_b_tx, mut client_b_rx) =
+        register_two_clients(&state, board_id).await;
+
+    let mut current_board_a = Some(board_id);
+    let user_a = Uuid::new_v4();
+
+    let mut create_data = Data::new();
+    create_data.insert("kind".into(), json!("sticky_note"));
+    create_data.insert("x".into(), json!(120.0));
+    create_data.insert("y".into(), json!(180.0));
+    create_data.insert("props".into(), json!({ "text": "from user a", "color": "#FFEB3B" }));
+    let create_req = request_json(board_id, "object:create", create_data);
+
+    let a_reply =
+        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &create_req).await;
+
+    assert_eq!(a_reply.len(), 1);
+    assert_eq!(a_reply[0].status, Status::Done);
+    assert_eq!(a_reply[0].syscall, "object:create");
+    let created_id = a_reply[0]
+        .data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .expect("sender reply should include object id")
+        .to_string();
+
+    let b_broadcast = recv_board_broadcast(&mut client_b_rx).await;
+    assert_eq!(b_broadcast.syscall, "object:create");
+    assert_eq!(b_broadcast.data.get("id").and_then(|v| v.as_str()), Some(created_id.as_str()));
+    assert_eq!(
+        b_broadcast
+            .data
+            .get("props")
+            .and_then(|v| v.get("text"))
+            .and_then(|v| v.as_str()),
+        Some("from user a")
+    );
+    // Object mutation broadcasts for direct object requests are peer-only.
+    assert_no_board_broadcast(&mut client_a_rx).await;
+
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id).expect("board should exist");
+    assert_eq!(board.objects.len(), 1);
+}
+
+#[tokio::test]
+async fn multi_user_concurrent_changes_on_different_objects_sync_both_users() {
+    let mut obj_a = test_helpers::dummy_object();
+    obj_a.version = 1;
+    obj_a.props = json!({ "text": "object a" });
+    let obj_a_id = obj_a.id;
+
+    let mut obj_b = test_helpers::dummy_object();
+    obj_b.version = 1;
+    obj_b.props = json!({ "text": "object b" });
+    let obj_b_id = obj_b.id;
+
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj_a, obj_b]).await;
+    let (client_a_id, client_a_tx, mut client_a_rx, client_b_id, client_b_tx, mut client_b_rx) =
+        register_two_clients(&state, board_id).await;
+    let user_a = Uuid::new_v4();
+    let user_b = Uuid::new_v4();
+
+    let mut current_board_a = Some(board_id);
+    let mut current_board_b = Some(board_id);
+
+    let mut update_a = Data::new();
+    update_a.insert("id".into(), json!(obj_a_id));
+    update_a.insert("version".into(), json!(1));
+    update_a.insert("x".into(), json!(500.0));
+
+    let mut update_b = Data::new();
+    update_b.insert("id".into(), json!(obj_b_id));
+    update_b.insert("version".into(), json!(1));
+    update_b.insert("y".into(), json!(900.0));
+
+    let req_a = request_json(board_id, "object:update", update_a);
+    let req_b = request_json(board_id, "object:update", update_b);
+
+    let (a_reply, b_reply) = tokio::join!(
+        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req_a),
+        process_inbound_text(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &req_b)
+    );
+
+    assert_eq!(a_reply.len(), 1);
+    assert_eq!(b_reply.len(), 1);
+    assert_eq!(a_reply[0].status, Status::Done);
+    assert_eq!(b_reply[0].status, Status::Done);
+
+    // Each user receives the other user's broadcast mutation.
+    let a_seen = recv_board_broadcast(&mut client_a_rx).await;
+    let b_seen = recv_board_broadcast(&mut client_b_rx).await;
+    assert_eq!(a_seen.syscall, "object:update");
+    assert_eq!(b_seen.syscall, "object:update");
+    let obj_a_id_str = obj_a_id.to_string();
+    let obj_b_id_str = obj_b_id.to_string();
+    assert_eq!(a_seen.data.get("id").and_then(|v| v.as_str()), Some(obj_b_id_str.as_str()));
+    assert_eq!(b_seen.data.get("id").and_then(|v| v.as_str()), Some(obj_a_id_str.as_str()));
+
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id).expect("board should exist");
+    assert_eq!(
+        board
+            .objects
+            .get(&obj_a_id)
+            .expect("object a should exist")
+            .x,
+        500.0
+    );
+    assert_eq!(
+        board
+            .objects
+            .get(&obj_b_id)
+            .expect("object b should exist")
+            .y,
+        900.0
+    );
+}
+
+#[tokio::test]
+async fn multi_user_conflicting_same_object_edits_converge_after_retry() {
+    let mut shared = test_helpers::dummy_object();
+    shared.version = 1;
+    shared.x = 100.0;
+    shared.y = 100.0;
+    let shared_id = shared.id;
+
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![shared]).await;
+    let (client_a_id, client_a_tx, mut client_a_rx, client_b_id, client_b_tx, mut client_b_rx) =
+        register_two_clients(&state, board_id).await;
+    let user_a = Uuid::new_v4();
+    let user_b = Uuid::new_v4();
+
+    let mut current_board_a = Some(board_id);
+    let mut current_board_b = Some(board_id);
+
+    let mut update_a = Data::new();
+    update_a.insert("id".into(), json!(shared_id));
+    update_a.insert("version".into(), json!(1));
+    update_a.insert("x".into(), json!(210.0));
+
+    let mut update_b = Data::new();
+    update_b.insert("id".into(), json!(shared_id));
+    update_b.insert("version".into(), json!(1));
+    update_b.insert("x".into(), json!(330.0));
+
+    let req_a = request_json(board_id, "object:update", update_a);
+    let req_b = request_json(board_id, "object:update", update_b);
+
+    let (a_reply, b_reply) = tokio::join!(
+        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req_a),
+        process_inbound_text(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &req_b)
+    );
+
+    assert_eq!(a_reply.len(), 1);
+    assert_eq!(b_reply.len(), 1);
+    let a_status = a_reply[0].status;
+    let b_status = b_reply[0].status;
+    assert!(
+        (a_status == Status::Done && b_status == Status::Error)
+            || (a_status == Status::Error && b_status == Status::Done),
+        "expected one winner and one stale loser: a={a_status:?}, b={b_status:?}"
+    );
+
+    if a_status == Status::Error {
+        assert_eq!(a_reply[0].data.get("code").and_then(|v| v.as_str()), Some("E_STALE_UPDATE"));
+    }
+    if b_status == Status::Error {
+        assert_eq!(b_reply[0].data.get("code").and_then(|v| v.as_str()), Some("E_STALE_UPDATE"));
+    }
+
+    if a_status == Status::Done {
+        // A won; B should receive A's winner broadcast.
+        let b_seen_winner = recv_board_broadcast(&mut client_b_rx).await;
+        assert_eq!(b_seen_winner.syscall, "object:update");
+        assert_eq!(b_seen_winner.data.get("x").and_then(|v| v.as_f64()), Some(210.0));
+        assert_no_board_broadcast(&mut client_a_rx).await;
+
+        // B retries with the latest version to converge both clients.
+        let current_version = {
+            let boards = state.boards.read().await;
+            boards
+                .get(&board_id)
+                .and_then(|b| b.objects.get(&shared_id))
+                .map(|o| o.version)
+                .expect("shared object should exist")
+        };
+        let mut retry = Data::new();
+        retry.insert("id".into(), json!(shared_id));
+        retry.insert("version".into(), json!(current_version));
+        retry.insert("x".into(), json!(777.0));
+        let retry_req = request_json(board_id, "object:update", retry);
+        let b_retry =
+            process_inbound_text(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &retry_req).await;
+
+        assert_eq!(b_retry.len(), 1);
+        assert_eq!(b_retry[0].status, Status::Done);
+        assert_eq!(b_retry[0].data.get("x").and_then(|v| v.as_f64()), Some(777.0));
+        let a_seen_retry = recv_board_broadcast(&mut client_a_rx).await;
+        assert_eq!(a_seen_retry.syscall, "object:update");
+        assert_eq!(a_seen_retry.data.get("x").and_then(|v| v.as_f64()), Some(777.0));
+    } else {
+        // B won; A should receive B's winner broadcast.
+        let a_seen_winner = recv_board_broadcast(&mut client_a_rx).await;
+        assert_eq!(a_seen_winner.syscall, "object:update");
+        assert_eq!(a_seen_winner.data.get("x").and_then(|v| v.as_f64()), Some(330.0));
+        assert_no_board_broadcast(&mut client_b_rx).await;
+
+        // A retries with the latest version to converge both clients.
+        let current_version = {
+            let boards = state.boards.read().await;
+            boards
+                .get(&board_id)
+                .and_then(|b| b.objects.get(&shared_id))
+                .map(|o| o.version)
+                .expect("shared object should exist")
+        };
+        let mut retry = Data::new();
+        retry.insert("id".into(), json!(shared_id));
+        retry.insert("version".into(), json!(current_version));
+        retry.insert("x".into(), json!(777.0));
+        let retry_req = request_json(board_id, "object:update", retry);
+        let a_retry =
+            process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &retry_req).await;
+
+        assert_eq!(a_retry.len(), 1);
+        assert_eq!(a_retry[0].status, Status::Done);
+        assert_eq!(a_retry[0].data.get("x").and_then(|v| v.as_f64()), Some(777.0));
+        let b_seen_retry = recv_board_broadcast(&mut client_b_rx).await;
+        assert_eq!(b_seen_retry.syscall, "object:update");
+        assert_eq!(b_seen_retry.data.get("x").and_then(|v| v.as_f64()), Some(777.0));
+    }
+
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id).expect("board should exist");
+    let shared_after = board
+        .objects
+        .get(&shared_id)
+        .expect("shared object should exist");
+    assert_eq!(shared_after.x, 777.0);
+    assert_eq!(shared_after.version, 3);
+}
+
+#[tokio::test]
+async fn multi_user_stale_update_is_rejected_and_not_broadcast() {
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 3;
+    obj.x = 90.0;
+    let obj_id = obj.id;
+
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let (client_a_id, client_a_tx, mut client_a_rx, _client_b_id, _client_b_tx, mut client_b_rx) =
+        register_two_clients(&state, board_id).await;
+    let user_a = Uuid::new_v4();
+    let mut current_board_a = Some(board_id);
+
+    let mut stale_update = Data::new();
+    stale_update.insert("id".into(), json!(obj_id));
+    stale_update.insert("version".into(), json!(1));
+    stale_update.insert("x".into(), json!(999.0));
+    let stale_req = request_json(board_id, "object:update", stale_update);
+
+    let a_reply =
+        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &stale_req).await;
+
+    assert_eq!(a_reply.len(), 1);
+    assert_eq!(a_reply[0].status, Status::Error);
+    assert_eq!(a_reply[0].data.get("code").and_then(|v| v.as_str()), Some("E_STALE_UPDATE"));
+    assert_no_board_broadcast(&mut client_a_rx).await;
+    assert_no_board_broadcast(&mut client_b_rx).await;
+
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id).expect("board should exist");
+    let obj_after = board.objects.get(&obj_id).expect("object should exist");
+    assert_eq!(obj_after.x, 90.0);
+    assert_eq!(obj_after.version, 3);
 }
 
 #[tokio::test]
@@ -108,7 +411,7 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     let state = test_helpers::test_app_state_with_llm(llm);
     let board_id = test_helpers::seed_board(&state).await;
 
-    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, mut peer_rx) =
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
         register_two_clients(&state, board_id).await;
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
@@ -181,7 +484,7 @@ async fn ai_prompt_resize_sticky_broadcasts_update_and_replies_with_text() {
     let state = test_helpers::test_app_state_with_llm(llm);
     let board_id = test_helpers::seed_board_with_objects(&state, vec![sticky]).await;
 
-    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, mut peer_rx) =
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
         register_two_clients(&state, board_id).await;
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
@@ -262,7 +565,7 @@ async fn ai_prompt_multi_tool_single_turn_broadcasts_all_mutations_and_replies_w
     let state = test_helpers::test_app_state_with_llm(llm);
     let board_id = test_helpers::seed_board(&state).await;
 
-    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, mut peer_rx) =
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
         register_two_clients(&state, board_id).await;
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
@@ -372,7 +675,7 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
     let state = test_helpers::test_app_state_with_llm(llm);
     let board_id = test_helpers::seed_board(&state).await;
 
-    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, mut peer_rx) =
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
         register_two_clients(&state, board_id).await;
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
