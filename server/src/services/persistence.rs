@@ -92,17 +92,14 @@ pub fn spawn_frame_persistence_worker(pool: PgPool) -> tokio::sync::mpsc::Sender
         loop {
             tokio::select! {
                 maybe_frame = rx.recv() => {
-                    match maybe_frame {
-                        Some(frame) => {
-                            batch.push(frame);
-                            if batch.len() >= config.batch_size {
-                                flush_frame_batch_with_retry(&pool, &mut batch, config).await;
-                            }
-                        }
-                        None => {
+                    if let Some(frame) = maybe_frame {
+                        batch.push(frame);
+                        if batch.len() >= config.batch_size {
                             flush_frame_batch_with_retry(&pool, &mut batch, config).await;
-                            break;
                         }
+                    } else {
+                        flush_frame_batch_with_retry(&pool, &mut batch, config).await;
+                        break;
                     }
                 }
                 _ = ticker.tick() => {

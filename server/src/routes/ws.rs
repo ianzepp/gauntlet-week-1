@@ -365,8 +365,7 @@ async fn handle_chat(state: &AppState, current_board: Option<Uuid>, req: &Frame)
                 .data
                 .get("message")
                 .and_then(|v| v.as_str())
-                .map(str::trim)
-                .unwrap_or("");
+                .map_or("", str::trim);
 
             if message.is_empty() {
                 return Err(req.error("message required"));
@@ -595,7 +594,7 @@ async fn handle_ai(
                 .data
                 .get("grid_context")
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
 
             if prompt.is_empty() {
                 return Err(req.error("prompt required"));

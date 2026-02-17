@@ -564,7 +564,8 @@ async fn execute_create_connector(
 
     let props = json!({"source_id": from_id, "target_id": to_id, "style": style});
     // Place connector at origin — rendering uses source/target positions.
-    let obj = super::object::create_object(state, board_id, "connector", 0.0, 0.0, None, None, 0.0, props, None).await?;
+    let obj =
+        super::object::create_object(state, board_id, "connector", 0.0, 0.0, None, None, 0.0, props, None).await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created connector {id} from {from_id} to {to_id}"))

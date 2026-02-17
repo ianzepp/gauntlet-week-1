@@ -48,6 +48,7 @@ impl crate::frame::ErrorCode for ObjectError {
 /// # Errors
 ///
 /// Returns `BoardNotLoaded` if the board isn't in memory.
+#[allow(clippy::too_many_arguments)]
 pub async fn create_object(
     state: &AppState,
     board_id: Uuid,

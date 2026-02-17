@@ -38,8 +38,7 @@ fn log_startup_env_config(port: u16) {
     let llm_api_key_env = std::env::var("LLM_API_KEY_ENV").ok();
     let llm_api_key_set = llm_api_key_env
         .as_ref()
-        .map(|key_name| std::env::var(key_name).is_ok())
-        .unwrap_or(false);
+        .is_some_and(|key_name| std::env::var(key_name).is_ok());
 
     log_env_line("HOST", env_or_default("HOST", "0.0.0.0"));
     log_env_line("PORT", port);

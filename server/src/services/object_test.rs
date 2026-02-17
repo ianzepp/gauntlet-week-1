@@ -35,7 +35,19 @@ async fn create_object_succeeds() {
 async fn create_object_board_not_loaded() {
     let state = test_helpers::test_app_state();
     let fake_id = Uuid::new_v4();
-    let result = create_object(&state, fake_id, "sticky_note", 0.0, 0.0, None, None, 0.0, serde_json::json!({}), None).await;
+    let result = create_object(
+        &state,
+        fake_id,
+        "sticky_note",
+        0.0,
+        0.0,
+        None,
+        None,
+        0.0,
+        serde_json::json!({}),
+        None,
+    )
+    .await;
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), ObjectError::BoardNotLoaded(_)));
 }
@@ -44,9 +56,20 @@ async fn create_object_board_not_loaded() {
 async fn update_object_succeeds() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
-    let obj = create_object(&state, board_id, "rectangle", 0.0, 0.0, None, None, 0.0, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    let obj = create_object(
+        &state,
+        board_id,
+        "rectangle",
+        0.0,
+        0.0,
+        None,
+        None,
+        0.0,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
 
     let mut data = Data::new();
     data.insert("x".into(), serde_json::json!(50.0));
@@ -63,9 +86,20 @@ async fn update_object_succeeds() {
 async fn update_object_lww_rejects_stale() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
-    let obj = create_object(&state, board_id, "ellipse", 0.0, 0.0, None, None, 0.0, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    let obj = create_object(
+        &state,
+        board_id,
+        "ellipse",
+        0.0,
+        0.0,
+        None,
+        None,
+        0.0,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(obj.version, 1);
 
     // Update with version 1 succeeds (incoming >= current)
@@ -97,9 +131,20 @@ async fn update_object_not_found() {
 async fn update_object_partial_fields() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
-    let obj = create_object(&state, board_id, "text", 10.0, 20.0, None, None, 0.0, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    let obj = create_object(
+        &state,
+        board_id,
+        "text",
+        10.0,
+        20.0,
+        None,
+        None,
+        0.0,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
 
     // Only update x, leave y unchanged
     let mut data = Data::new();
@@ -143,9 +188,20 @@ async fn update_object_props() {
 async fn create_object_marks_dirty() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
-    let obj = create_object(&state, board_id, "rectangle", 0.0, 0.0, None, None, 0.0, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    let obj = create_object(
+        &state,
+        board_id,
+        "rectangle",
+        0.0,
+        0.0,
+        None,
+        None,
+        0.0,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
 
     let boards = state.boards.read().await;
     let board = boards.get(&board_id).unwrap();
@@ -157,8 +213,19 @@ async fn create_object_marks_dirty() {
 async fn delete_object_removes_from_memory() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
-    let obj = create_object(&state, board_id, "rectangle", 0.0, 0.0, None, None, 0.0, serde_json::json!({}), None)
-        .await
-        .unwrap();
+    let obj = create_object(
+        &state,
+        board_id,
+        "rectangle",
+        0.0,
+        0.0,
+        None,
+        None,
+        0.0,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
     let _ = delete_object(&state, board_id, obj.id).await;
 }
