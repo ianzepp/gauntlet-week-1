@@ -133,12 +133,14 @@ async fn dispatch_frame(
     // Stamp the authenticated user_id as `from`, regardless of what the client sent.
     req.from = Some(user_id.to_string());
 
-    info!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
-
-    // Persist inbound frame.
-    persist_fire_and_forget(&state.pool, &req);
-
     let prefix = req.prefix();
+    let is_cursor = prefix == "cursor";
+
+    // Skip logging and persistence for high-frequency cursor frames.
+    if !is_cursor {
+        info!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
+        persist_fire_and_forget(&state.pool, &req);
+    }
 
     match prefix {
         "board" => handle_board(state, socket, current_board, client_id, user_id, client_tx, &req).await,
@@ -492,12 +494,15 @@ async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> 
             return Err(());
         }
     };
-    info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
+    let is_cursor = frame.syscall.starts_with("cursor:");
+    if !is_cursor {
+        info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
+    }
     let result = socket
         .send(Message::Text(json.into()))
         .await
         .map_err(|_| ());
-    if result.is_ok() {
+    if result.is_ok() && !is_cursor {
         persist_fire_and_forget(&state.pool, frame);
     }
     result

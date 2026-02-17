@@ -65,7 +65,9 @@ export class FrameClient {
             return;
         }
 
-        console.log("[FrameClient] send", frame.syscall, frame.status, frame.id);
+        if (!frame.syscall.startsWith("cursor:")) {
+            console.log("[FrameClient] send", frame.syscall, frame.status, frame.id);
+        }
         if (this.ws?.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(frame));
         } else {
@@ -93,7 +95,9 @@ export class FrameClient {
     }
 
     private dispatch(frame: Frame): void {
-        console.log("[FrameClient] recv", frame.syscall, frame.status, frame.id);
+        if (!frame.syscall.startsWith("cursor:")) {
+            console.log("[FrameClient] recv", frame.syscall, frame.status, frame.id);
+        }
         if (frame.syscall === "gateway:error") {
             console.error("[FrameClient] gateway error:", frame.data);
         }
