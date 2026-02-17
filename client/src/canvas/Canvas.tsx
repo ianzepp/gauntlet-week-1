@@ -29,6 +29,9 @@ function GridLines({
     viewport: { x: number; y: number; scale: number };
 }) {
     const { x: ox, y: oy, scale } = viewport;
+    const isDarkMode = document.documentElement.classList.contains("dark-mode");
+    const minorGridColor = isDarkMode ? "#3E3934" : "#D8D1C5";
+    const majorGridColor = isDarkMode ? "#4C463F" : "#C8BFAF";
 
     const startX = Math.floor(-ox / scale / GRID_SIZE) * GRID_SIZE;
     const endX = startX + Math.ceil(width / scale / GRID_SIZE + 1) * GRID_SIZE;
@@ -43,9 +46,9 @@ function GridLines({
             <Line
                 key={`v${x}`}
                 points={[x, startY, x, endY]}
-                stroke={major ? "var(--canvas-grid-major, #d7d1c7)" : "var(--canvas-grid, #e1ddd5)"}
+                stroke={major ? majorGridColor : minorGridColor}
                 strokeWidth={1 / scale}
-                opacity={major ? 0.28 : 0.14}
+                opacity={major ? 0.42 : 0.28}
                 listening={false}
             />,
         );
@@ -57,9 +60,9 @@ function GridLines({
             <Line
                 key={`h${y}`}
                 points={[startX, y, endX, y]}
-                stroke={major ? "var(--canvas-grid-major, #d7d1c7)" : "var(--canvas-grid, #e1ddd5)"}
+                stroke={major ? majorGridColor : minorGridColor}
                 strokeWidth={1 / scale}
-                opacity={major ? 0.28 : 0.14}
+                opacity={major ? 0.42 : 0.28}
                 listening={false}
             />,
         );
@@ -473,7 +476,6 @@ export function Canvas() {
                 <Layer>
                     {objectList.map((obj) => {
                         if (obj.kind === "rectangle" || obj.kind === "sticky_note") {
-                            const isSelected = selection.has(obj.id);
                             const fill =
                                 (obj.props.backgroundColor as string) ??
                                 (obj.props.color as string) ??
@@ -493,8 +495,8 @@ export function Canvas() {
                                     height={obj.height ?? 0}
                                     rotation={obj.rotation}
                                     fill={fill}
-                                    stroke={isSelected ? "#fff" : borderColor}
-                                    strokeWidth={isSelected ? 2 : borderWidth}
+                                    stroke={borderColor}
+                                    strokeWidth={borderWidth}
                                     listening={false}
                                 />
                             );
@@ -580,7 +582,12 @@ export function Canvas() {
                             Math.PI *
                             2 *
                             SELECTION_RING_PULSE_CYCLES_PER_ROTATION;
-                        const pulseScale = 1 + Math.sin(phase) * SELECTION_RING_PULSE_AMPLITUDE;
+                        // Asymmetric pulse: keep the farthest size unchanged, but avoid
+                        // squeezing inward past the base radius.
+                        const pulseScale =
+                            1 +
+                            ((Math.sin(phase) + 1) / 2) *
+                                SELECTION_RING_PULSE_AMPLITUDE;
                         const pulsedRadius = halo.radius * pulseScale;
                         const pulsedTickLength = halo.tickLength * pulseScale;
 
