@@ -383,6 +383,47 @@ pub(crate) async fn execute_tool(
     }
 }
 
+async fn get_object_snapshot(
+    state: &AppState,
+    board_id: Uuid,
+    object_id: Uuid,
+) -> Result<BoardObject, super::object::ObjectError> {
+    let boards = state.boards.read().await;
+    let board = boards
+        .get(&board_id)
+        .ok_or(super::object::ObjectError::BoardNotLoaded(board_id))?;
+    let obj = board
+        .objects
+        .get(&object_id)
+        .ok_or(super::object::ObjectError::NotFound(object_id))?;
+    Ok(obj.clone())
+}
+
+async fn update_object_with_retry<F>(
+    state: &AppState,
+    board_id: Uuid,
+    object_id: Uuid,
+    build_updates: F,
+) -> Result<BoardObject, super::object::ObjectError>
+where
+    F: Fn(&BoardObject) -> Data,
+{
+    for attempt in 0..2 {
+        let snapshot = get_object_snapshot(state, board_id, object_id).await?;
+        let updates = build_updates(&snapshot);
+        match super::object::update_object(state, board_id, object_id, &updates, snapshot.version).await {
+            Ok(obj) => return Ok(obj),
+            Err(super::object::ObjectError::StaleUpdate { .. }) if attempt == 0 => {
+                // Retry once with a fresh snapshot in case another update won the race.
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    // Loop always returns on success or terminal error.
+    Err(super::object::ObjectError::NotFound(object_id))
+}
+
 async fn execute_create_sticky_note(
     state: &AppState,
     board_id: Uuid,
@@ -536,15 +577,21 @@ async fn execute_move_object(
         return Ok("error: missing or invalid objectId".into());
     };
 
-    let mut data = Data::new();
-    if let Some(x) = input.get("x") {
-        data.insert("x".into(), x.clone());
-    }
-    if let Some(y) = input.get("y") {
-        data.insert("y".into(), y.clone());
-    }
+    let x = input.get("x").cloned();
+    let y = input.get("y").cloned();
 
-    match super::object::update_object(state, board_id, id, &data, 0).await {
+    match update_object_with_retry(state, board_id, id, |_| {
+        let mut data = Data::new();
+        if let Some(value) = &x {
+            data.insert("x".into(), value.clone());
+        }
+        if let Some(value) = &y {
+            data.insert("y".into(), value.clone());
+        }
+        data
+    })
+    .await
+    {
         Ok(obj) => {
             mutations.push(AiMutation::Updated(obj));
             Ok(format!("moved object {id}"))
@@ -570,15 +617,21 @@ async fn execute_resize_object(
         return Ok("error: missing or invalid objectId".into());
     };
 
-    let mut data = Data::new();
-    if let Some(w) = input.get("width") {
-        data.insert("width".into(), w.clone());
-    }
-    if let Some(h) = input.get("height") {
-        data.insert("height".into(), h.clone());
-    }
+    let width = input.get("width").cloned();
+    let height = input.get("height").cloned();
 
-    match super::object::update_object(state, board_id, id, &data, 0).await {
+    match update_object_with_retry(state, board_id, id, |_| {
+        let mut data = Data::new();
+        if let Some(value) = &width {
+            data.insert("width".into(), value.clone());
+        }
+        if let Some(value) = &height {
+            data.insert("height".into(), value.clone());
+        }
+        data
+    })
+    .await
+    {
         Ok(obj) => {
             mutations.push(AiMutation::Updated(obj));
             Ok(format!("resized object {id}"))
@@ -604,25 +657,21 @@ async fn execute_update_text(
         return Ok("error: missing or invalid objectId".into());
     };
 
-    let new_text = input.get("newText").and_then(|v| v.as_str()).unwrap_or("");
+    let new_text = input
+        .get("newText")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
-    // Read current props, merge in the new text.
-    let current_props = {
-        let boards = state.boards.read().await;
-        boards
-            .get(&board_id)
-            .and_then(|b| b.objects.get(&id))
-            .map(|obj| obj.props.clone())
-            .unwrap_or(json!({}))
-    };
-
-    let mut props = current_props.as_object().cloned().unwrap_or_default();
-    props.insert("text".into(), json!(new_text));
-
-    let mut data = Data::new();
-    data.insert("props".into(), json!(props));
-
-    match super::object::update_object(state, board_id, id, &data, 0).await {
+    match update_object_with_retry(state, board_id, id, |snapshot| {
+        let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
+        props.insert("text".into(), json!(new_text));
+        let mut data = Data::new();
+        data.insert("props".into(), json!(props));
+        data
+    })
+    .await
+    {
         Ok(obj) => {
             mutations.push(AiMutation::Updated(obj));
             Ok(format!("updated text on {id}"))
@@ -651,25 +700,18 @@ async fn execute_change_color(
     let color = input
         .get("color")
         .and_then(|v| v.as_str())
-        .unwrap_or("#4CAF50");
+        .unwrap_or("#4CAF50")
+        .to_string();
 
-    // Read current props, merge in the new color.
-    let current_props = {
-        let boards = state.boards.read().await;
-        boards
-            .get(&board_id)
-            .and_then(|b| b.objects.get(&id))
-            .map(|obj| obj.props.clone())
-            .unwrap_or(json!({}))
-    };
-
-    let mut props = current_props.as_object().cloned().unwrap_or_default();
-    props.insert("color".into(), json!(color));
-
-    let mut data = Data::new();
-    data.insert("props".into(), json!(props));
-
-    match super::object::update_object(state, board_id, id, &data, 0).await {
+    match update_object_with_retry(state, board_id, id, |snapshot| {
+        let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
+        props.insert("color".into(), json!(color));
+        let mut data = Data::new();
+        data.insert("props".into(), json!(props));
+        data
+    })
+    .await
+    {
         Ok(obj) => {
             mutations.push(AiMutation::Updated(obj));
             Ok(format!("changed color of {id} to {color}"))

@@ -151,7 +151,7 @@ async fn tool_create_connector() {
 async fn tool_move_object() {
     let state = test_helpers::test_app_state();
     let mut obj = test_helpers::dummy_object();
-    obj.version = 0;
+    obj.version = 2;
     let obj_id = obj.id;
     let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
     let mut mutations = Vec::new();
@@ -161,6 +161,7 @@ async fn tool_move_object() {
         .unwrap();
     assert!(result.contains("moved object"));
     assert!(matches!(&mutations[0], AiMutation::Updated(u) if (u.x - 300.0).abs() < f64::EPSILON));
+    assert!(matches!(&mutations[0], AiMutation::Updated(u) if u.version == 3));
 }
 
 // =========================================================================
@@ -171,7 +172,7 @@ async fn tool_move_object() {
 async fn tool_resize_object() {
     let state = test_helpers::test_app_state();
     let mut obj = test_helpers::dummy_object();
-    obj.version = 0;
+    obj.version = 2;
     let obj_id = obj.id;
     let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
     let mut mutations = Vec::new();
@@ -181,6 +182,7 @@ async fn tool_resize_object() {
         .unwrap();
     assert!(result.contains("resized object"));
     assert!(matches!(&mutations[0], AiMutation::Updated(u) if u.width == Some(500.0)));
+    assert!(matches!(&mutations[0], AiMutation::Updated(u) if u.version == 3));
 }
 
 // =========================================================================
@@ -191,7 +193,7 @@ async fn tool_resize_object() {
 async fn tool_update_text() {
     let state = test_helpers::test_app_state();
     let mut obj = test_helpers::dummy_object();
-    obj.version = 0;
+    obj.version = 2;
     let obj_id = obj.id;
     let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
     let mut mutations = Vec::new();
@@ -202,6 +204,7 @@ async fn tool_update_text() {
     assert!(result.contains("updated text"));
     if let AiMutation::Updated(obj) = &mutations[0] {
         assert_eq!(obj.props.get("text").and_then(|v| v.as_str()), Some("updated content"));
+        assert_eq!(obj.version, 3);
     } else {
         panic!("expected Updated mutation");
     }
@@ -215,7 +218,7 @@ async fn tool_update_text() {
 async fn tool_change_color() {
     let state = test_helpers::test_app_state();
     let mut obj = test_helpers::dummy_object();
-    obj.version = 0;
+    obj.version = 2;
     let obj_id = obj.id;
     let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
     let mut mutations = Vec::new();
@@ -226,6 +229,7 @@ async fn tool_change_color() {
     assert!(result.contains("changed color"));
     if let AiMutation::Updated(obj) = &mutations[0] {
         assert_eq!(obj.props.get("color").and_then(|v| v.as_str()), Some("#FF0000"));
+        assert_eq!(obj.version, 3);
     } else {
         panic!("expected Updated mutation");
     }
