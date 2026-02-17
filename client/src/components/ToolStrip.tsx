@@ -56,10 +56,11 @@ const COLOR_PRESETS: ColorPreset[] = [
 ];
 
 interface ToolStripProps {
+    toolType?: "rectangle" | "sticky";
     onClose: () => void;
 }
 
-export function ToolStrip({ onClose }: ToolStripProps) {
+export function ToolStrip({ toolType = "rectangle", onClose }: ToolStripProps) {
     const [shapeIndex, setShapeIndex] = useState(0);
     const [colorIndex, setColorIndex] = useState(0);
 
@@ -73,14 +74,29 @@ export function ToolStrip({ onClose }: ToolStripProps) {
         const newObj: BoardObject = {
             id: crypto.randomUUID(),
             board_id: boardId ?? "",
-            kind: "rectangle",
+            kind: toolType === "sticky" ? "sticky_note" : "rectangle",
             x: viewportCenter.x - preset.width / 2,
             y: viewportCenter.y - preset.height / 2,
             width: preset.width,
             height: preset.height,
             rotation: 0,
             z_index: objects.size,
-            props: { color: color.value },
+            props:
+                toolType === "sticky"
+                    ? {
+                        title: "New note",
+                        text: "",
+                        color: color.value,
+                        backgroundColor: color.value,
+                        borderColor: color.value,
+                        borderWidth: 1,
+                    }
+                    : {
+                        color: color.value,
+                        backgroundColor: color.value,
+                        borderColor: color.value,
+                        borderWidth: 1,
+                    },
             created_by: "local",
             version: 1,
         };

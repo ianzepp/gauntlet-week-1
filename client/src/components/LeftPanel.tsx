@@ -49,6 +49,7 @@ const SHAPE_TOOLS: ToolDef[] = [
     {
         type: "ellipse",
         label: "Ellipse",
+        disabled: true,
         icon: (
             <svg viewBox="0 0 20 20">
                 <ellipse cx="10" cy="10" rx="8" ry="6" />
@@ -117,7 +118,7 @@ const DRAW_TOOLS: ToolDef[] = [
 ];
 
 /** Tools that open a strip flyout instead of setting activeTool */
-const STRIP_TOOLS = new Set<ToolType>(["rectangle"]);
+const STRIP_TOOLS = new Set<ToolType>(["sticky", "rectangle"]);
 
 function ToolGroup({
     tools,
@@ -254,10 +255,12 @@ export function LeftPanel() {
                     className={styles.stripAnchor}
                     style={{ top: stripTop, left: stripLeft }}
                 >
-                    <ToolStrip onClose={() => {
-                        setOpenStrip(null);
-                        stripButtonRef.current = null;
-                    }}
+                    <ToolStrip
+                        toolType={openStrip === "sticky" ? "sticky" : "rectangle"}
+                        onClose={() => {
+                            setOpenStrip(null);
+                            stripButtonRef.current = null;
+                        }}
                     />
                 </div>
             )}

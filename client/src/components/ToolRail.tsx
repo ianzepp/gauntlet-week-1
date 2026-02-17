@@ -46,6 +46,7 @@ const SHAPE_TOOLS: ToolDef[] = [
     {
         type: "ellipse",
         label: "Ellipse",
+        disabled: true,
         icon: (
             <svg viewBox="0 0 20 20">
                 <ellipse cx="10" cy="10" rx="8" ry="6" />

@@ -42,6 +42,7 @@ export function InspectorPanel() {
 
     const [draftWidth, setDraftWidth] = useState("");
     const [draftHeight, setDraftHeight] = useState("");
+    const [draftTitle, setDraftTitle] = useState("");
     const [draftText, setDraftText] = useState("");
     const [draftFontSize, setDraftFontSize] = useState("13");
     const [draftBackground, setDraftBackground] = useState("#d94b4b");
@@ -52,6 +53,7 @@ export function InspectorPanel() {
         if (!obj) return;
         setDraftWidth(formatNumberInput(obj.width));
         setDraftHeight(formatNumberInput(obj.height));
+        setDraftTitle((obj.props.title as string) ?? "");
         setDraftText((obj.props.text as string) ?? "");
         setDraftFontSize(formatNumberInput((obj.props.fontSize as number) ?? 13));
 
@@ -122,6 +124,13 @@ export function InspectorPanel() {
         const current = (obj.props.text as string) ?? "";
         if (draftText === current) return;
         sendObjectUpdate(obj.id, { props: { ...obj.props, text: draftText } });
+    };
+
+    const commitTitle = () => {
+        if (!obj) return;
+        const current = (obj.props.title as string) ?? "";
+        if (draftTitle === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, title: draftTitle } });
     };
 
     const commitFontSize = (value: string) => {
@@ -239,6 +248,25 @@ export function InspectorPanel() {
 
             <div className={styles.section}>
                 <span className={styles.sectionTitle}>Text Content</span>
+                {obj.kind === "sticky_note" && (
+                    <div className={styles.inlineControl}>
+                        <label className={styles.fieldLabel} htmlFor="inspector-title">Title</label>
+                        <input
+                            id="inspector-title"
+                            className={styles.fieldInput}
+                            value={draftTitle}
+                            onChange={(e) => setDraftTitle(e.currentTarget.value)}
+                            onBlur={commitTitle}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    commitTitle();
+                                    e.currentTarget.blur();
+                                }
+                            }}
+                        />
+                    </div>
+                )}
                 <textarea
                     className={styles.textArea}
                     value={draftText}

@@ -129,7 +129,11 @@ export function Canvas() {
     const findTopRectangleAtPoint = useCallback(
         (canvasX: number, canvasY: number) =>
             [...objectList].reverse().find((obj) => {
-                if (obj.kind !== "rectangle" || obj.width == null || obj.height == null) {
+                if (
+                    (obj.kind !== "rectangle" && obj.kind !== "sticky_note") ||
+                    obj.width == null ||
+                    obj.height == null
+                ) {
                     return false;
                 }
                 return (
@@ -375,7 +379,7 @@ export function Canvas() {
                 </Layer>
                 <Layer>
                     {objectList.map((obj) => {
-                        if (obj.kind === "rectangle") {
+                        if (obj.kind === "rectangle" || obj.kind === "sticky_note") {
                             const isSelected = selection.has(obj.id);
                             const fill =
                                 (obj.props.backgroundColor as string) ??
@@ -405,16 +409,58 @@ export function Canvas() {
                         return null;
                     })}
                     {objectList.map((obj) => {
-                        if (obj.kind !== "rectangle") return null;
+                        if (obj.kind !== "rectangle" && obj.kind !== "sticky_note") return null;
                         const text = (obj.props.text as string) ?? "";
                         const fontSize =
                             typeof obj.props.fontSize === "number"
                                 ? Math.max(1, obj.props.fontSize)
                                 : 13;
-                        if (!text) return null;
                         const widthPx = Math.max(obj.width ?? 0, 0);
                         const heightPx = Math.max(obj.height ?? 0, 0);
                         if (widthPx === 0 || heightPx === 0) return null;
+
+                        if (obj.kind === "sticky_note") {
+                            const titleRaw = (obj.props.title as string) ?? "";
+                            const title = titleRaw.trim() || "Untitled";
+                            const bodyTop = Math.min(heightPx - 8, fontSize + 18);
+                            return (
+                                <React.Fragment key={`text-${obj.localKey ?? obj.id}`}>
+                                    <Text
+                                        x={obj.x + 8}
+                                        y={obj.y + 7}
+                                        width={Math.max(0, widthPx - 16)}
+                                        height={Math.max(0, heightPx - 14)}
+                                        rotation={obj.rotation}
+                                        text={title}
+                                        fontFamily="monospace"
+                                        fontSize={Math.max(10, fontSize)}
+                                        fontStyle="bold"
+                                        align="left"
+                                        verticalAlign="top"
+                                        fill="#1F1A17"
+                                        listening={false}
+                                    />
+                                    {text && (
+                                        <Text
+                                            x={obj.x + 8}
+                                            y={obj.y + bodyTop}
+                                            width={Math.max(0, widthPx - 16)}
+                                            height={Math.max(0, heightPx - bodyTop - 8)}
+                                            rotation={obj.rotation}
+                                            text={text}
+                                            fontFamily={"Caveat, Patrick Hand, Comic Sans MS, cursive"}
+                                            fontSize={Math.max(10, fontSize - 1)}
+                                            align="left"
+                                            verticalAlign="top"
+                                            fill="#1F1A17"
+                                            listening={false}
+                                        />
+                                    )}
+                                </React.Fragment>
+                            );
+                        }
+
+                        if (!text) return null;
                         return (
                             <Text
                                 key={`text-${obj.localKey ?? obj.id}`}
