@@ -1,4 +1,5 @@
 .toolbar {
+    pointer-events: auto;
     display: flex;
     align-items: center;
     height: 36px;

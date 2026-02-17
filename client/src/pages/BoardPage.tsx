@@ -59,23 +59,28 @@ export function BoardPage({ boardId, boardName, onBack, onNavigate }: BoardPageP
     }, [frameClient, connectionStatus, boardId]);
 
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                height: "100vh",
-            }}
-        >
-            <Toolbar onBack={onBack} />
-            <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-                <LeftPanel />
-                <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-                    <Canvas />
-                    <BoardStamp />
+        <>
+            <Canvas />
+            <div
+                style={{
+                    position: "relative",
+                    zIndex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100vh",
+                    pointerEvents: "none",
+                }}
+            >
+                <Toolbar onBack={onBack} />
+                <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+                    <LeftPanel />
+                    <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+                        <BoardStamp />
+                    </div>
+                    <RightPanel />
                 </div>
-                <RightPanel />
+                <StatusBar />
             </div>
-            <StatusBar />
-        </div>
+        </>
     );
 }

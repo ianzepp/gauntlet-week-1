@@ -1,4 +1,5 @@
 .stamp {
+    pointer-events: auto;
     position: absolute;
     top: var(--space-md);
     right: var(--space-md);

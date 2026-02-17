@@ -46,6 +46,8 @@ interface BoardState {
     activeLeftTab: LeftTab;
     leftPanelExpanded: boolean;
     navigateToBoard: ((id: string, name: string) => void) | null;
+    cursorPosition: { x: number; y: number } | null;
+    viewportCenter: { x: number; y: number };
 
     setBoardId: (id: string | null) => void;
     setBoardName: (name: string | null) => void;
@@ -76,6 +78,8 @@ interface BoardState {
     expandLeftPanel: (tab: LeftTab) => void;
     collapseLeftPanel: () => void;
     setNavigateToBoard: (fn: ((id: string, name: string) => void) | null) => void;
+    setCursorPosition: (pos: { x: number; y: number } | null) => void;
+    setViewportCenter: (pos: { x: number; y: number }) => void;
 }
 
 export const useBoardStore = create<BoardState>((set) => ({
@@ -93,10 +97,12 @@ export const useBoardStore = create<BoardState>((set) => ({
     aiLoading: false,
     chatMessages: [],
     activeRightTab: "ai" as RightTab,
-    rightPanelExpanded: true,
+    rightPanelExpanded: false,
     activeLeftTab: "inspector" as LeftTab,
     leftPanelExpanded: false,
     navigateToBoard: null,
+    cursorPosition: null,
+    viewportCenter: { x: 0, y: 0 },
 
     setBoardId: (id) => set({ boardId: id }),
     setBoardName: (name) => set({ boardName: name }),
@@ -246,4 +252,6 @@ export const useBoardStore = create<BoardState>((set) => ({
 
     collapseLeftPanel: () => set({ leftPanelExpanded: false }),
     setNavigateToBoard: (fn) => set({ navigateToBoard: fn }),
+    setCursorPosition: (pos) => set({ cursorPosition: pos }),
+    setViewportCenter: (pos) => set({ viewportCenter: pos }),
 }));
