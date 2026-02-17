@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useBoardStore } from "../store/board";
 import type { RightTab } from "../store/board";
 import { AiPanel } from "./AiPanel";
+import { ChatPanel } from "./ChatPanel";
 import { InspectorPanel } from "./InspectorPanel";
 import { MissionControl } from "./MissionControl";
 import styles from "./RightPanel.module.css";
@@ -24,6 +25,15 @@ const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
         icon: (
             <svg viewBox="0 0 20 20">
                 <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+            </svg>
+        ),
+    },
+    {
+        id: "chat",
+        label: "Chat",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M3 4 h14 a1 1 0 0 1 1 1 v8 a1 1 0 0 1 -1 1 h-9 l-4 3 v-3 h-1 a1 1 0 0 1 -1 -1 v-8 a1 1 0 0 1 1 -1 z" />
             </svg>
         ),
     },
@@ -107,6 +117,7 @@ export function RightPanel() {
                     <div className={styles.content}>
                         {activeTab === "inspector" && <InspectorPanel />}
                         {activeTab === "ai" && <AiPanel />}
+                        {activeTab === "chat" && <ChatPanel />}
                         {activeTab === "boards" && <MissionControl />}
                     </div>
                 </div>

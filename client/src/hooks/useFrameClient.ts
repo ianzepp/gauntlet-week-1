@@ -152,6 +152,35 @@ export function useFrameClient(
             useBoardStore.getState().setPresence(presence);
         };
 
+        const handleChatMessage = (frame: Frame) => {
+            const s = useBoardStore.getState();
+            const message = (frame.data.message as string) ?? "";
+            const fromId = (frame.data.from ?? frame.from ?? "") as string;
+
+            // Resolve name/color from presence or current user
+            let fromName = "Anonymous";
+            let fromColor = "#6366f1";
+            if (s.user && s.user.id === fromId) {
+                fromName = s.user.name;
+                fromColor = s.user.color;
+            } else {
+                const p = s.presence.get(fromId);
+                if (p) {
+                    fromName = p.name;
+                    fromColor = p.color;
+                }
+            }
+
+            s.addChatMessage({
+                id: frame.id,
+                ts: frame.ts,
+                from: fromId,
+                fromName,
+                fromColor,
+                message,
+            });
+        };
+
         const handleDisconnected = () => {
             useBoardStore.getState().setConnectionStatus("disconnected");
         };
@@ -164,6 +193,7 @@ export function useFrameClient(
         client.on("object:update", handleObjectUpdate);
         client.on("object:delete", handleObjectDelete);
         client.on("cursor:moved", handleCursorMoved);
+        client.on("chat:message", handleChatMessage);
 
         if (!mockMode) {
             const protocol =

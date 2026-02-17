@@ -9,7 +9,16 @@ import type {
 } from "../lib/types";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
-export type RightTab = "inspector" | "ai" | "boards";
+export type RightTab = "inspector" | "ai" | "boards" | "chat";
+
+export interface ChatMessage {
+    id: string;
+    ts: number;
+    from: string;
+    fromName: string;
+    fromColor: string;
+    message: string;
+}
 
 export interface AiMessage {
     role: "user" | "assistant" | "error";
@@ -30,6 +39,7 @@ interface BoardState {
     user: User | null;
     aiMessages: AiMessage[];
     aiLoading: boolean;
+    chatMessages: ChatMessage[];
     activeRightTab: RightTab;
     rightPanelExpanded: boolean;
     navigateToBoard: ((id: string, name: string) => void) | null;
@@ -54,6 +64,8 @@ interface BoardState {
     replaceObjectId: (tempId: string, newId: string) => void;
     addAiMessage: (message: AiMessage) => void;
     setAiLoading: (loading: boolean) => void;
+    addChatMessage: (message: ChatMessage) => void;
+    setChatMessages: (messages: ChatMessage[]) => void;
     setRightTab: (tab: RightTab) => void;
     expandRightPanel: (tab: RightTab) => void;
     collapseRightPanel: () => void;
@@ -73,6 +85,7 @@ export const useBoardStore = create<BoardState>((set) => ({
     user: null,
     aiMessages: [],
     aiLoading: false,
+    chatMessages: [],
     activeRightTab: "ai" as RightTab,
     rightPanelExpanded: true,
     navigateToBoard: null,
@@ -194,6 +207,14 @@ export const useBoardStore = create<BoardState>((set) => ({
         set((state) => ({ aiMessages: [...state.aiMessages, message] })),
 
     setAiLoading: (loading) => set({ aiLoading: loading }),
+
+    addChatMessage: (message) =>
+        set((state) => {
+            if (state.chatMessages.some((m) => m.id === message.id)) return state;
+            return { chatMessages: [...state.chatMessages, message] };
+        }),
+
+    setChatMessages: (messages) => set({ chatMessages: messages }),
 
     setRightTab: (tab) =>
         set({ activeRightTab: tab }),
