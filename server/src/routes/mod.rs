@@ -7,6 +7,7 @@ use axum::Router;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::{ServeDir, ServeFile};
 
 use crate::state::AppState;
 
@@ -15,6 +16,10 @@ pub fn app(state: AppState) -> Router {
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
+
+    // Serve the built frontend from ../client/dist (fallback to index.html for SPA routing).
+    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "../client/dist".into());
+    let spa = ServeDir::new(&static_dir).fallback(ServeFile::new(format!("{static_dir}/index.html")));
 
     Router::new()
         // Public OAuth routes.
@@ -30,6 +35,8 @@ pub fn app(state: AppState) -> Router {
         .route("/healthz", get(healthz))
         .layer(cors)
         .with_state(state)
+        // Fallback: serve static frontend files (must be last).
+        .fallback_service(spa)
 }
 
 async fn healthz() -> StatusCode {
