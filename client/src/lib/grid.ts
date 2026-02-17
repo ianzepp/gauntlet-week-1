@@ -1,81 +1,8 @@
-import { useMemo } from "react";
-import type { Viewport } from "../lib/types";
-import styles from "./GridOverlay.module.css";
+import type { Viewport } from "./types";
 
 const COLS = 8;
 const ROWS = 8;
 const COL_LABELS = "ABCDEFGH";
-
-interface GridOverlayProps {
-    width: number;
-    height: number;
-    viewport: Viewport;
-}
-
-export function GridOverlay({ width, height, viewport }: GridOverlayProps) {
-    const cellW = width / COLS;
-    const cellH = height / ROWS;
-
-    const colLabels = useMemo(
-        () =>
-            Array.from({ length: COLS }, (_, i) => ({
-                label: COL_LABELS[i],
-                x: cellW * i + cellW / 2,
-            })),
-        [cellW],
-    );
-
-    const rowLabels = useMemo(
-        () =>
-            Array.from({ length: ROWS }, (_, i) => ({
-                label: String(i + 1),
-                y: cellH * i + cellH / 2,
-            })),
-        [cellH],
-    );
-
-    return (
-        <>
-            {/* Four corners */}
-            <div className={`${styles.corner} ${styles.cornerTL}`} />
-            <div className={`${styles.corner} ${styles.cornerTR}`} />
-            <div className={`${styles.corner} ${styles.cornerBL}`} />
-            <div className={`${styles.corner} ${styles.cornerBR}`} />
-
-            {/* Column labels: top and bottom */}
-            <div className={styles.top}>
-                {colLabels.map((col) => (
-                    <span key={col.label} className={styles.label} style={{ left: col.x }}>
-                        {col.label}
-                    </span>
-                ))}
-            </div>
-            <div className={styles.bottom}>
-                {colLabels.map((col) => (
-                    <span key={col.label} className={styles.label} style={{ left: col.x }}>
-                        {col.label}
-                    </span>
-                ))}
-            </div>
-
-            {/* Row labels: left and right */}
-            <div className={styles.left}>
-                {rowLabels.map((row) => (
-                    <span key={row.label} className={styles.label} style={{ top: row.y }}>
-                        {row.label}
-                    </span>
-                ))}
-            </div>
-            <div className={styles.right}>
-                {rowLabels.map((row) => (
-                    <span key={row.label} className={styles.label} style={{ top: row.y }}>
-                        {row.label}
-                    </span>
-                ))}
-            </div>
-        </>
-    );
-}
 
 /**
  * Convert a Battleship-style cell reference (e.g. "A4", "D1") to canvas coordinates.

@@ -57,7 +57,6 @@
     --space-xl: 32px;
 
     /* Z-index layers (bottom to top) */
-    --z-grid-gutter: 1;    /* battleship coordinate gutters */
     --z-canvas-ui: 10;     /* board stamp, text editor, canvas overlays */
     --z-chrome: 100;       /* panels, rails, toolbars, status bars */
     --z-modal: 1000;       /* overlays, dialogs */

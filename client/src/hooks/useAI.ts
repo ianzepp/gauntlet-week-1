@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { buildGridContext } from "../canvas/GridOverlay";
+import { buildGridContext } from "../lib/grid";
 import { useCanvasSize } from "./useCanvasSize";
 import type { Frame } from "../lib/types";
 import { useBoardStore } from "../store/board";
