@@ -1,4 +1,4 @@
-import type { User } from "./types";
+import type { User, UserProfile } from "./types";
 
 export async function fetchCurrentUser(): Promise<User | null> {
     const resp = await fetch("/api/auth/me", { credentials: "include" });
@@ -11,6 +11,14 @@ export async function logout(): Promise<void> {
         method: "POST",
         credentials: "include",
     });
+}
+
+export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
+    const resp = await fetch(`/api/users/${userId}/profile`, {
+        credentials: "include",
+    });
+    if (!resp.ok) return null;
+    return resp.json();
 }
 
 export async function createWsTicket(): Promise<string> {

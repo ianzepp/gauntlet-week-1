@@ -1,6 +1,7 @@
 //! Router assembly.
 
 pub mod auth;
+pub mod users;
 pub mod ws;
 
 use axum::Router;
@@ -29,6 +30,8 @@ pub fn app(state: AppState) -> Router {
         .route("/api/auth/me", get(auth::me))
         .route("/api/auth/logout", post(auth::logout))
         .route("/api/auth/ws-ticket", post(auth::ws_ticket))
+        // User profile.
+        .route("/api/users/{id}/profile", get(users::user_profile))
         // WebSocket (ticket-gated).
         .route("/api/ws", get(ws::handle_ws))
         // Health check.

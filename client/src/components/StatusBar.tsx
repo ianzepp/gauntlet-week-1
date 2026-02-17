@@ -1,5 +1,7 @@
+import { useCallback, useRef, useState } from "react";
 import { useBoardStore } from "../store/board";
 import styles from "./StatusBar.module.css";
+import { UserFieldReport } from "./UserFieldReport";
 
 export function StatusBar() {
     const objects = useBoardStore((s) => s.objects);
@@ -8,6 +10,13 @@ export function StatusBar() {
     const presence = useBoardStore((s) => s.presence);
     const user = useBoardStore((s) => s.user);
     const boardId = useBoardStore((s) => s.boardId);
+
+    const [activeReport, setActiveReport] = useState<{
+        userId: string;
+        anchorX: number;
+    } | null>(null);
+
+    const chipRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
 
     const objectCount = objects.size;
     const zoom = Math.round(viewport.scale * 100);
@@ -21,6 +30,16 @@ export function StatusBar() {
             color: p.color,
         })),
     ];
+
+    const handleChipClick = useCallback((userId: string) => {
+        const el = chipRefs.current.get(userId);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setActiveReport({
+            userId,
+            anchorX: rect.left + rect.width / 2,
+        });
+    }, []);
 
     return (
         <div className={styles.statusBar}>
@@ -43,7 +62,15 @@ export function StatusBar() {
             </div>
             <div className={styles.section}>
                 {allUsers.map((u) => (
-                    <span key={u.id} className={styles.userChip}>
+                    <span
+                        key={u.id}
+                        ref={(el) => {
+                            if (el) chipRefs.current.set(u.id, el);
+                            else chipRefs.current.delete(u.id);
+                        }}
+                        className={styles.userChip}
+                        onClick={() => handleChipClick(u.id)}
+                    >
                         <span
                             className={styles.userDot}
                             style={{ background: u.color }}
@@ -54,6 +81,14 @@ export function StatusBar() {
                 <span className={styles.divider} />
                 <span className={styles.item}>{zoom}%</span>
             </div>
+
+            {activeReport && (
+                <UserFieldReport
+                    userId={activeReport.userId}
+                    anchorX={activeReport.anchorX}
+                    onClose={() => setActiveReport(null)}
+                />
+            )}
         </div>
     );
 }

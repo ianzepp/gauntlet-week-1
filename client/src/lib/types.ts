@@ -55,3 +55,18 @@ export interface User {
     avatar_url?: string;
     color: string;
 }
+
+export interface UserProfile {
+    id: string;
+    name: string;
+    avatar_url: string | null;
+    color: string;
+    member_since: string | null;
+    stats: {
+        total_frames: number;
+        objects_created: number;
+        boards_active: number;
+        last_active: string | null;
+        top_syscalls: { syscall: string; count: number }[];
+    };
+}
