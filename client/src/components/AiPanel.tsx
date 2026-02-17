@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import { useAI } from "../hooks/useAI";
 import type { Frame } from "../lib/types";
 import type { AiMessage } from "../store/board";
@@ -94,7 +95,11 @@ export function AiPanel() {
                                   : styles.messageAssistant
                         }`}
                     >
-                        {msg.text}
+                        {msg.role === "assistant" ? (
+                            <div className={styles.markdown}><Markdown>{msg.text}</Markdown></div>
+                        ) : (
+                            msg.text
+                        )}
                         {msg.mutations != null && msg.mutations > 0 && (
                             <div className={styles.mutations}>
                                 {msg.mutations} object
