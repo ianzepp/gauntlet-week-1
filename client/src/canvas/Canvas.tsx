@@ -1,7 +1,16 @@
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Arrow, Circle, Group, Layer, Line, Stage, Text, Transformer } from "react-konva";
+import {
+    Arrow,
+    Circle,
+    Group,
+    Layer,
+    Line,
+    Stage,
+    Text,
+    Transformer,
+} from "react-konva";
 import { useCanvasSize } from "../hooks/useCanvasSize";
 import { sendObjectCreate } from "../hooks/useFrameClient";
 import type { BoardObject } from "../lib/types";
@@ -63,7 +72,15 @@ function GridLines({
                 <Line
                     key={line.points.join(",")}
                     points={line.points}
-                    stroke={isDark ? (line.major ? "#3a3632" : "#2a2724") : (line.major ? "#c8c0b4" : "#d4cfc6")}
+                    stroke={
+                        isDark
+                            ? line.major
+                                ? "#3a3632"
+                                : "#2a2724"
+                            : line.major
+                              ? "#c8c0b4"
+                              : "#d4cfc6"
+                    }
                     strokeWidth={1 / viewport.scale}
                     opacity={line.major ? 0.4 : 0.2}
                     listening={false}
@@ -73,7 +90,13 @@ function GridLines({
     );
 }
 
-function RemoteCursor({ name, color, x, y, scale }: { name: string; color: string; x: number; y: number; scale: number }) {
+function RemoteCursor({
+    name,
+    color,
+    x,
+    y,
+    scale,
+}: { name: string; color: string; x: number; y: number; scale: number }) {
     const fontSize = 11 / scale;
     const arrowSize = 8 / scale;
     return (
@@ -86,12 +109,7 @@ function RemoteCursor({ name, color, x, y, scale }: { name: string; color: strin
                 pointerLength={arrowSize * 0.6}
                 pointerWidth={arrowSize * 0.4}
             />
-            <Circle
-                x={0}
-                y={0}
-                radius={3 / scale}
-                fill={color}
-            />
+            <Circle x={0} y={0} radius={3 / scale} fill={color} />
             <Text
                 x={arrowSize * 1.2}
                 y={arrowSize * 1.8}
@@ -112,6 +130,24 @@ function RemoteCursor({ name, color, x, y, scale }: { name: string; color: strin
             />
         </Group>
     );
+}
+
+function sendObjectDelete(objectId: string) {
+    const store = useBoardStore.getState();
+    const client = store.frameClient;
+    const boardId = store.boardId;
+    if (!client || !boardId) return;
+
+    client.send({
+        id: crypto.randomUUID(),
+        parent_id: null,
+        ts: Date.now(),
+        board_id: boardId,
+        from: null,
+        syscall: "object:delete",
+        status: "request",
+        data: { id: objectId },
+    });
 }
 
 export function Canvas() {
@@ -144,20 +180,27 @@ export function Canvas() {
     const selection = useBoardStore((s) => s.selection);
     const setSelection = useBoardStore((s) => s.setSelection);
     const clearSelection = useBoardStore((s) => s.clearSelection);
+    const deleteObject = useBoardStore((s) => s.deleteObject);
     const setTool = useBoardStore((s) => s.setTool);
     const presence = useBoardStore((s) => s.presence);
 
     const objectList = useMemo(() => Array.from(objects.values()), [objects]);
-    const presenceList = useMemo(() => Array.from(presence.values()).filter(p => p.cursor), [presence]);
+    const presenceList = useMemo(
+        () => Array.from(presence.values()).filter((p) => p.cursor),
+        [presence],
+    );
 
     // Track shape refs via callback
-    const handleShapeRef = useCallback((id: string, node: Konva.Node | null) => {
-        if (node) {
-            nodeMapRef.current.set(id, node);
-        } else {
-            nodeMapRef.current.delete(id);
-        }
-    }, []);
+    const handleShapeRef = useCallback(
+        (id: string, node: Konva.Node | null) => {
+            if (node) {
+                nodeMapRef.current.set(id, node);
+            } else {
+                nodeMapRef.current.delete(id);
+            }
+        },
+        [],
+    );
 
     // Derive primitive key for selection
     const selectionKey = useMemo(
@@ -220,15 +263,53 @@ export function Canvas() {
     const handleStageMouseDown = useCallback(
         (e: KonvaEventObject<MouseEvent>) => {
             const target = e.target;
+
             // Don't deselect when clicking transformer anchors
-            if (target.getParent()?.className === "Transformer") return;
+            let parent = target.getParent();
+            while (parent) {
+                if (parent.className === "Transformer") return;
+                parent = parent.getParent();
+            }
+
+            const objectNode = target.findAncestor(".board-object", true);
+            const objectId = objectNode?.getAttr("objectId") as
+                | string
+                | undefined;
+            if (objectId) {
+                setSelection(new Set([objectId]));
+                return;
+            }
+
             const clickedOnEmpty = target === target.getStage();
             if (clickedOnEmpty) {
                 clearSelection();
             }
         },
-        [clearSelection],
+        [clearSelection, setSelection],
     );
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            const isTyping =
+                target?.tagName === "INPUT" ||
+                target?.tagName === "TEXTAREA" ||
+                target?.isContentEditable;
+            if (isTyping) return;
+
+            if (e.key !== "Delete" && e.key !== "Backspace") return;
+            if (selection.size === 0) return;
+
+            e.preventDefault();
+            for (const id of selection) {
+                deleteObject(id);
+                sendObjectDelete(id);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [selection, deleteObject]);
 
     const handleMouseMove = useCallback(
         (e: KonvaEventObject<MouseEvent>) => {
@@ -278,7 +359,12 @@ export function Canvas() {
 
             // Only handle tools that create objects
             const creatableTools = ["sticky", "rectangle", "ellipse"] as const;
-            if (!creatableTools.includes(activeTool as typeof creatableTools[number])) return;
+            if (
+                !creatableTools.includes(
+                    activeTool as (typeof creatableTools)[number],
+                )
+            )
+                return;
 
             const stage = stageRef.current;
             if (!stage) return;
@@ -331,14 +417,7 @@ export function Canvas() {
             setSelection(new Set([newObj.id]));
             setTool("select");
         },
-        [
-            activeTool,
-            viewport,
-            objects.size,
-            addObject,
-            setSelection,
-            setTool,
-        ],
+        [activeTool, viewport, objects.size, addObject, setSelection, setTool],
     );
 
     return (
@@ -412,7 +491,10 @@ export function Canvas() {
                         flipEnabled={false}
                         rotateEnabled={true}
                         boundBoxFunc={(_oldBox, newBox) => {
-                            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+                            if (
+                                Math.abs(newBox.width) < 5 ||
+                                Math.abs(newBox.height) < 5
+                            ) {
                                 return _oldBox;
                             }
                             return newBox;

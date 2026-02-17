@@ -94,11 +94,13 @@ export const Shape = function Shape({
             let updates: Partial<BoardObject>;
             if (object.kind === "ellipse") {
                 const ellipse = node as Konva.Ellipse;
+                const radiusX = Math.max(2.5, ellipse.radiusX() * scaleX);
+                const radiusY = Math.max(2.5, ellipse.radiusY() * scaleY);
                 updates = {
-                    x: node.x() - ellipse.radiusX(),
-                    y: node.y() - ellipse.radiusY(),
-                    width: Math.max(5, ellipse.radiusX() * 2),
-                    height: Math.max(5, ellipse.radiusY() * 2),
+                    x: node.x() - radiusX,
+                    y: node.y() - radiusY,
+                    width: Math.max(5, radiusX * 2),
+                    height: Math.max(5, radiusY * 2),
                     rotation: node.rotation(),
                 };
             } else {
@@ -111,7 +113,10 @@ export const Shape = function Shape({
                 };
             }
             updateObject(object.id, updates);
-            sendObjectUpdate(object.id, { ...updates, version: object.version });
+            sendObjectUpdate(object.id, {
+                ...updates,
+                version: object.version,
+            });
         },
         [object.id, object.kind, object.version, updateObject],
     );
@@ -124,10 +129,14 @@ export const Shape = function Shape({
                 y={object.y + object.height / 2}
                 radiusX={object.width / 2}
                 radiusY={object.height / 2}
+                name="board-object"
+                objectId={object.id}
                 rotation={object.rotation}
                 draggable
+                onMouseDown={onSelect}
                 onClick={onSelect}
                 onTap={onSelect}
+                onDragStart={onSelect}
                 onDragEnd={handleDragEnd}
                 onTransformEnd={handleTransformEnd}
                 fill={fillColor}
@@ -144,10 +153,14 @@ export const Shape = function Shape({
             y={object.y}
             width={object.width}
             height={object.height}
+            name="board-object"
+            objectId={object.id}
             rotation={object.rotation}
             draggable
+            onMouseDown={onSelect}
             onClick={onSelect}
             onTap={onSelect}
+            onDragStart={onSelect}
             onDragEnd={handleDragEnd}
             onTransformEnd={handleTransformEnd}
             fill={fillColor}

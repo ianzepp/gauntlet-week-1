@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import type { FrameClient } from "../lib/frameClient";
-import type { BoardObject, Presence, ToolType, User, Viewport } from "../lib/types";
+import type {
+    BoardObject,
+    Presence,
+    ToolType,
+    User,
+    Viewport,
+} from "../lib/types";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 export type RightTab = "inspector" | "ai";
@@ -70,14 +76,32 @@ export const useBoardStore = create<BoardState>((set) => ({
     setBoardId: (id) => set({ boardId: id }),
 
     setObjects: (objects) =>
-        set({
-            objects: new Map(objects.map((o) => [o.id, o])),
+        set((state) => {
+            const nextObjects = new Map(
+                objects.map((o) => {
+                    const existing = state.objects.get(o.id);
+                    return [
+                        o.id,
+                        {
+                            ...o,
+                            localKey: existing?.localKey ?? o.localKey ?? o.id,
+                        },
+                    ];
+                }),
+            );
+            const nextSelection = new Set(
+                Array.from(state.selection).filter((id) => nextObjects.has(id)),
+            );
+            return { objects: nextObjects, selection: nextSelection };
         }),
 
     addObject: (object) =>
         set((state) => {
             const next = new Map(state.objects);
-            next.set(object.id, { ...object, localKey: object.localKey ?? object.id });
+            next.set(object.id, {
+                ...object,
+                localKey: object.localKey ?? object.id,
+            });
             return { objects: next };
         }),
 
@@ -146,7 +170,11 @@ export const useBoardStore = create<BoardState>((set) => ({
             const next = new Map(state.objects);
             next.delete(tempId);
             // Preserve the localKey so React key stays stable (no remount)
-            next.set(newId, { ...existing, id: newId, localKey: existing.localKey ?? tempId });
+            next.set(newId, {
+                ...existing,
+                id: newId,
+                localKey: existing.localKey ?? tempId,
+            });
             const selection = new Set(state.selection);
             if (selection.has(tempId)) {
                 selection.delete(tempId);
@@ -165,15 +193,22 @@ export const useBoardStore = create<BoardState>((set) => ({
             if (state.rightPanelOpen && state.activeRightTab === "ai") {
                 return { rightPanelOpen: false, aiPanelOpen: false };
             }
-            return { rightPanelOpen: true, activeRightTab: "ai" as RightTab, aiPanelOpen: true };
+            return {
+                rightPanelOpen: true,
+                activeRightTab: "ai" as RightTab,
+                aiPanelOpen: true,
+            };
         }),
 
     setRightTab: (tab) =>
         set({ activeRightTab: tab, aiPanelOpen: tab === "ai" }),
 
     openRightPanel: (tab) =>
-        set({ rightPanelOpen: true, activeRightTab: tab, aiPanelOpen: tab === "ai" }),
+        set({
+            rightPanelOpen: true,
+            activeRightTab: tab,
+            aiPanelOpen: tab === "ai",
+        }),
 
-    closeRightPanel: () =>
-        set({ rightPanelOpen: false, aiPanelOpen: false }),
+    closeRightPanel: () => set({ rightPanelOpen: false, aiPanelOpen: false }),
 }));

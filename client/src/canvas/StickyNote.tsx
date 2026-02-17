@@ -78,7 +78,10 @@ export const StickyNote = function StickyNote({
         (newText: string) => {
             const newProps = { ...object.props, text: newText };
             updateObject(object.id, { props: newProps });
-            sendObjectUpdate(object.id, { props: newProps, version: object.version });
+            sendObjectUpdate(object.id, {
+                props: newProps,
+                version: object.version,
+            });
             setEditing(false);
         },
         [object.id, object.props, object.version, updateObject],
@@ -99,7 +102,10 @@ export const StickyNote = function StickyNote({
                 rotation: node.rotation(),
             };
             updateObject(object.id, updates);
-            sendObjectUpdate(object.id, { ...updates, version: object.version });
+            sendObjectUpdate(object.id, {
+                ...updates,
+                version: object.version,
+            });
         },
         [object.id, object.width, object.height, object.version, updateObject],
     );
@@ -114,10 +120,14 @@ export const StickyNote = function StickyNote({
             y={object.y}
             width={object.width}
             height={object.height}
+            name="board-object"
+            objectId={object.id}
             rotation={object.rotation}
             draggable
+            onMouseDown={onSelect}
             onClick={onSelect}
             onTap={onSelect}
+            onDragStart={onSelect}
             onDragEnd={handleDragEnd}
             onDblClick={handleDblClick}
             onTransformEnd={handleTransformEnd}
