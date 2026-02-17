@@ -20,4 +20,4 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV STATIC_DIR=/app/client/dist
 EXPOSE 3000
-CMD ["gauntlet-week-1"]
+CMD ["sh", "-c", "gauntlet-week-1 --migrate-only && gauntlet-week-1"]
