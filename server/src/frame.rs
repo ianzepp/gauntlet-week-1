@@ -156,6 +156,12 @@ impl Frame {
         self.reply(Status::Done, Data::new())
     }
 
+    /// Create a done response carrying payload data. Terminal.
+    #[must_use]
+    pub fn done_with(&self, data: Data) -> Self {
+        self.reply(Status::Done, data)
+    }
+
     /// Create an error response from a plain string. Terminal.
     #[must_use]
     pub fn error(&self, message: impl Into<String>) -> Self {

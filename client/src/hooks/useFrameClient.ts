@@ -69,38 +69,60 @@ export function useFrameClient(
         };
 
         const handleBoardJoin = (frame: Frame) => {
-            if (frame.status === "item" && frame.data.objects) {
+            if (frame.status !== "done") return;
+
+            if (frame.data.objects) {
+                // Our join reply — load the object list
                 const objects = frame.data.objects as unknown as BoardObject[];
                 useBoardStore.getState().setObjects(objects);
             }
+            // Peer join notification has { client_id, user_id } — could update presence
         };
 
-        const handleCreated = (frame: Frame) => {
-            const obj = frame.data as unknown as BoardObject;
-            if (!obj?.id) return;
-
-            // Check if this is a response to a local create
-            const parentId = frame.parent_id;
-            if (parentId && pendingCreates.has(parentId)) {
-                const tempId = pendingCreates.get(parentId)!;
-                pendingCreates.delete(parentId);
-                if (tempId !== obj.id) {
-                    useBoardStore.getState().replaceObjectId(tempId, obj.id);
-                }
-            } else {
-                // Remote user created an object
-                useBoardStore.getState().addObject(obj);
+        const handleBoardPart = (frame: Frame) => {
+            const clientId = frame.data.client_id as string;
+            if (clientId) {
+                useBoardStore.getState().removePresence(clientId);
             }
         };
 
-        const handleUpdated = (frame: Frame) => {
+        const handleObjectCreate = (frame: Frame) => {
+            if (frame.status !== "done") return;
+
+            const obj = frame.data as unknown as BoardObject;
+            if (!obj?.id) return;
+
+            const s = useBoardStore.getState();
+
+            // If this client originated the request, reconcile temp ID
+            if (frame.parent_id && pendingCreates.has(frame.parent_id)) {
+                const tempId = pendingCreates.get(frame.parent_id)!;
+                pendingCreates.delete(frame.parent_id);
+                if (tempId !== obj.id) {
+                    s.replaceObjectId(tempId, obj.id);
+                }
+                s.updateObject(obj.id, obj);
+                return;
+            }
+
+            // Peer broadcast — add or update
+            if (s.objects.has(obj.id)) {
+                s.updateObject(obj.id, obj);
+            } else {
+                s.addObject(obj);
+            }
+        };
+
+        const handleObjectUpdate = (frame: Frame) => {
+            if (frame.status !== "done") return;
             const obj = frame.data as unknown as BoardObject;
             if (obj?.id) {
                 useBoardStore.getState().updateObject(obj.id, obj);
             }
         };
 
-        const handleDeleted = (frame: Frame) => {
+        const handleObjectDelete = (frame: Frame) => {
+            if (frame.status !== "done") return;
             const id = frame.data.id as string;
             if (id) {
                 useBoardStore.getState().deleteObject(id);
@@ -128,13 +150,15 @@ export function useFrameClient(
         client.on("session:connected", handleSessionConnected);
         client.on("session:disconnected", handleDisconnected);
         client.on("board:join", handleBoardJoin);
-        client.on("object:created", handleCreated);
-        client.on("object:updated", handleUpdated);
-        client.on("object:deleted", handleDeleted);
+        client.on("board:part", handleBoardPart);
+        client.on("object:create", handleObjectCreate);
+        client.on("object:update", handleObjectUpdate);
+        client.on("object:delete", handleObjectDelete);
         client.on("cursor:moved", handleCursorMoved);
 
         if (!mockMode) {
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const protocol =
+                window.location.protocol === "https:" ? "wss:" : "ws:";
             const wsBase = `${protocol}//${window.location.host}`;
 
             createWsTicket().then((ticket) => {

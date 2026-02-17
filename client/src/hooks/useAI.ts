@@ -26,14 +26,16 @@ export function useAI() {
 
             console.log("[AI] recv frame", { id: frame.id, status: frame.status, parentId: frame.parent_id });
 
-            if (frame.status === "item") {
+            if (frame.status === "done") {
                 const data = frame.data as { text?: string; mutations?: number };
-                console.log("[AI] item received", { text: data.text?.slice(0, 80), mutations: data.mutations });
-                useBoardStore.getState().addAiMessage({
-                    role: "assistant",
-                    text: data.text ?? "",
-                    mutations: data.mutations,
-                });
+                console.log("[AI] done received", { text: data.text?.slice(0, 80), mutations: data.mutations });
+                if (data.text) {
+                    useBoardStore.getState().addAiMessage({
+                        role: "assistant",
+                        text: data.text,
+                        mutations: data.mutations,
+                    });
+                }
                 useBoardStore.getState().setAiLoading(false);
                 frameClient.off("ai:prompt", handler);
             } else if (frame.status === "error") {
@@ -43,11 +45,6 @@ export function useAI() {
                     role: "error",
                     text: data.message ?? "An error occurred",
                 });
-                useBoardStore.getState().setAiLoading(false);
-                frameClient.off("ai:prompt", handler);
-            } else if (frame.status === "done") {
-                console.log("[AI] done received");
-                // Ensure loading clears even if no item frame was received.
                 useBoardStore.getState().setAiLoading(false);
                 frameClient.off("ai:prompt", handler);
             }

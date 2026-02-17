@@ -203,17 +203,6 @@ pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude:
         // Best-effort: if a client's channel is full, skip it.
         let _ = tx.try_send(frame.clone());
     }
-
-    // Skip persistence for high-frequency cursor frames.
-    if !frame.syscall.starts_with("cursor:") {
-        let pool = state.pool.clone();
-        let frame = frame.clone();
-        tokio::spawn(async move {
-            if let Err(e) = crate::services::persistence::persist_frame(&pool, &frame).await {
-                tracing::warn!(error = %e, "broadcast: frame persist failed");
-            }
-        });
-    }
 }
 
 // =============================================================================
