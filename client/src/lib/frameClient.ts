@@ -101,6 +101,10 @@ export class FrameClient {
         if (frame.syscall === "gateway:error") {
             console.error("[FrameClient] gateway error:", frame.data);
         }
+        if (frame.status === "error") {
+            const { code, message } = frame.data as { code?: string; message?: string };
+            console.error("[FrameClient] error", frame.syscall, code ?? "-", message ?? "-");
+        }
         const handlers = this.handlers.get(frame.syscall);
         if (handlers) {
             for (const handler of handlers) {
