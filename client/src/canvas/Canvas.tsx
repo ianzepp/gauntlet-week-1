@@ -83,6 +83,13 @@ export function Canvas() {
     const centeredRef = useRef(false);
     const isDraggingRef = useRef(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
+    const objectDragRef = useRef<{
+        id: string;
+        pointerX: number;
+        pointerY: number;
+        objectX: number;
+        objectY: number;
+    } | null>(null);
 
     const viewport = useBoardStore((s) => s.viewport);
     const setViewport = useBoardStore((s) => s.setViewport);
@@ -155,17 +162,73 @@ export function Canvas() {
         [viewport, setViewport],
     );
 
+    const commitDraggedObject = useCallback(() => {
+        const drag = objectDragRef.current;
+        if (!drag) return;
+        objectDragRef.current = null;
+
+        const current = useBoardStore.getState().objects.get(drag.id);
+        if (!frameClient || !current) return;
+        frameClient.send({
+            id: crypto.randomUUID(),
+            parent_id: null,
+            ts: Date.now(),
+            board_id: current.board_id,
+            from: null,
+            syscall: "object:update",
+            status: "request",
+            data: {
+                id: current.id,
+                x: current.x,
+                y: current.y,
+                version: current.version,
+            },
+        });
+    }, [frameClient]);
+
     const handleMouseDown = useCallback(
-        (e: KonvaEventObject<MouseEvent>) => {
-            // Only pan when clicking empty canvas
-            if (e.target !== e.target.getStage()) return;
+        (_e: KonvaEventObject<MouseEvent>) => {
+            const stage = stageRef.current;
+            const pointer = stage?.getPointerPosition();
+            if (!stage || !pointer) return;
+
+            const canvasX = (pointer.x - viewport.x) / viewport.scale;
+            const canvasY = (pointer.y - viewport.y) / viewport.scale;
+
+            const hit = [...objectList].reverse().find((obj) => {
+                if (obj.kind !== "rectangle" || obj.width == null || obj.height == null) {
+                    return false;
+                }
+                return (
+                    canvasX >= obj.x &&
+                    canvasX <= obj.x + obj.width &&
+                    canvasY >= obj.y &&
+                    canvasY <= obj.y + obj.height
+                );
+            });
+
+            if (hit) {
+                setSelection(new Set([hit.id]));
+                objectDragRef.current = {
+                    id: hit.id,
+                    pointerX: canvasX,
+                    pointerY: canvasY,
+                    objectX: hit.x,
+                    objectY: hit.y,
+                };
+                isDraggingRef.current = false;
+                const container = stage.container();
+                container.style.cursor = "move";
+                return;
+            }
+
             setSelection(new Set());
             isDraggingRef.current = true;
-            dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY };
-            const container = stageRef.current?.container();
-            if (container) container.style.cursor = "grabbing";
+            dragStartRef.current = { x: pointer.x, y: pointer.y };
+            const container = stage.container();
+            container.style.cursor = "grabbing";
         },
-        [setSelection],
+        [objectList, setSelection, viewport],
     );
 
     const handleMouseMove = useCallback(
@@ -173,7 +236,18 @@ export function Canvas() {
             const stage = stageRef.current;
             if (!stage) return;
 
-            if (isDraggingRef.current) {
+            const pointer = stage.getPointerPosition();
+            if (!pointer) return;
+
+            if (objectDragRef.current) {
+                const drag = objectDragRef.current;
+                const canvasX = (pointer.x - viewport.x) / viewport.scale;
+                const canvasY = (pointer.y - viewport.y) / viewport.scale;
+                updateObject(drag.id, {
+                    x: drag.objectX + (canvasX - drag.pointerX),
+                    y: drag.objectY + (canvasY - drag.pointerY),
+                });
+            } else if (isDraggingRef.current) {
                 const dx = e.evt.clientX - dragStartRef.current.x;
                 const dy = e.evt.clientY - dragStartRef.current.y;
                 dragStartRef.current = { x: e.evt.clientX, y: e.evt.clientY };
@@ -181,66 +255,27 @@ export function Canvas() {
                 setViewport({ x: v.x + dx, y: v.y + dy });
             }
 
-            const pointer = stage.getPointerPosition();
-            if (!pointer) return;
             const canvasX = Math.round((pointer.x - viewport.x) / viewport.scale);
             const canvasY = Math.round((pointer.y - viewport.y) / viewport.scale);
             setCursorPosition({ x: canvasX, y: canvasY });
         },
-        [viewport, setCursorPosition, setViewport],
+        [setCursorPosition, setViewport, updateObject, viewport],
     );
 
     const handleMouseUp = useCallback(() => {
+        commitDraggedObject();
         isDraggingRef.current = false;
         const container = stageRef.current?.container();
         if (container) container.style.cursor = "";
-    }, []);
+    }, [commitDraggedObject]);
 
     const handleMouseLeave = useCallback(() => {
+        commitDraggedObject();
         isDraggingRef.current = false;
         const container = stageRef.current?.container();
         if (container) container.style.cursor = "";
         setCursorPosition(null);
-    }, [setCursorPosition]);
-
-    const handleObjectMouseDown = useCallback(
-        (e: KonvaEventObject<MouseEvent>, objectId: string) => {
-            e.cancelBubble = true;
-            const stage = stageRef.current;
-            const pointer = stage?.getPointerPosition();
-            if (!stage || !pointer) {
-                setSelection(new Set([objectId]));
-                return;
-            }
-
-            const overlappingIds = stage
-                .getAllIntersections(pointer)
-                .map((node) => node.id())
-                .filter((id) => id && objects.has(id));
-
-            if (overlappingIds.length <= 1) {
-                setSelection(new Set([objectId]));
-                return;
-            }
-
-            const currentSelected = selection.size === 1
-                ? Array.from(selection)[0]
-                : null;
-            if (currentSelected !== objectId) {
-                setSelection(new Set([objectId]));
-                return;
-            }
-            const currentIndex = currentSelected
-                ? overlappingIds.indexOf(currentSelected)
-                : -1;
-            const nextId = currentIndex >= 0
-                ? overlappingIds[(currentIndex + 1) % overlappingIds.length]
-                : overlappingIds[0];
-
-            setSelection(new Set([nextId]));
-        },
-        [objects, selection, setSelection],
-    );
+    }, [commitDraggedObject, setCursorPosition]);
 
     return (
         <div
@@ -290,37 +325,7 @@ export function Canvas() {
                                     fill={fill}
                                     stroke={isSelected ? "#fff" : fill}
                                     strokeWidth={isSelected ? 2 : 0}
-                                    draggable={isSelected}
-                                    onMouseDown={(e) => handleObjectMouseDown(e, obj.id)}
-                                    onDragMove={(e) => {
-                                        updateObject(obj.id, {
-                                            x: e.target.x(),
-                                            y: e.target.y(),
-                                        });
-                                    }}
-                                    onDragEnd={(e) => {
-                                        const x = e.target.x();
-                                        const y = e.target.y();
-                                        updateObject(obj.id, { x, y });
-
-                                        const current = useBoardStore.getState().objects.get(obj.id);
-                                        if (!frameClient || !current) return;
-                                        frameClient.send({
-                                            id: crypto.randomUUID(),
-                                            parent_id: null,
-                                            ts: Date.now(),
-                                            board_id: current.board_id,
-                                            from: null,
-                                            syscall: "object:update",
-                                            status: "request",
-                                            data: {
-                                                id: obj.id,
-                                                x,
-                                                y,
-                                                version: current.version,
-                                            },
-                                        });
-                                    }}
+                                    listening={false}
                                 />
                             );
                         }
