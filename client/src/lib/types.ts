@@ -3,7 +3,7 @@ export type FrameStatus = "request" | "item" | "done" | "error" | "cancel";
 export interface Frame {
     id: string;
     parent_id: string | null;
-    ts: string;
+    ts: number;
     board_id: string;
     from: string;
     syscall: string;

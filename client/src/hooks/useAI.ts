@@ -48,7 +48,7 @@ export function useAI() {
         frameClient.send({
             id: requestId,
             parent_id: null,
-            ts: new Date().toISOString(),
+            ts: Date.now(),
             board_id: boardId ?? "",
             from: "client",
             syscall: "ai:prompt",

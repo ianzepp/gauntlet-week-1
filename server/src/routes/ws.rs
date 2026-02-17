@@ -15,12 +15,11 @@
 //! 3. Broadcast frames from peers → forwarded to client
 //! 4. Close → `board:part` → cleanup
 
-use std::collections::HashMap;
-
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -121,7 +120,7 @@ async fn dispatch_frame(
     client_tx: &mpsc::Sender<Frame>,
     text: &str,
 ) {
-    let req: WsRequest = match serde_json::from_str(text) {
+    let mut req: Frame = match serde_json::from_str(text) {
         Ok(r) => r,
         Err(e) => {
             let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid json: {e}"));
@@ -130,10 +129,13 @@ async fn dispatch_frame(
         }
     };
 
-    let prefix = req
-        .syscall
-        .split_once(':')
-        .map_or(req.syscall.as_str(), |(p, _)| p);
+    // Stamp the authenticated user_id as `from`, regardless of what the client sent.
+    req.from = Some(user_id.to_string());
+
+    // Persist inbound frame.
+    persist_fire_and_forget(&state.pool, &req);
+
+    let prefix = req.prefix();
 
     match prefix {
         "board" => handle_board(state, socket, current_board, client_id, user_id, client_tx, &req).await,
@@ -157,12 +159,11 @@ async fn handle_board(
     socket: &mut WebSocket,
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
-    user_id: Uuid,
+    _user_id: Uuid,
     client_tx: &mpsc::Sender<Frame>,
-    req: &WsRequest,
+    req: &Frame,
 ) {
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
-    let parent = Frame::request(&req.syscall, req.data.clone()).with_from(user_id.to_string());
 
     match op {
         "join" => {
@@ -172,7 +173,7 @@ async fn handle_board(
                     .and_then(|v| v.as_str())
                     .and_then(|s| s.parse().ok())
             }) else {
-                let _ = send_frame(socket, state, &parent.error("board_id required")).await;
+                let _ = send_frame(socket, state, &req.error("board_id required")).await;
                 return;
             };
 
@@ -185,12 +186,12 @@ async fn handle_board(
                 Ok(objects) => {
                     let mut data = Data::new();
                     data.insert("objects".into(), serde_json::to_value(&objects).unwrap_or_default());
-                    let _ = send_frame(socket, state, &parent.item(data)).await;
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.item(data)).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                     *current_board = Some(board_id);
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
@@ -205,11 +206,11 @@ async fn handle_board(
                     let mut data = Data::new();
                     data.insert("id".into(), serde_json::json!(row.id));
                     data.insert("name".into(), serde_json::json!(row.name));
-                    let _ = send_frame(socket, state, &parent.item(data)).await;
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.item(data)).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
@@ -221,11 +222,11 @@ async fn handle_board(
                     .collect();
                 let mut data = Data::new();
                 data.insert("boards".into(), serde_json::json!(list));
-                let _ = send_frame(socket, state, &parent.item(data)).await;
-                let _ = send_frame(socket, state, &parent.done()).await;
+                let _ = send_frame(socket, state, &req.item(data)).await;
+                let _ = send_frame(socket, state, &req.done()).await;
             }
             Err(e) => {
-                let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                let _ = send_frame(socket, state, &req.error_from(&e)).await;
             }
         },
         "delete" => {
@@ -235,20 +236,20 @@ async fn handle_board(
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
             else {
-                let _ = send_frame(socket, state, &parent.error("board_id required")).await;
+                let _ = send_frame(socket, state, &req.error("board_id required")).await;
                 return;
             };
             match services::board::delete_board(&state.pool, board_id).await {
                 Ok(()) => {
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
         _ => {
-            let _ = send_frame(socket, state, &parent.error(format!("unknown board op: {op}"))).await;
+            let _ = send_frame(socket, state, &req.error(format!("unknown board op: {op}"))).await;
         }
     }
 }
@@ -263,18 +264,14 @@ async fn handle_object(
     current_board: Option<Uuid>,
     client_id: Uuid,
     user_id: Uuid,
-    req: &WsRequest,
+    req: &Frame,
 ) {
     let Some(board_id) = current_board else {
-        let parent = Frame::request(&req.syscall, Data::new()).with_from(user_id.to_string());
-        let _ = send_frame(socket, state, &parent.error("must join a board first")).await;
+        let _ = send_frame(socket, state, &req.error("must join a board first")).await;
         return;
     };
 
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
-    let parent = Frame::request(&req.syscall, req.data.clone())
-        .with_board_id(board_id)
-        .with_from(user_id.to_string());
 
     match op {
         "create" => {
@@ -304,11 +301,11 @@ async fn handle_object(
                     let data = object_to_data(&obj);
                     let broadcast = Frame::request("object:created", data.clone()).with_board_id(board_id);
                     services::board::broadcast(state, board_id, &broadcast, None).await;
-                    let _ = send_frame(socket, state, &parent.item(data)).await;
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.item(data)).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
@@ -319,7 +316,7 @@ async fn handle_object(
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
             else {
-                let _ = send_frame(socket, state, &parent.error("id required")).await;
+                let _ = send_frame(socket, state, &req.error("id required")).await;
                 return;
             };
             let version = req
@@ -334,11 +331,11 @@ async fn handle_object(
                     let data = object_to_data(&obj);
                     let broadcast = Frame::request("object:updated", data.clone()).with_board_id(board_id);
                     services::board::broadcast(state, board_id, &broadcast, Some(client_id)).await;
-                    let _ = send_frame(socket, state, &parent.item(data)).await;
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.item(data)).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
@@ -349,7 +346,7 @@ async fn handle_object(
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
             else {
-                let _ = send_frame(socket, state, &parent.error("id required")).await;
+                let _ = send_frame(socket, state, &req.error("id required")).await;
                 return;
             };
 
@@ -359,15 +356,15 @@ async fn handle_object(
                     data.insert("id".into(), serde_json::json!(object_id));
                     let broadcast = Frame::request("object:deleted", data.clone()).with_board_id(board_id);
                     services::board::broadcast(state, board_id, &broadcast, None).await;
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
         _ => {
-            let _ = send_frame(socket, state, &parent.error(format!("unknown object op: {op}"))).await;
+            let _ = send_frame(socket, state, &req.error(format!("unknown object op: {op}"))).await;
         }
     }
 }
@@ -376,13 +373,7 @@ async fn handle_object(
 // CURSOR HANDLERS
 // =============================================================================
 
-async fn handle_cursor(
-    state: &AppState,
-    current_board: Option<Uuid>,
-    client_id: Uuid,
-    _user_id: Uuid,
-    req: &WsRequest,
-) {
+async fn handle_cursor(state: &AppState, current_board: Option<Uuid>, client_id: Uuid, _user_id: Uuid, req: &Frame) {
     let Some(board_id) = current_board else {
         return; // Silently ignore cursor moves before joining.
     };
@@ -415,21 +406,16 @@ async fn handle_ai(
     socket: &mut WebSocket,
     current_board: Option<Uuid>,
     client_id: Uuid,
-    user_id: Uuid,
-    req: &WsRequest,
+    _user_id: Uuid,
+    req: &Frame,
 ) {
     let Some(board_id) = current_board else {
-        let parent = Frame::request(&req.syscall, Data::new()).with_from(user_id.to_string());
-        let _ = send_frame(socket, state, &parent.error("must join a board first")).await;
+        let _ = send_frame(socket, state, &req.error("must join a board first")).await;
         return;
     };
 
-    let parent = Frame::request(&req.syscall, req.data.clone())
-        .with_board_id(board_id)
-        .with_from(user_id.to_string());
-
     let Some(llm) = &state.llm else {
-        let _ = send_frame(socket, state, &parent.error("AI features not configured")).await;
+        let _ = send_frame(socket, state, &req.error("AI features not configured")).await;
         return;
     };
 
@@ -443,7 +429,7 @@ async fn handle_ai(
                 .unwrap_or("");
 
             if prompt.is_empty() {
-                let _ = send_frame(socket, state, &parent.error("prompt required")).await;
+                let _ = send_frame(socket, state, &req.error("prompt required")).await;
                 return;
             }
 
@@ -476,32 +462,19 @@ async fn handle_ai(
                         let mut data = Data::new();
                         data.insert("text".into(), serde_json::json!(text));
                         data.insert("mutations".into(), serde_json::json!(result.mutations.len()));
-                        let _ = send_frame(socket, state, &parent.item(data)).await;
+                        let _ = send_frame(socket, state, &req.item(data)).await;
                     }
-                    let _ = send_frame(socket, state, &parent.done()).await;
+                    let _ = send_frame(socket, state, &req.done()).await;
                 }
                 Err(e) => {
-                    let _ = send_frame(socket, state, &parent.error_from(&e)).await;
+                    let _ = send_frame(socket, state, &req.error_from(&e)).await;
                 }
             }
         }
         _ => {
-            let _ = send_frame(socket, state, &parent.error(format!("unknown ai op: {op}"))).await;
+            let _ = send_frame(socket, state, &req.error(format!("unknown ai op: {op}"))).await;
         }
     }
-}
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-#[derive(serde::Deserialize)]
-struct WsRequest {
-    syscall: String,
-    #[serde(default)]
-    data: Data,
-    #[serde(default)]
-    board_id: Option<Uuid>,
 }
 
 // =============================================================================
@@ -521,16 +494,20 @@ async fn send_frame(socket: &mut WebSocket, state: &AppState, frame: &Frame) -> 
         .await
         .map_err(|_| ());
     if result.is_ok() {
-        // Fire-and-forget: persist frame directly to DB.
-        let pool = state.pool.clone();
-        let frame = frame.clone();
-        tokio::spawn(async move {
-            if let Err(e) = crate::services::persistence::persist_frame(&pool, &frame).await {
-                warn!(error = %e, "ws: frame persist failed");
-            }
-        });
+        persist_fire_and_forget(&state.pool, frame);
     }
     result
+}
+
+/// Spawn a fire-and-forget task to persist a frame to the database.
+fn persist_fire_and_forget(pool: &sqlx::PgPool, frame: &Frame) {
+    let pool = pool.clone();
+    let frame = frame.clone();
+    tokio::spawn(async move {
+        if let Err(e) = crate::services::persistence::persist_frame(&pool, &frame).await {
+            warn!(error = %e, "frame persist failed");
+        }
+    });
 }
 
 fn object_to_data(obj: &crate::state::BoardObject) -> Data {

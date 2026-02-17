@@ -17,7 +17,7 @@ export class FrameClient {
             this.dispatch({
                 id: crypto.randomUUID(),
                 parent_id: null,
-                ts: new Date().toISOString(),
+                ts: Date.now(),
                 board_id: "",
                 from: "system",
                 syscall: "session:connected",
@@ -45,7 +45,7 @@ export class FrameClient {
             this.dispatch({
                 id: crypto.randomUUID(),
                 parent_id: null,
-                ts: new Date().toISOString(),
+                ts: Date.now(),
                 board_id: "",
                 from: "system",
                 syscall: "session:disconnected",
@@ -59,7 +59,7 @@ export class FrameClient {
         };
     }
 
-    send(frame: Partial<Frame>): void {
+    send(frame: Frame): void {
         if (this.mockMode) {
             console.log("[FrameClient] mock send:", frame.syscall, frame);
             return;

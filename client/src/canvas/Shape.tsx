@@ -36,7 +36,7 @@ function sendObjectUpdate(objectId: string, fields: Record<string, unknown>) {
     client.send({
         id: crypto.randomUUID(),
         parent_id: null,
-        ts: new Date().toISOString(),
+        ts: Date.now(),
         board_id: boardId,
         from: "client",
         syscall: "object:update",

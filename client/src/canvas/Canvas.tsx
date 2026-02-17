@@ -253,7 +253,7 @@ export function Canvas() {
             client.send({
                 id: crypto.randomUUID(),
                 parent_id: null,
-                ts: new Date().toISOString(),
+                ts: Date.now(),
                 board_id: boardId,
                 from: "client",
                 syscall: "cursor:moved",
@@ -277,7 +277,7 @@ export function Canvas() {
         client.send({
             id: requestId,
             parent_id: null,
-            ts: new Date().toISOString(),
+            ts: Date.now(),
             board_id: obj.board_id,
             from: "client",
             syscall: "object:create",

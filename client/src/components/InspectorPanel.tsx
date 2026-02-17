@@ -62,7 +62,7 @@ export function InspectorPanel() {
             frameClient.send({
                 id: crypto.randomUUID(),
                 parent_id: null,
-                ts: new Date().toISOString(),
+                ts: Date.now(),
                 board_id: obj.board_id,
                 from: "",
                 syscall: "object:update",
