@@ -167,11 +167,12 @@ async fn integration_pool() -> sqlx::PgPool {
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn board_crud_round_trip_with_list_and_delete() {
     let pool = integration_pool().await;
+    let owner_id = Uuid::new_v4();
 
-    let row = create_board(&pool, "Integration Board")
+    let row = create_board(&pool, "Integration Board", owner_id)
         .await
         .expect("create_board should succeed");
-    let listed = list_boards(&pool)
+    let listed = list_boards(&pool, owner_id)
         .await
         .expect("list_boards should succeed");
     assert!(
@@ -180,15 +181,15 @@ async fn board_crud_round_trip_with_list_and_delete() {
             .any(|b| b.id == row.id && b.name == "Integration Board")
     );
 
-    delete_board(&pool, row.id)
+    delete_board(&pool, row.id, owner_id)
         .await
         .expect("delete_board should succeed");
-    let listed_after = list_boards(&pool)
+    let listed_after = list_boards(&pool, owner_id)
         .await
         .expect("list_boards should succeed after delete");
     assert!(!listed_after.iter().any(|b| b.id == row.id));
 
-    let missing = delete_board(&pool, Uuid::new_v4()).await;
+    let missing = delete_board(&pool, Uuid::new_v4(), owner_id).await;
     assert!(matches!(missing, Err(BoardError::NotFound(_))));
 }
 
@@ -196,7 +197,8 @@ async fn board_crud_round_trip_with_list_and_delete() {
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn join_board_hydrates_objects_from_database() {
     let pool = integration_pool().await;
-    let board = create_board(&pool, "Hydration Board")
+    let owner_id = Uuid::new_v4();
+    let board = create_board(&pool, "Hydration Board", owner_id)
         .await
         .expect("create_board should succeed");
 
@@ -222,7 +224,7 @@ async fn join_board_hydrates_objects_from_database() {
     let client_id = Uuid::new_v4();
     let (tx, _rx) = mpsc::channel(8);
 
-    let hydrated = join_board(&state, board.id, client_id, tx)
+    let hydrated = join_board(&state, board.id, owner_id, client_id, tx)
         .await
         .expect("join_board should hydrate objects");
 
@@ -240,7 +242,7 @@ async fn join_board_hydrates_objects_from_database() {
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn part_board_flushes_dirty_object_to_database_on_last_client() {
     let pool = integration_pool().await;
-    let board = create_board(&pool, "Flush Board")
+    let board = create_board(&pool, "Flush Board", Uuid::new_v4())
         .await
         .expect("create_board should succeed");
 

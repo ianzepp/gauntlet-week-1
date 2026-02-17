@@ -26,7 +26,7 @@ export async function createWsTicket(): Promise<string> {
         method: "POST",
         credentials: "include",
     });
-    if (!resp.ok) throw new Error("Failed to create WS ticket");
+    if (!resp.ok) throw new Error(`Failed to create WS ticket (${resp.status})`);
     const data = await resp.json();
     return data.ticket;
 }

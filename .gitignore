@@ -4,6 +4,7 @@
 
 # Environment
 .env
+server/.env
 
 # macOS
 .DS_Store

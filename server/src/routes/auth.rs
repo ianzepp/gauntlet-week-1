@@ -11,6 +11,27 @@ use crate::services::{auth as auth_svc, session};
 use crate::state::AppState;
 
 const COOKIE_NAME: &str = "session_token";
+const OAUTH_STATE_COOKIE_NAME: &str = "oauth_state";
+
+fn env_bool(key: &str) -> Option<bool> {
+    std::env::var(key)
+        .ok()
+        .and_then(|raw| match raw.trim().to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Some(true),
+            "0" | "false" | "no" | "off" => Some(false),
+            _ => None,
+        })
+}
+
+fn cookie_secure() -> bool {
+    if let Some(value) = env_bool("COOKIE_SECURE") {
+        return value;
+    }
+
+    std::env::var("GITHUB_REDIRECT_URI")
+        .map(|uri| uri.starts_with("https://"))
+        .unwrap_or(false)
+}
 
 // =============================================================================
 // AUTH EXTRACTOR
@@ -56,22 +77,48 @@ pub async fn github_redirect(State(state): State<AppState>) -> Response {
     let Some(config) = &state.github else {
         return (StatusCode::SERVICE_UNAVAILABLE, "GitHub OAuth not configured").into_response();
     };
-    Redirect::temporary(&config.authorize_url()).into_response()
+
+    let oauth_state = session::generate_token();
+    let secure = cookie_secure();
+    let cookie = Cookie::build((OAUTH_STATE_COOKIE_NAME, oauth_state.clone()))
+        .path("/")
+        .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(secure)
+        .max_age(Duration::minutes(10));
+
+    let jar = CookieJar::new().add(cookie);
+    (jar, Redirect::temporary(&config.authorize_url(&oauth_state))).into_response()
 }
 
 #[derive(Deserialize)]
 pub struct CallbackQuery {
     code: String,
+    state: Option<String>,
 }
 
 /// `GET /auth/github/callback` — exchange code, upsert user, set cookie, redirect to `/`.
 pub async fn github_callback(
     State(state): State<AppState>,
+    jar: CookieJar,
     axum::extract::Query(params): axum::extract::Query<CallbackQuery>,
 ) -> Response {
     let Some(config) = &state.github else {
         return (StatusCode::SERVICE_UNAVAILABLE, "GitHub OAuth not configured").into_response();
     };
+    let secure = cookie_secure();
+
+    // Verify OAuth CSRF state from cookie.
+    let Some(callback_state) = params.state.as_deref() else {
+        return (StatusCode::BAD_REQUEST, "missing oauth state").into_response();
+    };
+    let expected_state = jar
+        .get(OAUTH_STATE_COOKIE_NAME)
+        .map(Cookie::value)
+        .unwrap_or_default();
+    if expected_state.is_empty() || expected_state != callback_state {
+        return (StatusCode::UNAUTHORIZED, "invalid oauth state").into_response();
+    }
 
     // Exchange code for access token.
     let access_token = match auth_svc::exchange_code(config, &params.code).await {
@@ -110,12 +157,19 @@ pub async fn github_callback(
     };
 
     // Set HttpOnly cookie and redirect to SPA.
-    let cookie = Cookie::build((COOKIE_NAME, token))
+    let session_cookie = Cookie::build((COOKIE_NAME, token))
         .path("/")
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax);
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(secure);
+    let clear_oauth_state_cookie = Cookie::build((OAUTH_STATE_COOKIE_NAME, ""))
+        .path("/")
+        .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(secure)
+        .max_age(Duration::ZERO);
 
-    let jar = CookieJar::new().add(cookie);
+    let jar = jar.add(session_cookie).add(clear_oauth_state_cookie);
     (jar, Redirect::temporary("/")).into_response()
 }
 
@@ -128,9 +182,12 @@ pub async fn me(auth: AuthUser) -> Json<session::SessionUser> {
 pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     let _ = session::delete_session(&state.pool, &auth.token).await;
 
+    let secure = cookie_secure();
     let cookie = Cookie::build((COOKIE_NAME, ""))
         .path("/")
         .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(secure)
         .max_age(Duration::ZERO);
 
     let jar = CookieJar::new().add(cookie);

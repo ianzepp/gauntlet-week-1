@@ -54,15 +54,16 @@ pub struct BoardRow {
 /// # Errors
 ///
 /// Returns a database error if the insert fails.
-pub async fn create_board(pool: &PgPool, name: &str) -> Result<BoardRow, BoardError> {
+pub async fn create_board(pool: &PgPool, name: &str, owner_id: Uuid) -> Result<BoardRow, BoardError> {
     let id = Uuid::new_v4();
-    sqlx::query("INSERT INTO boards (id, name) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO boards (id, name, owner_id) VALUES ($1, $2, $3)")
         .bind(id)
         .bind(name)
+        .bind(owner_id)
         .execute(pool)
         .await?;
 
-    Ok(BoardRow { id, name: name.to_string(), owner_id: None })
+    Ok(BoardRow { id, name: name.to_string(), owner_id: Some(owner_id) })
 }
 
 /// List all boards.
@@ -70,10 +71,14 @@ pub async fn create_board(pool: &PgPool, name: &str) -> Result<BoardRow, BoardEr
 /// # Errors
 ///
 /// Returns a database error if the query fails.
-pub async fn list_boards(pool: &PgPool) -> Result<Vec<BoardRow>, BoardError> {
+pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, BoardError> {
     let rows = sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
-        "SELECT id, name, owner_id FROM boards ORDER BY created_at DESC",
+        "SELECT id, name, owner_id
+         FROM boards
+         WHERE owner_id = $1 OR owner_id IS NULL
+         ORDER BY created_at DESC",
     )
+    .bind(user_id)
     .fetch_all(pool)
     .await?;
 
@@ -88,9 +93,10 @@ pub async fn list_boards(pool: &PgPool) -> Result<Vec<BoardRow>, BoardError> {
 /// # Errors
 ///
 /// Returns a database error if the delete fails.
-pub async fn delete_board(pool: &PgPool, board_id: Uuid) -> Result<(), BoardError> {
-    let result = sqlx::query("DELETE FROM boards WHERE id = $1")
+pub async fn delete_board(pool: &PgPool, board_id: Uuid, user_id: Uuid) -> Result<(), BoardError> {
+    let result = sqlx::query("DELETE FROM boards WHERE id = $1 AND (owner_id = $2 OR owner_id IS NULL)")
         .bind(board_id)
+        .bind(user_id)
         .execute(pool)
         .await?;
 
@@ -113,26 +119,36 @@ pub async fn delete_board(pool: &PgPool, board_id: Uuid) -> Result<(), BoardErro
 pub async fn join_board(
     state: &AppState,
     board_id: Uuid,
+    user_id: Uuid,
     client_id: Uuid,
     tx: mpsc::Sender<Frame>,
 ) -> Result<Vec<BoardObject>, BoardError> {
-    // Verify board exists in database.
-    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM boards WHERE id = $1)")
-        .bind(board_id)
-        .fetch_one(&state.pool)
-        .await?;
+    // Verify board exists and the user has access.
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM boards
+            WHERE id = $1 AND (owner_id = $2 OR owner_id IS NULL)
+        )",
+    )
+    .bind(board_id)
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await?;
 
     if !exists {
         return Err(BoardError::NotFound(board_id));
     }
 
+    // Fetch object snapshot outside locks; we'll apply it only if needed.
+    let hydration_snapshot = hydrate_objects(&state.pool, board_id).await?;
+
     let mut boards = state.boards.write().await;
     let board_state = boards.entry(board_id).or_insert_with(BoardState::new);
 
-    // Hydrate from Postgres if this is the first client.
+    // Hydrate from Postgres if this is the first live client for this board.
     if board_state.clients.is_empty() {
-        let objects = hydrate_objects(&state.pool, board_id).await?;
-        board_state.objects = objects;
+        board_state.objects = hydration_snapshot;
         info!(%board_id, count = board_state.objects.len(), "hydrated board from database");
     }
 

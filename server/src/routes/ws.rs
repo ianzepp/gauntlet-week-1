@@ -287,7 +287,7 @@ async fn handle_board(
                 services::board::part_board(state, old_board, client_id).await;
             }
 
-            match services::board::join_board(state, board_id, client_id, client_tx.clone()).await {
+            match services::board::join_board(state, board_id, user_id, client_id, client_tx.clone()).await {
                 Ok(objects) => {
                     *current_board = Some(board_id);
 
@@ -309,7 +309,7 @@ async fn handle_board(
                 .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or("Untitled Board");
-            match services::board::create_board(&state.pool, name).await {
+            match services::board::create_board(&state.pool, name, user_id).await {
                 Ok(row) => {
                     let mut data = Data::new();
                     data.insert("id".into(), serde_json::json!(row.id));
@@ -319,7 +319,7 @@ async fn handle_board(
                 Err(e) => Err(req.error_from(&e)),
             }
         }
-        "list" => match services::board::list_boards(&state.pool).await {
+        "list" => match services::board::list_boards(&state.pool, user_id).await {
             Ok(boards) => {
                 let list: Vec<serde_json::Value> = boards
                     .iter()
@@ -340,7 +340,7 @@ async fn handle_board(
             else {
                 return Err(req.error("board_id required"));
             };
-            match services::board::delete_board(&state.pool, board_id).await {
+            match services::board::delete_board(&state.pool, board_id, user_id).await {
                 Ok(()) => Ok(Outcome::Done),
                 Err(e) => Err(req.error_from(&e)),
             }

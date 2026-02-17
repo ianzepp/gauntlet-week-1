@@ -298,7 +298,7 @@ async fn chat_history_requires_joined_board() {
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn chat_history_returns_persisted_messages_for_board() {
     let pool = integration_pool().await;
-    let board = services::board::create_board(&pool, "Chat Board")
+    let board = services::board::create_board(&pool, "Chat Board", Uuid::new_v4())
         .await
         .expect("create_board should succeed");
     let board_id = board.id;
@@ -370,7 +370,7 @@ async fn chat_history_returns_persisted_messages_for_board() {
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn ai_history_returns_only_messages_for_requesting_user() {
     let pool = integration_pool().await;
-    let board = services::board::create_board(&pool, "AI History Board")
+    let board = services::board::create_board(&pool, "AI History Board", Uuid::new_v4())
         .await
         .expect("create_board should succeed");
     let board_id = board.id;

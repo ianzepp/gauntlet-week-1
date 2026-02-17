@@ -44,12 +44,70 @@ export function useFrameClient(
     useEffect(() => {
         const store = useBoardStore.getState();
         const client = new FrameClient(mockMode);
+        let disposed = false;
+        let reconnectAttempts = 0;
+        let reconnectTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+        const clearReconnectTimer = () => {
+            if (reconnectTimer !== null) {
+                window.clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+        };
+
+        const scheduleReconnect = () => {
+            if (mockMode || disposed) return;
+            clearReconnectTimer();
+
+            const delayMs = Math.min(1000 * (2 ** reconnectAttempts), 10000);
+            reconnectAttempts += 1;
+            reconnectTimer = window.setTimeout(() => {
+                void connectWithFreshTicket();
+            }, delayMs);
+        };
+
+        const connectWithFreshTicket = async () => {
+            if (disposed) return;
+
+            store.setConnectionStatus("connecting");
+
+            try {
+                if (mockMode) {
+                    client.connect("", "");
+                    return;
+                }
+
+                const ticket = await createWsTicket();
+                if (disposed) return;
+
+                const protocol =
+                    window.location.protocol === "https:" ? "wss:" : "ws:";
+                const wsBase = `${protocol}//${window.location.host}`;
+                client.connect(`${wsBase}/api/ws`, ticket);
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                const unauthorized = message.includes("(401)");
+                if (unauthorized) {
+                    // Session is gone; stop reconnect churn until user logs back in.
+                    useBoardStore.getState().setConnectionStatus("disconnected");
+                    return;
+                }
+
+                console.error("[FrameClient] ws-ticket failed:", error);
+                useBoardStore.getState().setConnectionStatus("disconnected");
+                scheduleReconnect();
+            }
+        };
+
         clientRef.current = client;
         store.setFrameClient(client);
         store.setConnectionStatus("connecting");
 
         const handleSessionConnected = (frame: Frame) => {
             const s = useBoardStore.getState();
+            clearReconnectTimer();
+            reconnectAttempts = 0;
             s.setConnectionStatus("connected");
 
             // Send board:join if we have a boardId
@@ -183,6 +241,7 @@ export function useFrameClient(
 
         const handleDisconnected = () => {
             useBoardStore.getState().setConnectionStatus("disconnected");
+            scheduleReconnect();
         };
 
         client.on("session:connected", handleSessionConnected);
@@ -195,17 +254,11 @@ export function useFrameClient(
         client.on("cursor:moved", handleCursorMoved);
         client.on("chat:message", handleChatMessage);
 
-        if (!mockMode) {
-            const protocol =
-                window.location.protocol === "https:" ? "wss:" : "ws:";
-            const wsBase = `${protocol}//${window.location.host}`;
-
-            createWsTicket().then((ticket) => {
-                client.connect(`${wsBase}/api/ws`, ticket);
-            });
-        }
+        void connectWithFreshTicket();
 
         return () => {
+            disposed = true;
+            clearReconnectTimer();
             client.disconnect();
             clientRef.current = null;
             const s = useBoardStore.getState();

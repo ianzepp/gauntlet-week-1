@@ -24,11 +24,15 @@ impl GitHubConfig {
 
     /// Build the GitHub authorization URL.
     #[must_use]
-    pub fn authorize_url(&self) -> String {
-        format!(
-            "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope=read:user",
-            self.client_id, self.redirect_uri
-        )
+    pub fn authorize_url(&self, state: &str) -> String {
+        let mut url = reqwest::Url::parse("https://github.com/login/oauth/authorize")
+            .expect("static GitHub OAuth URL must be valid");
+        url.query_pairs_mut()
+            .append_pair("client_id", &self.client_id)
+            .append_pair("redirect_uri", &self.redirect_uri)
+            .append_pair("scope", "read:user")
+            .append_pair("state", state);
+        url.to_string()
     }
 }
 
@@ -69,6 +73,12 @@ pub async fn exchange_code(config: &GitHubConfig, code: &str) -> Result<String, 
         .send()
         .await
         .map_err(|e| AuthError::TokenExchange(e.to_string()))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(AuthError::TokenExchange(format!("{status}: {body}")));
+    }
 
     let body = resp
         .text()
