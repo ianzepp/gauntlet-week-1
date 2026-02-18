@@ -4,6 +4,8 @@ use leptos::prelude::*;
 use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_params_map;
 
+use crate::components::board_stamp::BoardStamp;
+use crate::components::canvas_host::CanvasHost;
 use crate::components::left_panel::LeftPanel;
 use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
@@ -51,10 +53,8 @@ pub fn BoardPage() -> impl IntoView {
                 <LeftPanel/>
             </div>
             <div class="board-page__canvas">
-                {move || {
-                    let id = board_id().unwrap_or_default();
-                    format!("Canvas placeholder (board: {id})")
-                }}
+                <CanvasHost/>
+                <BoardStamp/>
             </div>
             <div class="board-page__right-panel">
                 <RightPanel/>

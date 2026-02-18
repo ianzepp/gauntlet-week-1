@@ -4,6 +4,7 @@ use leptos::prelude::*;
 
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
+use crate::state::ui::UiState;
 
 /// Top toolbar for the board page.
 ///
@@ -13,6 +14,7 @@ use crate::state::board::BoardState;
 pub fn Toolbar() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
 
     let board_name = move || {
         board
@@ -68,6 +70,16 @@ pub fn Toolbar() -> impl IntoView {
                 }}
             </div>
             <span class="toolbar__spacer"></span>
+            <button
+                class="btn toolbar__dark-toggle"
+                on:click=move |_| {
+                    let current = ui.get().dark_mode;
+                    let next = crate::util::dark_mode::toggle(current);
+                    ui.update(|u| u.dark_mode = next);
+                }
+            >
+                {move || if ui.get().dark_mode { "\u{2600}" } else { "\u{263E}" }}
+            </button>
             <span class="toolbar__user">{user_name}</span>
             <button class="btn toolbar__logout" on:click=on_logout>
                 "Logout"

@@ -347,3 +347,48 @@ body {
     font-size: 0.85rem;
 }
 .mission-control__link:hover { background: var(--color-primary); }
+
+/* Canvas host */
+.board-page__canvas { position: relative; }
+.canvas-host {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: var(--color-bg);
+}
+
+/* Board stamp */
+.board-stamp {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    pointer-events: none;
+    display: flex;
+    gap: 0.5rem;
+}
+.board-stamp__name { font-weight: 600; }
+
+/* Dark mode toggle */
+.toolbar__dark-toggle {
+    background: transparent;
+    border: none;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Dark mode overrides */
+.dark-mode {
+    --color-bg: #0d1117;
+    --color-surface: #161b22;
+    --color-primary: #21262d;
+    --color-text: #c9d1d9;
+    --color-text-muted: #8b949e;
+}
