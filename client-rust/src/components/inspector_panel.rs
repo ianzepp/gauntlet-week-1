@@ -6,6 +6,10 @@ use crate::app::FrameSender;
 use crate::net::types::{BoardObject, Frame, FrameStatus};
 use crate::state::board::BoardState;
 
+#[cfg(test)]
+#[path = "inspector_panel_test.rs"]
+mod inspector_panel_test;
+
 /// Inspector panel with editable fields for the selected object.
 #[component]
 pub fn InspectorPanel() -> impl IntoView {

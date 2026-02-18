@@ -7,18 +7,22 @@
 //! All WebSocket logic is gated behind `#[cfg(feature = "hydrate")]` since it
 //! requires a browser environment.
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 use crate::net::types::Frame;
+#[cfg(any(test, feature = "hydrate"))]
+use crate::state::ai::AiMessage;
 #[cfg(feature = "hydrate")]
-use crate::state::ai::{AiMessage, AiState};
+use crate::state::ai::AiState;
 #[cfg(feature = "hydrate")]
 use crate::state::auth::AuthState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::{BoardState, ConnectionStatus};
 #[cfg(feature = "hydrate")]
 use crate::state::boards::{BoardListItem, BoardsState};
+#[cfg(any(test, feature = "hydrate"))]
+use crate::state::chat::ChatMessage;
 #[cfg(feature = "hydrate")]
-use crate::state::chat::{ChatMessage, ChatState};
+use crate::state::chat::ChatState;
 #[cfg(feature = "hydrate")]
 use leptos::prelude::GetUntracked;
 #[cfg(feature = "hydrate")]
@@ -185,35 +189,86 @@ fn dispatch_frame(
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: &futures::channel::mpsc::UnboundedSender<String>,
 ) {
+    if handle_session_connected_frame(frame, board, tx) {
+        return;
+    }
+    if handle_board_frame(frame, board, boards, tx) {
+        return;
+    }
+    if handle_object_frame(frame, board) {
+        return;
+    }
+    if handle_chat_frame(frame, chat) {
+        return;
+    }
+    if handle_ai_frame(frame, ai) {
+        return;
+    }
+    if handle_error_frame(frame, boards) {
+        return;
+    }
+    if frame.syscall == "gateway:error" {
+        leptos::logging::warn!("gateway:error frame: {}", frame.data);
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn handle_session_connected_frame(
+    frame: &Frame,
+    board: leptos::prelude::RwSignal<BoardState>,
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
+) -> bool {
+    if frame.syscall != "session:connected" {
+        return false;
+    }
+    board.update(|b| b.connection_status = ConnectionStatus::Connected);
+    send_board_join_for_active_board(tx, board);
+    send_board_list_request(tx);
+    true
+}
+
+#[cfg(feature = "hydrate")]
+fn handle_board_frame(
+    frame: &Frame,
+    board: leptos::prelude::RwSignal<BoardState>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
+) -> bool {
     use crate::net::types::{BoardObject, FrameStatus, Presence};
 
-    let syscall = frame.syscall.as_str();
-
-    match syscall {
-        "session:connected" => {
-            board.update(|b| b.connection_status = ConnectionStatus::Connected);
-            send_board_join_for_active_board(tx, board);
-            send_board_list_request(tx);
-        }
-
+    match frame.syscall.as_str() {
         "board:join" if frame.status == FrameStatus::Done => {
-            // Load objects snapshot from the join response.
-            if let Some(objects) = frame.data.get("objects") {
-                if let Ok(objs) = serde_json::from_value::<Vec<BoardObject>>(objects.clone()) {
-                    board.update(|b| {
-                        b.objects.clear();
-                        for obj in objs {
-                            b.objects.insert(obj.id.clone(), obj);
-                        }
-                    });
-                }
+            if let Some(objects) = frame.data.get("objects")
+                && let Ok(objs) = serde_json::from_value::<Vec<BoardObject>>(objects.clone())
+            {
+                board.update(|b| {
+                    b.objects.clear();
+                    for obj in objs {
+                        b.objects.insert(obj.id.clone(), obj);
+                    }
+                });
             }
-            // Set board name if present.
             if let Some(name) = frame.data.get("name").and_then(|n| n.as_str()) {
                 board.update(|b| b.board_name = Some(name.to_owned()));
             }
+            true
         }
-
+        "board:join" => {
+            if frame.data.get("client_id").is_some()
+                && frame.data.get("objects").is_none()
+                && let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str())
+            {
+                board.update(|b| {
+                    b.presence.entry(user_id.to_owned()).or_insert(Presence {
+                        user_id: user_id.to_owned(),
+                        name: "Agent".to_owned(),
+                        color: "#8a8178".to_owned(),
+                        cursor: None,
+                    });
+                });
+            }
+            true
+        }
         "board:list" if frame.status == FrameStatus::Done => {
             let list = frame
                 .data
@@ -226,8 +281,8 @@ fn dispatch_frame(
                 s.loading = false;
                 s.error = None;
             });
+            true
         }
-
         "board:create" if frame.status == FrameStatus::Done => {
             if let Ok(created) = serde_json::from_value::<BoardListItem>(frame.data.clone()) {
                 boards.update(|s| {
@@ -244,32 +299,33 @@ fn dispatch_frame(
             } else {
                 boards.update(|s| s.create_pending = false);
             }
+            true
         }
-
-        "board:join" => {
-            // Peer join broadcast may include only client/user identifiers.
-            if frame.data.get("client_id").is_some() && frame.data.get("objects").is_none() {
-                if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
-                    board.update(|b| {
-                        b.presence.entry(user_id.to_owned()).or_insert(Presence {
-                            user_id: user_id.to_owned(),
-                            name: "Agent".to_owned(),
-                            color: "#8a8178".to_owned(),
-                            cursor: None,
-                        });
-                    });
-                }
+        "board:part" => {
+            if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
+                board.update(|b| {
+                    b.presence.remove(user_id);
+                });
             }
+            true
         }
+        _ => false,
+    }
+}
 
+#[cfg(feature = "hydrate")]
+fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) -> bool {
+    use crate::net::types::{BoardObject, FrameStatus, Presence};
+
+    match frame.syscall.as_str() {
         "object:create" if frame.status == FrameStatus::Done => {
             if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
                 board.update(|b| {
                     b.objects.insert(obj.id.clone(), obj);
                 });
             }
+            true
         }
-
         "object:update" if frame.status == FrameStatus::Done => {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
                 board.update(|b| {
@@ -278,8 +334,8 @@ fn dispatch_frame(
                     }
                 });
             }
+            true
         }
-
         "object:delete" if frame.status == FrameStatus::Done => {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
                 board.update(|b| {
@@ -287,30 +343,31 @@ fn dispatch_frame(
                     b.selection.remove(id);
                 });
             }
+            true
         }
-
         "cursor:moved" => {
             if let Ok(p) = serde_json::from_value::<Presence>(frame.data.clone()) {
                 board.update(|b| {
                     b.presence.insert(p.user_id.clone(), p);
                 });
             }
+            true
         }
+        _ => false,
+    }
+}
 
-        "board:part" => {
-            if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
-                board.update(|b| {
-                    b.presence.remove(user_id);
-                });
-            }
-        }
+#[cfg(feature = "hydrate")]
+fn handle_chat_frame(frame: &Frame, chat: leptos::prelude::RwSignal<ChatState>) -> bool {
+    use crate::net::types::FrameStatus;
 
+    match frame.syscall.as_str() {
         "chat:message" if frame.status == FrameStatus::Done => {
             if let Some(msg) = parse_chat_message(frame, &frame.data) {
                 chat.update(|c| c.messages.push(msg));
             }
+            true
         }
-
         "chat:history" if frame.status == FrameStatus::Done => {
             if let Some(messages) = frame.data.get("messages") {
                 let list = messages
@@ -324,8 +381,17 @@ fn dispatch_frame(
                     .unwrap_or_default();
                 chat.update(|c| c.messages = list);
             }
+            true
         }
+        _ => false,
+    }
+}
 
+#[cfg(feature = "hydrate")]
+fn handle_ai_frame(frame: &Frame, ai: leptos::prelude::RwSignal<AiState>) -> bool {
+    use crate::net::types::FrameStatus;
+
+    match frame.syscall.as_str() {
         "ai:history" if frame.status == FrameStatus::Done => {
             if let Some(messages) = frame.data.get("messages") {
                 let list = messages
@@ -342,8 +408,8 @@ fn dispatch_frame(
                     a.loading = false;
                 });
             }
+            true
         }
-
         "ai:prompt" if frame.status == FrameStatus::Done || frame.status == FrameStatus::Error => {
             if let Some(msg) = parse_ai_prompt_message(frame) {
                 ai.update(|a| {
@@ -367,32 +433,36 @@ fn dispatch_frame(
             } else {
                 ai.update(|a| a.loading = false);
             }
+            true
         }
-
-        _ if frame.status == FrameStatus::Error => {
-            let message = frame_error_message(frame)
-                .unwrap_or("request failed")
-                .to_owned();
-            if frame.syscall == "board:list" {
-                boards.update(|s| {
-                    s.loading = false;
-                    s.error = Some(message.clone());
-                });
-            } else if frame.syscall == "board:create" {
-                boards.update(|s| {
-                    s.create_pending = false;
-                    s.error = Some(message.clone());
-                });
-            }
-            leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
-        }
-
-        "gateway:error" => {
-            leptos::logging::warn!("gateway:error frame: {}", frame.data);
-        }
-
-        _ => {}
+        _ => false,
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn handle_error_frame(frame: &Frame, boards: leptos::prelude::RwSignal<BoardsState>) -> bool {
+    use crate::net::types::FrameStatus;
+
+    if frame.status != FrameStatus::Error {
+        return false;
+    }
+
+    let message = frame_error_message(frame)
+        .unwrap_or("request failed")
+        .to_owned();
+    if frame.syscall == "board:list" {
+        boards.update(|s| {
+            s.loading = false;
+            s.error = Some(message.clone());
+        });
+    } else if frame.syscall == "board:create" {
+        boards.update(|s| {
+            s.create_pending = false;
+            s.error = Some(message.clone());
+        });
+    }
+    leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
+    true
 }
 
 #[cfg(feature = "hydrate")]
@@ -433,7 +503,7 @@ fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<String>)
 }
 
 /// Merge partial object updates into an existing `BoardObject`.
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_json::Value) {
     if let Some(x) = data.get("x").and_then(|v| v.as_f64()) {
         obj.x = x;
@@ -464,7 +534,7 @@ fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_js
     }
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMessage> {
     let content = data
         .get("content")
@@ -510,7 +580,7 @@ fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMes
     Some(ChatMessage { id, user_id, user_name, user_color, content, timestamp })
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
     let id = data
         .get("id")
@@ -544,9 +614,15 @@ fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
     Some(AiMessage { id, role, content, timestamp, mutations })
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
-    if let Some(msg) = parse_ai_message_value(&frame.data) {
+    if let Some(mut msg) = parse_ai_message_value(&frame.data) {
+        if frame.status == crate::net::types::FrameStatus::Error && msg.role == "assistant" {
+            msg.role = "error".to_owned();
+        }
+        if msg.timestamp == 0.0 {
+            msg.timestamp = frame.ts as f64;
+        }
         return Some(msg);
     }
 
@@ -569,7 +645,7 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
     })
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn frame_error_message(frame: &Frame) -> Option<&str> {
     frame
         .data
@@ -577,3 +653,7 @@ fn frame_error_message(frame: &Frame) -> Option<&str> {
         .and_then(|v| v.as_str())
         .or_else(|| frame.data.get("error").and_then(|v| v.as_str()))
 }
+
+#[cfg(test)]
+#[path = "frame_client_test.rs"]
+mod frame_client_test;
