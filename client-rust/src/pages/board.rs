@@ -10,6 +10,8 @@ use crate::components::left_panel::LeftPanel;
 use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
+use crate::app::FrameSender;
+use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 
@@ -20,6 +22,7 @@ use crate::state::board::BoardState;
 pub fn BoardPage() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
     let params = use_params_map();
 
     // Extract board ID from route.
@@ -31,8 +34,49 @@ pub fn BoardPage() -> impl IntoView {
         board.update(|b| {
             b.board_id.clone_from(&id);
             b.board_name = None;
+            b.objects.clear();
+            b.selection.clear();
+            b.presence.clear();
         });
-        // TODO: send board:join via frame client
+
+        if let Some(board_id) = id {
+            let frame = Frame {
+                id: uuid::Uuid::new_v4().to_string(),
+                parent_id: None,
+                ts: 0.0,
+                board_id: Some(board_id),
+                from: None,
+                syscall: "board:join".to_owned(),
+                status: FrameStatus::Request,
+                data: serde_json::json!({}),
+            };
+            sender.get().send(&frame);
+        }
+    });
+
+    on_cleanup(move || {
+        let board_id = board.get().board_id;
+        if let Some(board_id) = board_id {
+            let frame = Frame {
+                id: uuid::Uuid::new_v4().to_string(),
+                parent_id: None,
+                ts: 0.0,
+                board_id: Some(board_id),
+                from: None,
+                syscall: "board:part".to_owned(),
+                status: FrameStatus::Request,
+                data: serde_json::json!({}),
+            };
+            sender.get().send(&frame);
+        }
+
+        board.update(|b| {
+            b.board_id = None;
+            b.board_name = None;
+            b.objects.clear();
+            b.selection.clear();
+            b.presence.clear();
+        });
     });
 
     // Redirect to login if not authenticated.

@@ -10,13 +10,15 @@
 #[cfg(feature = "hydrate")]
 use crate::net::types::Frame;
 #[cfg(feature = "hydrate")]
-use crate::state::auth::AuthState;
-#[cfg(feature = "hydrate")]
 use crate::state::ai::{AiMessage, AiState};
+#[cfg(feature = "hydrate")]
+use crate::state::auth::AuthState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::{BoardState, ConnectionStatus};
 #[cfg(feature = "hydrate")]
 use crate::state::chat::{ChatMessage, ChatState};
+#[cfg(feature = "hydrate")]
+use leptos::prelude::Get;
 #[cfg(feature = "hydrate")]
 use leptos::prelude::Update;
 
@@ -130,6 +132,7 @@ async fn connect_and_run(
     let (mut ws_write, mut ws_read) = ws.split();
 
     board.update(|b| b.connection_status = ConnectionStatus::Connected);
+    send_board_join_for_active_board(tx, board);
 
     // Spawn a task to forward outgoing messages from our channel to the WS.
     let mut rx_borrow = rx.borrow_mut();
@@ -174,7 +177,7 @@ fn dispatch_frame(
     ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
     chat: leptos::prelude::RwSignal<ChatState>,
-    _tx: &futures::channel::mpsc::UnboundedSender<String>,
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
 ) {
     use crate::net::types::{BoardObject, FrameStatus, Presence};
 
@@ -183,6 +186,7 @@ fn dispatch_frame(
     match syscall {
         "session:connected" => {
             board.update(|b| b.connection_status = ConnectionStatus::Connected);
+            send_board_join_for_active_board(tx, board);
         }
 
         "board:join" if frame.status == FrameStatus::Done => {
@@ -308,6 +312,25 @@ fn dispatch_frame(
 
         _ => {}
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn send_board_join_for_active_board(tx: &futures::channel::mpsc::UnboundedSender<String>, board: leptos::prelude::RwSignal<BoardState>) {
+    let Some(board_id) = board.get().board_id else {
+        return;
+    };
+
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0.0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "board:join".to_owned(),
+        status: crate::net::types::FrameStatus::Request,
+        data: serde_json::json!({}),
+    };
+    let _ = send_frame(tx, &frame);
 }
 
 /// Merge partial object updates into an existing `BoardObject`.
