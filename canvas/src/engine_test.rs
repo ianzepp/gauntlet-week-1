@@ -1883,6 +1883,7 @@ fn resize_rotated_object_uses_local_axes() {
     let mut obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 50.0);
     obj.rotation = 90.0;
     let id = obj.id;
+    let before_w_handle = hit::resize_handle_positions(obj.x, obj.y, obj.width, obj.height, obj.rotation)[6];
     core.apply_create(obj);
     core.input = InputState::ResizingObject {
         id,
@@ -1897,8 +1898,10 @@ fn resize_rotated_object_uses_local_axes() {
     // Moving down in world space maps to +X in local space at 90° rotation.
     core.on_pointer_move(pt(50.0, 95.0), no_modifiers());
     let obj = core.object(&id).unwrap();
-    assert_eq!(obj.x, 0.0);
     assert_eq!(obj.width, 120.0);
+    let after_w_handle = hit::resize_handle_positions(obj.x, obj.y, obj.width, obj.height, obj.rotation)[6];
+    assert!((after_w_handle.x - before_w_handle.x).abs() < 1e-6);
+    assert!((after_w_handle.y - before_w_handle.y).abs() < 1e-6);
 }
 
 // =============================================================

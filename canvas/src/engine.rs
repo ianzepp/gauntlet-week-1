@@ -216,7 +216,7 @@ impl EngineCore {
                 let current_local = hit::rotate_point(world_pt, center, -rotation);
                 let dx = current_local.x - start_local.x;
                 let dy = current_local.y - start_local.y;
-                self.apply_resize(id, anchor, dx, dy, orig_x, orig_y, orig_w, orig_h);
+                self.apply_resize(id, anchor, dx, dy, orig_x, orig_y, orig_w, orig_h, rotation);
                 self.input = InputState::ResizingObject { id, anchor, start_world, orig_x, orig_y, orig_w, orig_h };
                 vec![Action::RenderNeeded]
             }
@@ -513,11 +513,14 @@ impl EngineCore {
         orig_y: f64,
         orig_w: f64,
         orig_h: f64,
+        rotation: f64,
     ) {
-        let mut left = orig_x;
-        let mut top = orig_y;
-        let mut right = orig_x + orig_w;
-        let mut bottom = orig_y + orig_h;
+        // Resize in the object's local (unrotated) space, centered at origin.
+        // This keeps handle anchoring consistent at arbitrary rotations.
+        let mut left = -orig_w * 0.5;
+        let mut top = -orig_h * 0.5;
+        let mut right = orig_w * 0.5;
+        let mut bottom = orig_h * 0.5;
 
         match anchor {
             ResizeAnchor::N => {
@@ -562,10 +565,17 @@ impl EngineCore {
             }
         }
 
-        let x = left;
-        let y = top;
         let w = right - left;
         let h = bottom - top;
+        let local_center_offset = Point::new((left + right) * 0.5, (top + bottom) * 0.5);
+        let orig_center = Point::new(orig_x + orig_w * 0.5, orig_y + orig_h * 0.5);
+        let world_center = hit::rotate_point(
+            Point::new(orig_center.x + local_center_offset.x, orig_center.y + local_center_offset.y),
+            orig_center,
+            rotation,
+        );
+        let x = world_center.x - w * 0.5;
+        let y = world_center.y - h * 0.5;
 
         let partial =
             PartialBoardObject { x: Some(x), y: Some(y), width: Some(w), height: Some(h), ..Default::default() };
