@@ -24,6 +24,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY server/ server/
 COPY canvas/ canvas/
 COPY client-rust/ client-rust/
+COPY public/ public/
 RUN cargo leptos build --release
 
 # Stage 3: Runtime
