@@ -43,8 +43,7 @@ COPY --from=client-builder /app/client/dist /app/client/dist
 
 ENV HOST=0.0.0.0
 ENV PORT=3000
-ENV LEPTOS_PORT=3001
 ENV STATIC_DIR=/app/client/dist
 ENV LEPTOS_SITE_ROOT=/app/site
-EXPOSE 3000 3001
+EXPOSE 3000
 CMD ["sh", "-c", "gauntlet-week-1 --migrate-only && gauntlet-week-1"]

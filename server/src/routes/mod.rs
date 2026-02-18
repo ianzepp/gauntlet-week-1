@@ -10,7 +10,6 @@ use axum::routing::{get, post};
 use leptos::prelude::*;
 use leptos_axum::{LeptosRoutes, generate_route_list};
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::services::{ServeDir, ServeFile};
 
 use crate::state::AppState;
 
@@ -32,16 +31,6 @@ fn api_routes(state: AppState) -> Router {
         .route("/healthz", get(healthz))
         .layer(cors)
         .with_state(state)
-}
-
-/// React frontend: API routes + static file serving with SPA fallback.
-pub fn react_app(state: AppState) -> Router {
-    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "../client/dist".to_string());
-    let index_path = format!("{static_dir}/index.html");
-
-    let serve = ServeDir::new(&static_dir).fallback(ServeFile::new(&index_path));
-
-    api_routes(state).fallback_service(serve)
 }
 
 /// Leptos SSR frontend: API routes + Leptos SSR routes.
