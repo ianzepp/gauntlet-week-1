@@ -35,13 +35,22 @@ pub enum Action {
 /// Core engine state — all logic that doesn't depend on the canvas element.
 ///
 /// Separated from `Engine` so it can be tested without WASM/browser dependencies.
+/// All input handling, gesture tracking, and document mutations live here.
+/// [`Engine`] wraps this with a reference to the browser canvas.
 pub struct EngineCore {
+    /// The in-memory document: all board objects keyed by ID.
     pub doc: DocStore,
+    /// Current pan/zoom state for the infinite canvas.
     pub camera: Camera,
+    /// Persistent UI state shared with the renderer (active tool, selection).
     pub ui: UiState,
+    /// Current gesture state machine state.
     pub input: InputState,
+    /// Viewport width in CSS pixels (not physical pixels).
     pub viewport_width: f64,
+    /// Viewport height in CSS pixels (not physical pixels).
     pub viewport_height: f64,
+    /// Device pixel ratio, used to scale canvas backing store.
     pub dpr: f64,
 }
 
@@ -60,6 +69,7 @@ impl Default for EngineCore {
 }
 
 impl EngineCore {
+    /// Create a new engine core with an empty document and default camera.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -618,26 +628,32 @@ impl Engine {
 
     // --- Delegated data inputs ---
 
+    /// Hydrate the document from a server snapshot.
     pub fn load_snapshot(&mut self, objects: Vec<BoardObject>) {
         self.core.load_snapshot(objects);
     }
 
+    /// Apply a server broadcast: object created.
     pub fn apply_create(&mut self, object: BoardObject) {
         self.core.apply_create(object);
     }
 
+    /// Apply a server broadcast: object updated.
     pub fn apply_update(&mut self, id: &ObjectId, fields: &PartialBoardObject) {
         self.core.apply_update(id, fields);
     }
 
+    /// Apply a server broadcast: object deleted.
     pub fn apply_delete(&mut self, id: &ObjectId) {
         self.core.apply_delete(id);
     }
 
+    /// Set the active tool.
     pub fn set_tool(&mut self, tool: Tool) {
         self.core.set_tool(tool);
     }
 
+    /// Commit text from the host editor back into the object's props.
     pub fn set_text(&mut self, id: &ObjectId, head: String, text: String, foot: String) -> Action {
         self.core.set_text(id, head, text, foot)
     }
@@ -651,26 +667,32 @@ impl Engine {
 
     // --- Input events (delegated) ---
 
+    /// Handle a pointer-down event. Returns actions for the host.
     pub fn on_pointer_down(&mut self, screen_pt: Point, button: Button, modifiers: Modifiers) -> Vec<Action> {
         self.core.on_pointer_down(screen_pt, button, modifiers)
     }
 
+    /// Handle a pointer-move event. Returns actions for the host.
     pub fn on_pointer_move(&mut self, screen_pt: Point, modifiers: Modifiers) -> Vec<Action> {
         self.core.on_pointer_move(screen_pt, modifiers)
     }
 
+    /// Handle a pointer-up event. Returns actions for the host.
     pub fn on_pointer_up(&mut self, screen_pt: Point, button: Button, modifiers: Modifiers) -> Vec<Action> {
         self.core.on_pointer_up(screen_pt, button, modifiers)
     }
 
+    /// Handle a wheel/scroll event. Returns actions for the host.
     pub fn on_wheel(&mut self, screen_pt: Point, delta: WheelDelta, modifiers: Modifiers) -> Vec<Action> {
         self.core.on_wheel(screen_pt, delta, modifiers)
     }
 
+    /// Handle a key-down event. Returns actions for the host.
     pub fn on_key_down(&mut self, key: Key, modifiers: Modifiers) -> Vec<Action> {
         self.core.on_key_down(key, modifiers)
     }
 
+    /// Handle a key-up event. No-op for v0.
     pub fn on_key_up(&mut self, key: Key, modifiers: Modifiers) -> Vec<Action> {
         self.core.on_key_up(key, modifiers)
     }
@@ -684,16 +706,19 @@ impl Engine {
 
     // --- Delegated queries ---
 
+    /// The currently selected object, if any.
     #[must_use]
     pub fn selection(&self) -> Option<ObjectId> {
         self.core.selection()
     }
 
+    /// The current camera state.
     #[must_use]
     pub fn camera(&self) -> Camera {
         self.core.camera()
     }
 
+    /// Look up an object by ID.
     #[must_use]
     pub fn object(&self, id: &ObjectId) -> Option<&BoardObject> {
         self.core.object(id)

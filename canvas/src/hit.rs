@@ -1,3 +1,13 @@
+//! Hit-testing: geometry primitives and composite object-picking.
+//!
+//! This module answers the question "what did the user click on?" It operates
+//! entirely in world coordinates and is pure (no side-effects). Callers convert
+//! screen points to world points via [`crate::camera::Camera`] before calling
+//! into this module.
+//!
+//! The main entry point is [`hit_test`], which layers handle-priority logic
+//! on top of the lower-level shape containment and segment-distance helpers.
+
 #[cfg(test)]
 #[path = "hit_test.rs"]
 mod hit_test;
@@ -9,37 +19,57 @@ use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind};
 /// Which part of an object was hit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HitPart {
+    /// The interior fill area of a shape.
     Body,
+    /// One of the eight cardinal/ordinal resize handles around a shape's bounding box.
     ResizeHandle(ResizeAnchor),
+    /// The circular rotate handle above the N edge of a shape.
     RotateHandle,
+    /// One of the two draggable endpoints of a line or arrow.
     EdgeEndpoint(EdgeEnd),
+    /// The body of a line or arrow (between its two endpoints).
     EdgeBody,
 }
 
 /// Anchor position for resize handles.
+///
+/// Variants are named by compass direction. Order matches [`RESIZE_ANCHORS`]
+/// and the array returned by [`resize_handle_positions`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResizeAnchor {
+    /// Top center.
     N,
+    /// Top-right corner.
     Ne,
+    /// Right center.
     E,
+    /// Bottom-right corner.
     Se,
+    /// Bottom center.
     S,
+    /// Bottom-left corner.
     Sw,
+    /// Left center.
     W,
+    /// Top-left corner.
     Nw,
 }
 
 /// Which end of an edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EdgeEnd {
+    /// The first endpoint, stored in the object's `"a"` prop.
     A,
+    /// The second endpoint, stored in the object's `"b"` prop.
     B,
 }
 
 /// Result of a hit test.
 #[derive(Debug, Clone, Copy)]
 pub struct Hit {
+    /// The object that was hit.
     pub object_id: ObjectId,
+    /// Which part of that object was hit.
     pub part: HitPart,
 }
 
@@ -270,7 +300,8 @@ pub fn rotate_handle_position(x: f64, y: f64, w: f64, h: f64, rotation_deg: f64,
     rotate_point(local, center, rotation_deg)
 }
 
-/// The anchor variants in order matching `resize_handle_positions`.
+/// [`ResizeAnchor`] variants in the same order as [`resize_handle_positions`],
+/// used to zip positions with their anchor identifiers during hit-testing.
 pub const RESIZE_ANCHORS: [ResizeAnchor; 8] = [
     ResizeAnchor::N,
     ResizeAnchor::Ne,

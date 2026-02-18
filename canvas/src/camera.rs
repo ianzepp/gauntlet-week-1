@@ -1,3 +1,9 @@
+//! Camera model for the infinite canvas: pan, zoom, and coordinate conversion.
+//!
+//! All canvas state is stored in world coordinates. The [`Camera`] converts
+//! between world space and screen (CSS pixel) space when rendering or
+//! interpreting pointer events.
+
 #[cfg(test)]
 #[path = "camera_test.rs"]
 mod camera_test;
@@ -10,6 +16,7 @@ pub struct Point {
 }
 
 impl Point {
+    /// Create a new point with the given coordinates.
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
