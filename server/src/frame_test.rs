@@ -193,3 +193,123 @@ fn deserialize_client_frame_empty_string_from_ok() {
     let frame: Frame = serde_json::from_str(json).expect("empty string from should deserialize");
     assert_eq!(frame.from, Some(String::new()));
 }
+
+// =============================================================================
+// Builder chains
+// =============================================================================
+
+#[test]
+fn with_content_sets_content_key() {
+    let frame = Frame::request("chat:message", Data::new()).with_content("Hello world");
+    assert_eq!(frame.data.get(FRAME_CONTENT).and_then(|v| v.as_str()), Some("Hello world"));
+}
+
+#[test]
+fn with_data_multiple_keys() {
+    let frame = Frame::request("test:multi", Data::new())
+        .with_data("a", "1")
+        .with_data("b", "2");
+    assert_eq!(frame.data.get("a").and_then(|v| v.as_str()), Some("1"));
+    assert_eq!(frame.data.get("b").and_then(|v| v.as_str()), Some("2"));
+}
+
+#[test]
+fn with_data_overwrites_same_key() {
+    let frame = Frame::request("test:overwrite", Data::new())
+        .with_data("key", "first")
+        .with_data("key", "second");
+    assert_eq!(frame.data.get("key").and_then(|v| v.as_str()), Some("second"));
+}
+
+#[test]
+fn with_from_sets_from_field() {
+    let frame = Frame::request("test:from", Data::new()).with_from("user-42");
+    assert_eq!(frame.from.as_deref(), Some("user-42"));
+}
+
+// =============================================================================
+// done_with carries data
+// =============================================================================
+
+#[test]
+fn done_with_carries_data() {
+    let req = Frame::request("board:create", Data::new());
+    let mut data = Data::new();
+    data.insert("board_id".into(), serde_json::Value::String("abc".into()));
+    let done = req.done_with(data);
+    assert_eq!(done.status, Status::Done);
+    assert_eq!(done.data.get("board_id").and_then(|v| v.as_str()), Some("abc"));
+}
+
+// =============================================================================
+// error frame
+// =============================================================================
+
+#[test]
+fn error_sets_message_key() {
+    let req = Frame::request("object:get", Data::new());
+    let err = req.error("not found");
+    assert_eq!(err.status, Status::Error);
+    assert_eq!(err.data.get(FRAME_MESSAGE).and_then(|v| v.as_str()), Some("not found"));
+}
+
+// =============================================================================
+// error_from with retryable error
+// =============================================================================
+
+#[test]
+fn error_from_retryable_error() {
+    #[derive(Debug, thiserror::Error)]
+    #[error("transient failure")]
+    struct Transient;
+
+    impl ErrorCode for Transient {
+        fn error_code(&self) -> &'static str {
+            "E_TRANSIENT"
+        }
+        fn retryable(&self) -> bool {
+            true
+        }
+    }
+
+    let req = Frame::request("ai:prompt", Data::new());
+    let err = req.error_from(&Transient);
+    assert_eq!(err.data.get(FRAME_RETRYABLE).and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(err.data.get(FRAME_CODE).and_then(|v| v.as_str()), Some("E_TRANSIENT"));
+}
+
+// =============================================================================
+// Status serde all variants
+// =============================================================================
+
+#[test]
+fn status_serde_all_variants() {
+    for (status, expected) in [
+        (Status::Request, "\"request\""),
+        (Status::Item, "\"item\""),
+        (Status::Done, "\"done\""),
+        (Status::Error, "\"error\""),
+        (Status::Cancel, "\"cancel\""),
+    ] {
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, expected, "serialization of {status:?}");
+        let restored: Status = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored, status, "deserialization of {expected}");
+    }
+}
+
+// =============================================================================
+// prefix edge cases
+// =============================================================================
+
+#[test]
+fn prefix_empty_syscall() {
+    let frame = Frame::request("", Data::new());
+    assert_eq!(frame.prefix(), "");
+}
+
+#[test]
+fn prefix_multiple_colons() {
+    let frame = Frame::request("a:b:c", Data::new());
+    assert_eq!(frame.prefix(), "a");
+}

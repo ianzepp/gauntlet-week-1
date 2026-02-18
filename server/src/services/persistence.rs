@@ -24,16 +24,16 @@ const DEFAULT_FRAME_PERSIST_RETRY_BASE_MS: u64 = 20;
 const DEFAULT_OBJECT_FLUSH_INTERVAL_MS: u64 = 100;
 
 #[derive(Clone, Copy)]
-struct FramePersistConfig {
-    queue_capacity: usize,
-    batch_size: usize,
-    flush_ms: u64,
-    retries: usize,
-    retry_base_ms: u64,
+pub(crate) struct FramePersistConfig {
+    pub(crate) queue_capacity: usize,
+    pub(crate) batch_size: usize,
+    pub(crate) flush_ms: u64,
+    pub(crate) retries: usize,
+    pub(crate) retry_base_ms: u64,
 }
 
 impl FramePersistConfig {
-    fn from_env() -> Self {
+    pub(crate) fn from_env() -> Self {
         Self {
             queue_capacity: env_parse("FRAME_PERSIST_QUEUE_CAPACITY", DEFAULT_FRAME_PERSIST_QUEUE_CAPACITY),
             batch_size: env_parse("FRAME_PERSIST_BATCH_SIZE", DEFAULT_FRAME_PERSIST_BATCH_SIZE),
@@ -44,7 +44,7 @@ impl FramePersistConfig {
     }
 }
 
-fn env_parse<T>(key: &str, default: T) -> T
+pub(crate) fn env_parse<T>(key: &str, default: T) -> T
 where
     T: std::str::FromStr + Copy,
 {
@@ -246,3 +246,7 @@ pub async fn persist_frame_batch(pool: &PgPool, frames: &[Frame]) -> Result<(), 
     tx.commit().await?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "persistence_test.rs"]
+mod tests;

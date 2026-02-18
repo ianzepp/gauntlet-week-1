@@ -6,7 +6,7 @@ use rand::Rng;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-fn bytes_to_hex(bytes: &[u8]) -> String {
+pub(crate) fn bytes_to_hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
         let _ = write!(s, "{b:02x}");
@@ -23,7 +23,7 @@ pub fn generate_token() -> String {
 
 /// Generate a short-lived 16-byte hex WS ticket.
 #[must_use]
-fn generate_ws_ticket() -> String {
+pub(crate) fn generate_ws_ticket() -> String {
     let bytes: [u8; 16] = rand::rng().random();
     bytes_to_hex(&bytes)
 }
@@ -97,3 +97,7 @@ pub async fn consume_ws_ticket(pool: &PgPool, ticket: &str) -> Result<Option<Uui
 
     Ok(row.map(|r| r.get("user_id")))
 }
+
+#[cfg(test)]
+#[path = "session_test.rs"]
+mod tests;

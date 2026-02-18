@@ -79,3 +79,153 @@ fn distinct_clients_do_not_interfere() {
     // Client B should still be able to make requests.
     assert!(rl.check_and_record_at(client_b, now).is_ok());
 }
+
+// =============================================================================
+// Default trait
+// =============================================================================
+
+#[test]
+fn default_creates_usable_limiter() {
+    let rl = RateLimiter::default();
+    let client = Uuid::new_v4();
+    assert!(rl.check_and_record(client).is_ok());
+}
+
+// =============================================================================
+// Exact boundary rejection
+// =============================================================================
+
+#[test]
+fn per_client_exact_boundary_rejects_at_limit() {
+    let rl = RateLimiter::new();
+    let client = Uuid::new_v4();
+    let now = Instant::now();
+
+    // Fill exactly to limit.
+    for _ in 0..DEFAULT_PER_CLIENT_LIMIT {
+        rl.check_and_record_at(client, now).unwrap();
+    }
+    // Request at exactly the limit count should fail.
+    let result = rl.check_and_record_at(client, now);
+    assert!(result.is_err());
+}
+
+#[test]
+fn global_exact_boundary_rejects_at_limit() {
+    let rl = RateLimiter::new();
+    let now = Instant::now();
+
+    for _ in 0..DEFAULT_GLOBAL_LIMIT {
+        rl.check_and_record_at(Uuid::new_v4(), now).unwrap();
+    }
+    let result = rl.check_and_record_at(Uuid::new_v4(), now);
+    assert!(result.is_err());
+}
+
+#[test]
+fn token_budget_exact_boundary_rejects_at_limit() {
+    let rl = RateLimiter::new();
+    let client = Uuid::new_v4();
+    let now = Instant::now();
+
+    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, now);
+    let result = rl.check_token_budget_at(client, now);
+    assert!(result.is_err());
+}
+
+// =============================================================================
+// Error Display messages
+// =============================================================================
+
+#[test]
+fn per_client_error_display() {
+    let err = RateLimitError::PerClientExceeded { limit: 10, window_secs: 60 };
+    let msg = err.to_string();
+    assert!(msg.contains("per-client"));
+    assert!(msg.contains("10"));
+    assert!(msg.contains("60"));
+}
+
+#[test]
+fn global_error_display() {
+    let err = RateLimitError::GlobalExceeded { limit: 20, window_secs: 60 };
+    let msg = err.to_string();
+    assert!(msg.contains("global"));
+    assert!(msg.contains("20"));
+}
+
+#[test]
+fn token_budget_error_display() {
+    let err = RateLimitError::TokenBudgetExceeded { budget: 50_000, window_secs: 3600 };
+    let msg = err.to_string();
+    assert!(msg.contains("token budget"));
+    assert!(msg.contains("50000"));
+}
+
+// =============================================================================
+// Zero tokens budget check passes
+// =============================================================================
+
+#[test]
+fn zero_tokens_recorded_budget_ok() {
+    let rl = RateLimiter::new();
+    let client = Uuid::new_v4();
+    let now = Instant::now();
+
+    rl.record_tokens_at(client, 0, now);
+    assert!(rl.check_token_budget_at(client, now).is_ok());
+}
+
+// =============================================================================
+// N distinct clients exhaust global
+// =============================================================================
+
+#[test]
+fn many_distinct_clients_exhaust_global() {
+    let rl = RateLimiter::new();
+    let now = Instant::now();
+
+    // Each distinct client uses 1 request.
+    for _ in 0..DEFAULT_GLOBAL_LIMIT {
+        rl.check_and_record_at(Uuid::new_v4(), now).unwrap();
+    }
+    // Next distinct client should be rejected by global limit.
+    let result = rl.check_and_record_at(Uuid::new_v4(), now);
+    assert!(matches!(result, Err(RateLimitError::GlobalExceeded { .. })));
+}
+
+// =============================================================================
+// Token window expiry
+// =============================================================================
+
+#[test]
+fn token_window_expiry_allows_new_usage() {
+    let rl = RateLimiter::new();
+    let client = Uuid::new_v4();
+    let start = Instant::now();
+
+    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, start);
+    assert!(rl.check_token_budget_at(client, start).is_err());
+
+    // After the token window passes, budget should reset.
+    let after_window = start + Duration::from_secs(DEFAULT_TOKEN_WINDOW_SECS) + Duration::from_millis(1);
+    assert!(rl.check_token_budget_at(client, after_window).is_ok());
+}
+
+// =============================================================================
+// Global window expiry
+// =============================================================================
+
+#[test]
+fn global_window_expiry_allows_new_requests() {
+    let rl = RateLimiter::new();
+    let start = Instant::now();
+
+    for _ in 0..DEFAULT_GLOBAL_LIMIT {
+        rl.check_and_record_at(Uuid::new_v4(), start).unwrap();
+    }
+    assert!(rl.check_and_record_at(Uuid::new_v4(), start).is_err());
+
+    let after_window = start + Duration::from_secs(DEFAULT_GLOBAL_WINDOW_SECS) + Duration::from_millis(1);
+    assert!(rl.check_and_record_at(Uuid::new_v4(), after_window).is_ok());
+}

@@ -13,7 +13,7 @@ use crate::state::AppState;
 const COOKIE_NAME: &str = "session_token";
 const OAUTH_STATE_COOKIE_NAME: &str = "oauth_state";
 
-fn env_bool(key: &str) -> Option<bool> {
+pub(crate) fn env_bool(key: &str) -> Option<bool> {
     std::env::var(key)
         .ok()
         .and_then(|raw| match raw.trim().to_ascii_lowercase().as_str() {
@@ -23,7 +23,7 @@ fn env_bool(key: &str) -> Option<bool> {
         })
 }
 
-fn cookie_secure() -> bool {
+pub(crate) fn cookie_secure() -> bool {
     if let Some(value) = env_bool("COOKIE_SECURE") {
         return value;
     }
@@ -201,3 +201,7 @@ pub async fn ws_ticket(State(state): State<AppState>, auth: AuthUser) -> Result<
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(serde_json::json!({ "ticket": ticket })))
 }
+
+#[cfg(test)]
+#[path = "auth_test.rs"]
+mod tests;

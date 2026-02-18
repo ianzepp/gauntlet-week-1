@@ -126,3 +126,7 @@ pub async fn upsert_user(pool: &PgPool, gh: &GitHubUser) -> Result<Uuid, AuthErr
     .await?;
     Ok(row.get("id"))
 }
+
+#[cfg(test)]
+#[path = "auth_test.rs"]
+mod tests;

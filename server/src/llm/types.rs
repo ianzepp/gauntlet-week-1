@@ -136,3 +136,7 @@ pub trait LlmChat: Send + Sync {
         tools: Option<&[Tool]>,
     ) -> Result<ChatResponse, LlmError>;
 }
+
+#[cfg(test)]
+#[path = "types_test.rs"]
+mod tests;
