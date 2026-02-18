@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_params_map;
 
+use crate::components::left_panel::LeftPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
 use crate::state::auth::AuthState;
@@ -45,7 +46,9 @@ pub fn BoardPage() -> impl IntoView {
             <div class="board-page__toolbar">
                 <Toolbar/>
             </div>
-            <div class="board-page__left-panel">"Left Panel"</div>
+            <div class="board-page__left-panel">
+                <LeftPanel/>
+            </div>
             <div class="board-page__canvas">
                 {move || {
                     let id = board_id().unwrap_or_default();
