@@ -7,6 +7,18 @@
 - State is passed as parameters, not hidden behind struct internals or globals. Functions should be pure where possible so tests can construct exact inputs.
 - Tests should be exhaustive: cover happy paths, edge cases, boundary conditions, and error cases.
 
+## Safety Rules
+
+- No panic-capable code in non-test code. No `.unwrap()`, `.expect()`, `panic!()`, or `todo!()` in library/production code.
+- Use `Result`, `Option` combinators, or safe defaults instead.
+- `todo!()` stubs are only acceptable as temporary placeholders that must be replaced before the module is considered implemented.
+- Test code may use `.unwrap()` freely.
+
+## Workflow Rules
+
+- After completing any feature or scope of work, always run in order: `cargo fmt`, `cargo clippy`, `cargo test`, then auto-commit the changes.
+- Do not ask for permission to commit — just do it after passing all checks.
+
 ## Code Conventions
 
 - Workspace layout: root `Cargo.toml` with members `server` and `canvas`.

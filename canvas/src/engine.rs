@@ -13,9 +13,19 @@ mod engine_test;
 pub enum Action {
     None,
     ObjectCreated(BoardObject),
-    ObjectUpdated { id: ObjectId, fields: PartialBoardObject },
-    ObjectDeleted { id: ObjectId },
-    EditTextRequested { id: ObjectId, head: String, text: String, foot: String },
+    ObjectUpdated {
+        id: ObjectId,
+        fields: PartialBoardObject,
+    },
+    ObjectDeleted {
+        id: ObjectId,
+    },
+    EditTextRequested {
+        id: ObjectId,
+        head: String,
+        text: String,
+        foot: String,
+    },
     SetCursor(String),
     RenderNeeded,
 }
@@ -122,8 +132,7 @@ impl EngineCore {
 
 /// The full canvas engine. Wraps `EngineCore` and owns the browser canvas element.
 pub struct Engine {
-    #[allow(dead_code)]
-    canvas: HtmlCanvasElement,
+    _canvas: HtmlCanvasElement,
     pub core: EngineCore,
 }
 
@@ -131,7 +140,7 @@ impl Engine {
     /// Create a new engine bound to the given canvas element.
     #[must_use]
     pub fn new(canvas: HtmlCanvasElement) -> Self {
-        Self { canvas, core: EngineCore::new() }
+        Self { _canvas: canvas, core: EngineCore::new() }
     }
 
     // --- Delegated data inputs ---

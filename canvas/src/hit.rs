@@ -46,11 +46,6 @@ pub struct Hit {
 ///
 /// Not yet implemented.
 #[must_use]
-pub fn hit_test(
-    _world_pt: Point,
-    _doc: &DocStore,
-    _camera: &Camera,
-    _selected_id: Option<ObjectId>,
-) -> Option<Hit> {
+pub fn hit_test(_world_pt: Point, _doc: &DocStore, _camera: &Camera, _selected_id: Option<ObjectId>) -> Option<Hit> {
     todo!()
 }

@@ -37,19 +37,13 @@ impl Camera {
     /// Convert a screen-space point (CSS pixels) to world coordinates.
     #[must_use]
     pub fn screen_to_world(&self, screen: Point) -> Point {
-        Point {
-            x: (screen.x - self.pan_x) / self.zoom,
-            y: (screen.y - self.pan_y) / self.zoom,
-        }
+        Point { x: (screen.x - self.pan_x) / self.zoom, y: (screen.y - self.pan_y) / self.zoom }
     }
 
     /// Convert a world-space point to screen coordinates (CSS pixels).
     #[must_use]
     pub fn world_to_screen(&self, world: Point) -> Point {
-        Point {
-            x: world.x * self.zoom + self.pan_x,
-            y: world.y * self.zoom + self.pan_y,
-        }
+        Point { x: world.x * self.zoom + self.pan_x, y: world.y * self.zoom + self.pan_y }
     }
 
     /// Convert a screen-space distance (pixels) to world-space distance.

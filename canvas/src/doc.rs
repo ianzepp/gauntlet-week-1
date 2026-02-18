@@ -73,32 +73,50 @@ impl<'a> Props<'a> {
 
     #[must_use]
     pub fn fill(&self) -> &str {
-        self.value.get("fill").and_then(|v| v.as_str()).unwrap_or("#D94B4B")
+        self.value
+            .get("fill")
+            .and_then(|v| v.as_str())
+            .unwrap_or("#D94B4B")
     }
 
     #[must_use]
     pub fn stroke(&self) -> &str {
-        self.value.get("stroke").and_then(|v| v.as_str()).unwrap_or("#1F1A17")
+        self.value
+            .get("stroke")
+            .and_then(|v| v.as_str())
+            .unwrap_or("#1F1A17")
     }
 
     #[must_use]
     pub fn stroke_width(&self) -> f64 {
-        self.value.get("stroke_width").and_then(serde_json::Value::as_f64).unwrap_or(1.0)
+        self.value
+            .get("stroke_width")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(1.0)
     }
 
     #[must_use]
     pub fn head(&self) -> &str {
-        self.value.get("head").and_then(|v| v.as_str()).unwrap_or("")
+        self.value
+            .get("head")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
     }
 
     #[must_use]
     pub fn text(&self) -> &str {
-        self.value.get("text").and_then(|v| v.as_str()).unwrap_or("")
+        self.value
+            .get("text")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
     }
 
     #[must_use]
     pub fn foot(&self) -> &str {
-        self.value.get("foot").and_then(|v| v.as_str()).unwrap_or("")
+        self.value
+            .get("foot")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
     }
 }
 

@@ -417,10 +417,10 @@ fn apply_partial_props_adds_new_key() {
     let id = obj.id;
     store.insert(obj);
 
-    store.apply_partial(&id, &PartialBoardObject {
-        props: Some(json!({"stroke": "#000000"})),
-        ..Default::default()
-    });
+    store.apply_partial(
+        &id,
+        &PartialBoardObject { props: Some(json!({"stroke": "#000000"})), ..Default::default() },
+    );
     let updated = store.get(&id).unwrap();
     assert_eq!(updated.props["fill"], "#FF0000"); // preserved
     assert_eq!(updated.props["stroke"], "#000000"); // added
@@ -434,10 +434,10 @@ fn apply_partial_props_updates_existing_key() {
     let id = obj.id;
     store.insert(obj);
 
-    store.apply_partial(&id, &PartialBoardObject {
-        props: Some(json!({"fill": "#00FF00"})),
-        ..Default::default()
-    });
+    store.apply_partial(
+        &id,
+        &PartialBoardObject { props: Some(json!({"fill": "#00FF00"})), ..Default::default() },
+    );
     assert_eq!(store.get(&id).unwrap().props["fill"], "#00FF00");
 }
 
@@ -449,10 +449,10 @@ fn apply_partial_props_null_removes_key() {
     let id = obj.id;
     store.insert(obj);
 
-    store.apply_partial(&id, &PartialBoardObject {
-        props: Some(json!({"stroke": null})),
-        ..Default::default()
-    });
+    store.apply_partial(
+        &id,
+        &PartialBoardObject { props: Some(json!({"stroke": null})), ..Default::default() },
+    );
     let updated = store.get(&id).unwrap();
     assert_eq!(updated.props["fill"], "#FF0000");
     assert!(updated.props.get("stroke").is_none());
@@ -466,14 +466,17 @@ fn apply_partial_props_multiple_ops_at_once() {
     let id = obj.id;
     store.insert(obj);
 
-    store.apply_partial(&id, &PartialBoardObject {
-        props: Some(json!({
-            "fill": "#00FF00",       // update
-            "stroke": null,          // remove
-            "text": "new"            // add
-        })),
-        ..Default::default()
-    });
+    store.apply_partial(
+        &id,
+        &PartialBoardObject {
+            props: Some(json!({
+                "fill": "#00FF00",       // update
+                "stroke": null,          // remove
+                "text": "new"            // add
+            })),
+            ..Default::default()
+        },
+    );
     let p = &store.get(&id).unwrap().props;
     assert_eq!(p["fill"], "#00FF00");
     assert!(p.get("stroke").is_none());

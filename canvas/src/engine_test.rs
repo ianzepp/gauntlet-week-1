@@ -215,7 +215,15 @@ fn core_set_tool_changes_tool() {
 #[test]
 fn core_set_tool_all_variants() {
     let mut core = EngineCore::new();
-    let tools = [Tool::Select, Tool::Rect, Tool::Ellipse, Tool::Diamond, Tool::Star, Tool::Line, Tool::Arrow];
+    let tools = [
+        Tool::Select,
+        Tool::Rect,
+        Tool::Ellipse,
+        Tool::Diamond,
+        Tool::Star,
+        Tool::Line,
+        Tool::Arrow,
+    ];
     for tool in tools {
         core.set_tool(tool);
         assert_eq!(core.ui.tool, tool);

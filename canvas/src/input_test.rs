@@ -32,7 +32,15 @@ fn tool_debug_format() {
 
 #[test]
 fn tool_all_variants_distinct() {
-    let variants = [Tool::Select, Tool::Rect, Tool::Ellipse, Tool::Diamond, Tool::Star, Tool::Line, Tool::Arrow];
+    let variants = [
+        Tool::Select,
+        Tool::Rect,
+        Tool::Ellipse,
+        Tool::Diamond,
+        Tool::Star,
+        Tool::Line,
+        Tool::Arrow,
+    ];
     for (i, a) in variants.iter().enumerate() {
         for (j, b) in variants.iter().enumerate() {
             if i == j {
