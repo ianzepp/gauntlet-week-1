@@ -123,8 +123,16 @@ pub fn ToolRail() -> impl IntoView {
 
             {move || {
                 open_strip.get().map(|tool| {
+                    let left_px = if ui.get().left_panel_expanded {
+                        212
+                    } else {
+                        52
+                    };
                     view! {
-                        <div class="left-panel__strip-anchor" style:top=move || format!("{}px", strip_top.get())>
+                        <div
+                            class="left-panel__strip-anchor"
+                            style=move || format!("top: {}px; left: {}px;", strip_top.get(), left_px)
+                        >
                             <ToolStrip tool_type=tool open_strip/>
                         </div>
                     }

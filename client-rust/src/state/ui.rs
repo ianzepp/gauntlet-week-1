@@ -21,9 +21,9 @@ impl Default for UiState {
         Self {
             dark_mode: false,
             active_tool: ToolType::Select,
-            left_panel_expanded: true,
+            left_panel_expanded: false,
             left_tab: LeftTab::Tools,
-            right_panel_expanded: true,
+            right_panel_expanded: false,
             right_tab: RightTab::Chat,
         }
     }

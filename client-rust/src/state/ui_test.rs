@@ -19,14 +19,14 @@ fn ui_state_default_tool_is_select() {
 #[test]
 fn ui_state_default_left_panel_expanded() {
     let state = UiState::default();
-    assert!(state.left_panel_expanded);
+    assert!(!state.left_panel_expanded);
     assert_eq!(state.left_tab, LeftTab::Tools);
 }
 
 #[test]
 fn ui_state_default_right_panel_expanded() {
     let state = UiState::default();
-    assert!(state.right_panel_expanded);
+    assert!(!state.right_panel_expanded);
     assert_eq!(state.right_tab, RightTab::Chat);
 }
 

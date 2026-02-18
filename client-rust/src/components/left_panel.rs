@@ -18,8 +18,6 @@ pub fn LeftPanel() -> impl IntoView {
 
     view! {
         <div class="left-panel">
-            <ToolRail/>
-
             <Show when=expanded>
                 <div class="left-panel__panel">
                     <div class="left-panel__header">
@@ -33,6 +31,8 @@ pub fn LeftPanel() -> impl IntoView {
                     </div>
                 </div>
             </Show>
+
+            <ToolRail/>
         </div>
     }
 }
