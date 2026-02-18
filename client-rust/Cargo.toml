@@ -27,6 +27,7 @@ gloo-timers = { version = "0.3", optional = true, features = ["futures"] }
 futures = { version = "0.3", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["Window", "Document", "HtmlElement", "Storage", "Location", "MediaQueryList"] }
 js-sys = { version = "0.3", optional = true }
+canvas = { path = "../canvas", optional = true }
 
 # SSR dependencies
 leptos_axum = { version = "0.8", optional = true }
@@ -44,6 +45,7 @@ hydrate = [
     "dep:futures",
     "dep:web-sys",
     "dep:js-sys",
+    "dep:canvas",
 ]
 ssr = [
     "leptos/ssr",
