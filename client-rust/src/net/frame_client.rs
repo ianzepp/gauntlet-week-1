@@ -354,7 +354,7 @@ fn send_board_join_for_active_board(tx: &futures::channel::mpsc::UnboundedSender
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
-        ts: 0.0,
+        ts: 0,
         board_id: Some(board_id),
         from: None,
         syscall: "board:join".to_owned(),
@@ -432,9 +432,9 @@ fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMes
 
     let timestamp = data
         .get("timestamp")
-        .and_then(|v| v.as_f64())
-        .or_else(|| data.get("ts").and_then(|v| v.as_f64()))
-        .unwrap_or(frame.ts);
+        .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
+        .or_else(|| data.get("ts").and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))))
+        .unwrap_or(frame.ts as f64);
 
     Some(ChatMessage { id, user_id, user_name, user_color, content, timestamp })
 }
@@ -454,8 +454,8 @@ fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
     }
     let timestamp = data
         .get("timestamp")
-        .and_then(|v| v.as_f64())
-        .or_else(|| data.get("ts").and_then(|v| v.as_f64()))
+        .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
+        .or_else(|| data.get("ts").and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))))
         .unwrap_or(0.0);
     let mutations = data.get("mutations").and_then(|v| v.as_i64());
 
@@ -482,7 +482,7 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
             "assistant".to_owned()
         },
         content: content.to_owned(),
-        timestamp: frame.ts,
+        timestamp: frame.ts as f64,
         mutations: frame.data.get("mutations").and_then(|v| v.as_i64()),
     })
 }

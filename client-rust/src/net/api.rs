@@ -152,7 +152,7 @@ async fn ws_roundtrip(syscall: &str, board_id: Option<String>, data: serde_json:
     let req = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
-        ts: 0.0,
+        ts: 0,
         board_id,
         from: None,
         syscall: syscall.to_owned(),

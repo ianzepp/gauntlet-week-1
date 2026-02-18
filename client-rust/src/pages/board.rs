@@ -43,7 +43,7 @@ pub fn BoardPage() -> impl IntoView {
             let frame = Frame {
                 id: uuid::Uuid::new_v4().to_string(),
                 parent_id: None,
-                ts: 0.0,
+                ts: 0,
                 board_id: Some(board_id),
                 from: None,
                 syscall: "board:join".to_owned(),
@@ -60,7 +60,7 @@ pub fn BoardPage() -> impl IntoView {
             let frame = Frame {
                 id: uuid::Uuid::new_v4().to_string(),
                 parent_id: None,
-                ts: 0.0,
+                ts: 0,
                 board_id: Some(board_id),
                 from: None,
                 syscall: "board:part".to_owned(),

@@ -8,7 +8,7 @@ fn make_frame() -> Frame {
     Frame {
         id: "f-1".to_owned(),
         parent_id: None,
-        ts: 1234.5,
+        ts: 1234,
         board_id: Some("b-1".to_owned()),
         from: Some("u-1".to_owned()),
         syscall: "object:create".to_owned(),
@@ -88,7 +88,7 @@ fn frame_with_all_optional_fields_none() {
     let frame = Frame {
         id: "f-2".to_owned(),
         parent_id: None,
-        ts: 0.0,
+        ts: 0,
         board_id: None,
         from: None,
         syscall: "session:connected".to_owned(),
@@ -105,7 +105,7 @@ fn frame_deserializes_from_json_object() {
     let json = r#"{
         "id": "f-3",
         "parent_id": "f-1",
-        "ts": 999.0,
+        "ts": 999,
         "board_id": "b-1",
         "from": "u-1",
         "syscall": "chat:send",

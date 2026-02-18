@@ -4,7 +4,7 @@
 //! ============
 //! Every communication in `CollabBoard` is a Frame. Clients send request frames
 //! over WebSocket, the server dispatches by syscall prefix, and responses flow
-//! back as item/done/error frames. Ported from Prior's kernel/src/frame.rs with
+//! back as done/error frames. Ported from Prior's kernel/src/frame.rs with
 //! `board_id` replacing room.
 //!
 //! DESIGN
@@ -45,13 +45,12 @@ pub type Data = HashMap<String, serde_json::Value>;
 
 /// Lifecycle position of a frame in a request/response stream.
 ///
-/// Every exchange is `request → item* → done` or `request → error`.
+/// Every exchange is `request → done` or `request → error`.
 /// No special cases, no "ok" shortcut.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Request,
-    Item,
     Done,
     Error,
     Cancel,
@@ -142,12 +141,6 @@ impl Frame {
             status: Status::Cancel,
             data: Data::new(),
         }
-    }
-
-    /// Create an item response carrying one result.
-    #[must_use]
-    pub fn item(&self, data: Data) -> Self {
-        self.reply(Status::Item, data)
     }
 
     /// Create a done response. Terminal, carries no data.

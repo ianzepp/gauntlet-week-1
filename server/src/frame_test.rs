@@ -14,12 +14,12 @@ fn request_sets_fields() {
 fn reply_inherits_context() {
     let board_id = Uuid::new_v4();
     let req = Frame::request("object:create", Data::new()).with_board_id(board_id);
-    let item = req.item(Data::new());
+    let done = req.done();
 
-    assert_eq!(item.parent_id, Some(req.id));
-    assert_eq!(item.board_id, Some(board_id));
-    assert_eq!(item.syscall, "object:create");
-    assert_eq!(item.status, Status::Item);
+    assert_eq!(done.parent_id, Some(req.id));
+    assert_eq!(done.board_id, Some(board_id));
+    assert_eq!(done.syscall, "object:create");
+    assert_eq!(done.status, Status::Done);
 }
 
 #[test]
@@ -28,7 +28,6 @@ fn done_is_terminal() {
     assert!(Status::Error.is_terminal());
     assert!(Status::Cancel.is_terminal());
     assert!(!Status::Request.is_terminal());
-    assert!(!Status::Item.is_terminal());
 }
 
 #[test]
@@ -286,7 +285,6 @@ fn error_from_retryable_error() {
 fn status_serde_all_variants() {
     for (status, expected) in [
         (Status::Request, "\"request\""),
-        (Status::Item, "\"item\""),
         (Status::Done, "\"done\""),
         (Status::Error, "\"error\""),
         (Status::Cancel, "\"cancel\""),

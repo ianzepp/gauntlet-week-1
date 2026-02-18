@@ -58,7 +58,7 @@ pub fn InspectorPanel() -> impl IntoView {
         let frame = Frame {
             id: uuid::Uuid::new_v4().to_string(),
             parent_id: None,
-            ts: 0.0,
+            ts: 0,
             board_id: Some(board_id),
             from: None,
             syscall: "object:update".to_owned(),
@@ -224,7 +224,7 @@ pub fn InspectorPanel() -> impl IntoView {
         let frame = Frame {
             id: uuid::Uuid::new_v4().to_string(),
             parent_id: None,
-            ts: 0.0,
+            ts: 0,
             board_id: Some(obj.board_id.clone()),
             from: None,
             syscall: "object:delete".to_owned(),

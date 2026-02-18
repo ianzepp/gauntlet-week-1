@@ -217,7 +217,7 @@ pub async fn handle_prompt(
         }
     }
 
-    // Guarantee the client always receives an item frame by synthesizing
+    // Guarantee the client always receives a response payload by synthesizing
     // fallback text when the LLM returned none (e.g. thinking-only or
     // mutations-only responses).
     if final_text.is_none() {

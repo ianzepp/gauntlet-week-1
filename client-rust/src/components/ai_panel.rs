@@ -30,7 +30,7 @@ pub fn AiPanel() -> impl IntoView {
         let frame = Frame {
             id: uuid::Uuid::new_v4().to_string(),
             parent_id: None,
-            ts: 0.0,
+            ts: 0,
             board_id: Some(board_id.clone()),
             from: None,
             syscall: "ai:history".to_owned(),
@@ -64,7 +64,7 @@ pub fn AiPanel() -> impl IntoView {
         let frame = Frame {
             id: uuid::Uuid::new_v4().to_string(),
             parent_id: None,
-            ts: 0.0,
+            ts: 0,
             board_id: board.get().board_id.clone(),
             from: None,
             syscall: "ai:prompt".to_owned(),

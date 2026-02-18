@@ -483,7 +483,7 @@ async fn handle_prompt_thinking_only_still_returns_text() {
     )
     .await
     .unwrap();
-    // The result should have SOME text so the client receives an item frame.
+    // The result should have SOME text so the client receives a response payload.
     assert!(
         result.text.is_some(),
         "thinking-only response must still produce text for the client"
@@ -533,7 +533,7 @@ async fn handle_prompt_mutations_only_returns_text() {
     .unwrap();
     assert_eq!(result.mutations.len(), 1);
     // Even with no explicit text from LLM, we must return some text so the
-    // client receives an item frame and clears the loading state.
+    // client receives a response payload and clears the loading state.
     assert!(
         result.text.is_some(),
         "mutations-only response must still produce text for the client"

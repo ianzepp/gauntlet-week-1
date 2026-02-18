@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct Frame {
     pub id: String,
     pub parent_id: Option<String>,
-    pub ts: f64,
+    pub ts: i64,
     pub board_id: Option<String>,
     pub from: Option<String>,
     pub syscall: String,

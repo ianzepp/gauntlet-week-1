@@ -85,7 +85,7 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
         let frame = Frame {
             id: uuid::Uuid::new_v4().to_string(),
             parent_id: None,
-            ts: 0.0,
+            ts: 0,
             board_id: Some(board_id),
             from: None,
             syscall: "object:create".to_owned(),
