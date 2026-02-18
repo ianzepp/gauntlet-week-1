@@ -508,10 +508,7 @@ fn apply_partial_props_non_object_patch_returns_false() {
     let id = obj.id;
     store.insert(obj);
 
-    assert!(!store.apply_partial(
-        &id,
-        &PartialBoardObject { props: Some(json!(42)), ..Default::default() },
-    ));
+    assert!(!store.apply_partial(&id, &PartialBoardObject { props: Some(json!(42)), ..Default::default() },));
 }
 
 // =============================================================
