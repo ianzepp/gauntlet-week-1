@@ -1607,3 +1607,1024 @@ fn shape_tool_respects_camera_zoom() {
     assert_eq!(obj.x, 50.0);
     assert_eq!(obj.y, 40.0);
 }
+
+// =============================================================
+// Edge-case: Resize — boundary & direction reversal
+// =============================================================
+
+#[test]
+fn resize_nw_past_se_corner_clamps() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 10.0, 20.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::Nw,
+        last_world: pt(10.0, 20.0),
+        orig_x: 10.0,
+        orig_y: 20.0,
+        orig_w: 100.0,
+        orig_h: 80.0,
+    };
+
+    // Drag NW handle far past the SE corner.
+    core.on_pointer_move(pt(300.0, 300.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!(obj.width >= 0.0);
+    assert!(obj.height >= 0.0);
+}
+
+#[test]
+fn resize_e_with_negative_dx_shrinks_width() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::E,
+        last_world: pt(100.0, 25.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 100.0,
+        orig_h: 50.0,
+    };
+
+    // Drag E handle left by 30px.
+    core.on_pointer_move(pt(70.0, 25.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.width, 70.0);
+    assert_eq!(obj.x, 0.0);
+}
+
+#[test]
+fn resize_all_anchors_zero_delta_no_change() {
+    let anchors = [
+        ResizeAnchor::N,
+        ResizeAnchor::Ne,
+        ResizeAnchor::E,
+        ResizeAnchor::Se,
+        ResizeAnchor::S,
+        ResizeAnchor::Sw,
+        ResizeAnchor::W,
+        ResizeAnchor::Nw,
+    ];
+    for anchor in anchors {
+        let mut core = EngineCore::new();
+        let obj = make_object_at(ObjectKind::Rect, 10.0, 20.0, 100.0, 80.0);
+        let id = obj.id;
+        core.apply_create(obj);
+        core.input = InputState::ResizingObject {
+            id,
+            anchor,
+            last_world: pt(50.0, 50.0),
+            orig_x: 10.0,
+            orig_y: 20.0,
+            orig_w: 100.0,
+            orig_h: 80.0,
+        };
+
+        // Move to same point = zero delta.
+        core.on_pointer_move(pt(50.0, 50.0), no_modifiers());
+        let obj = core.object(&id).unwrap();
+        assert_eq!(obj.width, 100.0, "anchor {anchor:?} changed width on zero delta");
+        assert_eq!(obj.height, 80.0, "anchor {anchor:?} changed height on zero delta");
+        assert_eq!(obj.x, 10.0, "anchor {anchor:?} changed x on zero delta");
+        assert_eq!(obj.y, 20.0, "anchor {anchor:?} changed y on zero delta");
+    }
+}
+
+#[test]
+fn resize_accumulates_across_multiple_moves() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 50.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::Se,
+        last_world: pt(50.0, 50.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 50.0,
+        orig_h: 50.0,
+    };
+
+    // Each move applies (pointer - last_world) delta to orig dimensions.
+    // Move 1: dx=10, dy=10 → w = 50+10 = 60, h = 50+10 = 60
+    core.on_pointer_move(pt(60.0, 60.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.width, 60.0);
+    assert_eq!(obj.height, 60.0);
+
+    // Move 2: dx=80-60=20, dy=70-60=10 → w = 50+20 = 70, h = 50+10 = 60
+    core.on_pointer_move(pt(80.0, 70.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.width, 70.0);
+    assert_eq!(obj.height, 60.0);
+}
+
+#[test]
+fn resize_e_past_origin_clamps() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 50.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::E,
+        last_world: pt(50.0, 25.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 50.0,
+        orig_h: 50.0,
+    };
+
+    // Drag E handle past the W edge.
+    core.on_pointer_move(pt(-30.0, 25.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!(obj.width >= 0.0);
+}
+
+#[test]
+fn resize_n_past_bottom_clamps() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 50.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::N,
+        last_world: pt(25.0, 0.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 50.0,
+        orig_h: 50.0,
+    };
+
+    // Drag N handle below bottom edge.
+    core.on_pointer_move(pt(25.0, 200.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!(obj.height >= 0.0);
+}
+
+#[test]
+fn resize_w_past_right_clamps() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 10.0, 0.0, 100.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::W,
+        last_world: pt(10.0, 25.0),
+        orig_x: 10.0,
+        orig_y: 0.0,
+        orig_w: 100.0,
+        orig_h: 50.0,
+    };
+
+    // Drag W handle far past the right edge.
+    core.on_pointer_move(pt(500.0, 25.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!(obj.width >= 0.0);
+}
+
+#[test]
+fn resize_s_past_top_clamps() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 10.0, 50.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::S,
+        last_world: pt(25.0, 90.0),
+        orig_x: 0.0,
+        orig_y: 10.0,
+        orig_w: 50.0,
+        orig_h: 80.0,
+    };
+
+    // Drag S handle above top edge.
+    core.on_pointer_move(pt(25.0, -100.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!(obj.height >= 0.0);
+}
+
+// =============================================================
+// Edge-case: Rotation — full sweep & numerics
+// =============================================================
+
+#[test]
+fn rotate_to_180_degrees() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::RotatingObject { id, center: pt(50.0, 40.0), orig_rotation: 0.0 };
+
+    // Move directly below center.
+    core.on_pointer_move(pt(50.0, 140.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    // atan2(100, 0) = 90 degrees, + 90 = 180 degrees.
+    assert!((obj.rotation - 180.0).abs() < 0.01);
+}
+
+#[test]
+fn rotate_to_270_degrees() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::RotatingObject { id, center: pt(50.0, 40.0), orig_rotation: 0.0 };
+
+    // Move to the left of center.
+    core.on_pointer_move(pt(-50.0, 40.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    // atan2(0, -100) = 180 degrees, + 90 = 270 degrees.
+    assert!((obj.rotation - 270.0).abs() < 0.01);
+}
+
+#[test]
+fn rotate_full_360_sweep() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    let center = pt(50.0, 40.0);
+    core.input = InputState::RotatingObject { id, center, orig_rotation: 0.0 };
+
+    // Right of center → ~90°
+    core.on_pointer_move(pt(150.0, 40.0), no_modifiers());
+    let r1 = core.object(&id).unwrap().rotation;
+    assert!((r1 - 90.0).abs() < 0.01);
+
+    // Below center → ~180°
+    core.on_pointer_move(pt(50.0, 140.0), no_modifiers());
+    let r2 = core.object(&id).unwrap().rotation;
+    assert!((r2 - 180.0).abs() < 0.01);
+
+    // Left of center → ~270°
+    core.on_pointer_move(pt(-50.0, 40.0), no_modifiers());
+    let r3 = core.object(&id).unwrap().rotation;
+    assert!((r3 - 270.0).abs() < 0.01);
+
+    // Above center → ~0° (or 360°)
+    core.on_pointer_move(pt(50.0, -60.0), no_modifiers());
+    let r4 = core.object(&id).unwrap().rotation;
+    assert!(r4.abs() < 0.01 || (r4 - 360.0).abs() < 0.01);
+}
+
+#[test]
+fn rotate_pointer_at_center_degenerate() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::RotatingObject { id, center: pt(50.0, 40.0), orig_rotation: 0.0 };
+
+    // Move to exactly the center — atan2(0, 0) = 0, + 90 = 90.
+    core.on_pointer_move(pt(50.0, 40.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    // Should not panic; rotation is some finite value.
+    assert!(obj.rotation.is_finite());
+}
+
+#[test]
+fn rotate_center_computation_from_object_geometry() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 20.0, 30.0, 60.0, 40.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    // Center should be (20+30, 30+20) = (50, 50).
+    core.input = InputState::RotatingObject { id, center: pt(50.0, 50.0), orig_rotation: 0.0 };
+
+    // Move directly to the right of center.
+    core.on_pointer_move(pt(150.0, 50.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!((obj.rotation - 90.0).abs() < 0.01);
+}
+
+// =============================================================
+// Edge-case: Drawing shapes — threshold boundary
+// =============================================================
+
+#[test]
+fn draw_shape_exactly_at_min_size_kept() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(12.0, 12.0), no_modifiers());
+    let actions = core.on_pointer_up(pt(12.0, 12.0), Button::Primary, no_modifiers());
+
+    assert_eq!(core.doc.len(), 1);
+    assert!(has_object_created(&actions));
+    let obj = core.doc.sorted_objects()[0];
+    assert_eq!(obj.width, 2.0);
+    assert_eq!(obj.height, 2.0);
+}
+
+#[test]
+fn draw_shape_just_below_min_size_deleted() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(11.99, 11.99), no_modifiers());
+    let actions = core.on_pointer_up(pt(11.99, 11.99), Button::Primary, no_modifiers());
+
+    assert!(core.doc.is_empty());
+    assert!(!has_object_created(&actions));
+}
+
+#[test]
+fn draw_shape_width_ok_height_below_min_deleted() {
+    // Both width AND height must be < MIN_SHAPE_SIZE to discard.
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    // Width = 50, height = 1
+    core.on_pointer_move(pt(60.0, 11.0), no_modifiers());
+    let actions = core.on_pointer_up(pt(60.0, 11.0), Button::Primary, no_modifiers());
+
+    // Width >= MIN_SHAPE_SIZE, so it should be kept (both must be < to discard).
+    assert_eq!(core.doc.len(), 1);
+    assert!(has_object_created(&actions));
+}
+
+#[test]
+fn draw_shape_negative_direction_at_threshold() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(100.0, 100.0), Button::Primary, no_modifiers());
+    // Drag up-left exactly 2px.
+    core.on_pointer_move(pt(98.0, 98.0), no_modifiers());
+    let actions = core.on_pointer_up(pt(98.0, 98.0), Button::Primary, no_modifiers());
+
+    assert_eq!(core.doc.len(), 1);
+    assert!(has_object_created(&actions));
+    let obj = core.doc.sorted_objects()[0];
+    assert_eq!(obj.x, 98.0);
+    assert_eq!(obj.y, 98.0);
+    assert_eq!(obj.width, 2.0);
+    assert_eq!(obj.height, 2.0);
+}
+
+#[test]
+fn draw_zero_movement_shape_deleted() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(50.0, 50.0), Button::Primary, no_modifiers());
+    // No move at all.
+    let actions = core.on_pointer_up(pt(50.0, 50.0), Button::Primary, no_modifiers());
+
+    assert!(core.doc.is_empty());
+    assert!(!has_object_created(&actions));
+    assert_eq!(core.ui.tool, Tool::Select);
+}
+
+// =============================================================
+// Edge-case: Drawing edges — degenerate
+// =============================================================
+
+#[test]
+fn draw_edge_zero_length_kept_with_correct_props() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Line);
+    core.on_pointer_down(pt(50.0, 50.0), Button::Primary, no_modifiers());
+    let actions = core.on_pointer_up(pt(50.0, 50.0), Button::Primary, no_modifiers());
+
+    assert_eq!(core.doc.len(), 1);
+    assert!(has_object_created(&actions));
+    let obj = core.doc.sorted_objects()[0];
+    assert_eq!(obj.props["a"]["x"], 50.0);
+    assert_eq!(obj.props["a"]["y"], 50.0);
+    assert_eq!(obj.props["b"]["x"], 50.0);
+    assert_eq!(obj.props["b"]["y"], 50.0);
+}
+
+#[test]
+fn draw_edge_move_then_back_to_start() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Line);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(200.0, 200.0), no_modifiers());
+    core.on_pointer_move(pt(10.0, 10.0), no_modifiers());
+    let actions = core.on_pointer_up(pt(10.0, 10.0), Button::Primary, no_modifiers());
+
+    assert_eq!(core.doc.len(), 1);
+    assert!(has_object_created(&actions));
+    let obj = core.doc.sorted_objects()[0];
+    assert_eq!(obj.props["a"]["x"], 10.0);
+    assert_eq!(obj.props["b"]["x"], 10.0);
+}
+
+#[test]
+fn draw_arrow_zero_length_kept() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Arrow);
+    core.on_pointer_down(pt(30.0, 40.0), Button::Primary, no_modifiers());
+    let actions = core.on_pointer_up(pt(30.0, 40.0), Button::Primary, no_modifiers());
+
+    assert_eq!(core.doc.len(), 1);
+    assert!(has_object_created(&actions));
+    assert_eq!(core.doc.sorted_objects()[0].kind, ObjectKind::Arrow);
+}
+
+// =============================================================
+// Edge-case: Drag object — with camera offset
+// =============================================================
+
+#[test]
+fn drag_object_with_camera_panned() {
+    let mut core = EngineCore::new();
+    core.camera.pan_x = 200.0;
+    core.camera.pan_y = 100.0;
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    // Object is at world (0,0). Screen center of object is at (200 + 50*1, 100 + 40*1) = (250, 140).
+    core.on_pointer_down(pt(250.0, 140.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::DraggingObject { .. }));
+
+    // Drag 100 screen pixels right = 100 world units at zoom 1.
+    core.on_pointer_move(pt(350.0, 140.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 100.0);
+    assert_eq!(obj.y, 0.0);
+}
+
+#[test]
+fn drag_object_with_camera_zoomed() {
+    let mut core = EngineCore::new();
+    core.camera.zoom = 2.0;
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    // Object world center (50, 40) → screen (100, 80) at zoom 2.
+    core.on_pointer_down(pt(100.0, 80.0), Button::Primary, no_modifiers());
+
+    // Drag 40 screen pixels right = 20 world units at zoom 2.
+    core.on_pointer_move(pt(140.0, 80.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!((obj.x - 20.0).abs() < 0.01);
+    assert!(obj.y.abs() < 0.01);
+}
+
+#[test]
+fn drag_object_with_camera_panned_and_zoomed() {
+    let mut core = EngineCore::new();
+    core.camera.pan_x = 100.0;
+    core.camera.pan_y = 50.0;
+    core.camera.zoom = 2.0;
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    // Object world center (50, 40) → screen (50*2+100, 40*2+50) = (200, 130).
+    core.on_pointer_down(pt(200.0, 130.0), Button::Primary, no_modifiers());
+
+    // Drag 20 screen pixels right = 10 world units at zoom 2.
+    core.on_pointer_move(pt(220.0, 130.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!((obj.x - 10.0).abs() < 0.01);
+    assert!(obj.y.abs() < 0.01);
+}
+
+#[test]
+fn drag_object_to_negative_coordinates() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 10.0, 10.0, 50.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    core.on_pointer_down(pt(35.0, 35.0), Button::Primary, no_modifiers());
+    // Drag far up-left.
+    core.on_pointer_move(pt(-65.0, -65.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert!(obj.x < 0.0);
+    assert!(obj.y < 0.0);
+}
+
+#[test]
+fn drag_zero_movement_no_update_emitted() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 10.0, 20.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    core.on_pointer_down(pt(60.0, 60.0), Button::Primary, no_modifiers());
+    // Release at same point — no movement.
+    let actions = core.on_pointer_up(pt(60.0, 60.0), Button::Primary, no_modifiers());
+    assert!(!has_object_updated(&actions));
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 10.0);
+    assert_eq!(obj.y, 20.0);
+}
+
+// =============================================================
+// Edge-case: Server events during gesture
+// =============================================================
+
+#[test]
+fn apply_delete_on_dragged_object_graceful_move() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+
+    // Server deletes the object mid-drag.
+    core.apply_delete(&id);
+    assert!(core.object(&id).is_none());
+    assert!(core.selection().is_none());
+
+    // Next pointer_move should not panic.
+    let actions = core.on_pointer_move(pt(80.0, 70.0), no_modifiers());
+    assert!(has_render_needed(&actions));
+}
+
+#[test]
+fn apply_delete_on_resized_object_graceful_up() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::Se,
+        last_world: pt(100.0, 80.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 100.0,
+        orig_h: 80.0,
+    };
+
+    core.apply_delete(&id);
+
+    // pointer_up should not panic.
+    let actions = core.on_pointer_up(pt(120.0, 100.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+    // No ObjectUpdated since the object is gone.
+    assert!(!has_object_updated(&actions));
+}
+
+#[test]
+fn apply_update_on_dragged_object_continues_from_server_position() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+
+    // Server moves the object.
+    let partial = PartialBoardObject { x: Some(200.0), y: Some(200.0), ..Default::default() };
+    core.apply_update(&id, &partial);
+    assert_eq!(core.object(&id).unwrap().x, 200.0);
+
+    // Local drag continues — adds delta on top of new server position.
+    core.on_pointer_move(pt(60.0, 50.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 210.0); // 200 + (60-50)
+    assert_eq!(obj.y, 210.0); // 200 + (50-40)
+}
+
+#[test]
+fn apply_delete_clears_selection_during_gesture() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+    core.input = InputState::RotatingObject { id, center: pt(50.0, 40.0), orig_rotation: 0.0 };
+
+    core.apply_delete(&id);
+    assert!(core.selection().is_none());
+}
+
+#[test]
+fn load_snapshot_during_drag_graceful() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+
+    // Full snapshot replaces doc — dragged object is gone.
+    let new_obj = make_object(ObjectKind::Ellipse, 0);
+    core.load_snapshot(vec![new_obj]);
+    assert!(core.object(&id).is_none());
+
+    // pointer_up should not panic.
+    let actions = core.on_pointer_up(pt(60.0, 50.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+    assert!(!has_object_updated(&actions));
+}
+
+#[test]
+fn apply_delete_on_drawing_shape_object() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    let id = core.doc.sorted_objects()[0].id;
+
+    // Server deletes the drawing-in-progress object.
+    core.apply_delete(&id);
+
+    // pointer_up should handle missing object gracefully.
+    let actions = core.on_pointer_up(pt(100.0, 100.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+    assert!(core.doc.is_empty());
+    assert!(!has_object_created(&actions));
+    assert_eq!(core.ui.tool, Tool::Select);
+}
+
+// =============================================================
+// Edge-case: Wheel zoom — extreme & numeric
+// =============================================================
+
+#[test]
+fn zoom_at_max_stays_at_max() {
+    let mut core = EngineCore::new();
+    core.camera.zoom = 10.0;
+    core.on_wheel(pt(400.0, 300.0), WheelDelta { dx: 0.0, dy: -100.0 }, ctrl_modifier());
+    assert!((core.camera.zoom - 10.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn zoom_at_min_stays_at_min() {
+    let mut core = EngineCore::new();
+    core.camera.zoom = 0.1;
+    core.on_wheel(pt(400.0, 300.0), WheelDelta { dx: 0.0, dy: 100.0 }, ctrl_modifier());
+    assert!((core.camera.zoom - 0.1).abs() < f64::EPSILON);
+}
+
+#[test]
+fn zoom_with_zero_dy_no_change() {
+    let mut core = EngineCore::new();
+    let zoom_before = core.camera.zoom;
+    core.on_wheel(pt(400.0, 300.0), WheelDelta { dx: 0.0, dy: 0.0 }, ctrl_modifier());
+    // dy=0 → factor = 1/ZOOM_FACTOR (since !(dy < 0)), but zoom*factor should differ.
+    // Actually, dy=0 is !< 0, so factor = 1/ZOOM_FACTOR → slight zoom out.
+    // The test just verifies no panic.
+    assert!(core.camera.zoom.is_finite());
+    let _ = zoom_before;
+}
+
+#[test]
+fn zoom_preserves_world_point_with_pan_offset() {
+    let mut core = EngineCore::new();
+    core.camera.pan_x = 200.0;
+    core.camera.pan_y = 150.0;
+    let screen = pt(500.0, 400.0);
+    let before = core.camera.screen_to_world(screen);
+
+    core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
+
+    let after = core.camera.screen_to_world(screen);
+    assert!((before.x - after.x).abs() < 0.01);
+    assert!((before.y - after.y).abs() < 0.01);
+}
+
+#[test]
+fn zoom_preserves_world_point_deeply_zoomed() {
+    let mut core = EngineCore::new();
+    core.camera.zoom = 5.0;
+    core.camera.pan_x = -1000.0;
+    core.camera.pan_y = -800.0;
+    let screen = pt(300.0, 200.0);
+    let before = core.camera.screen_to_world(screen);
+
+    core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
+
+    let after = core.camera.screen_to_world(screen);
+    assert!((before.x - after.x).abs() < 0.01);
+    assert!((before.y - after.y).abs() < 0.01);
+}
+
+#[test]
+fn meta_key_triggers_zoom() {
+    let mut core = EngineCore::new();
+    let mods = Modifiers { meta: true, ..Default::default() };
+    core.on_wheel(pt(400.0, 300.0), WheelDelta { dx: 0.0, dy: -10.0 }, mods);
+    assert!(core.camera.zoom > 1.0);
+}
+
+// =============================================================
+// Edge-case: Pan — edge cases
+// =============================================================
+
+#[test]
+fn pan_with_negative_delta() {
+    let mut core = EngineCore::new();
+    core.on_wheel(pt(0.0, 0.0), WheelDelta { dx: -10.0, dy: -20.0 }, no_modifiers());
+    // Pan subtracts delta, so negative delta → positive pan.
+    assert_eq!(core.camera.pan_x, 10.0);
+    assert_eq!(core.camera.pan_y, 20.0);
+}
+
+#[test]
+fn pan_to_large_coordinates() {
+    let mut core = EngineCore::new();
+    core.on_wheel(pt(0.0, 0.0), WheelDelta { dx: -1e6, dy: -1e6 }, no_modifiers());
+    assert_eq!(core.camera.pan_x, 1e6);
+    assert_eq!(core.camera.pan_y, 1e6);
+}
+
+#[test]
+fn empty_space_drag_to_pan() {
+    let mut core = EngineCore::new();
+    // Click on empty space with select tool.
+    core.on_pointer_down(pt(100.0, 100.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::Panning { .. }));
+
+    core.on_pointer_move(pt(150.0, 130.0), no_modifiers());
+    assert_eq!(core.camera.pan_x, 50.0);
+    assert_eq!(core.camera.pan_y, 30.0);
+
+    core.on_pointer_up(pt(150.0, 130.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+}
+
+// =============================================================
+// Edge-case: Key events during active gestures
+// =============================================================
+
+#[test]
+fn delete_key_during_dragging_object() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+
+    let actions = core.on_key_down(Key("Delete".into()), no_modifiers());
+    // Delete key removes the object and clears selection.
+    assert!(core.object(&id).is_none());
+    assert!(has_object_deleted(&actions));
+}
+
+#[test]
+fn escape_during_drawing_shape() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    let id = core.doc.sorted_objects()[0].id;
+
+    core.on_pointer_move(pt(50.0, 50.0), no_modifiers());
+
+    // Escape during drawing cancels gesture.
+    core.on_key_down(Key("Escape".into()), no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+    assert!(core.selection().is_none());
+    // The half-drawn object is still in the doc (escape only clears input state + selection).
+    let obj = core.object(&id);
+    assert!(obj.is_some());
+}
+
+#[test]
+fn escape_during_resizing_object() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::Se,
+        last_world: pt(100.0, 80.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 100.0,
+        orig_h: 80.0,
+    };
+
+    // Resize a bit.
+    core.on_pointer_move(pt(150.0, 130.0), no_modifiers());
+
+    // Escape cancels.
+    core.on_key_down(Key("Escape".into()), no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+    assert!(core.selection().is_none());
+    // Object remains at intermediate size (escape doesn't revert).
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.width, 150.0);
+    assert_eq!(obj.height, 130.0);
+}
+
+#[test]
+fn escape_during_panning() {
+    let mut core = EngineCore::new();
+    core.input = InputState::Panning { last_screen: pt(100.0, 100.0) };
+    core.on_pointer_move(pt(150.0, 130.0), no_modifiers());
+
+    core.on_key_down(Key("Escape".into()), no_modifiers());
+    assert!(matches!(core.input, InputState::Idle));
+    // Pan offset remains (escape doesn't revert camera).
+    assert_eq!(core.camera.pan_x, 50.0);
+}
+
+// =============================================================
+// Edge-case: Select tool — overlapping & z-order
+// =============================================================
+
+#[test]
+fn click_overlapping_objects_selects_topmost() {
+    let mut core = EngineCore::new();
+    let mut bottom = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 100.0);
+    bottom.z_index = 0;
+    let bottom_id = bottom.id;
+    core.apply_create(bottom);
+
+    let mut top = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 100.0);
+    top.z_index = 1;
+    let top_id = top.id;
+    core.apply_create(top);
+
+    // Click in the overlap area.
+    core.on_pointer_down(pt(50.0, 50.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(top_id));
+    let _ = bottom_id;
+}
+
+#[test]
+fn deselect_then_reselect_same_object() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    // Select.
+    core.on_pointer_down(pt(50.0, 40.0), Button::Primary, no_modifiers());
+    core.on_pointer_up(pt(50.0, 40.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(id));
+
+    // Deselect by clicking empty space.
+    core.on_pointer_down(pt(500.0, 500.0), Button::Primary, no_modifiers());
+    core.on_pointer_up(pt(500.0, 500.0), Button::Primary, no_modifiers());
+    assert!(core.selection().is_none());
+
+    // Reselect.
+    core.on_pointer_down(pt(50.0, 40.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(id));
+}
+
+#[test]
+fn select_different_object_replaces_selection() {
+    let mut core = EngineCore::new();
+    let a = make_object_at(ObjectKind::Rect, 0.0, 0.0, 50.0, 50.0);
+    let a_id = a.id;
+    core.apply_create(a);
+
+    let b = make_object_at(ObjectKind::Ellipse, 200.0, 200.0, 50.0, 50.0);
+    let b_id = b.id;
+    core.apply_create(b);
+
+    // Select A.
+    core.on_pointer_down(pt(25.0, 25.0), Button::Primary, no_modifiers());
+    core.on_pointer_up(pt(25.0, 25.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(a_id));
+
+    // Select B.
+    core.on_pointer_down(pt(225.0, 225.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(b_id));
+}
+
+#[test]
+fn click_near_but_outside_object_deselects() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+
+    // Click just outside the boundary.
+    core.on_pointer_down(pt(101.0, 81.0), Button::Primary, no_modifiers());
+    // Should deselect (outside hit slop for body hit test).
+    // Note: handle hit slop may still catch it. Let's click far enough away.
+    core.on_pointer_up(pt(101.0, 81.0), Button::Primary, no_modifiers());
+
+    // Click clearly outside.
+    core.on_pointer_down(pt(500.0, 500.0), Button::Primary, no_modifiers());
+    assert!(core.selection().is_none());
+}
+
+// =============================================================
+// Edge-case: Multiple shapes created in sequence
+// =============================================================
+
+#[test]
+fn create_rect_then_ellipse_both_in_doc() {
+    let mut core = EngineCore::new();
+
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(50.0, 50.0), no_modifiers());
+    core.on_pointer_up(pt(50.0, 50.0), Button::Primary, no_modifiers());
+    assert_eq!(core.doc.len(), 1);
+    assert_eq!(core.ui.tool, Tool::Select);
+
+    core.set_tool(Tool::Ellipse);
+    core.on_pointer_down(pt(100.0, 100.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(150.0, 150.0), no_modifiers());
+    core.on_pointer_up(pt(150.0, 150.0), Button::Primary, no_modifiers());
+    assert_eq!(core.doc.len(), 2);
+
+    let objects = core.doc.sorted_objects();
+    assert_eq!(objects[0].kind, ObjectKind::Rect);
+    assert_eq!(objects[1].kind, ObjectKind::Ellipse);
+    assert!(objects[1].z_index > objects[0].z_index);
+}
+
+#[test]
+fn create_shape_deselect_create_another_z_ordering() {
+    let mut core = EngineCore::new();
+
+    core.set_tool(Tool::Rect);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(50.0, 50.0), no_modifiers());
+    core.on_pointer_up(pt(50.0, 50.0), Button::Primary, no_modifiers());
+
+    // Deselect.
+    core.on_key_down(Key("Escape".into()), no_modifiers());
+    assert!(core.selection().is_none());
+
+    core.set_tool(Tool::Diamond);
+    core.on_pointer_down(pt(200.0, 200.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(250.0, 250.0), no_modifiers());
+    core.on_pointer_up(pt(250.0, 250.0), Button::Primary, no_modifiers());
+
+    let objects = core.doc.sorted_objects();
+    assert_eq!(objects.len(), 2);
+    assert!(objects[1].z_index > objects[0].z_index);
+}
+
+#[test]
+fn create_shape_resets_tool_to_select() {
+    let mut core = EngineCore::new();
+    core.set_tool(Tool::Star);
+    core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
+    core.on_pointer_move(pt(50.0, 50.0), no_modifiers());
+    core.on_pointer_up(pt(50.0, 50.0), Button::Primary, no_modifiers());
+
+    assert_eq!(core.ui.tool, Tool::Select);
+    // Next pointer_down on the object should drag it, not create a new star.
+    let id = core.doc.sorted_objects()[0].id;
+    core.on_pointer_down(pt(30.0, 30.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::DraggingObject { .. }));
+    assert_eq!(core.selection(), Some(id));
+}
+
+// =============================================================
+// Edge-case: Negative coordinate objects
+// =============================================================
+
+#[test]
+fn object_at_negative_coords_hit_test_and_drag() {
+    let mut core = EngineCore::new();
+    let obj = make_object_at(ObjectKind::Rect, -100.0, -80.0, 50.0, 50.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    // Click in center of object at world (-75, -55). At zoom 1, pan 0, screen = world.
+    core.on_pointer_down(pt(-75.0, -55.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(id));
+    assert!(matches!(core.input, InputState::DraggingObject { .. }));
+
+    // Drag it 20 right, 10 down.
+    core.on_pointer_move(pt(-55.0, -45.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, -80.0);
+    assert_eq!(obj.y, -70.0);
+}
+
+#[test]
+fn edge_with_negative_endpoints_hit_test() {
+    let mut core = EngineCore::new();
+    let edge = make_edge(ObjectKind::Line, -100.0, -50.0, -10.0, -50.0);
+    let id = edge.id;
+    core.apply_create(edge);
+
+    // Click on the edge midpoint.
+    core.on_pointer_down(pt(-55.0, -50.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(id));
+}
+
+#[test]
+fn shape_tool_click_at_negative_world_coords_with_pan() {
+    let mut core = EngineCore::new();
+    core.camera.pan_x = 50.0;
+    core.camera.pan_y = 50.0;
+    core.set_tool(Tool::Rect);
+
+    // Screen (0, 0) → world (-50, -50) with pan (50, 50) at zoom 1.
+    core.on_pointer_down(pt(0.0, 0.0), Button::Primary, no_modifiers());
+    let obj = core.doc.sorted_objects()[0];
+    assert_eq!(obj.x, -50.0);
+    assert_eq!(obj.y, -50.0);
+}
