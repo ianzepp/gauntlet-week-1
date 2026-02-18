@@ -9,7 +9,8 @@ use leptos_router::{
 
 use crate::pages::{board::BoardPage, dashboard::DashboardPage, login::LoginPage};
 use crate::state::{
-    ai::AiState, auth::AuthState, board::BoardState, boards::BoardsState, chat::ChatState, ui::UiState,
+    ai::AiState, auth::AuthState, board::BoardState, boards::BoardsState, canvas_view::CanvasViewState,
+    chat::ChatState, ui::UiState,
 };
 
 /// Wrapper around the frame client sender, provided as Leptos context.
@@ -69,6 +70,7 @@ pub fn App() -> impl IntoView {
     let ui = RwSignal::new(UiState::default());
     let chat = RwSignal::new(ChatState::default());
     let ai = RwSignal::new(AiState::default());
+    let canvas_view = RwSignal::new(CanvasViewState::default());
     let frame_sender = RwSignal::new(FrameSender::default());
 
     provide_context(auth);
@@ -77,6 +79,7 @@ pub fn App() -> impl IntoView {
     provide_context(ui);
     provide_context(chat);
     provide_context(ai);
+    provide_context(canvas_view);
     provide_context(frame_sender);
 
     // Client-side initialization: fetch user and spawn frame client.

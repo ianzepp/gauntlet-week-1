@@ -2,14 +2,17 @@
 
 use leptos::prelude::*;
 
+use crate::net::types::Point;
 use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
+use crate::state::canvas_view::CanvasViewState;
 
 /// Status bar at the bottom of the board page.
 #[component]
 pub fn StatusBar() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
+    let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
 
     let status_class = move || {
         let status = board.get().connection_status;
@@ -22,6 +25,9 @@ pub fn StatusBar() -> impl IntoView {
 
     let object_count = move || board.get().objects.len();
     let board_name = move || board.get().board_name.unwrap_or_default();
+    let cursor = move || canvas_view.get().cursor_world;
+    let viewport_center = move || canvas_view.get().viewport_center_world.clone();
+    let zoom = move || canvas_view.get().zoom;
 
     let user = move || auth.get().user;
 
@@ -40,10 +46,10 @@ pub fn StatusBar() -> impl IntoView {
             </div>
 
             <div class="status-bar__section">
-                <span class="status-bar__item">"(0, 0)"</span>
+                <span class="status-bar__item">{move || format_cursor(cursor())}</span>
 
                 <span class="status-bar__divider"></span>
-                <span class="status-bar__item">"(0, 0)"</span>
+                <span class="status-bar__item">{move || format_point(viewport_center())}</span>
 
                 <span class="status-bar__divider"></span>
                 <Show when=move || user().is_some()>
@@ -54,8 +60,26 @@ pub fn StatusBar() -> impl IntoView {
                     <span class="status-bar__divider"></span>
                 </Show>
 
-                <span class="status-bar__item">"100%"</span>
+                <span class="status-bar__item">{move || format_zoom(zoom())}</span>
             </div>
         </div>
     }
+}
+
+fn format_cursor(point: Option<Point>) -> String {
+    point
+        .map(format_point)
+        .unwrap_or_else(|| "(-, -)".to_owned())
+}
+
+fn format_point(point: Point) -> String {
+    format!("({}, {})", round_coord(point.x), round_coord(point.y))
+}
+
+fn format_zoom(zoom: f64) -> String {
+    format!("{}%", (zoom * 100.0).round() as i64)
+}
+
+fn round_coord(value: f64) -> i64 {
+    value.round() as i64
 }

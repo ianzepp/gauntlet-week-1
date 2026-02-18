@@ -4,8 +4,9 @@ use leptos::prelude::*;
 
 use crate::app::FrameSender;
 #[cfg(feature = "hydrate")]
-use crate::net::types::{BoardObject, Frame, FrameStatus};
+use crate::net::types::{BoardObject, Frame, FrameStatus, Point as WirePoint};
 use crate::state::board::BoardState;
+use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
 use crate::state::ui::ToolType;
 use crate::state::ui::UiState;
@@ -16,7 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[cfg(feature = "hydrate")]
-use canvas::camera::Point;
+use canvas::camera::Point as CanvasPoint;
 #[cfg(feature = "hydrate")]
 use canvas::doc::{BoardObject as CanvasObject, ObjectKind as CanvasKind};
 #[cfg(feature = "hydrate")]
@@ -33,6 +34,7 @@ use canvas::input::{
 #[component]
 pub fn CanvasHost() -> impl IntoView {
     let _board = expect_context::<RwSignal<BoardState>>();
+    let _canvas_view = expect_context::<RwSignal<CanvasViewState>>();
     let _sender = expect_context::<RwSignal<FrameSender>>();
     let _ui = expect_context::<RwSignal<UiState>>();
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
@@ -56,6 +58,7 @@ pub fn CanvasHost() -> impl IntoView {
             let mut instance = Engine::new(canvas);
             sync_viewport(&mut instance, &canvas_ref_mount);
             center_world_origin(&mut instance);
+            sync_canvas_view_state(&instance, _canvas_view, None);
             let _ = instance.render();
             *engine.borrow_mut() = Some(instance);
         });
@@ -84,6 +87,7 @@ pub fn CanvasHost() -> impl IntoView {
                     center_world_origin(engine);
                     last_centered_board.set(board_id.clone());
                 }
+                sync_canvas_view_state(engine, _canvas_view, None);
                 let _ = engine.render();
             }
         });
@@ -107,6 +111,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_down(point, button, modifiers);
                     process_actions(actions, engine, _board, _sender);
+                    sync_canvas_view_state(engine, _canvas_view, Some(point));
                     let _ = engine.render();
                 }
             }
@@ -129,6 +134,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_move(point, modifiers);
                     process_actions(actions, engine, _board, _sender);
+                    sync_canvas_view_state(engine, _canvas_view, Some(point));
                     let _ = engine.render();
                 }
             }
@@ -156,6 +162,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let actions = engine.on_pointer_up(point, button, modifiers);
                     process_actions(actions, engine, _board, _sender);
                     sync_selection_from_engine(engine, _board);
+                    sync_canvas_view_state(engine, _canvas_view, Some(point));
                     let _ = engine.render();
                 }
             }
@@ -180,6 +187,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_wheel(point, delta, modifiers);
                     process_actions(actions, engine, _board, _sender);
+                    sync_canvas_view_state(engine, _canvas_view, Some(point));
                     let _ = engine.render();
                 }
             }
@@ -187,6 +195,22 @@ pub fn CanvasHost() -> impl IntoView {
         #[cfg(not(feature = "hydrate"))]
         {
             move |_ev: leptos::ev::WheelEvent| {}
+        }
+    };
+
+    let on_pointer_leave = {
+        #[cfg(feature = "hydrate")]
+        {
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::PointerEvent| {
+                if let Some(engine) = engine.borrow().as_ref() {
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
         }
     };
 
@@ -206,6 +230,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let actions = engine.on_key_down(CanvasKey(key), modifiers);
                     process_actions(actions, engine, _board, _sender);
                     sync_selection_from_engine(engine, _board);
+                    sync_canvas_view_state(engine, _canvas_view, None);
                     let _ = engine.render();
                 }
             }
@@ -224,6 +249,7 @@ pub fn CanvasHost() -> impl IntoView {
             on:pointerdown=on_pointer_down
             on:pointermove=on_pointer_move
             on:pointerup=on_pointer_up
+            on:pointerleave=on_pointer_leave
             on:wheel=on_wheel
             on:keydown=on_key_down
         >
@@ -283,13 +309,13 @@ fn should_prevent_default_key(key: &str) -> bool {
 }
 
 #[cfg(feature = "hydrate")]
-fn pointer_point(ev: &leptos::ev::PointerEvent) -> Point {
-    Point::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
+fn pointer_point(ev: &leptos::ev::PointerEvent) -> CanvasPoint {
+    CanvasPoint::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
 }
 
 #[cfg(feature = "hydrate")]
-fn wheel_point(ev: &leptos::ev::WheelEvent) -> Point {
-    Point::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
+fn wheel_point(ev: &leptos::ev::WheelEvent) -> CanvasPoint {
+    CanvasPoint::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
 }
 
 #[cfg(feature = "hydrate")]
@@ -305,6 +331,20 @@ fn sync_selection_from_engine(engine: &Engine, board: RwSignal<BoardState>) {
         {
             b.selection.insert(id);
         }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState>, cursor_screen: Option<CanvasPoint>) {
+    let camera = engine.camera();
+    let viewport_center_screen = CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5);
+    let viewport_center_world = camera.screen_to_world(viewport_center_screen);
+    let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p));
+
+    canvas_view.update(|v| {
+        v.cursor_world = cursor_world.map(|p| WirePoint { x: p.x, y: p.y });
+        v.viewport_center_world = WirePoint { x: viewport_center_world.x, y: viewport_center_world.y };
+        v.zoom = camera.zoom;
     });
 }
 
