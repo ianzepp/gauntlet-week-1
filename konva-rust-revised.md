@@ -464,3 +464,63 @@ This order is intentionally chosen to flush out coordinate and interaction bugs 
 8. Add canvas text rendering (head/text/foot via `fillText`) + Leptos edit overlay + commit to server.
 9. Safari checks and polish.
 
+---
+
+## Implementation Status
+
+_Last updated after input state machine edge-case hardening._
+
+### Module Status
+
+| Module   | Status         | Tests | Notes |
+|----------|----------------|-------|-------|
+| `doc`    | **Done**       | Yes   | `BoardObject`, `ObjectKind`, `DocStore`, `Props`, `PartialBoardObject` all implemented and tested. |
+| `camera` | **Done**       | Yes   | `Point`, `Camera`, `screen_to_world`, `world_to_screen`, `screen_dist_to_world`. |
+| `consts` | **Done**       | —     | Shared numeric constants extracted into `consts.rs`. |
+| `hit`    | **Done**       | Yes   | All geometry primitives, composite `hit_test()`, resize/rotate handle positions. 99 geometry tests. |
+| `input`  | **Done**       | Yes   | `Tool`, `Modifiers`, `Button`, `Key`, `WheelDelta`, `UiState`, `InputState` (all variants). |
+| `engine` | **Logic done, render stub** | Yes | `EngineCore` has full input handling, server event APIs, queries. 360+ tests including edge-case hardening. `Engine` wraps `EngineCore` + `HtmlCanvasElement`; `Engine::render()` is `todo!()`. |
+| `render` | **Stub**       | No    | `draw()` signature exists, body is `todo!()`. |
+
+### What Is Implemented (Matches Design)
+
+- **Wire types**: `BoardObject` with all canonical fields, serde roundtrip, lowercase kind names on wire.
+- **Doc store**: `HashMap<ObjectId, BoardObject>` with insert, remove, `apply_partial` (shallow merge on props), `load_snapshot`, `sorted_objects` by `(z_index, id)`.
+- **Camera**: pan/zoom in CSS pixels, `screen_to_world`/`world_to_screen` conversions.
+- **Hit testing**: All v0 algorithms implemented — rect/ellipse/diamond/star body tests in local space (inverse-rotate pointer), edge body via distance-to-segment, edge endpoints via point-near-point, resize handles (8 anchors), rotate handle. Composite `hit_test()` checks selected object handles first, then all objects in reverse draw order.
+- **Input state machine**: All v0 tools and states — Select (hit-test → drag/resize/rotate/edge-endpoint-drag/pan), shape tools (Rect/Ellipse/Diamond/Star create node), edge tools (Line/Arrow create edge), pan (middle button or empty-space drag), wheel pan/zoom with ctrl/meta modifier. Escape cancels gestures, Delete/Backspace removes selected object.
+- **Action emission**: `ObjectCreated` on drawing completion, `ObjectUpdated` on gesture end (drag/resize/rotate/edge-endpoint), `ObjectDeleted` on delete key, `SetCursor` on pan start, `RenderNeeded` on visual state changes.
+- **Input commit policy**: Local updates on every pointermove, `ObjectUpdated` emitted on pointerup (gesture end) — matches design.
+- **Public API boundary**: `Engine` delegates all methods to `EngineCore`. All designed Host→Crate inputs are implemented. All Crate→Host queries are implemented.
+- **Props schema**: `fill`, `stroke`, `stroke_width`, `head`, `text`, `foot` all supported. Edge endpoints use `{ type: "free", x, y }` format.
+- **Coordinate system**: All persisted geometry in world coordinates. Camera converts world↔screen correctly.
+- **Constants**: `MIN_SHAPE_SIZE` (2.0), `ZOOM_FACTOR` (1.1), `ZOOM_MIN` (0.1), `ZOOM_MAX` (10.0), `HANDLE_RADIUS_PX` (8.0), `ROTATE_HANDLE_OFFSET_PX` (24.0), `STAR_INNER_RATIO` (0.5).
+
+### What Is Stubbed
+
+- **`render::draw()`**: Signature matches design (`ctx, &doc, &camera, &ui_state`), body is `todo!()`. No grid, shape, edge, selection UI, or text rendering yet.
+- **`Engine::render()`**: Calls `draw()` which is `todo!()`.
+- **Canvas sizing**: `set_viewport` stores `width_css`, `height_css`, `dpr` but no canvas backing store resize or `ctx.setTransform(dpr, ...)` yet (that lives in render).
+- **Text rendering**: `set_text` writes to props and emits `ObjectUpdated`, but no `fillText` rendering on canvas.
+- **`EditTextRequested` action**: Defined in `Action` enum but never emitted (no double-click-to-edit gesture).
+
+### Deviations from Original Design
+
+1. **`EngineCore` split**: The design describes a single `Engine` struct. Implementation splits into `EngineCore` (all logic, no browser dependencies) and `Engine` (wraps `EngineCore` + `HtmlCanvasElement`). This enables full test coverage without WASM/browser — all 360+ tests run in native `cargo test`.
+
+2. **Star hit-testing uses polygon winding, not inscribed ellipse**: The design suggested "star via inscribed ellipse" for hit-testing. Implementation uses a proper 10-vertex polygon (alternating outer/inner points) with ray-casting, which is more accurate.
+
+3. **Edge endpoint hit-testing in world space, not screen space**: The design said "hit-test circles around `props.a` and `props.b` in screen space." Implementation converts the screen-space handle radius to world space (`HANDLE_RADIUS_PX / zoom`) and tests in world space. Equivalent result, simpler code.
+
+4. **Resize uses absolute delta from grab point, not incremental**: The original implementation computed incremental delta per move (`world_pt - last_world`) applied to original dimensions, which was buggy (only last move's delta survived). Fixed to use total delta from `start_world` (the initial grab point), matching how drag works.
+
+5. **`consts.rs` module**: Not in the original module split. Added to share numeric constants (`HANDLE_RADIUS_PX`, `ZOOM_FACTOR`, `MIN_SHAPE_SIZE`, etc.) across `hit`, `engine`, and future `render`.
+
+6. **`BoardRuntime` naming**: The design mentions "BoardRuntime" as the owner of camera/selection/tool state. Implementation uses `EngineCore` for this role — same responsibility, different name.
+
+7. **Empty-space drag-to-pan on Select tool**: Not explicitly specified in the design's tool list, but implemented — clicking empty space with the Select tool starts a pan gesture (same as middle-button pan). This is standard whiteboard UX.
+
+8. **Tool resets to Select after shape/edge creation**: Implemented but not explicitly stated in the design. After drawing a shape or edge, the active tool automatically resets to Select.
+
+9. **Tiny shape discard**: Shapes below `MIN_SHAPE_SIZE` (2.0) in both width and height are deleted on pointerup. Edges are always kept (even zero-length). Not detailed in the design but follows standard drawing tool behavior.
+
