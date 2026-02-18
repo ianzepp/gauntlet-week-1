@@ -18,7 +18,7 @@ use crate::state::board::{BoardState, ConnectionStatus};
 #[cfg(feature = "hydrate")]
 use crate::state::chat::{ChatMessage, ChatState};
 #[cfg(feature = "hydrate")]
-use leptos::prelude::Get;
+use leptos::prelude::GetUntracked;
 #[cfg(feature = "hydrate")]
 use leptos::prelude::Update;
 
@@ -316,7 +316,7 @@ fn dispatch_frame(
 
 #[cfg(feature = "hydrate")]
 fn send_board_join_for_active_board(tx: &futures::channel::mpsc::UnboundedSender<String>, board: leptos::prelude::RwSignal<BoardState>) {
-    let Some(board_id) = board.get().board_id else {
+    let Some(board_id) = board.get_untracked().board_id else {
         return;
     };
 
