@@ -71,3 +71,72 @@ body {
 .board-page__canvas { grid-area: canvas; background: var(--color-bg); display: flex; align-items: center; justify-content: center; }
 .board-page__right-panel { grid-area: right; background: var(--color-surface); width: 280px; }
 .board-page__status-bar { grid-area: status; background: var(--color-surface); padding: 0.25rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); }
+
+/* Login card */
+.login-card { text-align: center; }
+.login-card__title { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.login-card__subtitle { color: var(--color-text-muted); margin-bottom: 2rem; }
+
+/* Dashboard */
+.dashboard-page__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.dashboard-page__grid { }
+.dashboard-page__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.dashboard-page__empty { color: var(--color-text-muted); }
+
+/* Board card */
+.board-card {
+    display: block;
+    padding: 1.25rem;
+    background: var(--color-surface);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--color-text);
+    border: 1px solid transparent;
+    transition: border-color 0.15s;
+}
+.board-card:hover { border-color: var(--color-accent); }
+.board-card__name { font-weight: 600; }
+
+/* Buttons */
+.btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: white; }
+.btn--primary:hover { opacity: 0.9; }
+
+/* Dialog */
+.dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.dialog {
+    background: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: 8px;
+    min-width: 320px;
+}
+.dialog h2 { margin-bottom: 1rem; }
+.dialog__label { display: block; margin-bottom: 1rem; color: var(--color-text-muted); font-size: 0.85rem; }
+.dialog__input {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 1rem;
+}
+.dialog__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }

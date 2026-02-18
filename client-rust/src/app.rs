@@ -49,6 +49,21 @@ pub fn App() -> impl IntoView {
     provide_context(chat);
     provide_context(ai);
 
+    // Fetch current user on mount (client-side only).
+    Effect::new(move || {
+        #[cfg(feature = "hydrate")]
+        {
+            auth.update(|a| a.loading = true);
+            leptos::task::spawn_local(async move {
+                let user = crate::net::api::fetch_current_user().await;
+                auth.update(|a| {
+                    a.user = user;
+                    a.loading = false;
+                });
+            });
+        }
+    });
+
     view! {
         <Stylesheet id="leptos" href="/pkg/gauntlet-ui.css"/>
         <Title text="Gauntlet"/>

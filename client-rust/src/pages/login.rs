@@ -7,11 +7,13 @@ use leptos::prelude::*;
 pub fn LoginPage() -> impl IntoView {
     view! {
         <div class="login-page">
-            <h1>"Gauntlet"</h1>
-            <p>"Collaborative whiteboard"</p>
-            <a href="/auth/github" class="login-button">
-                "Sign in with GitHub"
-            </a>
+            <div class="login-card">
+                <h1 class="login-card__title">"Gauntlet"</h1>
+                <p class="login-card__subtitle">"Collaborative whiteboard"</p>
+                <a href="/auth/github" class="login-button">
+                    "Sign in with GitHub"
+                </a>
+            </div>
         </div>
     }
 }
