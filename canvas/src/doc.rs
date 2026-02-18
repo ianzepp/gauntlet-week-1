@@ -171,8 +171,15 @@ impl DocStore {
             obj.version = v;
         }
         if let Some(ref props) = partial.props {
-            // Shallow merge: update keys present in partial, leave others intact.
-            if let (Some(existing), Some(incoming)) = (obj.props.as_object_mut(), props.as_object()) {
+            let Some(incoming) = props.as_object() else {
+                return false;
+            };
+
+            if !obj.props.is_object() {
+                obj.props = serde_json::json!({});
+            }
+
+            if let Some(existing) = obj.props.as_object_mut() {
                 for (k, v) in incoming {
                     if v.is_null() {
                         existing.remove(k);

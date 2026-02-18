@@ -484,6 +484,34 @@ fn apply_partial_props_multiple_ops_at_once() {
     assert_eq!(p["text"], "new");
 }
 
+#[test]
+fn apply_partial_props_initializes_non_object_existing_props() {
+    let mut store = DocStore::new();
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    obj.props = json!(null);
+    let id = obj.id;
+    store.insert(obj);
+
+    assert!(store.apply_partial(
+        &id,
+        &PartialBoardObject { props: Some(json!({"fill": "#00FF00"})), ..Default::default() },
+    ));
+    assert_eq!(store.get(&id).unwrap().props["fill"], "#00FF00");
+}
+
+#[test]
+fn apply_partial_props_non_object_patch_returns_false() {
+    let mut store = DocStore::new();
+    let obj = make_object(ObjectKind::Rect, 0);
+    let id = obj.id;
+    store.insert(obj);
+
+    assert!(!store.apply_partial(
+        &id,
+        &PartialBoardObject { props: Some(json!(42)), ..Default::default() },
+    ));
+}
+
 // =============================================================
 // DocStore: load_snapshot
 // =============================================================

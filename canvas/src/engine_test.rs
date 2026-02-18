@@ -365,16 +365,38 @@ fn core_set_text_preserves_other_props() {
 #[test]
 fn core_set_text_empty_strings() {
     let mut core = EngineCore::new();
-    let obj = make_object(ObjectKind::Rect, 0);
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    obj.props = json!({"head": "H", "text": "T", "foot": "F"});
     let id = obj.id;
     core.apply_create(obj);
 
-    core.set_text(&id, String::new(), String::new(), String::new());
+    let action = core.set_text(&id, String::new(), String::new(), String::new());
+    assert!(matches!(action, Action::ObjectUpdated { .. }));
 
     let updated = core.object(&id).unwrap();
     assert_eq!(updated.props["head"], "");
     assert_eq!(updated.props["text"], "");
     assert_eq!(updated.props["foot"], "");
+}
+
+#[test]
+fn core_set_text_missing_object_returns_none() {
+    let mut core = EngineCore::new();
+    let id = Uuid::new_v4();
+    let action = core.set_text(&id, "H".into(), "T".into(), "F".into());
+    assert!(matches!(action, Action::None));
+}
+
+#[test]
+fn core_set_text_unchanged_returns_none() {
+    let mut core = EngineCore::new();
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    obj.props = json!({"head": "H", "text": "T", "foot": "F"});
+    let id = obj.id;
+    core.apply_create(obj);
+
+    let action = core.set_text(&id, "H".into(), "T".into(), "F".into());
+    assert!(matches!(action, Action::None));
 }
 
 // =============================================================
@@ -1412,6 +1434,34 @@ fn escape_without_selection_is_noop() {
     assert!(actions.is_empty());
 }
 
+#[test]
+fn enter_on_selected_object_requests_text_edit() {
+    let mut core = EngineCore::new();
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    obj.props = json!({"head": "Top", "text": "Body", "foot": "Bottom"});
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+
+    let actions = core.on_key_down(Key("Enter".into()), no_modifiers());
+    assert!(has_action(&actions, |a| matches!(
+        a,
+        Action::EditTextRequested {
+            id: action_id,
+            head,
+            text,
+            foot
+        } if *action_id == id && head == "Top" && text == "Body" && foot == "Bottom"
+    )));
+}
+
+#[test]
+fn enter_without_selection_is_noop() {
+    let mut core = EngineCore::new();
+    let actions = core.on_key_down(Key("Enter".into()), no_modifiers());
+    assert!(actions.is_empty());
+}
+
 // =============================================================
 // Key down — Unknown key is no-op
 // =============================================================
@@ -1631,6 +1681,10 @@ fn resize_nw_past_se_corner_clamps() {
     // Drag NW handle far past the SE corner.
     core.on_pointer_move(pt(300.0, 300.0), no_modifiers());
     let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 110.0);
+    assert_eq!(obj.y, 100.0);
+    assert_eq!(obj.width, 0.0);
+    assert_eq!(obj.height, 0.0);
     assert!(obj.width >= 0.0);
     assert!(obj.height >= 0.0);
 }
@@ -1744,6 +1798,8 @@ fn resize_e_past_origin_clamps() {
     // Drag E handle past the W edge.
     core.on_pointer_move(pt(-30.0, 25.0), no_modifiers());
     let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 0.0);
+    assert_eq!(obj.width, 0.0);
     assert!(obj.width >= 0.0);
 }
 
@@ -1766,6 +1822,8 @@ fn resize_n_past_bottom_clamps() {
     // Drag N handle below bottom edge.
     core.on_pointer_move(pt(25.0, 200.0), no_modifiers());
     let obj = core.object(&id).unwrap();
+    assert_eq!(obj.y, 50.0);
+    assert_eq!(obj.height, 0.0);
     assert!(obj.height >= 0.0);
 }
 
@@ -1788,6 +1846,8 @@ fn resize_w_past_right_clamps() {
     // Drag W handle far past the right edge.
     core.on_pointer_move(pt(500.0, 25.0), no_modifiers());
     let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 110.0);
+    assert_eq!(obj.width, 0.0);
     assert!(obj.width >= 0.0);
 }
 
@@ -1810,7 +1870,33 @@ fn resize_s_past_top_clamps() {
     // Drag S handle above top edge.
     core.on_pointer_move(pt(25.0, -100.0), no_modifiers());
     let obj = core.object(&id).unwrap();
+    assert_eq!(obj.y, 10.0);
+    assert_eq!(obj.height, 0.0);
     assert!(obj.height >= 0.0);
+}
+
+#[test]
+fn resize_rotated_object_uses_local_axes() {
+    let mut core = EngineCore::new();
+    let mut obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 50.0);
+    obj.rotation = 90.0;
+    let id = obj.id;
+    core.apply_create(obj);
+    core.input = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::E,
+        start_world: pt(50.0, 75.0),
+        orig_x: 0.0,
+        orig_y: 0.0,
+        orig_w: 100.0,
+        orig_h: 50.0,
+    };
+
+    // Moving down in world space maps to +X in local space at 90° rotation.
+    core.on_pointer_move(pt(50.0, 95.0), no_modifiers());
+    let obj = core.object(&id).unwrap();
+    assert_eq!(obj.x, 0.0);
+    assert_eq!(obj.width, 120.0);
 }
 
 // =============================================================

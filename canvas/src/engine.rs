@@ -2,7 +2,7 @@ use web_sys::HtmlCanvasElement;
 
 use crate::camera::{Camera, Point};
 use crate::consts::{MIN_SHAPE_SIZE, ZOOM_FACTOR, ZOOM_MAX, ZOOM_MIN};
-use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, PartialBoardObject};
+use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, PartialBoardObject, Props};
 use crate::hit::{self, EdgeEnd, HitPart, ResizeAnchor};
 use crate::input::{Button, InputState, Key, Modifiers, Tool, UiState, WheelDelta};
 
@@ -99,6 +99,15 @@ impl EngineCore {
 
     /// Commit text from the host editor back into the object's props.
     pub fn set_text(&mut self, id: &ObjectId, head: String, text: String, foot: String) -> Action {
+        let Some(obj) = self.doc.get(id) else {
+            return Action::None;
+        };
+
+        let existing = Props::new(&obj.props);
+        if existing.head() == head && existing.text() == text && existing.foot() == foot {
+            return Action::None;
+        }
+
         let partial = PartialBoardObject {
             props: Some(serde_json::json!({
                 "head": head,
@@ -107,8 +116,11 @@ impl EngineCore {
             })),
             ..Default::default()
         };
-        self.doc.apply_partial(id, &partial);
-        Action::ObjectUpdated { id: *id, fields: partial }
+        if self.doc.apply_partial(id, &partial) {
+            Action::ObjectUpdated { id: *id, fields: partial }
+        } else {
+            Action::None
+        }
     }
 
     // --- Viewport ---
@@ -186,8 +198,12 @@ impl EngineCore {
                 vec![Action::RenderNeeded]
             }
             InputState::ResizingObject { id, anchor, start_world, orig_x, orig_y, orig_w, orig_h } => {
-                let dx = world_pt.x - start_world.x;
-                let dy = world_pt.y - start_world.y;
+                let rotation = self.doc.get(&id).map_or(0.0, |obj| obj.rotation);
+                let center = Point::new(orig_x + orig_w / 2.0, orig_y + orig_h / 2.0);
+                let start_local = hit::rotate_point(start_world, center, -rotation);
+                let current_local = hit::rotate_point(world_pt, center, -rotation);
+                let dx = current_local.x - start_local.x;
+                let dy = current_local.y - start_local.y;
                 self.apply_resize(id, anchor, dx, dy, orig_x, orig_y, orig_w, orig_h);
                 self.input = InputState::ResizingObject { id, anchor, start_world, orig_x, orig_y, orig_w, orig_h };
                 vec![Action::RenderNeeded]
@@ -307,6 +323,19 @@ impl EngineCore {
                 self.input = InputState::Idle;
                 if self.ui.selected_id.take().is_some() {
                     actions.push(Action::RenderNeeded);
+                }
+            }
+            "Enter" => {
+                if let Some(id) = self.ui.selected_id {
+                    if let Some(obj) = self.doc.get(&id) {
+                        let props = Props::new(&obj.props);
+                        actions.push(Action::EditTextRequested {
+                            id,
+                            head: props.head().to_owned(),
+                            text: props.text().to_owned(),
+                            foot: props.foot().to_owned(),
+                        });
+                    }
                 }
             }
             _ => {}
@@ -473,52 +502,58 @@ impl EngineCore {
         orig_w: f64,
         orig_h: f64,
     ) {
-        let (mut x, mut y, mut w, mut h) = (orig_x, orig_y, orig_w, orig_h);
+        let mut left = orig_x;
+        let mut top = orig_y;
+        let mut right = orig_x + orig_w;
+        let mut bottom = orig_y + orig_h;
 
         match anchor {
             ResizeAnchor::N => {
-                y += dy;
-                h -= dy;
+                top += dy;
+                top = top.min(bottom);
             }
             ResizeAnchor::S => {
-                h += dy;
+                bottom += dy;
+                bottom = bottom.max(top);
             }
             ResizeAnchor::E => {
-                w += dx;
+                right += dx;
+                right = right.max(left);
             }
             ResizeAnchor::W => {
-                x += dx;
-                w -= dx;
+                left += dx;
+                left = left.min(right);
             }
             ResizeAnchor::Ne => {
-                y += dy;
-                h -= dy;
-                w += dx;
+                top += dy;
+                top = top.min(bottom);
+                right += dx;
+                right = right.max(left);
             }
             ResizeAnchor::Nw => {
-                y += dy;
-                h -= dy;
-                x += dx;
-                w -= dx;
+                top += dy;
+                top = top.min(bottom);
+                left += dx;
+                left = left.min(right);
             }
             ResizeAnchor::Se => {
-                h += dy;
-                w += dx;
+                bottom += dy;
+                bottom = bottom.max(top);
+                right += dx;
+                right = right.max(left);
             }
             ResizeAnchor::Sw => {
-                h += dy;
-                x += dx;
-                w -= dx;
+                bottom += dy;
+                bottom = bottom.max(top);
+                left += dx;
+                left = left.min(right);
             }
         }
 
-        // Enforce minimum size.
-        if w < 0.0 {
-            w = 0.0;
-        }
-        if h < 0.0 {
-            h = 0.0;
-        }
+        let x = left;
+        let y = top;
+        let w = right - left;
+        let h = bottom - top;
 
         let partial =
             PartialBoardObject { x: Some(x), y: Some(y), width: Some(w), height: Some(h), ..Default::default() };

@@ -464,6 +464,17 @@ This order is intentionally chosen to flush out coordinate and interaction bugs 
 8. Add canvas text rendering (head/text/foot via `fillText`) + Leptos edit overlay + commit to server.
 9. Safari checks and polish.
 
+## Canvas Crate Alignment Notes (2026-02-18)
+
+The current `canvas` crate implementation now follows these concrete rules:
+
+- Resize math is evaluated in object-local axes (pointer deltas are inverse-rotated by object rotation before applying anchor resize logic).
+- Resize zero-crossing clamps preserve the opposite edge/corner anchor (no overshoot when dragged past collapse).
+- `set_text` returns `Action::ObjectUpdated` only when the target exists and text actually changes; otherwise it returns `Action::None`.
+- `DocStore::apply_partial` props patches require object-shaped incoming JSON. If existing props are non-object, they are normalized to `{}` before merge.
+- Pressing `Enter` with a selected object emits `Action::EditTextRequested { id, head, text, foot }` so the host can enter text edit mode.
+- Regression tests cover rotated resize behavior, anchor-preserving clamps, no-op text updates, and props-merge edge cases.
+
 ---
 
 ## Implementation Status
@@ -523,4 +534,3 @@ _Last updated after input state machine edge-case hardening._
 8. **Tool resets to Select after shape/edge creation**: Implemented but not explicitly stated in the design. After drawing a shape or edge, the active tool automatically resets to Select.
 
 9. **Tiny shape discard**: Shapes below `MIN_SHAPE_SIZE` (2.0) in both width and height are deleted on pointerup. Edges are always kept (even zero-length). Not detailed in the design but follows standard drawing tool behavior.
-
