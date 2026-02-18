@@ -95,14 +95,33 @@ fn CreateBoardDialog(
     on_cancel: impl Fn(leptos::ev::MouseEvent) + 'static,
     boards: LocalResource<Vec<BoardListItem>>,
 ) -> impl IntoView {
+    #[cfg(feature = "hydrate")]
+    let navigate = use_navigate();
+
     let on_submit = move |_| {
         let board_name = name.get();
         if board_name.trim().is_empty() {
             return;
         }
-        // TODO: send board:create via frame client, then refetch boards
-        leptos::logging::log!("create board: {}", board_name);
-        boards.refetch();
+
+        #[cfg(feature = "hydrate")]
+        {
+            let board_name = board_name.trim().to_owned();
+            let navigate = navigate.clone();
+            let boards = boards.clone();
+                    leptos::task::spawn_local(async move {
+                        if let Some(board) = crate::net::api::create_board(&board_name).await {
+                            boards.refetch();
+                            navigate(&format!("/board/{}", board.id), NavigateOptions::default());
+                        }
+                    });
+        }
+
+        #[cfg(not(feature = "hydrate"))]
+        {
+            let _ = board_name;
+            let _ = &boards;
+        }
     };
 
     view! {
