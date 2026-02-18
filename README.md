@@ -123,7 +123,7 @@ Multi-turn LLM tool-calling agent via `ai:prompt` syscall. AI mutations flow thr
 **Complex commands:** "Create a SWOT analysis", "Build a user journey map",
 "Set up a retrospective board" — multi-step execution (up to 10 tool iterations per prompt).
 
-**Provider:** Anthropic Claude (default) or OpenAI, config-driven via `LLM_PROVIDER` env var. Both optional — server starts without them, AI endpoints return 503.
+**Provider:** Anthropic Claude (default) or OpenAI, config-driven via `LLM_PROVIDER` env var. Both optional — server starts without them; `ai:prompt` returns an error frame when LLM is unconfigured.
 
 ## Design
 
@@ -159,7 +159,7 @@ gauntlet-week-1/
 │       ├── llm/
 │       │   ├── mod.rs             # LlmClient trait + provider dispatch
 │       │   ├── anthropic.rs       # Anthropic Messages API
-│       │   ├── openai.rs          # OpenAI Chat Completions API
+│       │   ├── openai.rs          # OpenAI Responses/Chat Completions API
 │       │   ├── tools.rs           # 9 tool definitions (provider-agnostic)
 │       │   └── types.rs           # Shared LLM types
 │       └── db/
@@ -180,14 +180,12 @@ gauntlet-week-1/
 │       │   ├── DashboardPage.tsx  # Board list + create board
 │       │   └── BoardPage.tsx      # Board workspace (toolbar + canvas + panels)
 │       ├── canvas/
-│       │   ├── Canvas.tsx         # Konva Stage: pan/zoom, grid, object render, cursors
-│       │   ├── StickyNote.tsx     # Draggable/resizable sticky note + text edit
-│       │   ├── Shape.tsx          # Rectangle + Ellipse (draggable/resizable)
-│       │   └── TextEditor.tsx     # HTML textarea overlay for inline text editing
+│       │   └── Canvas.tsx         # Konva Stage: pan/zoom, grid, object render, cursors, selection ring
 │       ├── components/
-│       │   ├── Toolbar.tsx        # Top bar: board name, presence chips, dark mode
+│       │   ├── Toolbar.tsx        # Top bar: board name, presence chips, logout
 │       │   ├── LeftPanel.tsx      # Collapsible tool rail + inspector
 │       │   ├── ToolRail.tsx       # Tool buttons (select, sticky, rect, ellipse, ...)
+│       │   ├── ToolStrip.tsx      # Shape/color quick-create strip for sticky/rectangle
 │       │   ├── InspectorPanel.tsx # Selection inspector: position, size, color
 │       │   ├── RightPanel.tsx     # Collapsible right rail: boards, chat, AI
 │       │   ├── MissionControl.tsx # In-board board list / switcher
@@ -212,7 +210,6 @@ gauntlet-week-1/
 │   └── DESIGN.md                  # Design system spec (theme, palette, typography)
 ├── Dockerfile                     # Multi-stage: Bun build → Rust build → slim runtime
 ├── docker-compose.yml             # App + Postgres 16 for local dev
-├── fly.toml                       # Fly.io: region dfw, auto-migrate, health check
 ├── run-dev.sh                     # Local dev runner (docker-compose wrapper)
 └── .env.example
 ```
@@ -225,31 +222,36 @@ Two-step WS auth to prevent cookie leakage over WebSocket:
 2. **WS ticket** → client calls `POST /api/auth/ws-ticket` (requires session cookie) → receives a one-time 16-byte ticket (30s TTL)
 3. **WS upgrade** → client connects to `/api/ws?ticket=<ticket>` → server atomically consumes ticket via `DELETE ... RETURNING user_id`
 
-All HTTP API routes use an `AuthUser` extractor that validates the session cookie. GitHub OAuth and LLM are both optional — server starts without them; endpoints return 503 if unconfigured.
+All protected HTTP API routes use an `AuthUser` extractor that validates the session cookie.
+GitHub OAuth and LLM are both optional — server starts without them.
+- OAuth routes return `503` when GitHub env vars are missing.
+- WS `ai:prompt` returns an error frame when LLM is unconfigured.
 
 ## Feature Status
 
 ### Implemented
 - Infinite canvas with pan (scroll) and zoom (Ctrl+wheel, 0.1x–5x)
-- Sticky notes (create, drag, resize, rotate, edit text, 8 color swatches)
-- Rectangle and ellipse shapes (create, drag, resize, rotate)
+- Sticky notes + rectangles (quick-create, drag on canvas, edit size/text/color in inspector)
 - Grid background (20px minor, 100px major lines)
+- Selection focus wheel (rotating/pulsing ring with hash marks)
 - Real-time sync: object create/update/delete broadcast to all board clients
 - Optimistic creates with temp-ID reconciliation
 - Remote cursors with arrow + name label (50ms throttle, broadcast-only)
 - Presence awareness (toolbar chips, join/part events)
-- Board CRUD (create, list, delete) via WS frames + Dashboard UI
+- Board create/list and in-board switching UI (Dashboard + Mission Control)
 - Board chat (persistent, with history load)
 - AI agent (9 tools, multi-turn, multi-provider, rate-limited)
 - AI chat panel with prompt input and response rendering
-- Inspector panel (position, size, rotation, color picker)
-- Dark mode (CSS class toggle, persisted in localStorage)
+- Inspector panel (position/meta, size, text, color/border controls)
+- Dark mode support (theme class persisted in localStorage; no in-toolbar toggle)
+- Logout button in toolbar
 - User profile popover with aggregate stats from frame log
 - GitHub OAuth authentication with CSRF protection
-- Docker + Fly.io deployment pipeline
+- Dockerized local stack (`run-dev.sh` + `docker-compose`)
 - Backend test suite (frame, state, rate_limit, board, object, AI, WS)
 
 ### Not yet implemented
+- Ellipse object create/render flow (tool button currently disabled)
 - Frame objects (server creates them, but no frontend renderer)
 - Connector objects (server creates them, but no frontend renderer)
 - Line, text, draw, eraser tools (toolbar buttons visible but disabled)
@@ -263,7 +265,7 @@ All HTTP API routes use an `AuthUser` extractor that validates the session cooki
 ### Prerequisites
 
 - Rust 1.85+ (see `rust-toolchain.toml`)
-- Bun (frontend package manager)
+- Bun or npm (frontend package manager/runtime)
 - PostgreSQL (or Neon connection string)
 - GitHub OAuth App ([register here](https://github.com/settings/applications/new))
 - Anthropic or OpenAI API key (optional — AI features disabled without it)
@@ -306,52 +308,20 @@ you change code/dependencies:
 ./run-dev.sh --build
 ```
 
-## Fly.io Deployment
+## Deployment
 
 `Dockerfile` builds both the Rust server and the React client. Axum serves the
 compiled client from `STATIC_DIR=/app/client/dist` in the runtime image.
 
-### First-time setup
+No platform-specific deployment config is currently checked in (for example,
+no committed `fly.toml` or deploy workflow). Deploy to your target platform by:
+
+1. Building/running the container image.
+2. Supplying required env vars/secrets (database, OAuth, optional LLM).
+3. Running migrations at startup or via:
 
 ```bash
-fly launch --no-deploy
-```
-
-Set required secrets:
-
-```bash
-fly secrets set \
-  DATABASE_URL="postgres://..." \
-  GITHUB_CLIENT_ID="..." \
-  GITHUB_CLIENT_SECRET="..." \
-  GITHUB_REDIRECT_URI="https://<your-app>.fly.dev/auth/github/callback"
-```
-
-Optional AI secrets:
-
-```bash
-fly secrets set \
-  LLM_PROVIDER="anthropic" \
-  LLM_API_KEY_ENV="ANTHROPIC_API_KEY" \
-  ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-### Deploy
-
-```bash
-fly deploy
-```
-
-`fly.toml` runs `release_command = "gauntlet-week-1 --migrate-only"` so DB migrations
-complete before machines are promoted.
-
-### Important scaling note
-
-Realtime board state is process-local today. Keep a single machine until shared
-cross-instance broadcast/state is implemented:
-
-```bash
-fly scale count 1
+cargo run --manifest-path server/Cargo.toml --release -- --migrate-only
 ```
 
 ## HTTP API
