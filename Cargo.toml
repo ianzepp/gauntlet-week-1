@@ -1,6 +1,49 @@
 [workspace]
 resolver = "2"
-members = ["server", "canvas"]
+members = ["server", "canvas", "client-rust"]
 
 [profile.dev]
 debug = 0
+
+# Size-optimized profile for WASM release builds
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# cargo-leptos configuration for the workspace
+[[workspace.metadata.leptos]]
+name = "gauntlet-ui"
+
+# Server binary crate
+bin-package = "gauntlet-week-1"
+
+# Frontend library crate (compiled to WASM)
+lib-package = "client-rust"
+
+# Output directory
+site-root = "target/site"
+site-pkg-dir = "pkg"
+
+# CSS (plain CSS, no preprocessor for now)
+style-file = "client-rust/styles/main.css"
+
+# Static assets
+assets-dir = "public"
+
+# Dev server address
+site-addr = "127.0.0.1:3000"
+reload-port = 3001
+
+browserquery = "defaults"
+env = "DEV"
+
+# Server binary features
+bin-features = ["ssr"]
+bin-default-features = false
+
+# WASM library features
+lib-features = ["hydrate"]
+lib-default-features = false

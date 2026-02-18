@@ -1,0 +1,101 @@
+#[cfg(test)]
+#[path = "types_test.rs"]
+mod types_test;
+
+use serde::{Deserialize, Serialize};
+
+/// A frame in the WebSocket protocol. Frames are the unit of communication
+/// between client and server over the WebSocket connection.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Frame {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub ts: f64,
+    pub board_id: Option<String>,
+    pub from: Option<String>,
+    pub syscall: String,
+    pub status: FrameStatus,
+    pub data: serde_json::Value,
+}
+
+/// Status of a frame in the request/response lifecycle.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FrameStatus {
+    Request,
+    Done,
+    Error,
+    Cancel,
+}
+
+/// A board object as represented in the wire protocol.
+/// The `canvas` crate has its own `BoardObject` type; the `CanvasHost` bridge
+/// converts between the two.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BoardObject {
+    pub id: String,
+    pub board_id: String,
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+    pub props: serde_json::Value,
+    pub created_by: Option<String>,
+    pub version: i64,
+}
+
+/// Presence information for a connected user on a board.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Presence {
+    pub user_id: String,
+    pub name: String,
+    pub color: String,
+    pub cursor: Option<Point>,
+}
+
+/// A 2D point.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+/// An authenticated user.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct User {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub color: String,
+}
+
+/// Extended user profile with statistics.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct UserProfile {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub color: String,
+    pub member_since: Option<String>,
+    pub stats: ProfileStats,
+}
+
+/// Aggregate statistics for a user profile.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProfileStats {
+    pub total_frames: i64,
+    pub objects_created: i64,
+    pub boards_active: i64,
+    pub last_active: Option<String>,
+    pub top_syscalls: Vec<SyscallCount>,
+}
+
+/// A syscall name and its invocation count.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyscallCount {
+    pub syscall: String,
+    pub count: i64,
+}

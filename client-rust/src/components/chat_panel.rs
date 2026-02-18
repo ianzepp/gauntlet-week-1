@@ -1,0 +1,86 @@
+//! Real-time board chat panel displaying and sending messages.
+
+use leptos::prelude::*;
+
+use crate::app::FrameSender;
+use crate::net::types::{Frame, FrameStatus};
+use crate::state::board::BoardState;
+use crate::state::chat::ChatState;
+
+/// Chat panel showing message history and an input for sending new messages.
+#[component]
+pub fn ChatPanel() -> impl IntoView {
+    let chat = expect_context::<RwSignal<ChatState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
+
+    let input = RwSignal::new(String::new());
+
+    let do_send = move || {
+        let text = input.get();
+        if text.trim().is_empty() {
+            return;
+        }
+        let board_id = board.get().board_id.clone();
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0.0,
+            board_id,
+            from: None,
+            syscall: "chat:message".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({ "message": text }),
+        };
+        sender.get().send(&frame);
+        input.set(String::new());
+    };
+
+    let on_click = move |_| do_send();
+
+    let on_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() == "Enter" && !ev.shift_key() {
+            ev.prevent_default();
+            do_send();
+        }
+    };
+
+    view! {
+        <div class="chat-panel">
+            <div class="chat-panel__messages">
+                {move || {
+                    chat.get()
+                        .messages
+                        .iter()
+                        .map(|msg| {
+                            let color = msg.user_color.clone();
+                            let name = msg.user_name.clone();
+                            let content = msg.content.clone();
+                            view! {
+                                <div class="chat-panel__message">
+                                    <span class="chat-panel__author" style:color=color>
+                                        {name}
+                                    </span>
+                                    <span class="chat-panel__text">{content}</span>
+                                </div>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }}
+            </div>
+            <div class="chat-panel__input-row">
+                <input
+                    class="chat-panel__input"
+                    type="text"
+                    placeholder="Type a message..."
+                    prop:value=move || input.get()
+                    on:input=move |ev| input.set(event_target_value(&ev))
+                    on:keydown=on_keydown
+                />
+                <button class="btn btn--primary" on:click=on_click>
+                    "Send"
+                </button>
+            </div>
+        </div>
+    }
+}

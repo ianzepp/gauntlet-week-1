@@ -742,16 +742,18 @@ This order prioritizes getting a working shell quickly, then filling in features
 
 ### Phase 1: Skeleton + Routing + Auth
 
-1. Set up Cargo workspace (root `Cargo.toml` with `server`, `client-rust`, `canvas`)
-2. Set up `client-rust/` as a Leptos lib crate with SSR + hydrate features
+1. ~~Set up Cargo workspace (root `Cargo.toml` with `server`, `client-rust`, `canvas`)~~ **DONE**
+2. Set up `client-rust/` as a Leptos lib crate with SSR + hydrate features — **Scaffold done** (rlib only, no Leptos dep yet)
 3. Integrate Leptos-Axum into `server/` (mount Leptos handler alongside API routes)
 4. Verify `cargo leptos watch` builds and serves a hello-world page with SSR + hydration
-5. Implement `net/types.rs` (Frame, BoardObject, User, etc.)
-6. Implement `net/api.rs` (REST helpers, client-only)
-7. Implement `AuthState` + auth check
-8. Implement `LoginPage` (OAuth redirect button)
-9. Implement `DashboardPage` (board list + create)
+5. ~~Implement `net/types.rs` (Frame, BoardObject, User, etc.)~~ **DONE** — all types with serde, PartialEq, 16 round-trip tests
+6. ~~Implement `net/api.rs` (REST helpers, client-only)~~ **DONE** — stubs (no gloo-net yet)
+7. ~~Implement `AuthState` + auth check~~ **DONE** — struct + Default + tests
+8. Implement `LoginPage` (OAuth redirect button) — **stub only** (no Leptos view logic yet)
+9. Implement `DashboardPage` (board list + create) — **stub only** (no Leptos view logic yet)
 10. Verify: can log in, see boards, create a board (SSR renders initial HTML, hydration takes over)
+
+**Phase 1 scaffold status:** Crate compiles as standalone `rlib` with zero clippy warnings and 36 passing tests. All module files exist. Leptos dependency and SSR/hydrate wiring deferred to next step (requires WASM target setup).
 
 ### Phase 2: Board Layout + WS Connection
 
