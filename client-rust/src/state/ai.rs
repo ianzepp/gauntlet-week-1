@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "ai_test.rs"]
+mod ai_test;
+
 /// State for the AI assistant panel.
 ///
 /// In the full Leptos implementation, fields will be `RwSignal` types

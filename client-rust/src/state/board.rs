@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "board_test.rs"]
+mod board_test;
+
 use std::collections::HashMap;
 
 use crate::net::types::Presence;

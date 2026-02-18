@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "chat_test.rs"]
+mod chat_test;
+
 /// State for the board chat panel.
 ///
 /// In the full Leptos implementation, fields will be `RwSignal` types

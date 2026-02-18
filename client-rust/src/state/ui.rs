@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "ui_test.rs"]
+mod ui_test;
+
 /// UI state for panels, tabs, dark mode, and active tool.
 ///
 /// In the full Leptos implementation, fields will be `RwSignal` types
