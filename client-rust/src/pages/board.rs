@@ -4,6 +4,8 @@ use leptos::prelude::*;
 use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_params_map;
 
+use crate::components::status_bar::StatusBar;
+use crate::components::toolbar::Toolbar;
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 
@@ -41,13 +43,7 @@ pub fn BoardPage() -> impl IntoView {
     view! {
         <div class="board-page">
             <div class="board-page__toolbar">
-                "Toolbar — "
-                {move || {
-                    board
-                        .get()
-                        .board_name
-                        .unwrap_or_else(|| "Untitled".to_owned())
-                }}
+                <Toolbar/>
             </div>
             <div class="board-page__left-panel">"Left Panel"</div>
             <div class="board-page__canvas">
@@ -58,8 +54,7 @@ pub fn BoardPage() -> impl IntoView {
             </div>
             <div class="board-page__right-panel">"Right Panel"</div>
             <div class="board-page__status-bar">
-                "Status: "
-                {move || format!("{:?}", board.get().connection_status)}
+                <StatusBar/>
             </div>
         </div>
     }

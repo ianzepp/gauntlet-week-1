@@ -140,3 +140,65 @@ body {
     font-size: 1rem;
 }
 .dialog__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+
+/* Toolbar */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+.toolbar__back { color: var(--color-text); text-decoration: none; font-size: 1.2rem; }
+.toolbar__board-name { font-weight: 600; }
+.toolbar__presence { display: flex; gap: 0.5rem; }
+.toolbar__presence-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+.toolbar__presence-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.toolbar__spacer { flex: 1; }
+.toolbar__user { color: var(--color-text-muted); font-size: 0.85rem; }
+.toolbar__logout { font-size: 0.8rem; }
+
+/* Status bar */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+.status-bar__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-bar__dot--connected { background: #2ecc71; }
+.status-bar__dot--connecting { background: #f39c12; }
+.status-bar__dot--disconnected { background: #e74c3c; }
+.status-bar__connection { display: flex; align-items: center; gap: 0.35rem; }
+.status-bar__divider { color: var(--color-text-muted); }
+.status-bar__spacer { flex: 1; }
+
+/* User field report */
+.user-field-report {
+    position: absolute;
+    background: var(--color-surface);
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    min-width: 200px;
+    z-index: 100;
+}
+.user-field-report__header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.user-field-report__color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.user-field-report__stats { display: grid; grid-template-columns: auto auto; gap: 0.25rem 0.75rem; }
+.user-field-report__stats dt { color: var(--color-text-muted); font-size: 0.8rem; }
+.user-field-report__stats dd { font-weight: 600; }
+.user-field-report__syscalls { margin-top: 0.75rem; }
+.user-field-report__syscalls ul { list-style: none; padding: 0; font-size: 0.85rem; }
