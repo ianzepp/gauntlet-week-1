@@ -13,10 +13,12 @@ pub struct AiState {
 }
 
 /// A single AI conversation message.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AiMessage {
     pub id: String,
     pub role: String,
     pub content: String,
     pub timestamp: f64,
+    #[serde(default)]
+    pub mutations: Option<i64>,
 }

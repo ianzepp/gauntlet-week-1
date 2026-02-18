@@ -12,6 +12,8 @@ use crate::net::types::Frame;
 #[cfg(feature = "hydrate")]
 use crate::state::auth::AuthState;
 #[cfg(feature = "hydrate")]
+use crate::state::ai::{AiMessage, AiState};
+#[cfg(feature = "hydrate")]
 use crate::state::board::{BoardState, ConnectionStatus};
 #[cfg(feature = "hydrate")]
 use crate::state::chat::{ChatMessage, ChatState};
@@ -37,6 +39,7 @@ pub fn send_frame(tx: &futures::channel::mpsc::UnboundedSender<String>, frame: &
 #[cfg(feature = "hydrate")]
 pub fn spawn_frame_client(
     auth: leptos::prelude::RwSignal<AuthState>,
+    ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
     chat: leptos::prelude::RwSignal<ChatState>,
 ) -> futures::channel::mpsc::UnboundedSender<String> {
@@ -45,7 +48,7 @@ pub fn spawn_frame_client(
     let (tx, rx) = mpsc::unbounded::<String>();
     let tx_clone = tx.clone();
 
-    leptos::task::spawn_local(frame_client_loop(auth, board, chat, tx_clone, rx));
+    leptos::task::spawn_local(frame_client_loop(auth, ai, board, chat, tx_clone, rx));
 
     tx
 }
@@ -54,6 +57,7 @@ pub fn spawn_frame_client(
 #[cfg(feature = "hydrate")]
 async fn frame_client_loop(
     auth: leptos::prelude::RwSignal<AuthState>,
+    ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: futures::channel::mpsc::UnboundedSender<String>,
@@ -91,7 +95,7 @@ async fn frame_client_loop(
             .unwrap_or_else(|| "localhost:3000".to_owned());
         let ws_url = format!("{ws_proto}://{host}/api/ws?ticket={ticket}");
 
-        match connect_and_run(&ws_url, auth, board, chat, &tx, &rx).await {
+        match connect_and_run(&ws_url, auth, ai, board, chat, &tx, &rx).await {
             Ok(()) => {
                 leptos::logging::log!("WS disconnected cleanly");
             }
@@ -113,6 +117,7 @@ async fn frame_client_loop(
 async fn connect_and_run(
     url: &str,
     auth: leptos::prelude::RwSignal<AuthState>,
+    ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: &futures::channel::mpsc::UnboundedSender<String>,
@@ -144,7 +149,7 @@ async fn connect_and_run(
             match msg {
                 Ok(Message::Text(text)) => {
                     if let Ok(frame) = serde_json::from_str::<Frame>(&text) {
-                        dispatch_frame(&frame, auth, board, chat, tx);
+                        dispatch_frame(&frame, auth, ai, board, chat, tx);
                     }
                 }
                 Ok(Message::Bytes(_)) => {}
@@ -167,6 +172,7 @@ async fn connect_and_run(
 fn dispatch_frame(
     frame: &Frame,
     _auth: leptos::prelude::RwSignal<AuthState>,
+    ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
     chat: leptos::prelude::RwSignal<ChatState>,
     _tx: &futures::channel::mpsc::UnboundedSender<String>,
@@ -244,6 +250,60 @@ fn dispatch_frame(
         "chat:message" if frame.status == FrameStatus::Done => {
             if let Ok(msg) = serde_json::from_value::<ChatMessage>(frame.data.clone()) {
                 chat.update(|c| c.messages.push(msg));
+            }
+        }
+
+        "chat:history" if frame.status == FrameStatus::Done => {
+            if let Some(messages) = frame.data.get("messages") {
+                if let Ok(list) = serde_json::from_value::<Vec<ChatMessage>>(messages.clone()) {
+                    chat.update(|c| c.messages = list);
+                }
+            } else if let Ok(list) = serde_json::from_value::<Vec<ChatMessage>>(frame.data.clone()) {
+                chat.update(|c| c.messages = list);
+            }
+        }
+
+        "ai:history" if frame.status == FrameStatus::Done => {
+            if let Some(messages) = frame.data.get("messages") {
+                if let Ok(list) = serde_json::from_value::<Vec<AiMessage>>(messages.clone()) {
+                    ai.update(|a| {
+                        a.messages = list;
+                        a.loading = false;
+                    });
+                }
+            } else if let Ok(list) = serde_json::from_value::<Vec<AiMessage>>(frame.data.clone()) {
+                ai.update(|a| {
+                    a.messages = list;
+                    a.loading = false;
+                });
+            }
+        }
+
+        "ai:prompt" if frame.status == FrameStatus::Done || frame.status == FrameStatus::Error => {
+            if let Ok(msg) = serde_json::from_value::<AiMessage>(frame.data.clone()) {
+                ai.update(|a| {
+                    a.messages.push(msg);
+                    a.loading = false;
+                });
+            } else if frame.status == FrameStatus::Error {
+                let content = frame
+                    .data
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("AI request failed")
+                    .to_owned();
+                ai.update(|a| {
+                    a.messages.push(AiMessage {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        role: "error".to_owned(),
+                        content,
+                        timestamp: 0.0,
+                        mutations: None,
+                    });
+                    a.loading = false;
+                });
+            } else {
+                ai.update(|a| a.loading = false);
             }
         }
 

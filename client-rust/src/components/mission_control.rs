@@ -2,43 +2,36 @@
 
 use leptos::prelude::*;
 
-use crate::net::api::BoardListItem;
+use crate::components::board_card::BoardCard;
+use crate::state::board::BoardState;
 
-/// Compact board list for switching between boards without leaving the workspace.
+/// Compact board list for switching boards without leaving the workspace.
 #[component]
 pub fn MissionControl() -> impl IntoView {
+    let board = expect_context::<RwSignal<BoardState>>();
     let boards = LocalResource::new(|| crate::net::api::fetch_boards());
 
     view! {
         <div class="mission-control">
-            <h3 class="mission-control__title">"Boards"</h3>
-            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
-                {move || {
-                    boards
-                        .get()
-                        .map(|list| {
-                            view! {
-                                <ul class="mission-control__list">
-                                    {list
-                                        .into_iter()
-                                        .map(board_item)
-                                        .collect::<Vec<_>>()}
-                                </ul>
-                            }
-                        })
-                }}
-            </Suspense>
+            <div class="mission-control__inner">
+                <Suspense fallback=move || view! { <p class="mission-control__loading">"Loading..."</p> }>
+                    {move || {
+                        let active_board = board.get().board_id;
+                        boards
+                            .get()
+                            .map(|list| {
+                                list.into_iter()
+                                    .map(|item| {
+                                        let is_active = active_board.as_deref() == Some(item.id.as_str());
+                                        view! {
+                                            <BoardCard id=item.id name=item.name active=is_active mini=true/>
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                            })
+                    }}
+                </Suspense>
+            </div>
         </div>
-    }
-}
-
-fn board_item(b: BoardListItem) -> impl IntoView {
-    let href = format!("/board/{}", b.id);
-    view! {
-        <li class="mission-control__item">
-            <a href=href class="mission-control__link">
-                {b.name}
-            </a>
-        </li>
     }
 }

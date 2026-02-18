@@ -90,7 +90,7 @@ pub fn App() -> impl IntoView {
             });
 
             // Spawn WebSocket frame client.
-            let tx = crate::net::frame_client::spawn_frame_client(auth, board, chat);
+            let tx = crate::net::frame_client::spawn_frame_client(auth, ai, board, chat);
             frame_sender.update(|fs| fs.tx = Some(tx));
 
             // Initialize dark mode from stored preference.
