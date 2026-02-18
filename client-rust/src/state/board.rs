@@ -2,20 +2,19 @@
 #[path = "board_test.rs"]
 mod board_test;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::net::types::Presence;
+use crate::net::types::{BoardObject, Presence};
 
-/// Board-level state: which board is active, connection status, and presence.
-///
-/// In the full Leptos implementation, fields will be `RwSignal` types
-/// provided via context. For now they are plain fields.
+/// Board-level state: which board is active, connection status, objects, and presence.
 #[derive(Clone, Debug, Default)]
 pub struct BoardState {
     pub board_id: Option<String>,
     pub board_name: Option<String>,
     pub connection_status: ConnectionStatus,
     pub presence: HashMap<String, Presence>,
+    pub objects: HashMap<String, BoardObject>,
+    pub selection: HashSet<String>,
 }
 
 /// WebSocket connection status.

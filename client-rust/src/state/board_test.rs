@@ -38,3 +38,15 @@ fn board_state_default_empty_presence() {
     let state = BoardState::default();
     assert!(state.presence.is_empty());
 }
+
+#[test]
+fn board_state_default_empty_objects() {
+    let state = BoardState::default();
+    assert!(state.objects.is_empty());
+}
+
+#[test]
+fn board_state_default_empty_selection() {
+    let state = BoardState::default();
+    assert!(state.selection.is_empty());
+}

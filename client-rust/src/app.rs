@@ -10,6 +10,30 @@ use leptos_router::{
 use crate::pages::{board::BoardPage, dashboard::DashboardPage, login::LoginPage};
 use crate::state::{ai::AiState, auth::AuthState, board::BoardState, chat::ChatState, ui::UiState};
 
+/// Wrapper around the frame client sender, provided as Leptos context.
+///
+/// Components use this to send frames to the server. On the server (SSR),
+/// this is `None`.
+#[derive(Clone, Debug, Default)]
+pub struct FrameSender {
+    #[cfg(feature = "hydrate")]
+    pub tx: Option<futures::channel::mpsc::UnboundedSender<String>>,
+}
+
+impl FrameSender {
+    /// Send a frame to the server. Returns `false` if not connected.
+    pub fn send(&self, frame: &crate::net::types::Frame) -> bool {
+        #[cfg(feature = "hydrate")]
+        {
+            if let Some(ref tx) = self.tx {
+                return crate::net::frame_client::send_frame(tx, frame);
+            }
+        }
+        let _ = frame;
+        false
+    }
+}
+
 /// HTML shell rendered on the server for SSR + hydration.
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -42,17 +66,20 @@ pub fn App() -> impl IntoView {
     let ui = RwSignal::new(UiState::default());
     let chat = RwSignal::new(ChatState::default());
     let ai = RwSignal::new(AiState::default());
+    let frame_sender = RwSignal::new(FrameSender::default());
 
     provide_context(auth);
     provide_context(board);
     provide_context(ui);
     provide_context(chat);
     provide_context(ai);
+    provide_context(frame_sender);
 
-    // Fetch current user on mount (client-side only).
+    // Client-side initialization: fetch user and spawn frame client.
     Effect::new(move || {
         #[cfg(feature = "hydrate")]
         {
+            // Fetch current user.
             auth.update(|a| a.loading = true);
             leptos::task::spawn_local(async move {
                 let user = crate::net::api::fetch_current_user().await;
@@ -61,6 +88,10 @@ pub fn App() -> impl IntoView {
                     a.loading = false;
                 });
             });
+
+            // Spawn WebSocket frame client.
+            let tx = crate::net::frame_client::spawn_frame_client(auth, board, chat);
+            frame_sender.update(|fs| fs.tx = Some(tx));
         }
     });
 
