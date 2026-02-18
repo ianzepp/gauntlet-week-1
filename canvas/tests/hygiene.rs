@@ -13,7 +13,7 @@ const MAX_UNWRAP: usize = 0;
 const MAX_EXPECT: usize = 0;
 const MAX_PANIC: usize = 0;
 const MAX_UNREACHABLE: usize = 0;
-const MAX_TODO: usize = 2; // render() in engine.rs and draw() in render.rs.
+const MAX_TODO: usize = 0;
 const MAX_UNIMPLEMENTED: usize = 0;
 
 // Silent loss — discards errors without inspecting.

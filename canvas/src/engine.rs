@@ -1,10 +1,12 @@
-use web_sys::HtmlCanvasElement;
+use wasm_bindgen::JsCast;
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::camera::{Camera, Point};
 use crate::consts::{MIN_SHAPE_SIZE, ZOOM_FACTOR, ZOOM_MAX, ZOOM_MIN};
 use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, PartialBoardObject, Props};
 use crate::hit::{self, EdgeEnd, HitPart, ResizeAnchor};
 use crate::input::{Button, InputState, Key, Modifiers, Tool, UiState, WheelDelta};
+use crate::render;
 
 #[cfg(test)]
 #[path = "engine_test.rs"]
@@ -615,7 +617,7 @@ impl EngineCore {
 
 /// The full canvas engine. Wraps `EngineCore` and owns the browser canvas element.
 pub struct Engine {
-    _canvas: HtmlCanvasElement,
+    canvas: HtmlCanvasElement,
     pub core: EngineCore,
 }
 
@@ -623,7 +625,7 @@ impl Engine {
     /// Create a new engine bound to the given canvas element.
     #[must_use]
     pub fn new(canvas: HtmlCanvasElement) -> Self {
-        Self { _canvas: canvas, core: EngineCore::new() }
+        Self { canvas, core: EngineCore::new() }
     }
 
     // --- Delegated data inputs ---
@@ -700,8 +702,34 @@ impl Engine {
     // --- Render ---
 
     /// Draw the current state to the canvas.
-    pub fn render(&self) {
-        todo!()
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the 2D context cannot be obtained or any `Canvas2D` call fails.
+    pub fn render(&self) -> Result<(), wasm_bindgen::JsValue> {
+        let ctx: CanvasRenderingContext2d = self
+            .canvas
+            .get_context("2d")?
+            .ok_or_else(|| wasm_bindgen::JsValue::from_str("no 2d context"))?
+            .dyn_into()?;
+
+        // Resize backing store to match viewport × DPR.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let phys_w = (self.core.viewport_width * self.core.dpr) as u32;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let phys_h = (self.core.viewport_height * self.core.dpr) as u32;
+        self.canvas.set_width(phys_w);
+        self.canvas.set_height(phys_h);
+
+        render::draw(
+            &ctx,
+            &self.core.doc,
+            &self.core.camera,
+            &self.core.ui,
+            self.core.viewport_width,
+            self.core.viewport_height,
+            self.core.dpr,
+        )
     }
 
     // --- Delegated queries ---
