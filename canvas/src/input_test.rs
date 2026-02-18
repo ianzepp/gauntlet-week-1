@@ -248,7 +248,7 @@ fn input_state_resizing_object_carries_context() {
     let s = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: Point::new(0.0, 0.0),
+        start_world: Point::new(0.0, 0.0),
         orig_x: 1.0,
         orig_y: 2.0,
         orig_w: 100.0,
@@ -300,7 +300,7 @@ fn input_state_variants_debug() {
         InputState::ResizingObject {
             id,
             anchor: ResizeAnchor::N,
-            last_world: Point::new(0.0, 0.0),
+            start_world: Point::new(0.0, 0.0),
             orig_x: 0.0,
             orig_y: 0.0,
             orig_w: 0.0,

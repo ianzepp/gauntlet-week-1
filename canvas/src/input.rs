@@ -92,7 +92,7 @@ pub enum InputState {
     ResizingObject {
         id: ObjectId,
         anchor: ResizeAnchor,
-        last_world: Point,
+        start_world: Point,
         orig_x: f64,
         orig_y: f64,
         orig_w: f64,

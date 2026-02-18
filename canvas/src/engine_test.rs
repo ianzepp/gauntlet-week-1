@@ -818,7 +818,7 @@ fn resize_se_grows_dimensions() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: pt(110.0, 100.0),
+        start_world: pt(110.0, 100.0),
         orig_x: 10.0,
         orig_y: 20.0,
         orig_w: 100.0,
@@ -842,7 +842,7 @@ fn resize_nw_moves_origin_and_shrinks() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Nw,
-        last_world: pt(10.0, 20.0),
+        start_world: pt(10.0, 20.0),
         orig_x: 10.0,
         orig_y: 20.0,
         orig_w: 100.0,
@@ -866,7 +866,7 @@ fn resize_n_only_changes_y_and_height() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::N,
-        last_world: pt(60.0, 20.0),
+        start_world: pt(60.0, 20.0),
         orig_x: 10.0,
         orig_y: 20.0,
         orig_w: 100.0,
@@ -890,7 +890,7 @@ fn resize_e_only_changes_width() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::E,
-        last_world: pt(50.0, 25.0),
+        start_world: pt(50.0, 25.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 50.0,
@@ -914,7 +914,7 @@ fn resize_w_moves_x_and_shrinks_width() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::W,
-        last_world: pt(10.0, 25.0),
+        start_world: pt(10.0, 25.0),
         orig_x: 10.0,
         orig_y: 0.0,
         orig_w: 100.0,
@@ -936,7 +936,7 @@ fn resize_s_only_changes_height() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::S,
-        last_world: pt(25.0, 50.0),
+        start_world: pt(25.0, 50.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 50.0,
@@ -958,7 +958,7 @@ fn resize_ne_changes_y_h_and_w() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Ne,
-        last_world: pt(50.0, 10.0),
+        start_world: pt(50.0, 10.0),
         orig_x: 0.0,
         orig_y: 10.0,
         orig_w: 50.0,
@@ -982,7 +982,7 @@ fn resize_sw_changes_x_w_and_h() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Sw,
-        last_world: pt(10.0, 50.0),
+        start_world: pt(10.0, 50.0),
         orig_x: 10.0,
         orig_y: 0.0,
         orig_w: 50.0,
@@ -1005,7 +1005,7 @@ fn resize_clamps_to_zero() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: pt(50.0, 50.0),
+        start_world: pt(50.0, 50.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 50.0,
@@ -1190,7 +1190,7 @@ fn pointer_up_resizing_emits_update() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: pt(100.0, 80.0),
+        start_world: pt(100.0, 80.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 100.0,
@@ -1621,7 +1621,7 @@ fn resize_nw_past_se_corner_clamps() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Nw,
-        last_world: pt(10.0, 20.0),
+        start_world: pt(10.0, 20.0),
         orig_x: 10.0,
         orig_y: 20.0,
         orig_w: 100.0,
@@ -1644,7 +1644,7 @@ fn resize_e_with_negative_dx_shrinks_width() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::E,
-        last_world: pt(100.0, 25.0),
+        start_world: pt(100.0, 25.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 100.0,
@@ -1678,7 +1678,7 @@ fn resize_all_anchors_zero_delta_no_change() {
         core.input = InputState::ResizingObject {
             id,
             anchor,
-            last_world: pt(50.0, 50.0),
+            start_world: pt(50.0, 50.0),
             orig_x: 10.0,
             orig_y: 20.0,
             orig_w: 100.0,
@@ -1704,25 +1704,25 @@ fn resize_accumulates_across_multiple_moves() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: pt(50.0, 50.0),
+        start_world: pt(50.0, 50.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 50.0,
         orig_h: 50.0,
     };
 
-    // Each move applies (pointer - last_world) delta to orig dimensions.
-    // Move 1: dx=10, dy=10 → w = 50+10 = 60, h = 50+10 = 60
+    // Each move computes total delta from start_world to current pointer.
+    // Move 1: total dx=10, dy=10 → w = 50+10 = 60, h = 50+10 = 60
     core.on_pointer_move(pt(60.0, 60.0), no_modifiers());
     let obj = core.object(&id).unwrap();
     assert_eq!(obj.width, 60.0);
     assert_eq!(obj.height, 60.0);
 
-    // Move 2: dx=80-60=20, dy=70-60=10 → w = 50+20 = 70, h = 50+10 = 60
+    // Move 2: total dx=80-50=30, total dy=70-50=20 → w = 50+30 = 80, h = 50+20 = 70
     core.on_pointer_move(pt(80.0, 70.0), no_modifiers());
     let obj = core.object(&id).unwrap();
-    assert_eq!(obj.width, 70.0);
-    assert_eq!(obj.height, 60.0);
+    assert_eq!(obj.width, 80.0);
+    assert_eq!(obj.height, 70.0);
 }
 
 #[test]
@@ -1734,7 +1734,7 @@ fn resize_e_past_origin_clamps() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::E,
-        last_world: pt(50.0, 25.0),
+        start_world: pt(50.0, 25.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 50.0,
@@ -1756,7 +1756,7 @@ fn resize_n_past_bottom_clamps() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::N,
-        last_world: pt(25.0, 0.0),
+        start_world: pt(25.0, 0.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 50.0,
@@ -1778,7 +1778,7 @@ fn resize_w_past_right_clamps() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::W,
-        last_world: pt(10.0, 25.0),
+        start_world: pt(10.0, 25.0),
         orig_x: 10.0,
         orig_y: 0.0,
         orig_w: 100.0,
@@ -1800,7 +1800,7 @@ fn resize_s_past_top_clamps() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::S,
-        last_world: pt(25.0, 90.0),
+        start_world: pt(25.0, 90.0),
         orig_x: 0.0,
         orig_y: 10.0,
         orig_w: 50.0,
@@ -2157,7 +2157,7 @@ fn apply_delete_on_resized_object_graceful_up() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: pt(100.0, 80.0),
+        start_world: pt(100.0, 80.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 100.0,
@@ -2397,7 +2397,7 @@ fn escape_during_resizing_object() {
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
-        last_world: pt(100.0, 80.0),
+        start_world: pt(100.0, 80.0),
         orig_x: 0.0,
         orig_y: 0.0,
         orig_w: 100.0,

@@ -185,12 +185,11 @@ impl EngineCore {
                 self.handle_drawing_move(id, anchor_world, world_pt);
                 vec![Action::RenderNeeded]
             }
-            InputState::ResizingObject { id, anchor, last_world, orig_x, orig_y, orig_w, orig_h } => {
-                let dx = world_pt.x - last_world.x;
-                let dy = world_pt.y - last_world.y;
+            InputState::ResizingObject { id, anchor, start_world, orig_x, orig_y, orig_w, orig_h } => {
+                let dx = world_pt.x - start_world.x;
+                let dy = world_pt.y - start_world.y;
                 self.apply_resize(id, anchor, dx, dy, orig_x, orig_y, orig_w, orig_h);
-                self.input =
-                    InputState::ResizingObject { id, anchor, last_world: world_pt, orig_x, orig_y, orig_w, orig_h };
+                self.input = InputState::ResizingObject { id, anchor, start_world, orig_x, orig_y, orig_w, orig_h };
                 vec![Action::RenderNeeded]
             }
             InputState::RotatingObject { id, center, orig_rotation: _ } => {
@@ -355,7 +354,7 @@ impl EngineCore {
                         self.input = InputState::ResizingObject {
                             id: h.object_id,
                             anchor,
-                            last_world: world_pt,
+                            start_world: world_pt,
                             orig_x: obj.x,
                             orig_y: obj.y,
                             orig_w: obj.width,
