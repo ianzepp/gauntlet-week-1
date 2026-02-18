@@ -42,6 +42,7 @@ fn log_startup_env_config(port: u16) {
 
     log_env_line("HOST", env_or_default("HOST", "0.0.0.0"));
     log_env_line("PORT", port);
+    log_env_line("LEPTOS_PORT", env_or_default("LEPTOS_PORT", "3001"));
     log_env_line("STATIC_DIR", env_or_default("STATIC_DIR", "../client/dist"));
 
     log_env_line("DATABASE_URL_SET", env_is_set("DATABASE_URL"));
@@ -153,12 +154,28 @@ async fn main() {
     // Spawn background persistence task.
     let _persistence = services::persistence::spawn_persistence_task(app_state.clone());
 
-    // Build the combined Axum + Leptos router.
-    let app = routes::app(app_state);
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
-        .await
-        .expect("failed to bind");
+    let leptos_port: u16 = std::env::var("LEPTOS_PORT")
+        .unwrap_or_else(|_| "3001".into())
+        .parse()
+        .expect("invalid LEPTOS_PORT");
 
-    tracing::info!(%port, "gauntlet-week-1 listening");
-    axum::serve(listener, app).await.expect("server failed");
+    // React frontend: API + static files on PORT
+    let react = routes::react_app(app_state.clone());
+    let react_listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
+        .await
+        .expect("failed to bind React port");
+    tracing::info!(%port, "React server listening");
+
+    // Leptos SSR frontend: API + SSR on LEPTOS_PORT
+    let leptos = routes::leptos_app(app_state);
+    let leptos_listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{leptos_port}"))
+        .await
+        .expect("failed to bind Leptos port");
+    tracing::info!(port = %leptos_port, "Leptos server listening");
+
+    tokio::try_join!(
+        axum::serve(react_listener, react).into_future(),
+        axum::serve(leptos_listener, leptos).into_future(),
+    )
+    .expect("server failed");
 }
