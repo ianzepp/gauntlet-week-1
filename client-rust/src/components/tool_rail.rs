@@ -13,65 +13,21 @@ struct ToolDef {
     opens_strip: bool,
 }
 
-const PRIMARY_TOOLS: &[ToolDef] = &[ToolDef {
-    tool: ToolType::Select,
-    label: "Select",
-    disabled: false,
-    opens_strip: false,
-}];
+const PRIMARY_TOOLS: &[ToolDef] =
+    &[ToolDef { tool: ToolType::Select, label: "Select", disabled: false, opens_strip: false }];
 
 const SHAPE_TOOLS: &[ToolDef] = &[
-    ToolDef {
-        tool: ToolType::Sticky,
-        label: "Note",
-        disabled: false,
-        opens_strip: true,
-    },
-    ToolDef {
-        tool: ToolType::Rectangle,
-        label: "Rectangle",
-        disabled: false,
-        opens_strip: true,
-    },
-    ToolDef {
-        tool: ToolType::Ellipse,
-        label: "Ellipse",
-        disabled: true,
-        opens_strip: false,
-    },
-    ToolDef {
-        tool: ToolType::Line,
-        label: "Line",
-        disabled: true,
-        opens_strip: false,
-    },
-    ToolDef {
-        tool: ToolType::Connector,
-        label: "Connector",
-        disabled: true,
-        opens_strip: false,
-    },
-    ToolDef {
-        tool: ToolType::Text,
-        label: "Text",
-        disabled: true,
-        opens_strip: false,
-    },
+    ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false, opens_strip: true },
+    ToolDef { tool: ToolType::Rectangle, label: "Rectangle", disabled: false, opens_strip: true },
+    ToolDef { tool: ToolType::Ellipse, label: "Ellipse", disabled: true, opens_strip: false },
+    ToolDef { tool: ToolType::Line, label: "Line", disabled: true, opens_strip: false },
+    ToolDef { tool: ToolType::Connector, label: "Connector", disabled: true, opens_strip: false },
+    ToolDef { tool: ToolType::Text, label: "Text", disabled: true, opens_strip: false },
 ];
 
 const DRAW_TOOLS: &[ToolDef] = &[
-    ToolDef {
-        tool: ToolType::Draw,
-        label: "Draw",
-        disabled: true,
-        opens_strip: false,
-    },
-    ToolDef {
-        tool: ToolType::Eraser,
-        label: "Eraser",
-        disabled: true,
-        opens_strip: false,
-    },
+    ToolDef { tool: ToolType::Draw, label: "Draw", disabled: true, opens_strip: false },
+    ToolDef { tool: ToolType::Eraser, label: "Eraser", disabled: true, opens_strip: false },
 ];
 
 /// Vertical strip of tool selection buttons with a tool-strip flyout.

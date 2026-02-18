@@ -14,28 +14,12 @@ struct ShapePreset {
 }
 
 const SHAPE_PRESETS: &[ShapePreset] = &[
-    ShapePreset {
-        label: "Square",
-        width: 120.0,
-        height: 120.0,
-    },
-    ShapePreset {
-        label: "Tall",
-        width: 100.0,
-        height: 160.0,
-    },
-    ShapePreset {
-        label: "Wide",
-        width: 200.0,
-        height: 100.0,
-    },
+    ShapePreset { label: "Square", width: 120.0, height: 120.0 },
+    ShapePreset { label: "Tall", width: 100.0, height: 160.0 },
+    ShapePreset { label: "Wide", width: 200.0, height: 100.0 },
 ];
 
-const COLOR_PRESETS: &[(&str, &str)] = &[
-    ("Red", "#D94B4B"),
-    ("Blue", "#4B7DD9"),
-    ("Green", "#4BAF6E"),
-];
+const COLOR_PRESETS: &[(&str, &str)] = &[("Red", "#D94B4B"), ("Blue", "#4B7DD9"), ("Green", "#4BAF6E")];
 
 /// Tool strip flyout used by sticky and rectangle tools.
 #[component]

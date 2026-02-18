@@ -23,11 +23,7 @@ pub fn InspectorPanel() -> impl IntoView {
 
     let selected_object = move || {
         let objs = selected_objects();
-        if objs.len() == 1 {
-            objs.into_iter().next()
-        } else {
-            None
-        }
+        if objs.len() == 1 { objs.into_iter().next() } else { None }
     };
 
     let draft_width = RwSignal::new(String::new());
