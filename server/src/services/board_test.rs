@@ -1,6 +1,9 @@
 use super::*;
 use crate::frame::{Data, Frame};
-use crate::state::{AppState, BoardObject, BoardState, test_helpers};
+#[cfg(feature = "live-db-tests")]
+use crate::state::AppState;
+use crate::state::{BoardObject, BoardState, test_helpers};
+#[cfg(feature = "live-db-tests")]
 use sqlx::postgres::PgPoolOptions;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, timeout};
@@ -140,6 +143,7 @@ async fn part_board_evicts_dirty_board_even_if_flush_fails() {
     );
 }
 
+#[cfg(feature = "live-db-tests")]
 async fn integration_pool() -> sqlx::PgPool {
     let database_url = std::env::var("TEST_DATABASE_URL")
         .unwrap_or_else(|_| "postgres://test:test@localhost:5432/test_gauntlet_week_1".to_string());
@@ -163,6 +167,7 @@ async fn integration_pool() -> sqlx::PgPool {
     pool
 }
 
+#[cfg(feature = "live-db-tests")]
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn board_crud_round_trip_with_list_and_delete() {
@@ -193,6 +198,7 @@ async fn board_crud_round_trip_with_list_and_delete() {
     assert!(matches!(missing, Err(BoardError::NotFound(_))));
 }
 
+#[cfg(feature = "live-db-tests")]
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn join_board_hydrates_objects_from_database() {
@@ -238,6 +244,7 @@ async fn join_board_hydrates_objects_from_database() {
     assert!(loaded.objects.contains_key(&obj.id));
 }
 
+#[cfg(feature = "live-db-tests")]
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn part_board_flushes_dirty_object_to_database_on_last_client() {

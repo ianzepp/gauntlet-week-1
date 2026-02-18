@@ -3,6 +3,7 @@ use crate::frame::Status;
 use crate::llm::types::{ChatResponse, ContentBlock, LlmChat, LlmError, Message, Tool};
 use crate::state::test_helpers;
 use serde_json::json;
+#[cfg(feature = "live-db-tests")]
 use sqlx::postgres::PgPoolOptions;
 use std::sync::{Arc, Mutex};
 use tokio::time::{Duration, timeout};
@@ -75,6 +76,7 @@ async fn assert_no_board_broadcast(rx: &mut mpsc::Receiver<Frame>) {
     );
 }
 
+#[cfg(feature = "live-db-tests")]
 async fn integration_pool() -> sqlx::PgPool {
     let database_url = std::env::var("TEST_DATABASE_URL")
         .unwrap_or_else(|_| "postgres://test:test@localhost:5432/test_gauntlet_week_1".to_string());
@@ -333,6 +335,7 @@ async fn chat_history_requires_joined_board() {
     assert_no_board_broadcast(&mut client_rx).await;
 }
 
+#[cfg(feature = "live-db-tests")]
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn chat_history_returns_persisted_messages_for_board() {
@@ -405,6 +408,7 @@ async fn chat_history_returns_persisted_messages_for_board() {
     assert_eq!(messages[1].get("message").and_then(|v| v.as_str()), Some("second"));
 }
 
+#[cfg(feature = "live-db-tests")]
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL/live Postgres"]
 async fn ai_history_returns_only_messages_for_requesting_user() {

@@ -1,10 +1,13 @@
 use super::*;
 use sqlx::postgres::PgPoolOptions;
+use std::time::Duration;
 
 /// Create a test `AppState` with a dummy `PgPool` (`connect_lazy`, no live DB).
 #[must_use]
 pub fn test_app_state() -> AppState {
     let pool = PgPoolOptions::new()
+        // Fail fast if a test accidentally performs real DB I/O.
+        .acquire_timeout(Duration::from_millis(100))
         .connect_lazy("postgres://test:test@127.0.0.1:1/test_gauntlet_week_1")
         .expect("connect_lazy should not fail");
     AppState::new(pool, None, None)
@@ -14,6 +17,8 @@ pub fn test_app_state() -> AppState {
 #[must_use]
 pub fn test_app_state_with_llm(llm: Arc<dyn LlmChat>) -> AppState {
     let pool = PgPoolOptions::new()
+        // Fail fast if a test accidentally performs real DB I/O.
+        .acquire_timeout(Duration::from_millis(100))
         .connect_lazy("postgres://test:test@127.0.0.1:1/test_gauntlet_week_1")
         .expect("connect_lazy should not fail");
     AppState::new(pool, Some(llm), None)
