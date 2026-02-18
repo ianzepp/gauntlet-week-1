@@ -22,66 +22,57 @@ Types, state structs, module stubs, tests passing.
 
 SSR + hydration working. `cargo leptos build` succeeds.
 
-## Phase 3: Pages + Auth — PARTIAL
+## Phase 3: Pages + Auth — DONE
 
-**Done:** LoginPage, DashboardPage shell, BoardPage shell, BoardCard, net/api.rs REST calls, auth guard redirects.
+Implemented:
+- Login page title/branding updates
+- Dashboard create-board dialog UX (Enter submit, backdrop dismiss, dashed "+" card)
+- Dashboard create flow navigates to newly created board
+- BoardPage join/part lifecycle and state cleanup on unmount
+- Auth guard redirects across login/dashboard/board flows
 
-**Remaining:**
-- LoginPage: Change title from "Gauntlet" to "CollabBoard", remove subtitle
-- DashboardPage: Wire `board:create` syscall (currently TODO stub), navigate to new board after create, Enter key to submit dialog, backdrop click to dismiss, add dashed "+" new board card in grid, add nav header bar matching React
-- BoardPage: Send `board:join` on connect and reconnect (currently never sent), send `board:part` on unmount, cleanup state on unmount
+## Phase 4: WebSocket Frame Client — DONE
 
-## Phase 4: WebSocket Frame Client — PARTIAL
-
-**Done:** Connection lifecycle, reconnect with backoff, dispatch for: `session:connected`, `board:join` (done), `object:create/update/delete` (done), `cursor:moved`, `board:part`, `chat:message` (done).
-
-**Remaining — add to `dispatch_frame`:**
-- `ai:prompt` (done/error) → append to AiState messages
-- `ai:history` (done) → populate AiState messages
-- `chat:history` (done) → populate ChatState messages
-- `board:create` (done) → navigate to new board
-- Peer `board:join` broadcast (when `client_id` present but no objects) → add presence entry
-- Error status frames → log warning
-- `gateway:error` → log warning
-
-**Remaining — add outbound sends from components:**
-- `board:join` from BoardPage on connect/reconnect
-- `board:create` from DashboardPage dialog
-- `chat:history` from ChatPanel on mount
-- `ai:history` from AiPanel on mount
+Implemented:
+- Full connection lifecycle with reconnect/backoff
+- Dispatch coverage for board/object/cursor/chat/ai flows, including history hydration
+- Peer join presence insertion and error/warning logging
+- Outbound sends from board/dashboard/chat/ai components
+- `board:list`/`board:create` now routed through shared frame-client state (removed ad-hoc websocket roundtrip path)
+- Protocol alignment fixes (`ts` integer, normalized frame error message parsing)
 
 ---
 
-## Phase 5: Toolbar + Status Bar — NEEDS REWORK
+## Phase 5: Toolbar + Status Bar — DONE
 
 Current state: Basic toolbar with presence chips and logout. Basic status bar with connection dot. UserFieldReport fetches profile but has no popover positioning or close behavior.
 
 ### Toolbar (`components/toolbar.rs`)
-- [ ] Show local user chip alongside remote presence chips (React combines both)
-- [ ] Add click handler on presence chips to open UserFieldReport popover
-- [ ] Position popover relative to clicked chip (measure DOM position)
-- [ ] Add full-screen backdrop that closes popover on click
-- [ ] Back button: only show when on board page (React: conditional on `onBack` prop)
-- [ ] Match React styling: 36px height, `--bg-nav`, flat left-border presence chips (not pills), 6px square dots (not 8px circles), IBM Plex Mono 10px uppercase for chip text
+- [x] Show local user chip alongside remote presence chips (React combines both)
+- [x] Add click handler on presence chips to open UserFieldReport popover
+- [x] Position popover relative to clicked chip
+- [x] Add full-screen backdrop that closes popover on click
+- [x] Back button only on board page
+- [x] React-style toolbar/presence chip styling
 
 ### StatusBar (`components/status_bar.rs`)
-- [ ] Add cursor position display (placeholder `(0, 0)` until canvas integration)
-- [ ] Add viewport center display (placeholder `(0, 0)`)
-- [ ] Zoom display reads from state (placeholder "100%")
-- [ ] Add user chip with color dot (authenticated user's name + color)
-- [ ] Match React styling: 24px height, `--bg-status-bar`, mono 11px uppercase, 6px square dots, section dividers
+- [x] Add cursor position display (placeholder `(0, 0)` until canvas integration)
+- [x] Add viewport center display (placeholder `(0, 0)`)
+- [x] Zoom display reads from state (placeholder "100%")
+- [x] Add user chip with color dot (authenticated user's name + color)
+- [x] Match React styling
 
 ### UserFieldReport (`components/user_field_report.rs`)
-- [ ] Add avatar image display (`<img>` when `avatar_url` is Some)
-- [ ] Add `member_since` display in "Field Agent" badge line
-- [ ] Add `last_active` row in stats
-- [ ] Add backdrop element for click-to-close
-- [ ] Position as fixed popover (not inline), clamped to viewport
-- [ ] Match React styling: flat rectangle (no border-radius), warm bg, Caveat name font, mono stats
+- [x] Add avatar image display (`<img>` when `avatar_url` is Some)
+- [x] Add `member_since` display in "Field Agent" badge line
+- [x] Add `last_active` row in stats
+- [x] Add backdrop element for click-to-close
+- [x] Position as fixed popover, clamped to viewport
+- [x] Match React styling
 
 ---
 
-## Phase 6: Left Panel (Tools + Inspector) — NEEDS REWORK
+## Phase 6: Left Panel (Tools + Inspector) — DONE
 
 Current state: Flat tabbed panel (Tools/Inspector tabs). ToolRail has wrong tool set with unicode glyphs. ToolStrip has wrong colors and no shape presets. InspectorPanel is read-only.
 
@@ -124,7 +115,7 @@ Current state: Flat tabbed panel (Tools/Inspector tabs). ToolRail has wrong tool
 
 ---
 
-## Phase 7: Right Panel (Chat + AI + Boards) — NEEDS REWORK
+## Phase 7: Right Panel (Chat + AI + Boards) — DONE
 
 Current state: Flat tabbed panel (Chat/AI/Boards tabs). ChatPanel sends messages but no history loading or auto-scroll. AiPanel sends prompts but no response handling. MissionControl is a link list.
 
@@ -163,7 +154,7 @@ Current state: Flat tabbed panel (Chat/AI/Boards tabs). ChatPanel sends messages
 
 ---
 
-## Phase 8: CSS + Styling — NEEDS FULL REWRITE
+## Phase 8: CSS + Styling — DONE
 
 Current state: `styles/main.css` uses a completely wrong design system (dark navy/rose palette, system sans-serif, border-radius everywhere). Must be replaced entirely with the React client's design tokens and component styles.
 
@@ -234,13 +225,8 @@ This phase is **deferred** and will be planned separately. High-level:
 
 ## Execution Order for Remaining Work
 
-CSS first so we can visually verify everything, then structural changes, then wiring:
-
-1. **Phase 8** — CSS full rewrite (design tokens, base styles, all component styles)
-2. **Phase 6** — Left panel restructure (rail+panel, tool rail, tool strip, inspector)
-3. **Phase 7** — Right panel restructure (rail+panel, chat history, AI responses)
-4. **Phase 5** — Toolbar + status bar polish (popover, presence, info display)
-5. **Phase 3+4 remaining** — WebSocket sends (board:join, board:create, history loads) + dispatch handlers
+1. **Phase 9** — Canvas integration (deferred, next major implementation track)
+2. Follow-up polish and parity checks versus React (visual/interaction diffs)
 
 ## Implementation Notes
 
