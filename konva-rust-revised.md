@@ -44,8 +44,72 @@ This is the minimal split that prevents a rewrite when you add features later:
 - `camera`: `Camera { pan, zoom }` plus `screen_to_world/world_to_screen`
 - `render`: `draw(ctx, &doc, &camera, &ui_state)`
 - `hit`: hit-testing primitives (node interior, resize handles, edge endpoints)
-- `input`: pointer/key state machine that emits local mutations + server frames
-- `net`: websocket frame client (existing frame protocol)
+- `input`: pointer/key state machine that emits local mutations as `Action` values
+
+Note: `net` (websocket client) is **not** part of the canvas crate. The host app (Leptos) owns the network connection and feeds snapshots/updates into the doc store.
+
+### Crate Public API Boundary (Actionable)
+
+The canvas crate is a pure logic + rendering library. It does not own the network, the DOM, or the application lifecycle. The host app (Leptos) drives it through a narrow API.
+
+**Host -> Crate (inputs):**
+
+- `Engine::new(canvas: HtmlCanvasElement)` — initialize with a canvas element
+- `engine.set_viewport(width_css: f64, height_css: f64, dpr: f64)` — resize/DPR changes
+- `engine.load_snapshot(objects: Vec<BoardObject>)` — hydrate from server snapshot
+- `engine.apply_create(object: BoardObject)` — server broadcast: object created
+- `engine.apply_update(id: ObjectId, fields: PartialBoardObject)` — server broadcast: object updated
+- `engine.apply_delete(id: ObjectId)` — server broadcast: object removed
+- `engine.on_pointer_down(screen_pt: Point, button: Button, modifiers: Modifiers)`
+- `engine.on_pointer_move(screen_pt: Point, modifiers: Modifiers)`
+- `engine.on_pointer_up(screen_pt: Point, button: Button, modifiers: Modifiers)`
+- `engine.on_wheel(screen_pt: Point, delta: WheelDelta, modifiers: Modifiers)`
+- `engine.on_key_down(key: Key, modifiers: Modifiers)`
+- `engine.on_key_up(key: Key, modifiers: Modifiers)`
+- `engine.set_tool(tool: Tool)` — select, rect, ellipse, diamond, star, line, arrow
+- `engine.set_text(id: ObjectId, head: String, text: String, foot: String)` — commit from Leptos editor
+- `engine.render()` — draw current state to canvas
+
+**Crate -> Host (outputs):**
+
+The crate returns `Action` values from input methods. The host inspects these and decides what to do (send to server, update UI chrome, etc.):
+
+```rust
+enum Action {
+    None,
+    /// Object was created locally; host should send object:create
+    ObjectCreated(BoardObject),
+    /// Object was mutated locally; host should send object:update on gesture end
+    ObjectUpdated { id: ObjectId, fields: PartialBoardObject },
+    /// Object should be deleted; host should send object:delete
+    ObjectDeleted { id: ObjectId },
+    /// Request the host to enter text edit mode for this object
+    EditTextRequested { id: ObjectId, head: String, text: String, foot: String },
+    /// Cursor style hint (e.g., "grab", "crosshair", "nw-resize")
+    SetCursor(String),
+    /// Render is needed (call engine.render())
+    RenderNeeded,
+}
+```
+
+Input methods may return multiple actions (e.g., `ObjectCreated` + `RenderNeeded`). Use `Vec<Action>` or a small fixed-size return.
+
+**Crate -> Host (queries):**
+
+The host can read state from the crate without mutation:
+
+- `engine.selection() -> Option<ObjectId>` — currently selected object
+- `engine.camera() -> Camera` — current pan/zoom for UI display
+- `engine.object(id: ObjectId) -> Option<&BoardObject>` — read an object
+
+### Width/Height Convention
+
+- For node shapes (`rect`, `ellipse`, `diamond`, `star`): `width` and `height` are required. If missing from the wire (server sends `null`), the crate defaults to `0.0` and skips rendering.
+- For edge shapes (`line`, `arrow`): `width` and `height` are present on the wire but not authoritative. The crate uses `props.a` and `props.b` endpoints for rendering and hit-testing.
+
+### Kind Names
+
+The crate uses the kind names defined in this doc: `rect`, `ellipse`, `diamond`, `star`, `line`, `arrow`. The existing front-end kind names (`sticky_note`, `rectangle`, `connector`, `text`) are legacy and will be migrated as part of the TS -> Rust rewrite.
 
 ## Coordinate System (Critical v0)
 
