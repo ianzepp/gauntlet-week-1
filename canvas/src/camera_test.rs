@@ -1,3 +1,5 @@
+#![allow(clippy::clone_on_copy, clippy::float_cmp)]
+
 use super::*;
 
 const EPSILON: f64 = 1e-10;

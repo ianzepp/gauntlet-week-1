@@ -1,3 +1,5 @@
+#![allow(clippy::clone_on_copy, clippy::float_cmp)]
+
 use serde_json::json;
 use uuid::Uuid;
 
