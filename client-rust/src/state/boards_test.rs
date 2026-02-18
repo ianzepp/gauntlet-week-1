@@ -7,4 +7,5 @@ fn boards_state_defaults() {
     assert!(!s.loading);
     assert!(!s.create_pending);
     assert!(s.created_board_id.is_none());
+    assert!(s.error.is_none());
 }

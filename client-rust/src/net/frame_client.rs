@@ -224,6 +224,7 @@ fn dispatch_frame(
             boards.update(|s| {
                 s.items = list;
                 s.loading = false;
+                s.error = None;
             });
         }
 
@@ -237,6 +238,7 @@ fn dispatch_frame(
                     }
                     s.create_pending = false;
                     s.created_board_id = Some(created.id.clone());
+                    s.error = None;
                 });
                 send_board_list_request(tx);
             } else {
@@ -349,10 +351,7 @@ fn dispatch_frame(
                     a.loading = false;
                 });
             } else if frame.status == FrameStatus::Error {
-                let content = frame
-                    .data
-                    .get("error")
-                    .and_then(|v| v.as_str())
+                let content = frame_error_message(frame)
                     .unwrap_or("AI request failed")
                     .to_owned();
                 ai.update(|a| {
@@ -371,10 +370,19 @@ fn dispatch_frame(
         }
 
         _ if frame.status == FrameStatus::Error => {
+            let message = frame_error_message(frame)
+                .unwrap_or("request failed")
+                .to_owned();
             if frame.syscall == "board:list" {
-                boards.update(|s| s.loading = false);
+                boards.update(|s| {
+                    s.loading = false;
+                    s.error = Some(message.clone());
+                });
             } else if frame.syscall == "board:create" {
-                boards.update(|s| s.create_pending = false);
+                boards.update(|s| {
+                    s.create_pending = false;
+                    s.error = Some(message.clone());
+                });
             }
             leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
         }
@@ -559,4 +567,13 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
         timestamp: frame.ts as f64,
         mutations: frame.data.get("mutations").and_then(|v| v.as_i64()),
     })
+}
+
+#[cfg(feature = "hydrate")]
+fn frame_error_message(frame: &Frame) -> Option<&str> {
+    frame
+        .data
+        .get("message")
+        .and_then(|v| v.as_str())
+        .or_else(|| frame.data.get("error").and_then(|v| v.as_str()))
 }

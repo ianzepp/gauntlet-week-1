@@ -16,4 +16,5 @@ pub struct BoardsState {
     pub loading: bool,
     pub create_pending: bool,
     pub created_board_id: Option<String>,
+    pub error: Option<String>,
 }

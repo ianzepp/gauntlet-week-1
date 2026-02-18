@@ -72,6 +72,11 @@ pub fn DashboardPage() -> impl IntoView {
             </header>
 
             <div class="dashboard-page__grid">
+                <Show when=move || boards.get().error.is_some()>
+                    <p class="dashboard-page__error">
+                        {move || boards.get().error.unwrap_or_default()}
+                    </p>
+                </Show>
                 <Show
                     when=move || !boards.get().loading
                     fallback=move || view! { <p>"Loading boards..."</p> }
