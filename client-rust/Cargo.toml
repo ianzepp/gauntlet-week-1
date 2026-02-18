@@ -5,12 +5,50 @@ edition = "2024"
 rust-version = "1.85"
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+leptos = { version = "0.8" }
+leptos_meta = { version = "0.8" }
+leptos_router = { version = "0.8" }
+
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
+
+# Client-only (WASM) dependencies
+console_error_panic_hook = { version = "0.1", optional = true }
+console_log = { version = "1", optional = true }
+log = { version = "0.4", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+gloo-net = { version = "0.6", optional = true }
+gloo-timers = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Window", "Document", "HtmlElement", "Storage"] }
+js-sys = { version = "0.3", optional = true }
+
+# SSR dependencies
+leptos_axum = { version = "0.8", optional = true }
+
+[features]
+hydrate = [
+    "leptos/hydrate",
+    "dep:console_error_panic_hook",
+    "dep:console_log",
+    "dep:log",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:gloo-net",
+    "dep:gloo-timers",
+    "dep:web-sys",
+    "dep:js-sys",
+]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:leptos_axum",
+]
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -20,3 +58,5 @@ wildcard_imports = "allow"
 needless_pass_by_value = "allow"
 unnecessary_map_or = "allow"
 unnecessary_result_map_or_else = "allow"
+# Leptos #[component] macro generates functions returning impl IntoView
+must_use_candidate = "allow"

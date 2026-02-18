@@ -22,8 +22,17 @@ time = "0.3"
 async-trait = "0.1"
 dotenvy = "0.15"
 
+# Leptos SSR integration
+leptos = { version = "0.8", features = ["ssr"] }
+leptos_axum = "0.8"
+client-rust = { path = "../client-rust", features = ["ssr"] }
+
 [dev-dependencies]
 tokio-tungstenite = "0.26"
+
+[features]
+default = []
+ssr = []
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

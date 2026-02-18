@@ -1,0 +1,73 @@
+/* Gauntlet UI — main stylesheet */
+
+:root {
+    --color-bg: #1a1a2e;
+    --color-surface: #16213e;
+    --color-primary: #0f3460;
+    --color-accent: #e94560;
+    --color-text: #eee;
+    --color-text-muted: #aaa;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+}
+
+/* Login page */
+.login-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 1rem;
+}
+
+.login-button {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-accent);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.login-button:hover {
+    opacity: 0.9;
+}
+
+/* Dashboard */
+.dashboard-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Board page grid layout */
+.board-page {
+    display: grid;
+    grid-template-areas:
+        "toolbar toolbar toolbar"
+        "left canvas right"
+        "status status status";
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: auto 1fr auto;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.board-page__toolbar { grid-area: toolbar; background: var(--color-surface); padding: 0.5rem 1rem; }
+.board-page__left-panel { grid-area: left; background: var(--color-surface); width: 240px; }
+.board-page__canvas { grid-area: canvas; background: var(--color-bg); display: flex; align-items: center; justify-content: center; }
+.board-page__right-panel { grid-area: right; background: var(--color-surface); width: 280px; }
+.board-page__status-bar { grid-area: status; background: var(--color-surface); padding: 0.25rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); }

@@ -147,13 +147,14 @@ async fn main() {
         );
     }
 
-    let mut state = state::AppState::new(pool, llm, github);
-    state.frame_persist_tx = Some(services::persistence::spawn_frame_persistence_worker(state.pool.clone()));
+    let mut app_state = state::AppState::new(pool, llm, github);
+    app_state.frame_persist_tx = Some(services::persistence::spawn_frame_persistence_worker(app_state.pool.clone()));
 
     // Spawn background persistence task.
-    let _persistence = services::persistence::spawn_persistence_task(state.clone());
+    let _persistence = services::persistence::spawn_persistence_task(app_state.clone());
 
-    let app = routes::app(state);
+    // Build the combined Axum + Leptos router.
+    let app = routes::app(app_state);
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
         .expect("failed to bind");
