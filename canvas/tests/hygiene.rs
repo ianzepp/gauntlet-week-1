@@ -13,7 +13,7 @@ const MAX_UNWRAP: usize = 0;
 const MAX_EXPECT: usize = 0;
 const MAX_PANIC: usize = 0;
 const MAX_UNREACHABLE: usize = 0;
-const MAX_TODO: usize = 10; // Current stubs; ratchet down as they are implemented.
+const MAX_TODO: usize = 8; // Current stubs; ratchet down as they are implemented.
 const MAX_UNIMPLEMENTED: usize = 0;
 
 // Silent loss — discards errors without inspecting.
