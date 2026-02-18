@@ -4,13 +4,13 @@ use leptos::prelude::*;
 use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_params_map;
 
+use crate::app::FrameSender;
 use crate::components::board_stamp::BoardStamp;
 use crate::components::canvas_host::CanvasHost;
 use crate::components::left_panel::LeftPanel;
 use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
-use crate::app::FrameSender;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;

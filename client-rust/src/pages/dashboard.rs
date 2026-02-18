@@ -4,27 +4,44 @@ use leptos::prelude::*;
 use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_navigate;
 
+use crate::app::FrameSender;
 use crate::components::board_card::BoardCard;
-use crate::net::api::BoardListItem;
+use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
+use crate::state::board::{BoardState, ConnectionStatus};
+use crate::state::boards::BoardsState;
 
 /// Dashboard page — shows a board list and a create-board button.
 /// Redirects to `/login` if the user is not authenticated.
 #[component]
 pub fn DashboardPage() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let boards = expect_context::<RwSignal<BoardsState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
     let navigate = use_navigate();
 
     // Redirect to login if not authenticated.
+    let navigate_login = navigate.clone();
     Effect::new(move || {
         let state = auth.get();
         if !state.loading && state.user.is_none() {
-            navigate("/login", NavigateOptions::default());
+            navigate_login("/login", NavigateOptions::default());
         }
     });
 
-    // Board list resource — fetches on mount.
-    let boards = LocalResource::new(|| crate::net::api::fetch_boards());
+    let requested_list = RwSignal::new(false);
+    Effect::new(move || {
+        if requested_list.get() {
+            return;
+        }
+        if !matches!(board.get().connection_status, ConnectionStatus::Connected) {
+            return;
+        }
+        boards.update(|s| s.loading = true);
+        send_board_list(sender);
+        requested_list.set(true);
+    });
 
     // Create-board dialog state.
     let show_create = RwSignal::new(false);
@@ -37,6 +54,14 @@ pub fn DashboardPage() -> impl IntoView {
 
     let on_cancel = Callback::new(move |_| show_create.set(false));
 
+    let navigate_to_board = navigate.clone();
+    Effect::new(move || {
+        if let Some(board_id) = boards.get().created_board_id.clone() {
+            boards.update(|s| s.created_board_id = None);
+            navigate_to_board(&format!("/board/{board_id}"), NavigateOptions::default());
+        }
+    });
+
     view! {
         <div class="dashboard-page">
             <header class="dashboard-page__header">
@@ -47,45 +72,27 @@ pub fn DashboardPage() -> impl IntoView {
             </header>
 
             <div class="dashboard-page__grid">
-                <Suspense fallback=move || view! { <p>"Loading boards..."</p> }>
-                    {move || {
-                        boards
-                            .get()
-                            .map(|list| {
-                                if list.is_empty() {
-                                    view! {
-                                        <div class="dashboard-page__cards">
-                                            <button class="dashboard-page__new-card" on:click=on_create title="Create board">
-                                                <svg class="dashboard-page__new-icon" viewBox="0 0 20 20" aria-hidden="true">
-                                                    <line x1="10" y1="4" x2="10" y2="16"></line>
-                                                    <line x1="4" y1="10" x2="16" y2="10"></line>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    }
-                                        .into_any()
-                                } else {
-                                    view! {
-                                        <div class="dashboard-page__cards">
-                                            <button class="dashboard-page__new-card" on:click=on_create title="Create board">
-                                                <svg class="dashboard-page__new-icon" viewBox="0 0 20 20" aria-hidden="true">
-                                                    <line x1="10" y1="4" x2="10" y2="16"></line>
-                                                    <line x1="4" y1="10" x2="16" y2="10"></line>
-                                                </svg>
-                                            </button>
-                                            {list
-                                                .into_iter()
-                                                .map(|b| {
-                                                    view! { <BoardCard id=b.id name=b.name/> }
-                                                })
-                                                .collect::<Vec<_>>()}
-                                        </div>
-                                    }
-                                        .into_any()
-                                }
-                            })
-                    }}
-                </Suspense>
+                <Show
+                    when=move || !boards.get().loading
+                    fallback=move || view! { <p>"Loading boards..."</p> }
+                >
+                    <div class="dashboard-page__cards">
+                        <button class="dashboard-page__new-card" on:click=on_create title="Create board">
+                            <svg class="dashboard-page__new-icon" viewBox="0 0 20 20" aria-hidden="true">
+                                <line x1="10" y1="4" x2="10" y2="16"></line>
+                                <line x1="4" y1="10" x2="16" y2="10"></line>
+                            </svg>
+                        </button>
+                        {move || {
+                            boards
+                                .get()
+                                .items
+                                .into_iter()
+                                .map(|b| view! { <BoardCard id=b.id name=b.name/> })
+                                .collect::<Vec<_>>()
+                        }}
+                    </div>
+                </Show>
             </div>
 
             <Show when=move || show_create.get()>
@@ -93,6 +100,7 @@ pub fn DashboardPage() -> impl IntoView {
                     name=new_board_name
                     on_cancel=on_cancel
                     boards=boards
+                    sender=sender
                 />
             </Show>
         </div>
@@ -104,35 +112,18 @@ pub fn DashboardPage() -> impl IntoView {
 fn CreateBoardDialog(
     name: RwSignal<String>,
     on_cancel: Callback<()>,
-    boards: LocalResource<Vec<BoardListItem>>,
+    boards: RwSignal<BoardsState>,
+    sender: RwSignal<FrameSender>,
 ) -> impl IntoView {
-    #[cfg(feature = "hydrate")]
-    let navigate = use_navigate();
-
     let submit = Callback::new(move |_| {
         let board_name = name.get();
         if board_name.trim().is_empty() {
             return;
         }
-
-        #[cfg(feature = "hydrate")]
-        {
-            let board_name = board_name.trim().to_owned();
-            let navigate = navigate.clone();
-            let boards = boards.clone();
-                    leptos::task::spawn_local(async move {
-                        if let Some(board) = crate::net::api::create_board(&board_name).await {
-                            boards.refetch();
-                            navigate(&format!("/board/{}", board.id), NavigateOptions::default());
-                        }
-                    });
-        }
-
-        #[cfg(not(feature = "hydrate"))]
-        {
-            let _ = board_name;
-            let _ = &boards;
-        }
+        let board_name = board_name.trim().to_owned();
+        boards.update(|s| s.create_pending = true);
+        send_board_create(sender, &board_name);
+        on_cancel.run(());
     });
 
     view! {
@@ -167,4 +158,32 @@ fn CreateBoardDialog(
             </div>
         </div>
     }
+}
+
+fn send_board_list(sender: RwSignal<FrameSender>) {
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: None,
+        from: None,
+        syscall: "board:list".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({}),
+    };
+    let _ = sender.get_untracked().send(&frame);
+}
+
+fn send_board_create(sender: RwSignal<FrameSender>, name: &str) {
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: None,
+        from: None,
+        syscall: "board:create".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({ "name": name }),
+    };
+    let _ = sender.get_untracked().send(&frame);
 }

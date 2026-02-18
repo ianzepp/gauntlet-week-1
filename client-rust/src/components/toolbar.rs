@@ -18,7 +18,12 @@ pub fn Toolbar() -> impl IntoView {
     let ui = expect_context::<RwSignal<UiState>>();
     let location = use_location();
 
-    let board_name = move || board.get().board_name.unwrap_or_else(|| "Untitled".to_owned());
+    let board_name = move || {
+        board
+            .get()
+            .board_name
+            .unwrap_or_else(|| "Untitled".to_owned())
+    };
 
     let active_report = RwSignal::new(None::<(String, i32)>);
 

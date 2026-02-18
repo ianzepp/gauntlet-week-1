@@ -16,6 +16,8 @@ use crate::state::auth::AuthState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::{BoardState, ConnectionStatus};
 #[cfg(feature = "hydrate")]
+use crate::state::boards::{BoardListItem, BoardsState};
+#[cfg(feature = "hydrate")]
 use crate::state::chat::{ChatMessage, ChatState};
 #[cfg(feature = "hydrate")]
 use leptos::prelude::GetUntracked;
@@ -43,6 +45,7 @@ pub fn spawn_frame_client(
     auth: leptos::prelude::RwSignal<AuthState>,
     ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
 ) -> futures::channel::mpsc::UnboundedSender<String> {
     use futures::channel::mpsc;
@@ -50,7 +53,7 @@ pub fn spawn_frame_client(
     let (tx, rx) = mpsc::unbounded::<String>();
     let tx_clone = tx.clone();
 
-    leptos::task::spawn_local(frame_client_loop(auth, ai, board, chat, tx_clone, rx));
+    leptos::task::spawn_local(frame_client_loop(auth, ai, board, boards, chat, tx_clone, rx));
 
     tx
 }
@@ -61,6 +64,7 @@ async fn frame_client_loop(
     auth: leptos::prelude::RwSignal<AuthState>,
     ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: futures::channel::mpsc::UnboundedSender<String>,
     rx: futures::channel::mpsc::UnboundedReceiver<String>,
@@ -96,7 +100,7 @@ async fn frame_client_loop(
             .unwrap_or_else(|| "localhost:3000".to_owned());
         let ws_url = format!("{ws_proto}://{host}/api/ws?ticket={ticket}");
 
-        match connect_and_run(&ws_url, auth, ai, board, chat, &tx, &rx).await {
+        match connect_and_run(&ws_url, auth, ai, board, boards, chat, &tx, &rx).await {
             Ok(()) => {
                 leptos::logging::log!("WS disconnected cleanly");
             }
@@ -120,6 +124,7 @@ async fn connect_and_run(
     auth: leptos::prelude::RwSignal<AuthState>,
     ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: &futures::channel::mpsc::UnboundedSender<String>,
     rx: &std::rc::Rc<std::cell::RefCell<futures::channel::mpsc::UnboundedReceiver<String>>>,
@@ -151,7 +156,7 @@ async fn connect_and_run(
             match msg {
                 Ok(Message::Text(text)) => {
                     if let Ok(frame) = serde_json::from_str::<Frame>(&text) {
-                        dispatch_frame(&frame, auth, ai, board, chat, tx);
+                        dispatch_frame(&frame, auth, ai, board, boards, chat, tx);
                     }
                 }
                 Ok(Message::Bytes(_)) => {}
@@ -176,6 +181,7 @@ fn dispatch_frame(
     _auth: leptos::prelude::RwSignal<AuthState>,
     ai: leptos::prelude::RwSignal<AiState>,
     board: leptos::prelude::RwSignal<BoardState>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: &futures::channel::mpsc::UnboundedSender<String>,
 ) {
@@ -187,6 +193,7 @@ fn dispatch_frame(
         "session:connected" => {
             board.update(|b| b.connection_status = ConnectionStatus::Connected);
             send_board_join_for_active_board(tx, board);
+            send_board_list_request(tx);
         }
 
         "board:join" if frame.status == FrameStatus::Done => {
@@ -204,6 +211,36 @@ fn dispatch_frame(
             // Set board name if present.
             if let Some(name) = frame.data.get("name").and_then(|n| n.as_str()) {
                 board.update(|b| b.board_name = Some(name.to_owned()));
+            }
+        }
+
+        "board:list" if frame.status == FrameStatus::Done => {
+            let list = frame
+                .data
+                .get("boards")
+                .cloned()
+                .and_then(|v| serde_json::from_value::<Vec<BoardListItem>>(v).ok())
+                .unwrap_or_default();
+            boards.update(|s| {
+                s.items = list;
+                s.loading = false;
+            });
+        }
+
+        "board:create" if frame.status == FrameStatus::Done => {
+            if let Ok(created) = serde_json::from_value::<BoardListItem>(frame.data.clone()) {
+                boards.update(|s| {
+                    if let Some(existing) = s.items.iter_mut().find(|b| b.id == created.id) {
+                        *existing = created.clone();
+                    } else {
+                        s.items.insert(0, created.clone());
+                    }
+                    s.create_pending = false;
+                    s.created_board_id = Some(created.id.clone());
+                });
+                send_board_list_request(tx);
+            } else {
+                boards.update(|s| s.create_pending = false);
             }
         }
 
@@ -334,6 +371,11 @@ fn dispatch_frame(
         }
 
         _ if frame.status == FrameStatus::Error => {
+            if frame.syscall == "board:list" {
+                boards.update(|s| s.loading = false);
+            } else if frame.syscall == "board:create" {
+                boards.update(|s| s.create_pending = false);
+            }
             leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
         }
 
@@ -346,7 +388,10 @@ fn dispatch_frame(
 }
 
 #[cfg(feature = "hydrate")]
-fn send_board_join_for_active_board(tx: &futures::channel::mpsc::UnboundedSender<String>, board: leptos::prelude::RwSignal<BoardState>) {
+fn send_board_join_for_active_board(
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    board: leptos::prelude::RwSignal<BoardState>,
+) {
     let Some(board_id) = board.get_untracked().board_id else {
         return;
     };
@@ -358,6 +403,21 @@ fn send_board_join_for_active_board(tx: &futures::channel::mpsc::UnboundedSender
         board_id: Some(board_id),
         from: None,
         syscall: "board:join".to_owned(),
+        status: crate::net::types::FrameStatus::Request,
+        data: serde_json::json!({}),
+    };
+    let _ = send_frame(tx, &frame);
+}
+
+#[cfg(feature = "hydrate")]
+fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<String>) {
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: None,
+        from: None,
+        syscall: "board:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
         data: serde_json::json!({}),
     };
@@ -433,7 +493,10 @@ fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMes
     let timestamp = data
         .get("timestamp")
         .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
-        .or_else(|| data.get("ts").and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))))
+        .or_else(|| {
+            data.get("ts")
+                .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
+        })
         .unwrap_or(frame.ts as f64);
 
     Some(ChatMessage { id, user_id, user_name, user_color, content, timestamp })
@@ -441,8 +504,16 @@ fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMes
 
 #[cfg(feature = "hydrate")]
 fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
-    let id = data.get("id").and_then(|v| v.as_str()).unwrap_or("ai-msg").to_owned();
-    let role = data.get("role").and_then(|v| v.as_str()).unwrap_or("assistant").to_owned();
+    let id = data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("ai-msg")
+        .to_owned();
+    let role = data
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("assistant")
+        .to_owned();
     let content = data
         .get("content")
         .and_then(|v| v.as_str())
@@ -455,7 +526,10 @@ fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
     let timestamp = data
         .get("timestamp")
         .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
-        .or_else(|| data.get("ts").and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))))
+        .or_else(|| {
+            data.get("ts")
+                .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
+        })
         .unwrap_or(0.0);
     let mutations = data.get("mutations").and_then(|v| v.as_i64());
 

@@ -8,7 +8,9 @@ use leptos_router::{
 };
 
 use crate::pages::{board::BoardPage, dashboard::DashboardPage, login::LoginPage};
-use crate::state::{ai::AiState, auth::AuthState, board::BoardState, chat::ChatState, ui::UiState};
+use crate::state::{
+    ai::AiState, auth::AuthState, board::BoardState, boards::BoardsState, chat::ChatState, ui::UiState,
+};
 
 /// Wrapper around the frame client sender, provided as Leptos context.
 ///
@@ -63,6 +65,7 @@ pub fn App() -> impl IntoView {
     // Provide reactive state contexts for all child components.
     let auth = RwSignal::new(AuthState::default());
     let board = RwSignal::new(BoardState::default());
+    let boards = RwSignal::new(BoardsState::default());
     let ui = RwSignal::new(UiState::default());
     let chat = RwSignal::new(ChatState::default());
     let ai = RwSignal::new(AiState::default());
@@ -70,6 +73,7 @@ pub fn App() -> impl IntoView {
 
     provide_context(auth);
     provide_context(board);
+    provide_context(boards);
     provide_context(ui);
     provide_context(chat);
     provide_context(ai);
@@ -90,7 +94,7 @@ pub fn App() -> impl IntoView {
             });
 
             // Spawn WebSocket frame client.
-            let tx = crate::net::frame_client::spawn_frame_client(auth, ai, board, chat);
+            let tx = crate::net::frame_client::spawn_frame_client(auth, ai, board, boards, chat);
             frame_sender.update(|fs| fs.tx = Some(tx));
 
             // Initialize dark mode from stored preference.
