@@ -1,4 +1,8 @@
+use uuid::Uuid;
+
 use super::*;
+use crate::camera::Point;
+use crate::hit::{EdgeEnd, ResizeAnchor};
 
 // =============================================================
 // Tool
@@ -50,6 +54,25 @@ fn tool_all_variants_distinct() {
             }
         }
     }
+}
+
+#[test]
+fn tool_is_shape() {
+    assert!(Tool::Rect.is_shape());
+    assert!(Tool::Ellipse.is_shape());
+    assert!(Tool::Diamond.is_shape());
+    assert!(Tool::Star.is_shape());
+    assert!(!Tool::Select.is_shape());
+    assert!(!Tool::Line.is_shape());
+    assert!(!Tool::Arrow.is_shape());
+}
+
+#[test]
+fn tool_is_edge() {
+    assert!(Tool::Line.is_edge());
+    assert!(Tool::Arrow.is_edge());
+    assert!(!Tool::Select.is_edge());
+    assert!(!Tool::Rect.is_edge());
 }
 
 // =============================================================
@@ -181,14 +204,110 @@ fn input_state_default_is_idle() {
 }
 
 #[test]
+fn input_state_panning_carries_point() {
+    let s = InputState::Panning { last_screen: Point::new(10.0, 20.0) };
+    match s {
+        InputState::Panning { last_screen } => {
+            assert_eq!(last_screen.x, 10.0);
+            assert_eq!(last_screen.y, 20.0);
+        }
+        _ => panic!("wrong variant"),
+    }
+}
+
+#[test]
+fn input_state_dragging_object_carries_context() {
+    let id = Uuid::new_v4();
+    let s = InputState::DraggingObject { id, last_world: Point::new(1.0, 2.0), orig_x: 3.0, orig_y: 4.0 };
+    match s {
+        InputState::DraggingObject { id: sid, orig_x, orig_y, .. } => {
+            assert_eq!(sid, id);
+            assert_eq!(orig_x, 3.0);
+            assert_eq!(orig_y, 4.0);
+        }
+        _ => panic!("wrong variant"),
+    }
+}
+
+#[test]
+fn input_state_drawing_shape_carries_anchor() {
+    let id = Uuid::new_v4();
+    let s = InputState::DrawingShape { id, anchor_world: Point::new(50.0, 60.0) };
+    match s {
+        InputState::DrawingShape { id: sid, anchor_world } => {
+            assert_eq!(sid, id);
+            assert_eq!(anchor_world.x, 50.0);
+        }
+        _ => panic!("wrong variant"),
+    }
+}
+
+#[test]
+fn input_state_resizing_object_carries_context() {
+    let id = Uuid::new_v4();
+    let s = InputState::ResizingObject {
+        id,
+        anchor: ResizeAnchor::Se,
+        last_world: Point::new(0.0, 0.0),
+        orig_x: 1.0,
+        orig_y: 2.0,
+        orig_w: 100.0,
+        orig_h: 80.0,
+    };
+    match s {
+        InputState::ResizingObject { anchor, orig_w, orig_h, .. } => {
+            assert_eq!(anchor, ResizeAnchor::Se);
+            assert_eq!(orig_w, 100.0);
+            assert_eq!(orig_h, 80.0);
+        }
+        _ => panic!("wrong variant"),
+    }
+}
+
+#[test]
+fn input_state_rotating_object_carries_context() {
+    let id = Uuid::new_v4();
+    let s = InputState::RotatingObject { id, center: Point::new(50.0, 40.0), orig_rotation: 45.0 };
+    match s {
+        InputState::RotatingObject { center, orig_rotation, .. } => {
+            assert_eq!(center.x, 50.0);
+            assert_eq!(orig_rotation, 45.0);
+        }
+        _ => panic!("wrong variant"),
+    }
+}
+
+#[test]
+fn input_state_dragging_edge_endpoint_carries_context() {
+    let id = Uuid::new_v4();
+    let s = InputState::DraggingEdgeEndpoint { id, end: EdgeEnd::B };
+    match s {
+        InputState::DraggingEdgeEndpoint { end, .. } => {
+            assert_eq!(end, EdgeEnd::B);
+        }
+        _ => panic!("wrong variant"),
+    }
+}
+
+#[test]
 fn input_state_variants_debug() {
-    // Just verify all variants exist and Debug works
+    let id = Uuid::new_v4();
     let variants: Vec<InputState> = vec![
         InputState::Idle,
-        InputState::Panning,
-        InputState::DraggingObject,
-        InputState::DrawingShape,
-        InputState::DraggingEdgeEndpoint,
+        InputState::Panning { last_screen: Point::new(0.0, 0.0) },
+        InputState::DraggingObject { id, last_world: Point::new(0.0, 0.0), orig_x: 0.0, orig_y: 0.0 },
+        InputState::DrawingShape { id, anchor_world: Point::new(0.0, 0.0) },
+        InputState::ResizingObject {
+            id,
+            anchor: ResizeAnchor::N,
+            last_world: Point::new(0.0, 0.0),
+            orig_x: 0.0,
+            orig_y: 0.0,
+            orig_w: 0.0,
+            orig_h: 0.0,
+        },
+        InputState::RotatingObject { id, center: Point::new(0.0, 0.0), orig_rotation: 0.0 },
+        InputState::DraggingEdgeEndpoint { id, end: EdgeEnd::A },
     ];
     for v in &variants {
         let _ = format!("{v:?}");
