@@ -112,10 +112,9 @@ pub fn ToolRail() -> impl IntoView {
                             use wasm_bindgen::JsCast;
 
                             if let Some(target) = _ev.current_target()
-                                && let Ok(el) = target.dyn_into::<web_sys::Element>()
+                                && let Ok(el) = target.dyn_into::<web_sys::HtmlElement>()
                             {
-                                #[allow(clippy::cast_possible_truncation)]
-                                strip_top.set(el.get_bounding_client_rect().top() as i32);
+                                strip_top.set(el.offset_top());
                             }
                         }
 

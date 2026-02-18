@@ -63,7 +63,6 @@ async fn frame_client_loop(
     tx: futures::channel::mpsc::UnboundedSender<String>,
     rx: futures::channel::mpsc::UnboundedReceiver<String>,
 ) {
-    use futures::StreamExt;
     use std::cell::RefCell;
     use std::rc::Rc;
 
