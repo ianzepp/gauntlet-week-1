@@ -3,12 +3,8 @@
 mod hit_test;
 
 use crate::camera::{Camera, Point};
+use crate::consts::{FRAC_PI_5, HANDLE_RADIUS_PX, ROTATE_HANDLE_OFFSET_PX, STAR_INNER_RATIO};
 use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind};
-
-/// Screen-space hit slop in pixels for handles and thin edges.
-const HANDLE_RADIUS_PX: f64 = 8.0;
-/// Distance from the bounding box corner to the rotate handle, in screen pixels.
-const ROTATE_HANDLE_OFFSET_PX: f64 = 24.0;
 
 /// Which part of an object was hit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,11 +134,11 @@ pub fn point_in_local_star(local: Point, w: f64, h: f64) -> bool {
     let cx = w / 2.0;
     let cy = h / 2.0;
     let outer = (cx, cy);
-    let inner = (cx * 0.5, cy * 0.5);
+    let inner = (cx * STAR_INNER_RATIO, cy * STAR_INNER_RATIO);
 
     // Generate 10-point polygon (alternating outer/inner vertices).
     // Start at top (angle = -90 degrees).
-    let step = std::f64::consts::PI / 5.0;
+    let step = FRAC_PI_5;
     let offset = std::f64::consts::FRAC_PI_2;
     let mut vertices = [(0.0, 0.0); 10];
     #[allow(clippy::cast_precision_loss)] // i is at most 9
