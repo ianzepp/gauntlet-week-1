@@ -3,12 +3,12 @@
 use leptos::prelude::*;
 
 use crate::app::FrameSender;
-use crate::state::board::BoardState;
-use crate::state::ui::UiState;
 #[cfg(feature = "hydrate")]
 use crate::net::types::{BoardObject, Frame, FrameStatus};
+use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::ui::ToolType;
+use crate::state::ui::UiState;
 
 #[cfg(feature = "hydrate")]
 use std::cell::RefCell;
@@ -22,7 +22,9 @@ use canvas::doc::{BoardObject as CanvasObject, ObjectKind as CanvasKind};
 #[cfg(feature = "hydrate")]
 use canvas::engine::{Action, Engine};
 #[cfg(feature = "hydrate")]
-use canvas::input::{Button as CanvasButton, Modifiers as CanvasModifiers, Tool as CanvasTool, WheelDelta};
+use canvas::input::{
+    Button as CanvasButton, Key as CanvasKey, Modifiers as CanvasModifiers, Tool as CanvasTool, WheelDelta,
+};
 
 /// Canvas host component.
 ///
@@ -153,6 +155,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_up(point, button, modifiers);
                     process_actions(actions, engine, _board, _sender);
+                    sync_selection_from_engine(engine, _board);
                     let _ = engine.render();
                 }
             }
@@ -187,6 +190,32 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let on_key_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::KeyboardEvent| {
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    let key = ev.key();
+                    if should_prevent_default_key(&key) {
+                        ev.prevent_default();
+                    }
+                    let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
+                    let actions = engine.on_key_down(CanvasKey(key), modifiers);
+                    process_actions(actions, engine, _board, _sender);
+                    sync_selection_from_engine(engine, _board);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::KeyboardEvent| {}
+        }
+    };
+
     view! {
         <canvas
             class="canvas-host"
@@ -196,6 +225,7 @@ pub fn CanvasHost() -> impl IntoView {
             on:pointermove=on_pointer_move
             on:pointerup=on_pointer_up
             on:wheel=on_wheel
+            on:keydown=on_key_down
         >
             "Your browser does not support canvas."
         </canvas>
@@ -248,6 +278,11 @@ fn map_modifiers(shift: bool, ctrl: bool, alt: bool, meta: bool) -> CanvasModifi
 }
 
 #[cfg(feature = "hydrate")]
+fn should_prevent_default_key(key: &str) -> bool {
+    matches!(key, "Delete" | "Backspace" | "Escape" | "Enter")
+}
+
+#[cfg(feature = "hydrate")]
 fn pointer_point(ev: &leptos::ev::PointerEvent) -> Point {
     Point::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
 }
@@ -255,6 +290,22 @@ fn pointer_point(ev: &leptos::ev::PointerEvent) -> Point {
 #[cfg(feature = "hydrate")]
 fn wheel_point(ev: &leptos::ev::WheelEvent) -> Point {
     Point::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
+}
+
+#[cfg(feature = "hydrate")]
+fn sync_selection_from_engine(engine: &Engine, board: RwSignal<BoardState>) {
+    let selected = engine.selection().map(|id| id.to_string());
+    board.update(|b| {
+        if b.selection.len() <= 1 && b.selection.iter().next().cloned() == selected {
+            return;
+        }
+        b.selection.clear();
+        if let Some(id) = selected
+            && b.objects.contains_key(&id)
+        {
+            b.selection.insert(id);
+        }
+    });
 }
 
 #[cfg(feature = "hydrate")]
@@ -283,11 +334,19 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
     let height = obj.height.unwrap_or(80.0).max(1.0);
     let mut props = obj.props.clone();
     if let Some(map) = props.as_object_mut() {
-        if let Some(v) = map.get("backgroundColor").and_then(|v| v.as_str()).map(ToOwned::to_owned) {
+        if let Some(v) = map
+            .get("backgroundColor")
+            .and_then(|v| v.as_str())
+            .map(ToOwned::to_owned)
+        {
             map.entry("fill".to_owned())
                 .or_insert_with(|| serde_json::Value::String(v));
         }
-        if let Some(v) = map.get("borderColor").and_then(|v| v.as_str()).map(ToOwned::to_owned) {
+        if let Some(v) = map
+            .get("borderColor")
+            .and_then(|v| v.as_str())
+            .map(ToOwned::to_owned)
+        {
             map.entry("stroke".to_owned())
                 .or_insert_with(|| serde_json::Value::String(v));
         }
@@ -314,7 +373,12 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
 }
 
 #[cfg(feature = "hydrate")]
-fn process_actions(actions: Vec<Action>, engine: &mut Engine, board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+fn process_actions(
+    actions: Vec<Action>,
+    engine: &mut Engine,
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+) {
     for action in actions {
         match action {
             Action::ObjectCreated(obj) => {
