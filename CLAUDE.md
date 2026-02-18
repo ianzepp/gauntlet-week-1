@@ -22,6 +22,6 @@
 ## Code Conventions
 
 - Workspace layout: root `Cargo.toml` with members `server` and `canvas`.
-- Both crates use edition 2024, rust-version 1.85.
+- All crates use edition 2024, rust-version 1.89.
 - Clippy pedantic warnings enabled; see `clippy.toml` and `[lints.clippy]` in each crate.
 - `rustfmt.toml` shared conventions: max_width 120, edition 2024.

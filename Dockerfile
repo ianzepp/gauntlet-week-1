@@ -7,7 +7,7 @@ COPY client/ ./
 RUN bun run build
 
 # Stage 2: Build Leptos SSR server + WASM frontend
-FROM rust:1.90-slim AS server-builder
+FROM rust:1.89-slim AS server-builder
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 RUN rustup target add wasm32-unknown-unknown
 RUN cargo install cargo-leptos
