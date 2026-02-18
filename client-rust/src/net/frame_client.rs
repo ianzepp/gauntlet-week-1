@@ -207,6 +207,22 @@ fn dispatch_frame(
             }
         }
 
+        "board:join" => {
+            // Peer join broadcast may include only client/user identifiers.
+            if frame.data.get("client_id").is_some() && frame.data.get("objects").is_none() {
+                if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
+                    board.update(|b| {
+                        b.presence.entry(user_id.to_owned()).or_insert(Presence {
+                            user_id: user_id.to_owned(),
+                            name: "Agent".to_owned(),
+                            color: "#8a8178".to_owned(),
+                            cursor: None,
+                        });
+                    });
+                }
+            }
+        }
+
         "object:create" if frame.status == FrameStatus::Done => {
             if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
                 board.update(|b| {
@@ -251,30 +267,37 @@ fn dispatch_frame(
         }
 
         "chat:message" if frame.status == FrameStatus::Done => {
-            if let Ok(msg) = serde_json::from_value::<ChatMessage>(frame.data.clone()) {
+            if let Some(msg) = parse_chat_message(frame, &frame.data) {
                 chat.update(|c| c.messages.push(msg));
             }
         }
 
         "chat:history" if frame.status == FrameStatus::Done => {
             if let Some(messages) = frame.data.get("messages") {
-                if let Ok(list) = serde_json::from_value::<Vec<ChatMessage>>(messages.clone()) {
-                    chat.update(|c| c.messages = list);
-                }
-            } else if let Ok(list) = serde_json::from_value::<Vec<ChatMessage>>(frame.data.clone()) {
+                let list = messages
+                    .as_array()
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(|item| parse_chat_message(frame, item))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
                 chat.update(|c| c.messages = list);
             }
         }
 
         "ai:history" if frame.status == FrameStatus::Done => {
             if let Some(messages) = frame.data.get("messages") {
-                if let Ok(list) = serde_json::from_value::<Vec<AiMessage>>(messages.clone()) {
-                    ai.update(|a| {
-                        a.messages = list;
-                        a.loading = false;
-                    });
-                }
-            } else if let Ok(list) = serde_json::from_value::<Vec<AiMessage>>(frame.data.clone()) {
+                let list = messages
+                    .as_array()
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(parse_ai_message_value)
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
                 ai.update(|a| {
                     a.messages = list;
                     a.loading = false;
@@ -283,7 +306,7 @@ fn dispatch_frame(
         }
 
         "ai:prompt" if frame.status == FrameStatus::Done || frame.status == FrameStatus::Error => {
-            if let Ok(msg) = serde_json::from_value::<AiMessage>(frame.data.clone()) {
+            if let Some(msg) = parse_ai_prompt_message(frame) {
                 ai.update(|a| {
                     a.messages.push(msg);
                     a.loading = false;
@@ -308,6 +331,14 @@ fn dispatch_frame(
             } else {
                 ai.update(|a| a.loading = false);
             }
+        }
+
+        _ if frame.status == FrameStatus::Error => {
+            leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
+        }
+
+        "gateway:error" => {
+            leptos::logging::warn!("gateway:error frame: {}", frame.data);
         }
 
         _ => {}
@@ -363,4 +394,95 @@ fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_js
     if let Some(v) = data.get("version").and_then(|v| v.as_i64()) {
         obj.version = v;
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMessage> {
+    let content = data
+        .get("content")
+        .and_then(|v| v.as_str())
+        .or_else(|| data.get("message").and_then(|v| v.as_str()))?
+        .to_owned();
+
+    let id = data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| frame.id.clone());
+
+    let user_id = data
+        .get("user_id")
+        .and_then(|v| v.as_str())
+        .or_else(|| data.get("from").and_then(|v| v.as_str()))
+        .or(frame.from.as_deref())
+        .unwrap_or("unknown")
+        .to_owned();
+
+    let user_name = data
+        .get("user_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Agent")
+        .to_owned();
+
+    let user_color = data
+        .get("user_color")
+        .and_then(|v| v.as_str())
+        .unwrap_or("#8a8178")
+        .to_owned();
+
+    let timestamp = data
+        .get("timestamp")
+        .and_then(|v| v.as_f64())
+        .or_else(|| data.get("ts").and_then(|v| v.as_f64()))
+        .unwrap_or(frame.ts);
+
+    Some(ChatMessage { id, user_id, user_name, user_color, content, timestamp })
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
+    let id = data.get("id").and_then(|v| v.as_str()).unwrap_or("ai-msg").to_owned();
+    let role = data.get("role").and_then(|v| v.as_str()).unwrap_or("assistant").to_owned();
+    let content = data
+        .get("content")
+        .and_then(|v| v.as_str())
+        .or_else(|| data.get("text").and_then(|v| v.as_str()))
+        .unwrap_or_default()
+        .to_owned();
+    if content.trim().is_empty() {
+        return None;
+    }
+    let timestamp = data
+        .get("timestamp")
+        .and_then(|v| v.as_f64())
+        .or_else(|| data.get("ts").and_then(|v| v.as_f64()))
+        .unwrap_or(0.0);
+    let mutations = data.get("mutations").and_then(|v| v.as_i64());
+
+    Some(AiMessage { id, role, content, timestamp, mutations })
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
+    if let Some(msg) = parse_ai_message_value(&frame.data) {
+        return Some(msg);
+    }
+
+    let content = frame
+        .data
+        .get("text")
+        .and_then(|v| v.as_str())
+        .or_else(|| frame.data.get("content").and_then(|v| v.as_str()))?;
+
+    Some(AiMessage {
+        id: frame.id.clone(),
+        role: if frame.status == crate::net::types::FrameStatus::Error {
+            "error".to_owned()
+        } else {
+            "assistant".to_owned()
+        },
+        content: content.to_owned(),
+        timestamp: frame.ts,
+        mutations: frame.data.get("mutations").and_then(|v| v.as_i64()),
+    })
 }
