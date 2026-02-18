@@ -35,9 +35,7 @@ pub fn DashboardPage() -> impl IntoView {
         new_board_name.set(String::new());
     };
 
-    let on_cancel = move |_| {
-        show_create.set(false);
-    };
+    let on_cancel = Callback::new(move |_| show_create.set(false));
 
     view! {
         <div class="dashboard-page">
@@ -56,12 +54,25 @@ pub fn DashboardPage() -> impl IntoView {
                             .map(|list| {
                                 if list.is_empty() {
                                     view! {
-                                        <p class="dashboard-page__empty">"No boards yet. Create one to get started."</p>
+                                        <div class="dashboard-page__cards">
+                                            <button class="dashboard-page__new-card" on:click=on_create title="Create board">
+                                                <svg class="dashboard-page__new-icon" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <line x1="10" y1="4" x2="10" y2="16"></line>
+                                                    <line x1="4" y1="10" x2="16" y2="10"></line>
+                                                </svg>
+                                            </button>
+                                        </div>
                                     }
                                         .into_any()
                                 } else {
                                     view! {
                                         <div class="dashboard-page__cards">
+                                            <button class="dashboard-page__new-card" on:click=on_create title="Create board">
+                                                <svg class="dashboard-page__new-icon" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <line x1="10" y1="4" x2="10" y2="16"></line>
+                                                    <line x1="4" y1="10" x2="16" y2="10"></line>
+                                                </svg>
+                                            </button>
                                             {list
                                                 .into_iter()
                                                 .map(|b| {
@@ -92,13 +103,13 @@ pub fn DashboardPage() -> impl IntoView {
 #[component]
 fn CreateBoardDialog(
     name: RwSignal<String>,
-    on_cancel: impl Fn(leptos::ev::MouseEvent) + 'static,
+    on_cancel: Callback<()>,
     boards: LocalResource<Vec<BoardListItem>>,
 ) -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let navigate = use_navigate();
 
-    let on_submit = move |_| {
+    let submit = Callback::new(move |_| {
         let board_name = name.get();
         if board_name.trim().is_empty() {
             return;
@@ -122,11 +133,11 @@ fn CreateBoardDialog(
             let _ = board_name;
             let _ = &boards;
         }
-    };
+    });
 
     view! {
-        <div class="dialog-backdrop">
-            <div class="dialog">
+        <div class="dialog-backdrop" on:click=move |_| on_cancel.run(())>
+            <div class="dialog" on:click=move |ev| ev.stop_propagation()>
                 <h2>"Create Board"</h2>
                 <label class="dialog__label">
                     "Board Name"
@@ -137,13 +148,19 @@ fn CreateBoardDialog(
                         on:input=move |ev| {
                             name.set(event_target_value(&ev));
                         }
+                        on:keydown=move |ev: leptos::ev::KeyboardEvent| {
+                            if ev.key() == "Enter" {
+                                ev.prevent_default();
+                                submit.run(());
+                            }
+                        }
                     />
                 </label>
                 <div class="dialog__actions">
-                    <button class="btn" on:click=on_cancel>
+                    <button class="btn" on:click=move |_| on_cancel.run(())>
                         "Cancel"
                     </button>
-                    <button class="btn btn--primary" on:click=on_submit>
+                    <button class="btn btn--primary" on:click=move |_| submit.run(())>
                         "Create"
                     </button>
                 </div>
