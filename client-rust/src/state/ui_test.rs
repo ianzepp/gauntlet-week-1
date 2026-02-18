@@ -43,12 +43,14 @@ fn tool_type_default_is_select() {
 fn tool_type_variants_are_distinct() {
     let variants = [
         ToolType::Select,
-        ToolType::Rect,
+        ToolType::Sticky,
+        ToolType::Rectangle,
         ToolType::Ellipse,
-        ToolType::Diamond,
-        ToolType::Star,
         ToolType::Line,
-        ToolType::Arrow,
+        ToolType::Connector,
+        ToolType::Text,
+        ToolType::Draw,
+        ToolType::Eraser,
     ];
     for (i, a) in variants.iter().enumerate() {
         for (j, b) in variants.iter().enumerate() {

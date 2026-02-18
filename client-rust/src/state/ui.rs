@@ -34,12 +34,14 @@ impl Default for UiState {
 pub enum ToolType {
     #[default]
     Select,
-    Rect,
+    Sticky,
+    Rectangle,
     Ellipse,
-    Diamond,
-    Star,
     Line,
-    Arrow,
+    Connector,
+    Text,
+    Draw,
+    Eraser,
 }
 
 /// Tabs available in the left panel.
