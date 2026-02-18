@@ -13,11 +13,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[cfg(feature = "hydrate")]
+use canvas::camera::Point;
+#[cfg(feature = "hydrate")]
 use canvas::doc::{BoardObject as CanvasObject, ObjectKind as CanvasKind};
 #[cfg(feature = "hydrate")]
 use canvas::engine::Engine;
 #[cfg(feature = "hydrate")]
-use canvas::input::Tool as CanvasTool;
+use canvas::input::{Button as CanvasButton, Modifiers as CanvasModifiers, Tool as CanvasTool, WheelDelta};
 
 /// Canvas host component.
 ///
@@ -74,8 +76,112 @@ pub fn CanvasHost() -> impl IntoView {
         });
     }
 
+    let on_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                ev.prevent_default();
+                if let Some(canvas) = canvas_ref.get() {
+                    let _ = canvas.focus();
+                    let _ = canvas.set_pointer_capture(ev.pointer_id());
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    let point = pointer_point(&ev);
+                    let button = map_button(ev.button());
+                    let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
+                    let _ = engine.on_pointer_down(point, button, modifiers);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    let point = pointer_point(&ev);
+                    let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
+                    let _ = engine.on_pointer_move(point, modifiers);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                if let Some(canvas) = canvas_ref.get() {
+                    let _ = canvas.release_pointer_capture(ev.pointer_id());
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    let point = pointer_point(&ev);
+                    let button = map_button(ev.button());
+                    let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
+                    let _ = engine.on_pointer_up(point, button, modifiers);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_wheel = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::WheelEvent| {
+                ev.prevent_default();
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    let point = wheel_point(&ev);
+                    let delta = WheelDelta { dx: ev.delta_x(), dy: ev.delta_y() };
+                    let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
+                    let _ = engine.on_wheel(point, delta, modifiers);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::WheelEvent| {}
+        }
+    };
+
     view! {
-        <canvas class="canvas-host" node_ref=canvas_ref tabindex="0">
+        <canvas
+            class="canvas-host"
+            node_ref=canvas_ref
+            tabindex="0"
+            on:pointerdown=on_pointer_down
+            on:pointermove=on_pointer_move
+            on:pointerup=on_pointer_up
+            on:wheel=on_wheel
+        >
             "Your browser does not support canvas."
         </canvas>
     }
@@ -104,6 +210,30 @@ fn map_tool(tool: ToolType) -> CanvasTool {
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
         ToolType::Text | ToolType::Draw | ToolType::Eraser => CanvasTool::Select,
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn map_button(button: i16) -> CanvasButton {
+    match button {
+        1 => CanvasButton::Middle,
+        2 => CanvasButton::Secondary,
+        _ => CanvasButton::Primary,
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn map_modifiers(shift: bool, ctrl: bool, alt: bool, meta: bool) -> CanvasModifiers {
+    CanvasModifiers { shift, ctrl, alt, meta }
+}
+
+#[cfg(feature = "hydrate")]
+fn pointer_point(ev: &leptos::ev::PointerEvent) -> Point {
+    Point::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
+}
+
+#[cfg(feature = "hydrate")]
+fn wheel_point(ev: &leptos::ev::WheelEvent) -> Point {
+    Point::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
 }
 
 #[cfg(feature = "hydrate")]
