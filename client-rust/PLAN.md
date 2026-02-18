@@ -4,307 +4,212 @@
 
 The original plan interleaved UI and canvas work. The user wants a different order: **build the complete Leptos UI first** (all pages, components, state, networking, styling), then integrate the `canvas/` crate afterwards. This means the BoardPage will have a placeholder where the canvas goes, and all surrounding chrome (toolbar, panels, status bar, chat, AI, inspector) gets built to completion first.
 
-The Phase 1 scaffold is already done on the `leptos-ui` branch: types, state structs, module stubs, 36 tests passing. This plan picks up from there.
-
 ## Key Constraint
 
 **No canvas/ dependency yet.** The `CanvasHost` component stays as a placeholder `<div>` until the final phase. Components that read canvas state (InspectorPanel, StatusBar zoom/object count) use dummy/placeholder values. Everything else should be fully functional.
 
-## Working Directory
+## Reference Implementation
 
-All work is on the `leptos-ui` branch at `.worktrees/leptos-ui/`.
-
----
-
-## Phase 2: Add Leptos + Axum Integration
-
-**Goal:** `cargo leptos watch` serves a hello-world page with SSR + hydration.
-
-### Steps
-
-1. **Add Leptos dependencies to `client-rust/Cargo.toml`**
-   - `leptos = "0.7"`, `leptos_meta = "0.7"`, `leptos_router = "0.7"`
-   - `wasm-bindgen`, `js-sys`, `web-sys` (minimal features for now)
-   - `gloo-net = "0.6"`, `gloo-timers = "0.3"`, `wasm-bindgen-futures = "0.4"`
-   - Feature flags: `hydrate = ["leptos/hydrate"]`, `ssr = ["leptos/ssr"]`
-   - Crate type: `["cdylib", "rlib"]`
-
-2. **Add Leptos-Axum to `server/Cargo.toml`**
-   - `leptos = { version = "0.7", features = ["ssr"] }`
-   - `leptos_axum = "0.7"`
-   - `client-rust = { path = "../client-rust", features = ["ssr"] }`
-
-3. **Create `client-rust/src/app.rs`**
-   - `App` component with `<Router>` and 3 routes: `/login`, `/`, `/board/:id`
-   - Provide all state contexts (AuthState, UiState, BoardState, ChatState, AiState)
-   - Convert state structs from plain fields to `RwSignal` fields
-
-4. **Wire Leptos into `server/src/main.rs`**
-   - Mount Leptos handler alongside existing API routes
-   - Add `cargo-leptos` config to root `Cargo.toml` (`[package.metadata.leptos]`)
-
-5. **Install `cargo-leptos`** and verify `cargo leptos watch` builds and serves
-
-### Files Modified
-- `client-rust/Cargo.toml`
-- `client-rust/src/lib.rs` (add `pub mod app`)
-- `client-rust/src/app.rs` (new)
-- `client-rust/src/state/*.rs` (convert to RwSignal)
-- `server/Cargo.toml`
-- `server/src/main.rs`
-- Root `Cargo.toml` (leptos metadata)
-
-### Verification
-- `cargo leptos watch` starts without errors
-- Browser at `localhost:3000` shows a rendered page
-- View-source shows SSR HTML (not empty body)
+The React client at `client/` is the source of truth for all UI behavior, layout, and styling. Every component, interaction, and visual detail in the Leptos client must match the React client exactly unless noted otherwise.
 
 ---
 
-## Phase 3: Pages + Auth
+## Phase 1: Scaffold — DONE
 
-**Goal:** Login, dashboard, and board page shells render. Auth flow works.
+Types, state structs, module stubs, tests passing.
 
-### Steps
+## Phase 2: Leptos + Axum Integration — DONE
 
-1. **Implement `net/api.rs`** — real HTTP calls using `gloo-net`
-   - `fetch_current_user()` — `GET /api/auth/me`
-   - `logout()` — `POST /api/auth/logout`
-   - `fetch_user_profile()` — `GET /api/users/{id}/profile`
-   - `create_ws_ticket()` — `POST /api/auth/ws-ticket`
-   - All gated behind `#[cfg(feature = "hydrate")]` (client-only)
+SSR + hydration working. `cargo leptos build` succeeds.
 
-2. **Implement `LoginPage`** (`pages/login.rs`)
-   - GitHub OAuth button → navigates to `/api/auth/github`
-   - Styled to match React `LoginPage.tsx`
+## Phase 3: Pages + Auth — PARTIAL
 
-3. **Implement `DashboardPage`** (`pages/dashboard.rs`)
-   - Auth guard: redirect to `/login` if no user
-   - Fetch board list via frame client `board:list` syscall
-   - Create board dialog with `board:create` syscall
-   - Render `BoardCard` for each board
-   - Click board → navigate to `/board/:id`
+**Done:** LoginPage, DashboardPage shell, BoardPage shell, BoardCard, net/api.rs REST calls, auth guard redirects.
 
-4. **Implement `BoardPage` shell** (`pages/board.rs`)
-   - Auth guard
-   - Read `:id` from route params
-   - CSS grid layout: toolbar (top), left panel (left), canvas placeholder (center), right panel (right), status bar (bottom)
-   - Send `board:join` on mount, `board:part` on unmount
+**Remaining:**
+- LoginPage: Change title from "Gauntlet" to "CollabBoard", remove subtitle
+- DashboardPage: Wire `board:create` syscall (currently TODO stub), navigate to new board after create, Enter key to submit dialog, backdrop click to dismiss, add dashed "+" new board card in grid, add nav header bar matching React
+- BoardPage: Send `board:join` on connect and reconnect (currently never sent), send `board:part` on unmount, cleanup state on unmount
 
-5. **Implement `BoardCard`** (`components/board_card.rs`)
-   - Card UI for board list items
+## Phase 4: WebSocket Frame Client — PARTIAL
 
-### Files Modified
-- `client-rust/src/net/api.rs`
-- `client-rust/src/pages/login.rs`
-- `client-rust/src/pages/dashboard.rs`
-- `client-rust/src/pages/board.rs`
-- `client-rust/src/components/board_card.rs`
+**Done:** Connection lifecycle, reconnect with backoff, dispatch for: `session:connected`, `board:join` (done), `object:create/update/delete` (done), `cursor:moved`, `board:part`, `chat:message` (done).
 
-### Verification
-- Can visit `/login`, click GitHub OAuth, get redirected back
-- Dashboard shows board list, can create a board
-- Clicking a board navigates to `/board/:id` with the grid layout
+**Remaining — add to `dispatch_frame`:**
+- `ai:prompt` (done/error) → append to AiState messages
+- `ai:history` (done) → populate AiState messages
+- `chat:history` (done) → populate ChatState messages
+- `board:create` (done) → navigate to new board
+- Peer `board:join` broadcast (when `client_id` present but no objects) → add presence entry
+- Error status frames → log warning
+- `gateway:error` → log warning
+
+**Remaining — add outbound sends from components:**
+- `board:join` from BoardPage on connect/reconnect
+- `board:create` from DashboardPage dialog
+- `chat:history` from ChatPanel on mount
+- `ai:history` from AiPanel on mount
 
 ---
 
-## Phase 4: WebSocket Frame Client
+## Phase 5: Toolbar + Status Bar — NEEDS REWORK
 
-**Goal:** WebSocket connects, reconnects, dispatches frames to state.
+Current state: Basic toolbar with presence chips and logout. Basic status bar with connection dot. UserFieldReport fetches profile but has no popover positioning or close behavior.
 
-### Steps
+### Toolbar (`components/toolbar.rs`)
+- [ ] Show local user chip alongside remote presence chips (React combines both)
+- [ ] Add click handler on presence chips to open UserFieldReport popover
+- [ ] Position popover relative to clicked chip (measure DOM position)
+- [ ] Add full-screen backdrop that closes popover on click
+- [ ] Back button: only show when on board page (React: conditional on `onBack` prop)
+- [ ] Match React styling: 36px height, `--bg-nav`, flat left-border presence chips (not pills), 6px square dots (not 8px circles), IBM Plex Mono 10px uppercase for chip text
 
-1. **Implement `net/frame_client.rs`**
-   - `FrameClient` struct with send/receive
-   - `frame_client_lifecycle()` async task
-   - Connection: get ticket via REST, connect to `wss://.../api/ws?ticket=...`
-   - Reconnect with exponential backoff (1s → 10s)
-   - Frame dispatch table:
-     - `session:connected` → set `ConnectionStatus::Connected`
-     - `session:disconnected` → set `ConnectionStatus::Disconnected`
-     - `board:join` (done) → load objects into `BoardState`
-     - `board:part` → remove presence
-     - `object:create/update/delete` → update objects map in `BoardState`
-     - `cursor:moved` → update presence
-     - `chat:message` → append to `ChatState`
-   - Client-only: guarded behind `#[cfg(feature = "hydrate")]`
+### StatusBar (`components/status_bar.rs`)
+- [ ] Add cursor position display (placeholder `(0, 0)` until canvas integration)
+- [ ] Add viewport center display (placeholder `(0, 0)`)
+- [ ] Zoom display reads from state (placeholder "100%")
+- [ ] Add user chip with color dot (authenticated user's name + color)
+- [ ] Match React styling: 24px height, `--bg-status-bar`, mono 11px uppercase, 6px square dots, section dividers
 
-2. **Add objects map to `BoardState`**
-   - `objects: RwSignal<HashMap<String, BoardObject>>`
-   - `selection: RwSignal<HashSet<String>>`
-
-3. **Wire frame client into `app.rs`**
-   - Spawn via `create_effect` (client-only)
-
-### Files Modified
-- `client-rust/src/net/frame_client.rs`
-- `client-rust/src/state/board.rs`
-- `client-rust/src/app.rs`
-
-### Verification
-- Board page shows connection status (green dot when connected)
-- Objects received from server populate `BoardState.objects`
-- Reconnect works after server restart
+### UserFieldReport (`components/user_field_report.rs`)
+- [ ] Add avatar image display (`<img>` when `avatar_url` is Some)
+- [ ] Add `member_since` display in "Field Agent" badge line
+- [ ] Add `last_active` row in stats
+- [ ] Add backdrop element for click-to-close
+- [ ] Position as fixed popover (not inline), clamped to viewport
+- [ ] Match React styling: flat rectangle (no border-radius), warm bg, Caveat name font, mono stats
 
 ---
 
-## Phase 5: Toolbar + Status Bar
+## Phase 6: Left Panel (Tools + Inspector) — NEEDS REWORK
 
-**Goal:** Top toolbar and bottom status bar fully functional.
+Current state: Flat tabbed panel (Tools/Inspector tabs). ToolRail has wrong tool set with unicode glyphs. ToolStrip has wrong colors and no shape presets. InspectorPanel is read-only.
 
-### Steps
+### LeftPanel (`components/left_panel.rs`)
+- [ ] Restructure to 52px icon rail + 160px expandable inspector panel (React pattern)
+- [ ] Remove tab-based layout — tools are always in the rail, inspector is the expandable panel
+- [ ] Rail toggle button at bottom of rail to expand/collapse inspector
+- [ ] ToolStrip positioned as fixed flyout at left:52px (not inline)
 
-1. **Implement `Toolbar`** (`components/toolbar.rs`)
-   - Board name display (from `BoardState.board_name`)
-   - Presence avatars (colored dots for connected users)
-   - Back button → navigate to dashboard
-   - Logout button → call `api::logout()`, clear `AuthState`
-   - Click user chip → show `UserFieldReport`
+### ToolRail (`components/tool_rail.rs`)
+- [ ] Match React tool set: select, sticky, rectangle, ellipse (disabled), line (disabled), connector (disabled), text (disabled), draw (disabled), eraser (disabled)
+- [ ] Port SVG icons from React (inline SVG paths, 20x20, stroke-width 1.5, stroke-linecap square)
+- [ ] Add separator groups between tool categories
+- [ ] Active indicator: `::after` pseudo-element, 2px wide `--accent-green` bar on left edge
+- [ ] Disabled tools: opacity 0.3, no click handler, "coming soon" tooltip
+- [ ] Sticky/Rectangle clicks open ToolStrip flyout (don't set tool directly)
+- [ ] Update `Tool` enum in `state/ui.rs` to match: Select, Sticky, Rectangle, Ellipse, Line, Connector, Text, Draw, Eraser
 
-2. **Implement `StatusBar`** (`components/status_bar.rs`)
-   - Connection status indicator (colored dot)
-   - Board name
-   - Object count (from `BoardState.objects.len()`)
-   - Placeholder for zoom % and cursor position (canvas-dependent)
+### ToolStrip (`components/tool_strip.rs`)
+- [ ] Add shape presets: Square (120x120), Tall (100x160), Wide (200x100)
+- [ ] Match React color presets: Red #D94B4B, Blue #4B7DD9, Green #4BAF6E (not current 6 colors)
+- [ ] Square swatches (no border-radius), 28x28, active: `--accent-green` border
+- [ ] Send correct `props` fields: `backgroundColor`, `borderColor`, `borderWidth` (not just `fill`)
+- [ ] Place objects at viewport center (use placeholder center until canvas, e.g. 400,300)
+- [ ] Map tool types: sticky → `"sticky_note"`, rectangle → `"rectangle"`
+- [ ] Optimistic local add: insert object into BoardState + set selection immediately
+- [ ] Close strip after adding object
+- [ ] "Add" button styling: mono 10px, 600 weight, uppercase
 
-3. **Implement `UserFieldReport`** (`components/user_field_report.rs`)
-   - Popover that fetches `/api/users/:id/profile`
-   - Shows stats: frames, objects created, boards active, top syscalls
-
-### Files Modified
-- `client-rust/src/components/toolbar.rs`
-- `client-rust/src/components/status_bar.rs`
-- `client-rust/src/components/user_field_report.rs`
-
-### Verification
-- Toolbar shows board name, presence dots, back/logout buttons
-- Logout clears session and redirects to login
-- Status bar shows connection state and object count
-- Clicking a user chip shows profile popover
-
----
-
-## Phase 6: Left Panel (Tools + Inspector)
-
-**Goal:** Left panel with tool selection and object property inspector.
-
-### Steps
-
-1. **Implement `LeftPanel`** (`components/left_panel.rs`)
-   - Collapsible container
-   - Tabs: Tools / Inspector (from `UiState.left_tab`)
-   - Expand/collapse toggle
-
-2. **Implement `ToolRail`** (`components/tool_rail.rs`)
-   - Vertical strip of tool buttons: Select, Rect, Ellipse, Diamond, Star, Line, Arrow
-   - Highlights active tool (reads `UiState.active_tool`)
-   - Click sets `UiState.active_tool`
-
-3. **Implement `ToolStrip`** (`components/tool_strip.rs`)
-   - Shape presets (size + color)
-   - "Add" button creates object via `object:create` frame
-   - Uses frame client to send creation request
-
-4. **Implement `InspectorPanel`** (`components/inspector_panel.rs`)
-   - Shows properties of selected object (from `BoardState.selection` + `BoardState.objects`)
-   - Editable fields: width, height, title, text, font size, background, border
-   - Read-only fields: position, rotation, z-index, version, ID
-   - Delete button with confirmation
-   - Sends `object:update` / `object:delete` frames on change
-   - No canvas bridge needed — reads from `BoardState.objects` directly
-
-### Files Modified
-- `client-rust/src/components/left_panel.rs`
-- `client-rust/src/components/tool_rail.rs`
-- `client-rust/src/components/tool_strip.rs`
-- `client-rust/src/components/inspector_panel.rs`
-
-### Verification
-- Left panel expands/collapses
-- Tool rail highlights active tool, click switches
-- ToolStrip creates objects (visible in inspector even without canvas)
-- Inspector shows selected object properties, edits send frames
+### InspectorPanel (`components/inspector_panel.rs`)
+- [ ] Add editable inputs: width, height (numeric, commit on blur/Enter)
+- [ ] Add text inputs: title (for sticky notes), body textarea, font size
+- [ ] Add appearance inputs: background color picker, border color picker, border width
+- [ ] Send `object:update` frame on each field commit
+- [ ] Read-only fields: position X/Y, rotation, z-index, version, ID (truncated to 8 chars)
+- [ ] Multi-selection: show "N objects selected" count
+- [ ] Delete button with `object:delete` frame
+- [ ] Empty state: "No selection / Double click an object to inspect it"
+- [ ] Match React styling: `auto 1fr` grid, mono 10px labels uppercase, 24px input height
 
 ---
 
-## Phase 7: Right Panel (Chat + AI + Boards)
+## Phase 7: Right Panel (Chat + AI + Boards) — NEEDS REWORK
 
-**Goal:** Right panel with all three tabs fully functional.
+Current state: Flat tabbed panel (Chat/AI/Boards tabs). ChatPanel sends messages but no history loading or auto-scroll. AiPanel sends prompts but no response handling. MissionControl is a link list.
 
-### Steps
+### RightPanel (`components/right_panel.rs`)
+- [ ] Restructure to 52px icon rail + 320px expandable content panel (React pattern)
+- [ ] Port SVG tab icons from React (grid, speech bubble, star)
+- [ ] Click active tab to collapse panel
+- [ ] Panel header with tab title + close (✕) button
+- [ ] Rename "AI" tab label to "Field Notes"
 
-1. **Implement `RightPanel`** (`components/right_panel.rs`)
-   - Collapsible container with tab rail: Chat, AI, Boards
-   - Tab switching from `UiState.right_tab`
+### ChatPanel (`components/chat_panel.rs`)
+- [ ] Send `chat:history` frame on mount (once per board)
+- [ ] Handle `chat:history` response in `dispatch_frame` → populate ChatState
+- [ ] Auto-scroll to bottom on new messages (`scrollIntoView`)
+- [ ] Placeholder text: "Message as {username}..."
+- [ ] Disable send button when input is empty
+- [ ] Empty state: "No messages yet"
+- [ ] Match React styling: mono fonts, no border-radius on input, green send button
 
-2. **Implement `ChatPanel`** (`components/chat_panel.rs`)
-   - Message list from `ChatState.messages`
-   - Text input + send button
-   - Fetch `chat:history` on board load
-   - Send `chat:message` frame
-   - Messages show user name + color
+### AiPanel (`components/ai_panel.rs`)
+- [ ] Send `ai:history` frame on mount (once per board)
+- [ ] Add `ai:prompt` response handler in `dispatch_frame` → append to AiState
+- [ ] Add `mutations` field to `AiMessage` struct, display "N objects modified" badge
+- [ ] Error role handling (red styling, border-left)
+- [ ] Markdown rendering for assistant messages (basic: `<pre>` formatted or lightweight parser)
+- [ ] Disable input and send button while loading
+- [ ] Auto-scroll to bottom on new messages
+- [ ] Pulse animation on "Thinking..." indicator
+- [ ] Match React styling: ruled-paper background (`repeating-linear-gradient`), Caveat font for user messages, mono for assistant, full markdown CSS
 
-3. **Implement `AiPanel`** (`components/ai_panel.rs`)
-   - Message list from `AiState.messages`
-   - Text input + send button
-   - Fetch `ai:history` on board load
-   - Send `ai:prompt` frame (without grid context for now — canvas-dependent)
-   - Show loading state ("Thinking...")
-   - Render markdown responses (use `pulldown-cmark` or plain text initially)
-
-4. **Implement `MissionControl`** (`components/mission_control.rs`)
-   - Board list (same data as DashboardPage but compact)
-   - Click navigates to `/board/:id`
-
-### Files Modified
-- `client-rust/src/components/right_panel.rs`
-- `client-rust/src/components/chat_panel.rs`
-- `client-rust/src/components/ai_panel.rs`
-- `client-rust/src/components/mission_control.rs`
-
-### Verification
-- Right panel tab switching works
-- Chat sends and receives messages in real-time
-- AI panel sends prompts and displays responses
-- Board switcher navigates between boards
+### MissionControl (`components/mission_control.rs`)
+- [ ] Use BoardCard components instead of link list
+- [ ] Pass `active` prop to highlight current board
+- [ ] Scrolling container with hidden scrollbar
+- [ ] Board data: use same fetch approach as DashboardPage
 
 ---
 
-## Phase 8: Polish + Styling
+## Phase 8: CSS + Styling — NEEDS FULL REWRITE
 
-**Goal:** Dark mode, keyboard shortcuts, styling parity with React client.
+Current state: `styles/main.css` uses a completely wrong design system (dark navy/rose palette, system sans-serif, border-radius everywhere). Must be replaced entirely with the React client's design tokens and component styles.
 
-### Steps
+### Design Token Port (`styles/main.css`)
+- [ ] Port all CSS custom properties from `client/src/styles/global.css`:
+  - Canvas: `--canvas-bg`, `--canvas-grid`, `--canvas-grid-major`
+  - Backgrounds: `--bg-primary`, `--bg-secondary`, `--bg-nav`, `--bg-status-bar`
+  - Text: `--text-primary`, `--text-secondary`, `--text-tertiary`, `--text-nav`, `--text-nav-active`
+  - Accents: `--accent-green`, `--accent-error`
+  - Borders: `--border-default`, `--border-subtle`
+  - Object palette: `--obj-cream` through `--obj-moss` (8 colors)
+  - User colors: `--user-0` through `--user-7` (8 colors)
+  - Typography: `--font-mono` (IBM Plex Mono stack), `--font-script` (Caveat)
+  - Spacing: `--space-xs` through `--space-xl`
+  - Z-index: `--z-canvas-ui`, `--z-chrome`, `--z-modal`
+  - Geometry: `--radius: 0`, `--shadow: none`
+- [ ] Port dark mode overrides (18 token remaps under `.dark-mode`)
+- [ ] Add Google Fonts import: IBM Plex Mono (400/500/600/700) + Caveat (400/700)
 
-1. **Implement `util/dark_mode.rs`**
-   - Read localStorage (`gauntlet_week_1_dark`)
-   - Auto-detect system preference on first load
-   - Apply `.dark-mode` class to `<html>`
-   - Toggle function writes localStorage + updates class
+### Base Element Styles
+- [ ] Body: `font-family: var(--font-mono)`, `font-size: 13px`, `overflow: hidden`, `background: var(--bg-primary)`
+- [ ] Button/input/textarea/select: `border-radius: 0`, `font: inherit`, `border: 1px solid var(--border-default)`, `background: var(--bg-secondary)`
+- [ ] Button hover/disabled states
+- [ ] Input/textarea focus: `border-color: var(--text-primary)`
+- [ ] Scrollbar: 8px wide, transparent track, `var(--border-default)` thumb
+- [ ] Links: `var(--accent-green)`, hover `var(--text-primary)`
 
-2. **Implement `BoardStamp`** (`components/board_stamp.rs`)
-   - Semi-transparent overlay showing board name + stats
-
-3. **Create CSS files** (`client-rust/styles/`)
-   - Port theme variables from `client/src/styles/global.css`
-   - Component-specific styles (BEM naming)
-   - Dark mode overrides
-
-4. **Keyboard shortcuts**
-   - Delete key → delete selected object (with confirmation)
-   - Escape → deselect all
-   - Tool shortcuts (later, when canvas is wired)
-
-### Files Modified
-- `client-rust/src/util/dark_mode.rs`
-- `client-rust/src/components/board_stamp.rs`
-- `client-rust/styles/` (new CSS files)
-
-### Verification
-- Dark mode toggles via button
-- Persists across page refresh
-- All components styled to match React client
-- BoardStamp overlay renders on board page
+### Component Style Port
+Port each React CSS module to BEM classes. Key visual requirements:
+- [ ] **All border-radius: 0** (React uses `--radius: 0` everywhere)
+- [ ] **No box-shadows** (React uses `--shadow: none`)
+- [ ] **Toolbar**: `--bg-nav`, presence chips with 2px left-border (not pill), 6px square dots
+- [ ] **LeftPanel**: 52px rail `--bg-nav` + 160px panel `--bg-secondary`
+- [ ] **RightPanel**: 52px rail `--bg-nav` + 320px panel `--bg-secondary`
+- [ ] **ToolRail**: `::after` green left-bar active indicator, SVG icons, separators
+- [ ] **ToolStrip**: 36px horizontal bar, square swatches, mono add button
+- [ ] **InspectorPanel**: `auto 1fr` grid, mono 10px uppercase labels
+- [ ] **StatusBar**: 24px, `--bg-status-bar`, mono 11px uppercase, dividers
+- [ ] **BoardStamp**: top-right position, solid `--bg-primary` bg, opacity 0.75, "Station Log" label, Caveat title
+- [ ] **ChatPanel**: mono fonts, no border-radius, green send button
+- [ ] **AiPanel**: ruled-paper background, Caveat user messages, mono assistant, markdown styles, pulse animation
+- [ ] **BoardCard**: aspect-ratio 4/3, Caveat 22px name, mono 9px ID, no border-radius, active/mini variants
+- [ ] **DashboardPage**: full-viewport flex, `--bg-nav` header 36px, dashed "+" card
+- [ ] **UserFieldReport**: flat rectangle, avatar, Caveat name, mono stats
+- [ ] **MissionControl**: scrolling BoardCard container
+- [ ] **Dialog**: flat, Caveat input, underline-only style, green border buttons
 
 ---
 
@@ -327,11 +232,20 @@ This phase is **deferred** and will be planned separately. High-level:
 
 ---
 
+## Execution Order for Remaining Work
+
+CSS first so we can visually verify everything, then structural changes, then wiring:
+
+1. **Phase 8** — CSS full rewrite (design tokens, base styles, all component styles)
+2. **Phase 6** — Left panel restructure (rail+panel, tool rail, tool strip, inspector)
+3. **Phase 7** — Right panel restructure (rail+panel, chat history, AI responses)
+4. **Phase 5** — Toolbar + status bar polish (popover, presence, info display)
+5. **Phase 3+4 remaining** — WebSocket sends (board:join, board:create, history loads) + dispatch handlers
+
 ## Implementation Notes
 
-- **All work on `leptos-ui` branch** in `.worktrees/leptos-ui/`
 - **Each phase is a separate commit** (or small set of commits)
 - **Follow project conventions:** `*_test.rs` files, no panics in lib code, `cargo fmt` + `cargo clippy` + `cargo test` before each commit
-- **State structs convert from plain fields to `RwSignal`** in Phase 2
-- **CSS-in-Rust:** No framework — plain CSS files with BEM naming, CSS custom properties for theme
-- **Client-only code** gated behind `#[cfg(feature = "hydrate")]` or `create_effect`
+- **CSS-in-Rust:** No framework — plain CSS file with BEM naming, CSS custom properties for theme
+- **Client-only code** gated behind `#[cfg(feature = "hydrate")]`
+- **Verification after each phase:** `cargo check` (both hydrate+wasm32 and ssr), `cargo test --workspace`, `docker compose up --build` and visually compare against React client on port 3000
