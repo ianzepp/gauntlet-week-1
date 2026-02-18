@@ -5,6 +5,7 @@ use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_params_map;
 
 use crate::components::left_panel::LeftPanel;
+use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
 use crate::state::auth::AuthState;
@@ -55,7 +56,9 @@ pub fn BoardPage() -> impl IntoView {
                     format!("Canvas placeholder (board: {id})")
                 }}
             </div>
-            <div class="board-page__right-panel">"Right Panel"</div>
+            <div class="board-page__right-panel">
+                <RightPanel/>
+            </div>
             <div class="board-page__status-bar">
                 <StatusBar/>
             </div>
