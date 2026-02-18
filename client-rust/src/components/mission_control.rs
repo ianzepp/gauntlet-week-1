@@ -7,7 +7,7 @@ use crate::net::api::BoardListItem;
 /// Compact board list for switching between boards without leaving the workspace.
 #[component]
 pub fn MissionControl() -> impl IntoView {
-    let boards = Resource::new(|| (), |()| async move { crate::net::api::fetch_boards().await });
+    let boards = LocalResource::new(|| crate::net::api::fetch_boards());
 
     view! {
         <div class="mission-control">

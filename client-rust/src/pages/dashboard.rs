@@ -24,7 +24,7 @@ pub fn DashboardPage() -> impl IntoView {
     });
 
     // Board list resource — fetches on mount.
-    let boards = Resource::new(|| (), |()| async move { crate::net::api::fetch_boards().await });
+    let boards = LocalResource::new(|| crate::net::api::fetch_boards());
 
     // Create-board dialog state.
     let show_create = RwSignal::new(false);
@@ -93,7 +93,7 @@ pub fn DashboardPage() -> impl IntoView {
 fn CreateBoardDialog(
     name: RwSignal<String>,
     on_cancel: impl Fn(leptos::ev::MouseEvent) + 'static,
-    boards: Resource<Vec<BoardListItem>>,
+    boards: LocalResource<Vec<BoardListItem>>,
 ) -> impl IntoView {
     let on_submit = move |_| {
         let board_name = name.get();

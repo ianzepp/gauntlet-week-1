@@ -12,7 +12,7 @@ pub struct ChatState {
 }
 
 /// A single chat message.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ChatMessage {
     pub id: String,
     pub user_id: String,

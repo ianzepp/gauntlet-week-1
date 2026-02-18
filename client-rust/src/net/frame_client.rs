@@ -15,6 +15,8 @@ use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
 #[cfg(feature = "hydrate")]
 use crate::state::chat::{ChatMessage, ChatState};
+#[cfg(feature = "hydrate")]
+use leptos::prelude::Update;
 
 /// Send a frame to the server via the shared sender channel.
 ///

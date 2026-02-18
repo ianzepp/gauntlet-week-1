@@ -9,10 +9,11 @@ use crate::net::types::UserProfile;
 /// Fetches the profile from `/api/users/:id/profile` on mount.
 #[component]
 pub fn UserFieldReport(user_id: String) -> impl IntoView {
-    let profile = Resource::new(
-        move || user_id.clone(),
-        |uid| async move { crate::net::api::fetch_user_profile(&uid).await },
-    );
+    let uid = user_id.clone();
+    let profile = LocalResource::new(move || {
+        let uid = uid.clone();
+        async move { crate::net::api::fetch_user_profile(&uid).await }
+    });
 
     view! {
         <div class="user-field-report">

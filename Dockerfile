@@ -8,9 +8,16 @@ RUN bun run build
 
 # Stage 2: Build Leptos SSR server + WASM frontend
 FROM rust:1.90-slim AS server-builder
-RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev perl make && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev curl && rm -rf /var/lib/apt/lists/*
 RUN rustup target add wasm32-unknown-unknown
-RUN cargo install cargo-leptos
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+      aarch64) TARGET="aarch64-unknown-linux-gnu" ;; \
+      x86_64)  TARGET="x86_64-unknown-linux-gnu" ;; \
+      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/leptos-rs/cargo-leptos/releases/download/v0.3.2/cargo-leptos-${TARGET}.tar.gz" \
+    | tar -xz --strip-components=1 -C /usr/local/bin
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
