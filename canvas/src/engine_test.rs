@@ -301,6 +301,44 @@ fn core_set_text_empty_strings() {
 }
 
 // =============================================================
+// EngineCore: set_viewport
+// =============================================================
+
+#[test]
+fn core_set_viewport_stores_dimensions() {
+    let mut core = EngineCore::new();
+    core.set_viewport(1920.0, 1080.0, 2.0);
+    assert_eq!(core.viewport_width, 1920.0);
+    assert_eq!(core.viewport_height, 1080.0);
+    assert_eq!(core.dpr, 2.0);
+}
+
+#[test]
+fn core_set_viewport_overwrites_previous() {
+    let mut core = EngineCore::new();
+    core.set_viewport(800.0, 600.0, 1.0);
+    core.set_viewport(1024.0, 768.0, 1.5);
+    assert_eq!(core.viewport_width, 1024.0);
+    assert_eq!(core.viewport_height, 768.0);
+    assert_eq!(core.dpr, 1.5);
+}
+
+#[test]
+fn core_set_viewport_zero_dimensions() {
+    let mut core = EngineCore::new();
+    core.set_viewport(0.0, 0.0, 1.0);
+    assert_eq!(core.viewport_width, 0.0);
+    assert_eq!(core.viewport_height, 0.0);
+}
+
+#[test]
+fn core_set_viewport_fractional_dpr() {
+    let mut core = EngineCore::new();
+    core.set_viewport(1440.0, 900.0, 1.25);
+    assert_eq!(core.dpr, 1.25);
+}
+
+// =============================================================
 // EngineCore: queries
 // =============================================================
 

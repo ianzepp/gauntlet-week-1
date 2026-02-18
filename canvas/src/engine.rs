@@ -109,6 +109,15 @@ impl EngineCore {
         Action::ObjectUpdated { id: *id, fields: partial }
     }
 
+    // --- Viewport ---
+
+    /// Update viewport dimensions and device pixel ratio.
+    pub fn set_viewport(&mut self, width_css: f64, height_css: f64, dpr: f64) {
+        self.viewport_width = width_css;
+        self.viewport_height = height_css;
+        self.dpr = dpr;
+    }
+
     // --- Queries ---
 
     /// The currently selected object, if any.
@@ -172,8 +181,8 @@ impl Engine {
     // --- Viewport ---
 
     /// Update viewport dimensions and device pixel ratio.
-    pub fn set_viewport(&mut self, _width_css: f64, _height_css: f64, _dpr: f64) {
-        todo!()
+    pub fn set_viewport(&mut self, width_css: f64, height_css: f64, dpr: f64) {
+        self.core.set_viewport(width_css, height_css, dpr);
     }
 
     // --- Input events ---
