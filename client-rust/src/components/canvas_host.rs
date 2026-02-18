@@ -35,6 +35,8 @@ pub fn CanvasHost() -> impl IntoView {
     let _ui = expect_context::<RwSignal<UiState>>();
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
     #[cfg(feature = "hydrate")]
+    let last_centered_board = RwSignal::new(None::<String>);
+    #[cfg(feature = "hydrate")]
     let engine = Rc::new(RefCell::new(None::<Engine>));
 
     #[cfg(feature = "hydrate")]
@@ -51,6 +53,7 @@ pub fn CanvasHost() -> impl IntoView {
 
             let mut instance = Engine::new(canvas);
             sync_viewport(&mut instance, &canvas_ref_mount);
+            center_world_origin(&mut instance);
             let _ = instance.render();
             *engine.borrow_mut() = Some(instance);
         });
@@ -75,6 +78,10 @@ pub fn CanvasHost() -> impl IntoView {
                 engine.load_snapshot(snapshot);
                 engine.set_tool(tool);
                 sync_viewport(engine, &canvas_ref_sync);
+                if last_centered_board.get_untracked() != board_id {
+                    center_world_origin(engine);
+                    last_centered_board.set(board_id.clone());
+                }
                 let _ = engine.render();
             }
         });
@@ -207,6 +214,12 @@ fn sync_viewport(engine: &mut Engine, canvas_ref: &NodeRef<leptos::html::Canvas>
     let height = f64::from(canvas.client_height()).max(1.0);
     let dpr = window.device_pixel_ratio().max(1.0);
     engine.set_viewport(width, height, dpr);
+}
+
+#[cfg(feature = "hydrate")]
+fn center_world_origin(engine: &mut Engine) {
+    engine.core.camera.pan_x = engine.core.viewport_width * 0.5;
+    engine.core.camera.pan_y = engine.core.viewport_height * 0.5;
 }
 
 #[cfg(feature = "hydrate")]
