@@ -2,7 +2,6 @@
 
 use leptos::prelude::*;
 
-use crate::components::tool_strip::ToolStrip;
 use crate::state::ui::{ToolType, UiState};
 
 #[derive(Clone, Copy)]
@@ -10,33 +9,28 @@ struct ToolDef {
     tool: ToolType,
     label: &'static str,
     disabled: bool,
-    opens_strip: bool,
 }
 
-const PRIMARY_TOOLS: &[ToolDef] =
-    &[ToolDef { tool: ToolType::Select, label: "Select", disabled: false, opens_strip: false }];
+const PRIMARY_TOOLS: &[ToolDef] = &[ToolDef { tool: ToolType::Select, label: "Select", disabled: false }];
 
 const SHAPE_TOOLS: &[ToolDef] = &[
-    ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false, opens_strip: true },
-    ToolDef { tool: ToolType::Rectangle, label: "Rectangle", disabled: false, opens_strip: true },
-    ToolDef { tool: ToolType::Ellipse, label: "Ellipse", disabled: true, opens_strip: false },
-    ToolDef { tool: ToolType::Line, label: "Line", disabled: true, opens_strip: false },
-    ToolDef { tool: ToolType::Connector, label: "Connector", disabled: true, opens_strip: false },
-    ToolDef { tool: ToolType::Text, label: "Text", disabled: true, opens_strip: false },
+    ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false },
+    ToolDef { tool: ToolType::Rectangle, label: "Rectangle", disabled: false },
+    ToolDef { tool: ToolType::Ellipse, label: "Ellipse", disabled: true },
+    ToolDef { tool: ToolType::Line, label: "Line", disabled: true },
+    ToolDef { tool: ToolType::Connector, label: "Connector", disabled: true },
+    ToolDef { tool: ToolType::Text, label: "Text", disabled: true },
 ];
 
 const DRAW_TOOLS: &[ToolDef] = &[
-    ToolDef { tool: ToolType::Draw, label: "Draw", disabled: true, opens_strip: false },
-    ToolDef { tool: ToolType::Eraser, label: "Eraser", disabled: true, opens_strip: false },
+    ToolDef { tool: ToolType::Draw, label: "Draw", disabled: true },
+    ToolDef { tool: ToolType::Eraser, label: "Eraser", disabled: true },
 ];
 
 /// Vertical strip of tool selection buttons with a tool-strip flyout.
 #[component]
 pub fn ToolRail() -> impl IntoView {
     let ui = expect_context::<RwSignal<UiState>>();
-
-    let open_strip = RwSignal::new(None::<ToolType>);
-    let strip_top = RwSignal::new(72_i32);
 
     let render_group = move |tools: &'static [ToolDef]| {
         tools
@@ -49,40 +43,13 @@ pub fn ToolRail() -> impl IntoView {
                     td.label.to_owned()
                 };
 
-                let is_active = move || {
-                    if td.opens_strip {
-                        open_strip.get() == Some(td.tool)
-                    } else {
-                        ui.get().active_tool == td.tool
-                    }
-                };
+                let is_active = move || ui.get().active_tool == td.tool;
 
                 let on_click = move |_ev: leptos::ev::MouseEvent| {
                     if td.disabled {
                         return;
                     }
-
-                    if td.opens_strip {
-                        #[cfg(feature = "hydrate")]
-                        {
-                            use wasm_bindgen::JsCast;
-
-                            if let Some(target) = _ev.current_target()
-                                && let Ok(el) = target.dyn_into::<web_sys::HtmlElement>()
-                            {
-                                strip_top.set(el.offset_top());
-                            }
-                        }
-
-                        if open_strip.get() == Some(td.tool) {
-                            open_strip.set(None);
-                        } else {
-                            open_strip.set(Some(td.tool));
-                        }
-                    } else {
-                        ui.update(|u| u.active_tool = td.tool);
-                        open_strip.set(None);
-                    }
+                    ui.update(|u| u.active_tool = td.tool);
                 };
 
                 view! {
@@ -120,24 +87,6 @@ pub fn ToolRail() -> impl IntoView {
             <button class="tool-rail__toggle" on:click=toggle_expand title="Toggle inspector">
                 {move || if expanded() { "◀" } else { "▶" }}
             </button>
-
-            {move || {
-                open_strip.get().map(|tool| {
-                    let left_px = if ui.get().left_panel_expanded {
-                        212
-                    } else {
-                        52
-                    };
-                    view! {
-                        <div
-                            class="left-panel__strip-anchor"
-                            style=move || format!("top: {}px; left: {}px;", strip_top.get(), left_px)
-                        >
-                            <ToolStrip tool_type=tool open_strip/>
-                        </div>
-                    }
-                })
-            }}
         </div>
     }
 }

@@ -497,6 +497,22 @@ a:hover {
     white-space: nowrap;
 }
 
+.canvas-placement-ghost {
+    position: absolute;
+    border: 2px solid var(--accent-green);
+    opacity: 0.65;
+    pointer-events: none;
+    z-index: 8;
+    box-sizing: border-box;
+}
+
+.canvas-placement-ghost--sticky::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent 0, transparent 15px, rgba(0, 0, 0, 0.08) 15px, rgba(0, 0, 0, 0.08) 16px);
+}
+
 /* Toolbar */
 .toolbar {
     pointer-events: auto;

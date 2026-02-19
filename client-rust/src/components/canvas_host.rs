@@ -46,6 +46,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_drag_sent_ms = RwSignal::new(0.0_f64);
     #[cfg(feature = "hydrate")]
+    let preview_cursor = RwSignal::new(None::<CanvasPoint>);
+    #[cfg(feature = "hydrate")]
     let engine = Rc::new(RefCell::new(None::<Engine>));
 
     #[cfg(feature = "hydrate")]
@@ -110,9 +112,18 @@ pub fn CanvasHost() -> impl IntoView {
                     let _ = canvas.focus();
                     let _ = canvas.set_pointer_capture(ev.pointer_id());
                 }
+                let point = pointer_point(&ev);
+                if let Some((kind, width, height, props)) = placement_shape(_ui.get().active_tool) {
+                    if let Some(engine) = engine.borrow().as_ref() {
+                        place_shape_at_cursor(point, kind, width, height, props, engine, _board, _sender);
+                        _ui.update(|u| u.active_tool = ToolType::Select);
+                        preview_cursor.set(None);
+                        let _ = engine.render();
+                    }
+                    return;
+                }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
-                    let point = pointer_point(&ev);
                     let button = map_button(ev.button());
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_down(point, button, modifiers);
@@ -134,9 +145,13 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
+                let point = pointer_point(&ev);
+                if placement_shape(_ui.get().active_tool).is_some() {
+                    preview_cursor.set(Some(point));
+                    return;
+                }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
-                    let point = pointer_point(&ev);
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_move(point, modifiers);
                     process_actions(actions, engine, _board, _sender);
@@ -214,6 +229,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::PointerEvent| {
+                preview_cursor.set(None);
                 if let Some(engine) = engine.borrow().as_ref() {
                     sync_canvas_view_state(engine, _canvas_view, None);
                 }
@@ -232,10 +248,16 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::KeyboardEvent| {
+                let key = ev.key();
+                if key == "Escape" && placement_shape(_ui.get().active_tool).is_some() {
+                    ev.prevent_default();
+                    _ui.update(|u| u.active_tool = ToolType::Select);
+                    preview_cursor.set(None);
+                    return;
+                }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     let active_transform = active_transform_object_id(engine);
                     sync_viewport(engine, &canvas_ref);
-                    let key = ev.key();
                     if should_prevent_default_key(&key) {
                         ev.prevent_default();
                     }
@@ -283,6 +305,36 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let preview_ghost = move || {
+        #[cfg(feature = "hydrate")]
+        {
+            let Some((width, height, color)) = placement_preview(_ui.get().active_tool) else {
+                return None::<(String, String)>;
+            };
+            let point = preview_cursor
+                .get()
+                .unwrap_or_else(|| CanvasPoint::new(40.0 + (width * 0.5), 40.0 + (height * 0.5)));
+            let style = format!(
+                "left: {:.2}px; top: {:.2}px; width: {:.2}px; height: {:.2}px; background: {};",
+                point.x - (width * 0.5),
+                point.y - (height * 0.5),
+                width,
+                height,
+                color
+            );
+            let class_name = if _ui.get().active_tool == ToolType::Sticky {
+                "canvas-placement-ghost canvas-placement-ghost--sticky".to_owned()
+            } else {
+                "canvas-placement-ghost".to_owned()
+            };
+            Some((class_name, style))
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            None::<(String, String)>
+        }
+    };
+
     view! {
         <>
             <canvas
@@ -298,6 +350,11 @@ pub fn CanvasHost() -> impl IntoView {
             >
                 "Your browser does not support canvas."
             </canvas>
+            {move || {
+                preview_ghost().map(|(class_name, style)| {
+                    view! { <div class=class_name style=style></div> }
+                })
+            }}
             <div class="canvas-cursors">
                 {move || {
                     remote_cursors()
@@ -342,7 +399,7 @@ fn center_world_origin(engine: &mut Engine) {
 fn map_tool(tool: ToolType) -> CanvasTool {
     match tool {
         ToolType::Select => CanvasTool::Select,
-        ToolType::Sticky | ToolType::Rectangle => CanvasTool::Rect,
+        ToolType::Sticky | ToolType::Rectangle => CanvasTool::Select,
         ToolType::Ellipse => CanvasTool::Ellipse,
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
         ToolType::Text | ToolType::Draw | ToolType::Eraser => CanvasTool::Select,
@@ -551,6 +608,109 @@ fn now_ms() -> f64 {
 
 fn remote_cursor_style(x: f64, y: f64, color: &str) -> String {
     format!("transform: translate({x:.2}px, {y:.2}px); --cursor-color: {color};")
+}
+
+#[cfg(feature = "hydrate")]
+fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json::Value)> {
+    match tool {
+        ToolType::Sticky => Some((
+            "sticky_note",
+            120.0,
+            120.0,
+            serde_json::json!({
+                "title": "New note",
+                "text": "",
+                "color": "#D94B4B",
+                "backgroundColor": "#D94B4B",
+                "borderColor": "#D94B4B",
+                "borderWidth": 1
+            }),
+        )),
+        ToolType::Rectangle => Some((
+            "rectangle",
+            160.0,
+            100.0,
+            serde_json::json!({
+                "color": "#D94B4B",
+                "backgroundColor": "#D94B4B",
+                "borderColor": "#D94B4B",
+                "borderWidth": 1
+            }),
+        )),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
+    match tool {
+        ToolType::Sticky => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Rectangle => Some((160.0, 100.0, "rgba(217, 75, 75, 0.5)")),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn place_shape_at_cursor(
+    point_screen: CanvasPoint,
+    kind: &str,
+    width: f64,
+    height: f64,
+    props: serde_json::Value,
+    engine: &Engine,
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+) {
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+
+    let world = engine.camera().screen_to_world(point_screen);
+    let x = world.x - (width * 0.5);
+    let y = world.y - (height * 0.5);
+    let id = uuid::Uuid::new_v4().to_string();
+
+    let new_object = BoardObject {
+        id: id.clone(),
+        board_id: board_id.clone(),
+        kind: kind.to_owned(),
+        x,
+        y,
+        width: Some(width),
+        height: Some(height),
+        rotation: 0.0,
+        z_index: board.get_untracked().objects.len() as i32,
+        props: props.clone(),
+        created_by: Some("local".to_owned()),
+        version: 1,
+    };
+
+    board.update(|b| {
+        b.objects.insert(id.clone(), new_object);
+        b.selection.clear();
+        b.selection.insert(id.clone());
+    });
+
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "object:create".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({
+            "id": id,
+            "kind": kind,
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height,
+            "rotation": 0,
+            "props": props,
+        }),
+    };
+    let _ = sender.get_untracked().send(&frame);
 }
 
 #[cfg(feature = "hydrate")]
