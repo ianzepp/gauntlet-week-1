@@ -995,8 +995,8 @@ pub fn CanvasHost() -> impl IntoView {
                 title="Drag to rotate view; hold Shift to snap by 15deg"
                 on:pointerdown=on_compass_pointer_down
                 on:pointermove=on_compass_pointer_move
-                on:pointerup=on_compass_pointer_up
-                on:pointercancel=on_compass_pointer_up
+                on:pointerup=on_compass_pointer_up.clone()
+                on:pointercancel=on_compass_pointer_up.clone()
                 on:pointerleave=on_compass_pointer_up
             >
                 <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_compass_snap_n>
