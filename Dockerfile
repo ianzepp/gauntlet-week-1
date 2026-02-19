@@ -16,6 +16,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY server/ server/
 COPY canvas/ canvas/
 COPY client/ client/
+COPY frames/ frames/
+COPY perf/ perf/
 COPY public/ public/
 RUN cargo leptos build --release
 
