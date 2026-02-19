@@ -370,7 +370,10 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
                 let mut dragged = existing.clone();
                 merge_object_update(&mut dragged, &frame.data);
                 if let Some(prev) = board.drag_objects.get(id) {
-                    smooth_drag_object(prev, &mut dragged, &frame.data);
+                    let prev_ts = board.drag_updated_at.get(id).copied().unwrap_or(frame.ts);
+                    if should_smooth_drag(prev_ts, frame.ts) {
+                        smooth_drag_object(prev, &mut dragged, &frame.data, smoothing_alpha(prev_ts, frame.ts));
+                    }
                 }
                 board.drag_objects.insert(id.to_owned(), dragged);
                 board.drag_updated_at.insert(id.to_owned(), frame.ts);
@@ -392,32 +395,50 @@ fn smooth_drag_object(
     previous: &crate::net::types::BoardObject,
     next: &mut crate::net::types::BoardObject,
     patch: &serde_json::Value,
+    alpha: f64,
 ) {
-    const ALPHA: f64 = 0.45;
     if patch.get("x").is_some() {
-        next.x = lerp(previous.x, next.x, ALPHA);
+        next.x = lerp(previous.x, next.x, alpha);
     }
     if patch.get("y").is_some() {
-        next.y = lerp(previous.y, next.y, ALPHA);
+        next.y = lerp(previous.y, next.y, alpha);
     }
     if patch.get("width").is_some()
         && let (Some(prev), Some(curr)) = (previous.width, next.width)
     {
-        next.width = Some(lerp(prev, curr, ALPHA));
+        next.width = Some(lerp(prev, curr, alpha));
     }
     if patch.get("height").is_some()
         && let (Some(prev), Some(curr)) = (previous.height, next.height)
     {
-        next.height = Some(lerp(prev, curr, ALPHA));
+        next.height = Some(lerp(prev, curr, alpha));
     }
     if patch.get("rotation").is_some() {
-        next.rotation = lerp(previous.rotation, next.rotation, ALPHA);
+        next.rotation = lerp(previous.rotation, next.rotation, alpha);
     }
 }
 
 #[cfg(any(test, feature = "hydrate"))]
 fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn should_smooth_drag(prev_ts: i64, next_ts: i64) -> bool {
+    // Keep fast streams crisp; smooth only slower arrivals.
+    next_ts.saturating_sub(prev_ts) >= 80
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn smoothing_alpha(prev_ts: i64, next_ts: i64) -> f64 {
+    let dt = next_ts.saturating_sub(prev_ts);
+    if dt >= 200 {
+        0.65
+    } else if dt >= 120 {
+        0.55
+    } else {
+        0.45
+    }
 }
 
 #[cfg(any(test, feature = "hydrate"))]

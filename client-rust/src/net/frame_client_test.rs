@@ -288,21 +288,56 @@ fn apply_object_frame_drag_smooths_from_previous_drag_state() {
     board
         .drag_objects
         .insert(obj.id.clone(), crate::net::types::BoardObject { x: 100.0, y: 100.0, ..obj });
+    board.drag_updated_at.insert("obj-1".to_owned(), 100);
 
     apply_object_frame(
-        &frame(
-            "object:drag",
-            FrameStatus::Request,
-            serde_json::json!({
-                "id": "obj-1",
-                "x": 200.0,
-                "y": 200.0
-            }),
-        ),
+        &Frame {
+            ts: 250,
+            ..frame(
+                "object:drag",
+                FrameStatus::Request,
+                serde_json::json!({
+                    "id": "obj-1",
+                    "x": 200.0,
+                    "y": 200.0
+                }),
+            )
+        },
         &mut board,
     );
 
     let dragged = board.drag_objects.get("obj-1").expect("drag object");
     assert!(dragged.x > 100.0 && dragged.x < 200.0);
     assert!(dragged.y > 100.0 && dragged.y < 200.0);
+}
+
+#[test]
+fn apply_object_frame_drag_fast_updates_use_raw_values() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.objects.insert(obj.id.clone(), obj.clone());
+    board
+        .drag_objects
+        .insert(obj.id.clone(), crate::net::types::BoardObject { x: 100.0, y: 100.0, ..obj });
+    board.drag_updated_at.insert("obj-1".to_owned(), 200);
+
+    apply_object_frame(
+        &Frame {
+            ts: 240,
+            ..frame(
+                "object:drag",
+                FrameStatus::Request,
+                serde_json::json!({
+                    "id": "obj-1",
+                    "x": 200.0,
+                    "y": 200.0
+                }),
+            )
+        },
+        &mut board,
+    );
+
+    let dragged = board.drag_objects.get("obj-1").expect("drag object");
+    assert_eq!(dragged.x, 200.0);
+    assert_eq!(dragged.y, 200.0);
 }
