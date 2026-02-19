@@ -189,6 +189,26 @@ async fn register_two_clients(
         .expect("board should exist in memory");
     board.clients.insert(sender_client_id, sender_tx.clone());
     board.clients.insert(peer_client_id, peer_tx.clone());
+    board.users.insert(
+        sender_client_id,
+        crate::state::ConnectedClient {
+            user_id: Uuid::new_v4(),
+            user_name: "sender".to_owned(),
+            user_color: "#aaa".to_owned(),
+            can_edit: true,
+            can_admin: true,
+        },
+    );
+    board.users.insert(
+        peer_client_id,
+        crate::state::ConnectedClient {
+            user_id: Uuid::new_v4(),
+            user_name: "peer".to_owned(),
+            user_color: "#bbb".to_owned(),
+            can_edit: true,
+            can_admin: true,
+        },
+    );
 
     (sender_client_id, sender_tx, sender_rx, peer_client_id, peer_tx, peer_rx)
 }

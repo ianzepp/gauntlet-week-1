@@ -6,12 +6,13 @@
 //! Leptos SSR rendering under a single Axum router.
 
 pub mod auth;
+pub mod boards;
 pub mod users;
 pub mod ws;
 
 use axum::Router;
 use axum::http::StatusCode;
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use leptos::prelude::*;
 use leptos_axum::{LeptosRoutes, generate_route_list};
 use tower_http::cors::{Any, CorsLayer};
@@ -34,6 +35,14 @@ fn api_routes(state: AppState) -> Router {
         .route("/api/auth/email/verify-code", post(auth::verify_email_code))
         .route("/api/auth/ws-ticket", post(auth::ws_ticket))
         .route("/api/dev/ws-ticket", post(auth::dev_ws_ticket))
+        .route(
+            "/api/boards/{id}/members",
+            get(boards::list_members).post(boards::upsert_member),
+        )
+        .route(
+            "/api/boards/{id}/members/{user_id}",
+            patch(boards::update_member).delete(boards::delete_member),
+        )
         .route("/api/users/{id}/profile", get(users::user_profile))
         .route("/api/ws", get(ws::handle_ws))
         .route("/healthz", get(healthz))

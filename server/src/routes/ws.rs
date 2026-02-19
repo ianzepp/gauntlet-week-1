@@ -263,8 +263,8 @@ async fn process_inbound_bytes(
     // Dispatch to handler — returns Outcome or error Frame.
     let result = match prefix {
         "board" => handle_board(state, current_board, client_id, user_id, user_name, user_color, client_tx, &req).await,
-        "object" => handle_object(state, *current_board, user_id, &req).await,
-        "chat" => handle_chat(state, *current_board, &req).await,
+        "object" => handle_object(state, *current_board, client_id, user_id, &req).await,
+        "chat" => handle_chat(state, *current_board, client_id, &req).await,
         "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
@@ -722,10 +722,19 @@ async fn handle_board_savepoint_list(
 // CHAT HANDLER
 // =============================================================================
 
-async fn handle_chat(state: &AppState, current_board: Option<Uuid>, req: &Frame) -> Result<Outcome, Frame> {
+async fn handle_chat(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    client_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
     let Some(board_id) = current_board else {
         return Err(req.error("must join a board first"));
     };
+    if !services::board::client_has_permission(state, board_id, client_id, services::board::BoardPermission::View).await
+    {
+        return Err(req.error("forbidden"));
+    }
 
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
     match op {
@@ -787,12 +796,17 @@ async fn handle_chat(state: &AppState, current_board: Option<Uuid>, req: &Frame)
 async fn handle_object(
     state: &AppState,
     current_board: Option<Uuid>,
+    client_id: Uuid,
     user_id: Uuid,
     req: &Frame,
 ) -> Result<Outcome, Frame> {
     let Some(board_id) = current_board else {
         return Err(req.error("must join a board first"));
     };
+    if !services::board::client_has_permission(state, board_id, client_id, services::board::BoardPermission::Edit).await
+    {
+        return Err(req.error("forbidden"));
+    }
 
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
 
@@ -1037,6 +1051,10 @@ async fn handle_ai(
     let Some(user_id) = req.from.as_deref().and_then(|s| s.parse::<Uuid>().ok()) else {
         return Err(req.error("missing authenticated user id"));
     };
+    if !services::board::client_has_permission(state, board_id, client_id, services::board::BoardPermission::Edit).await
+    {
+        return Err(req.error("forbidden"));
+    }
 
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
     match op {

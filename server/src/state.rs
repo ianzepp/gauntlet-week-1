@@ -52,6 +52,8 @@ pub struct ConnectedClient {
     pub user_id: Uuid,
     pub user_name: String,
     pub user_color: String,
+    pub can_edit: bool,
+    pub can_admin: bool,
 }
 
 pub struct BoardState {

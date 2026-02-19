@@ -31,6 +31,8 @@ use crate::state::{AppState, BoardObject, BoardState, ConnectedClient};
 pub enum BoardError {
     #[error("board not found: {0}")]
     NotFound(Uuid),
+    #[error("board access forbidden: {0}")]
+    Forbidden(Uuid),
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 }
@@ -39,6 +41,7 @@ impl crate::frame::ErrorCode for BoardError {
     fn error_code(&self) -> &'static str {
         match self {
             Self::NotFound(_) => "E_BOARD_NOT_FOUND",
+            Self::Forbidden(_) => "E_BOARD_FORBIDDEN",
             Self::Database(_) => "E_DATABASE",
         }
     }
@@ -50,6 +53,49 @@ pub struct BoardRow {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoardRole {
+    Viewer,
+    Editor,
+    Admin,
+}
+
+impl BoardRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Viewer => "viewer",
+            Self::Editor => "editor",
+            Self::Admin => "admin",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "viewer" => Some(Self::Viewer),
+            "editor" => Some(Self::Editor),
+            "admin" => Some(Self::Admin),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoardPermission {
+    View,
+    Edit,
+    Admin,
+}
+
+#[derive(Debug, Clone)]
+pub struct BoardMemberRow {
+    pub user_id: Uuid,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub color: String,
+    pub role: BoardRole,
+    pub is_owner: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -101,7 +147,12 @@ pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, 
     let rows = sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
         "SELECT id, name, owner_id
          FROM boards
-         WHERE owner_id = $1 OR owner_id IS NULL
+         WHERE owner_id = $1
+            OR owner_id IS NULL
+            OR EXISTS (
+                SELECT 1 FROM board_members bm
+                WHERE bm.board_id = boards.id AND bm.user_id = $1
+            )
          ORDER BY created_at DESC",
     )
     .bind(user_id)
@@ -112,6 +163,210 @@ pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, 
         .into_iter()
         .map(|(id, name, owner_id)| BoardRow { id, name, owner_id })
         .collect())
+}
+
+fn role_satisfies(role: BoardRole, permission: BoardPermission) -> bool {
+    match permission {
+        BoardPermission::View => true,
+        BoardPermission::Edit => matches!(role, BoardRole::Editor | BoardRole::Admin),
+        BoardPermission::Admin => matches!(role, BoardRole::Admin),
+    }
+}
+
+/// Ensure a user has permission on a board.
+///
+/// Legacy `owner_id IS NULL` boards remain globally accessible for compatibility.
+pub async fn ensure_board_permission(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+    permission: BoardPermission,
+) -> Result<(), BoardError> {
+    let board_row = sqlx::query_as::<_, (Option<Uuid>,)>("SELECT owner_id FROM boards WHERE id = $1")
+        .bind(board_id)
+        .fetch_optional(pool)
+        .await?;
+
+    let Some((owner_id,)) = board_row else {
+        return Err(BoardError::NotFound(board_id));
+    };
+
+    if owner_id == Some(user_id) {
+        return Ok(());
+    }
+
+    if owner_id.is_none() {
+        return Ok(());
+    }
+
+    let member_role =
+        sqlx::query_scalar::<_, String>("SELECT role FROM board_members WHERE board_id = $1 AND user_id = $2")
+            .bind(board_id)
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await?;
+
+    if let Some(raw_role) = member_role
+        && let Some(role) = BoardRole::from_str(&raw_role)
+        && role_satisfies(role, permission)
+    {
+        return Ok(());
+    }
+
+    Err(BoardError::Forbidden(board_id))
+}
+
+#[must_use]
+pub async fn client_has_permission(
+    state: &AppState,
+    board_id: Uuid,
+    client_id: Uuid,
+    permission: BoardPermission,
+) -> bool {
+    let boards = state.boards.read().await;
+    let Some(board_state) = boards.get(&board_id) else {
+        return false;
+    };
+    let Some(client) = board_state.users.get(&client_id) else {
+        return false;
+    };
+    match permission {
+        BoardPermission::View => true,
+        BoardPermission::Edit => client.can_edit || client.can_admin,
+        BoardPermission::Admin => client.can_admin,
+    }
+}
+
+pub async fn list_board_members(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<BoardMemberRow>, BoardError> {
+    ensure_board_permission(pool, board_id, user_id, BoardPermission::View).await?;
+
+    let owner_row = sqlx::query_as::<_, (Option<Uuid>,)>("SELECT owner_id FROM boards WHERE id = $1")
+        .bind(board_id)
+        .fetch_optional(pool)
+        .await?;
+    let Some((owner_id,)) = owner_row else {
+        return Err(BoardError::NotFound(board_id));
+    };
+
+    let mut rows = sqlx::query_as::<_, (Uuid, String, Option<String>, String, String)>(
+        r"SELECT u.id, u.name, u.avatar_url, u.color, bm.role
+          FROM board_members bm
+          JOIN users u ON u.id = bm.user_id
+          WHERE bm.board_id = $1
+          ORDER BY u.name ASC",
+    )
+    .bind(board_id)
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .filter_map(|(member_id, name, avatar_url, color, role_raw)| {
+        Some(BoardMemberRow {
+            user_id: member_id,
+            name,
+            avatar_url,
+            color,
+            role: BoardRole::from_str(&role_raw)?,
+            is_owner: false,
+        })
+    })
+    .collect::<Vec<_>>();
+
+    if let Some(owner_id) = owner_id {
+        let owner_exists = rows.iter().any(|row| row.user_id == owner_id);
+        if !owner_exists
+            && let Some((name, avatar_url, color)) = sqlx::query_as::<_, (String, Option<String>, String)>(
+                "SELECT name, avatar_url, color FROM users WHERE id = $1",
+            )
+            .bind(owner_id)
+            .fetch_optional(pool)
+            .await?
+        {
+            rows.insert(
+                0,
+                BoardMemberRow { user_id: owner_id, name, avatar_url, color, role: BoardRole::Admin, is_owner: true },
+            );
+        }
+    }
+
+    Ok(rows)
+}
+
+pub async fn add_or_update_board_member(
+    pool: &PgPool,
+    board_id: Uuid,
+    acting_user_id: Uuid,
+    target_user_id: Uuid,
+    role: BoardRole,
+) -> Result<(), BoardError> {
+    ensure_board_permission(pool, board_id, acting_user_id, BoardPermission::Admin).await?;
+
+    let owner_id = sqlx::query_scalar::<_, Option<Uuid>>("SELECT owner_id FROM boards WHERE id = $1")
+        .bind(board_id)
+        .fetch_optional(pool)
+        .await?;
+
+    if let Some(Some(owner_id)) = owner_id
+        && owner_id == target_user_id
+    {
+        return Ok(());
+    }
+
+    sqlx::query(
+        "INSERT INTO board_members (board_id, user_id, role)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (board_id, user_id) DO UPDATE SET role = EXCLUDED.role",
+    )
+    .bind(board_id)
+    .bind(target_user_id)
+    .bind(role.as_str())
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn remove_board_member(
+    pool: &PgPool,
+    board_id: Uuid,
+    acting_user_id: Uuid,
+    target_user_id: Uuid,
+) -> Result<(), BoardError> {
+    ensure_board_permission(pool, board_id, acting_user_id, BoardPermission::Admin).await?;
+
+    let owner_id = sqlx::query_scalar::<_, Option<Uuid>>("SELECT owner_id FROM boards WHERE id = $1")
+        .bind(board_id)
+        .fetch_optional(pool)
+        .await?;
+
+    if let Some(Some(owner_id)) = owner_id
+        && owner_id == target_user_id
+    {
+        return Err(BoardError::Forbidden(board_id));
+    }
+
+    sqlx::query("DELETE FROM board_members WHERE board_id = $1 AND user_id = $2")
+        .bind(board_id)
+        .bind(target_user_id)
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn resolve_user_id_by_email(pool: &PgPool, email: &str) -> Result<Option<Uuid>, BoardError> {
+    let normalized = email.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+    let row = sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE email = $1")
+        .bind(normalized)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row)
 }
 
 /// Load lightweight preview objects for a set of boards.
@@ -170,9 +425,10 @@ pub async fn list_board_preview_objects(
 ///
 /// Returns a database error if the delete fails.
 pub async fn delete_board(pool: &PgPool, board_id: Uuid, user_id: Uuid) -> Result<(), BoardError> {
-    let result = sqlx::query("DELETE FROM boards WHERE id = $1 AND (owner_id = $2 OR owner_id IS NULL)")
+    ensure_board_permission(pool, board_id, user_id, BoardPermission::Admin).await?;
+
+    let result = sqlx::query("DELETE FROM boards WHERE id = $1")
         .bind(board_id)
-        .bind(user_id)
         .execute(pool)
         .await?;
 
@@ -201,22 +457,13 @@ pub async fn join_board(
     client_id: Uuid,
     tx: mpsc::Sender<Frame>,
 ) -> Result<Vec<BoardObject>, BoardError> {
-    // Verify board exists and the user has access.
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(
-            SELECT 1
-            FROM boards
-            WHERE id = $1 AND (owner_id = $2 OR owner_id IS NULL)
-        )",
-    )
-    .bind(board_id)
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await?;
-
-    if !exists {
-        return Err(BoardError::NotFound(board_id));
-    }
+    ensure_board_permission(&state.pool, board_id, user_id, BoardPermission::View).await?;
+    let can_edit = ensure_board_permission(&state.pool, board_id, user_id, BoardPermission::Edit)
+        .await
+        .is_ok();
+    let can_admin = ensure_board_permission(&state.pool, board_id, user_id, BoardPermission::Admin)
+        .await
+        .is_ok();
 
     // Fetch object snapshot outside locks; we'll apply it only if needed.
     let hydration_snapshot = hydrate_objects(&state.pool, board_id).await?;
@@ -233,7 +480,13 @@ pub async fn join_board(
     board_state.clients.insert(client_id, tx);
     board_state.users.insert(
         client_id,
-        ConnectedClient { user_id, user_name: user_name.to_owned(), user_color: user_color.to_owned() },
+        ConnectedClient {
+            user_id,
+            user_name: user_name.to_owned(),
+            user_color: user_color.to_owned(),
+            can_edit,
+            can_admin,
+        },
     );
     let objects: Vec<BoardObject> = board_state.objects.values().cloned().collect();
 

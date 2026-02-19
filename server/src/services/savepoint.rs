@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::services::board::{self, BoardPermission};
 use crate::state::{AppState, BoardObject};
 
 const DEFAULT_AUTO_SAVEPOINT_DEBOUNCE_MS: i64 = 1500;
@@ -61,22 +62,9 @@ fn auto_savepoint_debounce_ms() -> i64 {
 }
 
 async fn ensure_board_access(pool: &PgPool, board_id: Uuid, user_id: Uuid) -> Result<(), SavepointError> {
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(
-            SELECT 1
-            FROM boards
-            WHERE id = $1 AND (owner_id = $2 OR owner_id IS NULL)
-        )",
-    )
-    .bind(board_id)
-    .bind(user_id)
-    .fetch_one(pool)
-    .await?;
-
-    if !exists {
-        return Err(SavepointError::BoardNotFound(board_id));
-    }
-    Ok(())
+    board::ensure_board_permission(pool, board_id, user_id, BoardPermission::Edit)
+        .await
+        .map_err(|_| SavepointError::BoardNotFound(board_id))
 }
 
 async fn snapshot_objects(state: &AppState, board_id: Uuid) -> Result<Vec<BoardObject>, SavepointError> {
