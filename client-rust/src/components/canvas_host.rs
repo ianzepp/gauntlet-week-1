@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use crate::app::FrameSender;
 #[cfg(feature = "hydrate")]
 use crate::net::types::{BoardObject, Frame, FrameStatus, Point as WirePoint};
+use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
@@ -33,6 +34,7 @@ use canvas::input::{
 /// objects from websocket state, and renders on updates.
 #[component]
 pub fn CanvasHost() -> impl IntoView {
+    let _auth = expect_context::<RwSignal<AuthState>>();
     let _board = expect_context::<RwSignal<BoardState>>();
     let _canvas_view = expect_context::<RwSignal<CanvasViewState>>();
     let _sender = expect_context::<RwSignal<FrameSender>>();
@@ -135,6 +137,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let actions = engine.on_pointer_move(point, modifiers);
                     process_actions(actions, engine, _board, _sender);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    send_cursor_moved(engine, point, _auth, _board, _sender);
                     let _ = engine.render();
                 }
             }
@@ -241,20 +244,63 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let remote_cursors = move || {
+        #[cfg(feature = "hydrate")]
+        {
+            let view = _canvas_view.get();
+            let pan_x = view.pan_x;
+            let pan_y = view.pan_y;
+            let zoom = view.zoom;
+            return _board
+                .get()
+                .presence
+                .values()
+                .filter_map(|p| {
+                    let cursor = p.cursor.as_ref()?;
+                    let screen_x = cursor.x * zoom + pan_x;
+                    let screen_y = cursor.y * zoom + pan_y;
+                    Some((p.user_id.clone(), p.name.clone(), p.color.clone(), screen_x, screen_y))
+                })
+                .collect::<Vec<_>>();
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            Vec::<(String, String, String, f64, f64)>::new()
+        }
+    };
+
     view! {
-        <canvas
-            class="canvas-host"
-            node_ref=canvas_ref
-            tabindex="0"
-            on:pointerdown=on_pointer_down
-            on:pointermove=on_pointer_move
-            on:pointerup=on_pointer_up
-            on:pointerleave=on_pointer_leave
-            on:wheel=on_wheel
-            on:keydown=on_key_down
-        >
-            "Your browser does not support canvas."
-        </canvas>
+        <>
+            <canvas
+                class="canvas-host"
+                node_ref=canvas_ref
+                tabindex="0"
+                on:pointerdown=on_pointer_down
+                on:pointermove=on_pointer_move
+                on:pointerup=on_pointer_up
+                on:pointerleave=on_pointer_leave
+                on:wheel=on_wheel
+                on:keydown=on_key_down
+            >
+                "Your browser does not support canvas."
+            </canvas>
+            <div class="canvas-cursors">
+                {move || {
+                    remote_cursors()
+                        .into_iter()
+                        .map(|(_id, name, color, x, y)| {
+                            let style = remote_cursor_style(x, y, &color);
+                            let title = name.clone();
+                            view! {
+                                <div class="canvas-cursor" style=style title=title>
+                                    <span class="canvas-cursor__name">{name}</span>
+                                </div>
+                            }
+                        })
+                        .collect_view()
+                }}
+            </div>
+        </>
     }
 }
 
@@ -345,7 +391,46 @@ fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState
         v.cursor_world = cursor_world.map(|p| WirePoint { x: p.x, y: p.y });
         v.viewport_center_world = WirePoint { x: viewport_center_world.x, y: viewport_center_world.y };
         v.zoom = camera.zoom;
+        v.pan_x = camera.pan_x;
+        v.pan_y = camera.pan_y;
     });
+}
+
+#[cfg(feature = "hydrate")]
+fn send_cursor_moved(
+    engine: &Engine,
+    point_screen: CanvasPoint,
+    auth: RwSignal<AuthState>,
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+) {
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+    let Some(user) = auth.get_untracked().user else {
+        return;
+    };
+    let world = engine.camera().screen_to_world(point_screen);
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "cursor:moved".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({
+            "x": world.x,
+            "y": world.y,
+            "name": user.name,
+            "color": user.color
+        }),
+    };
+    let _ = sender.get_untracked().send(&frame);
+}
+
+fn remote_cursor_style(x: f64, y: f64, color: &str) -> String {
+    format!("transform: translate({x:.2}px, {y:.2}px); --cursor-color: {color};")
 }
 
 #[cfg(feature = "hydrate")]

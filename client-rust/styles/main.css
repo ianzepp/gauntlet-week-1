@@ -458,6 +458,45 @@ a:hover {
     background: transparent;
 }
 
+.canvas-cursors {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.canvas-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.canvas-cursor::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    width: 10px;
+    height: 10px;
+    background: var(--cursor-color, var(--accent-green));
+    border: 1px solid var(--bg-primary);
+}
+
+.canvas-cursor__name {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 1px 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bg-primary);
+    background: var(--cursor-color, var(--accent-green));
+    white-space: nowrap;
+}
+
 /* Toolbar */
 .toolbar {
     pointer-events: auto;

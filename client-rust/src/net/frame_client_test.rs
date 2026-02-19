@@ -99,3 +99,89 @@ fn merge_object_update_applies_known_fields() {
     assert_eq!(obj.version, 3);
     assert_eq!(obj.props, serde_json::json!({"k":"v"}));
 }
+
+#[test]
+fn apply_object_frame_delete_clears_selected_object() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.selection.insert(obj.id.clone());
+    board.objects.insert(obj.id.clone(), obj);
+
+    apply_object_frame(
+        &frame("object:delete", FrameStatus::Done, serde_json::json!({ "id": "obj-1" })),
+        &mut board,
+    );
+
+    assert!(!board.objects.contains_key("obj-1"));
+    assert!(!board.selection.contains("obj-1"));
+}
+
+#[test]
+fn apply_object_frame_update_unknown_clears_stale_selection() {
+    let mut board = crate::state::board::BoardState::default();
+    board.selection.insert("obj-404".to_owned());
+
+    apply_object_frame(
+        &frame(
+            "object:update",
+            FrameStatus::Done,
+            serde_json::json!({ "id": "obj-404", "x": 42.0 }),
+        ),
+        &mut board,
+    );
+
+    assert!(!board.selection.contains("obj-404"));
+}
+
+#[test]
+fn apply_cursor_moved_supports_server_shape() {
+    let mut board = crate::state::board::BoardState::default();
+    apply_cursor_moved(
+        &mut board,
+        &serde_json::json!({
+            "client_id": "c-1",
+            "x": 12.5,
+            "y": -7.25,
+            "name": "Alice",
+            "color": "#22c55e"
+        }),
+    );
+
+    let p = board.presence.get("client:c-1").expect("cursor presence");
+    assert_eq!(p.name, "Alice");
+    assert_eq!(p.color, "#22c55e");
+    let cursor = p.cursor.as_ref().expect("cursor point");
+    assert_eq!(cursor.x, 12.5);
+    assert_eq!(cursor.y, -7.25);
+}
+
+#[test]
+fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
+    let mut board = crate::state::board::BoardState::default();
+    board.presence.insert(
+        "u-1".to_owned(),
+        crate::net::types::Presence {
+            user_id: "u-1".to_owned(),
+            name: "Alice".to_owned(),
+            color: "#22c55e".to_owned(),
+            cursor: None,
+        },
+    );
+
+    apply_cursor_moved(
+        &mut board,
+        &serde_json::json!({
+            "client_id": "c-1",
+            "x": 50.0,
+            "y": 60.0,
+            "name": "Alice",
+            "color": "#22c55e"
+        }),
+    );
+
+    assert!(!board.presence.contains_key("client:c-1"));
+    let p = board.presence.get("u-1").expect("existing presence");
+    let cursor = p.cursor.as_ref().expect("cursor point");
+    assert_eq!(cursor.x, 50.0);
+    assert_eq!(cursor.y, 60.0);
+}

@@ -15,8 +15,10 @@ use crate::state::ai::AiMessage;
 use crate::state::ai::AiState;
 #[cfg(feature = "hydrate")]
 use crate::state::auth::AuthState;
+#[cfg(any(test, feature = "hydrate"))]
+use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
-use crate::state::board::{BoardState, ConnectionStatus};
+use crate::state::board::ConnectionStatus;
 #[cfg(feature = "hydrate")]
 use crate::state::boards::{BoardListItem, BoardsState};
 #[cfg(any(test, feature = "hydrate"))]
@@ -315,46 +317,88 @@ fn handle_board_frame(
 
 #[cfg(feature = "hydrate")]
 fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) -> bool {
-    use crate::net::types::{BoardObject, FrameStatus, Presence};
+    board.update(|b| {
+        apply_object_frame(frame, b);
+    });
+    matches!(
+        frame.syscall.as_str(),
+        "object:create" | "object:update" | "object:delete" | "cursor:moved"
+    )
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
+    use crate::net::types::{BoardObject, FrameStatus};
 
     match frame.syscall.as_str() {
         "object:create" if frame.status == FrameStatus::Done => {
             if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
-                board.update(|b| {
-                    b.objects.insert(obj.id.clone(), obj);
-                });
+                board.objects.insert(obj.id.clone(), obj);
             }
-            true
         }
         "object:update" if frame.status == FrameStatus::Done => {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
-                board.update(|b| {
-                    if let Some(existing) = b.objects.get_mut(id) {
-                        merge_object_update(existing, &frame.data);
-                    }
-                });
+                if let Some(existing) = board.objects.get_mut(id) {
+                    merge_object_update(existing, &frame.data);
+                } else {
+                    // Defensive: don't keep stale selection for unknown objects.
+                    board.selection.remove(id);
+                }
             }
-            true
         }
         "object:delete" if frame.status == FrameStatus::Done => {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
-                board.update(|b| {
-                    b.objects.remove(id);
-                    b.selection.remove(id);
-                });
+                board.objects.remove(id);
+                board.selection.remove(id);
             }
-            true
         }
-        "cursor:moved" => {
-            if let Ok(p) = serde_json::from_value::<Presence>(frame.data.clone()) {
-                board.update(|b| {
-                    b.presence.insert(p.user_id.clone(), p);
-                });
-            }
-            true
-        }
-        _ => false,
+        "cursor:moved" => apply_cursor_moved(board, &frame.data),
+        _ => {}
     }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value) {
+    use crate::net::types::{Point, Presence};
+
+    if let Ok(p) = serde_json::from_value::<Presence>(data.clone()) {
+        board.presence.insert(p.user_id.clone(), p);
+        return;
+    }
+
+    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
+        return;
+    };
+    let Some(x) = data.get("x").and_then(|v| v.as_f64()) else {
+        return;
+    };
+    let Some(y) = data.get("y").and_then(|v| v.as_f64()) else {
+        return;
+    };
+    let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("Agent");
+    let color = data
+        .get("color")
+        .and_then(|v| v.as_str())
+        .unwrap_or("#8a8178");
+
+    if let Some((_, existing)) = board
+        .presence
+        .iter_mut()
+        .find(|(_, p)| p.name == name && p.color == color)
+    {
+        existing.cursor = Some(Point { x, y });
+        return;
+    }
+
+    board.presence.insert(
+        format!("client:{client_id}"),
+        Presence {
+            user_id: format!("client:{client_id}"),
+            name: name.to_owned(),
+            color: color.to_owned(),
+            cursor: Some(Point { x, y }),
+        },
+    );
 }
 
 #[cfg(feature = "hydrate")]
