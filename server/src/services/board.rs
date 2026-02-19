@@ -14,8 +14,8 @@
 
 use std::collections::HashMap;
 
-use sqlx::QueryBuilder;
 use sqlx::PgPool;
+use sqlx::QueryBuilder;
 use tokio::sync::mpsc;
 use tracing::info;
 use uuid::Uuid;

@@ -24,10 +24,10 @@ use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::ConnectionStatus;
-#[cfg(any(test, feature = "hydrate"))]
-use crate::state::boards::{BoardListItem, BoardListPreviewObject};
 #[cfg(feature = "hydrate")]
 use crate::state::boards::BoardsState;
+#[cfg(any(test, feature = "hydrate"))]
+use crate::state::boards::{BoardListItem, BoardListPreviewObject};
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::chat::ChatMessage;
 #[cfg(feature = "hydrate")]
@@ -464,7 +464,10 @@ fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListItem> {
 
 #[cfg(any(test, feature = "hydrate"))]
 fn parse_board_list_preview_object(row: &serde_json::Value) -> Option<BoardListPreviewObject> {
-    let kind = row.get("kind").and_then(serde_json::Value::as_str)?.to_owned();
+    let kind = row
+        .get("kind")
+        .and_then(serde_json::Value::as_str)?
+        .to_owned();
     let x = row.get("x").and_then(serde_json::Value::as_f64)?;
     let y = row.get("y").and_then(serde_json::Value::as_f64)?;
     let width = row.get("width").and_then(serde_json::Value::as_f64);
@@ -475,18 +478,14 @@ fn parse_board_list_preview_object(row: &serde_json::Value) -> Option<BoardListP
         .unwrap_or(0.0);
     let z_index = row
         .get("z_index")
-        .and_then(|value| value.as_i64().or_else(|| value.as_f64().map(|n| n.round() as i64)))
+        .and_then(|value| {
+            value
+                .as_i64()
+                .or_else(|| value.as_f64().map(|n| n.round() as i64))
+        })
         .and_then(|n| i32::try_from(n).ok())
         .unwrap_or(0);
-    Some(BoardListPreviewObject {
-        kind,
-        x,
-        y,
-        width,
-        height,
-        rotation,
-        z_index,
-    })
+    Some(BoardListPreviewObject { kind, x, y, width, height, rotation, z_index })
 }
 
 #[cfg(any(test, feature = "hydrate"))]

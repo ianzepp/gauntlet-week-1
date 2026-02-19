@@ -535,13 +535,7 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
                 .map(uuid::Uuid::to_string)
                 .collect::<Vec<_>>()
                 .join(",");
-            let rev = format!(
-                "{}:{}:{}:{}",
-                boards.len(),
-                object_agg.0,
-                object_agg.1,
-                board_id_fingerprint
-            );
+            let rev = format!("{}:{}:{}:{}", boards.len(), object_agg.0, object_agg.1, board_id_fingerprint);
             if since_rev.as_deref() == Some(rev.as_str()) {
                 let mut data = Data::new();
                 data.insert("noop".into(), serde_json::json!(true));
