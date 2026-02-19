@@ -781,6 +781,20 @@ a:hover {
     line-height: 1;
 }
 
+.toolbar__self {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    padding: 0 var(--space-xs);
+}
+
+.toolbar__self-method {
+    color: color-mix(in oklab, var(--text-secondary) 72%, transparent);
+}
+
 .toolbar__logout {
     width: auto;
     padding: 0 var(--space-sm);

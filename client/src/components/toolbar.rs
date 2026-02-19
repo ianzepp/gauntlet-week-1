@@ -49,6 +49,12 @@ pub fn Toolbar() -> impl IntoView {
 
         users
     };
+    let self_identity = move || {
+        auth.get()
+            .user
+            .map(|user| (user.name, "github".to_owned()))
+            .unwrap_or_else(|| ("me".to_owned(), "session".to_owned()))
+    };
 
     let on_logout = move |_| {
         #[cfg(feature = "hydrate")]
@@ -136,6 +142,13 @@ pub fn Toolbar() -> impl IntoView {
             >
                 {move || if ui.get().dark_mode { "☀" } else { "☾" }}
             </button>
+
+            <span class="toolbar__self">
+                {move || self_identity().0}
+                " ("
+                <span class="toolbar__self-method">{move || self_identity().1}</span>
+                ")"
+            </span>
 
             <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                 "Logout"
