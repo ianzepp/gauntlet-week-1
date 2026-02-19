@@ -200,6 +200,86 @@ fn parse_board_object_item_accepts_integral_float_int_fields() {
 }
 
 #[test]
+fn parse_board_list_items_keeps_snapshot_geometry() {
+    let data = serde_json::json!({
+        "boards": [
+            {
+                "id": "b-1",
+                "name": "Alpha",
+                "snapshot": [
+                    {
+                        "kind": "sticky_note",
+                        "x": 10.0,
+                        "y": 20.0,
+                        "width": 100.0,
+                        "height": 80.0,
+                        "rotation": 15.0,
+                        "z_index": 3
+                    }
+                ]
+            }
+        ]
+    });
+
+    let items = parse_board_list_items(&data);
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].id, "b-1");
+    assert_eq!(items[0].name, "Alpha");
+    assert_eq!(items[0].snapshot.len(), 1);
+    assert_eq!(items[0].snapshot[0].kind, "sticky_note");
+    assert_eq!(items[0].snapshot[0].z_index, 3);
+}
+
+#[test]
+fn parse_board_list_items_tolerates_partial_snapshot_rows() {
+    let data = serde_json::json!({
+        "boards": [
+            {
+                "id": "b-1",
+                "name": "Alpha",
+                "snapshot": [
+                    {
+                        "kind": "sticky_note",
+                        "x": 10.0,
+                        "y": 20.0,
+                        "z_index": 1
+                    },
+                    {
+                        "kind": "sticky_note"
+                    }
+                ]
+            }
+        ]
+    });
+
+    let items = parse_board_list_items(&data);
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].snapshot.len(), 1);
+}
+
+#[test]
+fn deleted_board_id_prefers_payload_then_board_id_fallback() {
+    let frame_with_payload = frame(
+        "board:delete",
+        FrameStatus::Done,
+        serde_json::json!({"board_id":"b-from-payload"}),
+    );
+    assert_eq!(deleted_board_id(&frame_with_payload).as_deref(), Some("b-from-payload"));
+
+    let frame_with_board_id = Frame {
+        id: "f-2".to_owned(),
+        parent_id: None,
+        ts: 1,
+        board_id: Some("b-from-frame".to_owned()),
+        from: None,
+        syscall: "board:delete".to_owned(),
+        status: FrameStatus::Done,
+        data: serde_json::json!({}),
+    };
+    assert_eq!(deleted_board_id(&frame_with_board_id).as_deref(), Some("b-from-frame"));
+}
+
+#[test]
 fn apply_object_frame_delete_clears_selected_object() {
     let mut board = crate::state::board::BoardState::default();
     let obj = object();

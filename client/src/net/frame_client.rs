@@ -24,8 +24,10 @@ use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::ConnectionStatus;
+#[cfg(any(test, feature = "hydrate"))]
+use crate::state::boards::{BoardListItem, BoardListPreviewObject};
 #[cfg(feature = "hydrate")]
-use crate::state::boards::{BoardListItem, BoardListPreviewObject, BoardsState};
+use crate::state::boards::BoardsState;
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::chat::ChatMessage;
 #[cfg(feature = "hydrate")]
@@ -422,7 +424,7 @@ fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<Bo
     }
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListItem> {
     let Some(rows) = data.get("boards").and_then(|v| v.as_array()) else {
         return Vec::new();
@@ -447,7 +449,7 @@ fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListItem> {
         .collect()
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn parse_board_list_preview_object(row: &serde_json::Value) -> Option<BoardListPreviewObject> {
     let kind = row.get("kind").and_then(serde_json::Value::as_str)?.to_owned();
     let x = row.get("x").and_then(serde_json::Value::as_f64)?;
@@ -474,7 +476,7 @@ fn parse_board_list_preview_object(row: &serde_json::Value) -> Option<BoardListP
     })
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 fn deleted_board_id(frame: &Frame) -> Option<String> {
     frame
         .data

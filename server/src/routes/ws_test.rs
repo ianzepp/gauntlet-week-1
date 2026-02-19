@@ -76,6 +76,37 @@ async fn assert_no_board_broadcast(rx: &mut mpsc::Receiver<Frame>) {
     );
 }
 
+#[tokio::test]
+async fn board_list_refresh_broadcast_reaches_all_ws_clients() {
+    let state = test_helpers::test_app_state();
+    let client_a = Uuid::new_v4();
+    let client_b = Uuid::new_v4();
+    let (tx_a, mut rx_a) = mpsc::channel::<Frame>(8);
+    let (tx_b, mut rx_b) = mpsc::channel::<Frame>(8);
+
+    {
+        let mut clients = state.ws_clients.write().await;
+        clients.insert(client_a, tx_a);
+        clients.insert(client_b, tx_b);
+    }
+
+    super::broadcast_board_list_refresh(&state).await;
+
+    let a = timeout(Duration::from_millis(200), rx_a.recv())
+        .await
+        .expect("client A refresh timed out")
+        .expect("client A channel closed");
+    let b = timeout(Duration::from_millis(200), rx_b.recv())
+        .await
+        .expect("client B refresh timed out")
+        .expect("client B channel closed");
+
+    assert_eq!(a.syscall, "board:list:refresh");
+    assert_eq!(a.status, Status::Request);
+    assert_eq!(b.syscall, "board:list:refresh");
+    assert_eq!(b.status, Status::Request);
+}
+
 async fn process_inbound_bytes(
     state: &AppState,
     current_board: &mut Option<Uuid>,
