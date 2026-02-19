@@ -230,7 +230,7 @@ fn draw_frame(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'
     ctx.set_text_baseline("middle");
     let font_size = (title_h * 0.45).clamp(10.0, 14.0);
     ctx.set_font(&format!("{font_size:.0}px sans-serif"));
-    let _ = ctx.fill_text(title, x + 8.0, y + (title_h * 0.5));
+    ctx.fill_text(title, x + 8.0, y + (title_h * 0.5))?;
 
     ctx.restore();
     Ok(())
@@ -433,8 +433,12 @@ fn draw_edge(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, 
             continue;
         }
         ctx.begin_path();
-        let _ = ctx.arc(pt.x, pt.y, ATTACHED_ANCHOR_RADIUS_WORLD, 0.0, 2.0 * PI);
-        ctx.fill();
+        if ctx
+            .arc(pt.x, pt.y, ATTACHED_ANCHOR_RADIUS_WORLD, 0.0, 2.0 * PI)
+            .is_ok()
+        {
+            ctx.fill();
+        }
     }
 
     ctx.restore();

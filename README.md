@@ -42,6 +42,8 @@ gauntlet-week-1/
 - Board CRUD and switching
 - Real-time object create/update/delete sync
 - Presence and cursor broadcast
+- Viewport-level canvas rotation with bottom-left compass control (drag, cardinal snap, shift-snap, reset)
+- Follow/jump camera sync includes center, zoom, and rotation
 - Persistent board chat
 - AI prompt -> tool-call -> board mutation flow
 - Savepoints / rewind shelf support

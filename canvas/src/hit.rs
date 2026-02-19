@@ -293,7 +293,10 @@ fn resolve_edge_endpoint(obj: &BoardObject, key: &str, doc: &DocStore) -> Option
         let maybe_attached = endpoint
             .get("object_id")
             .and_then(serde_json::Value::as_str)
-            .and_then(|s| uuid::Uuid::parse_str(s).ok())
+            .and_then(|s| match uuid::Uuid::parse_str(s) {
+                Ok(id) => Some(id),
+                Err(_) => None,
+            })
             .and_then(|object_id| {
                 let target = doc.get(&object_id)?;
                 let ux = endpoint.get("ux").and_then(serde_json::Value::as_f64)?;
