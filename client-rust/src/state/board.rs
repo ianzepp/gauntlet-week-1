@@ -12,6 +12,8 @@ pub struct BoardState {
     pub board_id: Option<String>,
     pub board_name: Option<String>,
     pub self_client_id: Option<String>,
+    pub follow_client_id: Option<String>,
+    pub jump_to_client_id: Option<String>,
     pub connection_status: ConnectionStatus,
     pub presence: HashMap<String, Presence>,
     pub cursor_updated_at: HashMap<String, i64>,

@@ -24,6 +24,7 @@ pub fn BoardPage() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     let sender = expect_context::<RwSignal<FrameSender>>();
     let params = use_params_map();
+    let last_join_key = RwSignal::new(None::<(String, String)>);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
@@ -35,6 +36,8 @@ pub fn BoardPage() -> impl IntoView {
             b.board_id.clone_from(&id);
             b.board_name = None;
             b.self_client_id = None;
+            b.follow_client_id = None;
+            b.jump_to_client_id = None;
             b.objects.clear();
             b.savepoints.clear();
             b.drag_objects.clear();
@@ -43,20 +46,38 @@ pub fn BoardPage() -> impl IntoView {
             b.selection.clear();
             b.presence.clear();
         });
+        last_join_key.set(None);
+    });
 
-        if let Some(board_id) = id {
-            let frame = Frame {
-                id: uuid::Uuid::new_v4().to_string(),
-                parent_id: None,
-                ts: 0,
-                board_id: Some(board_id),
-                from: None,
-                syscall: "board:join".to_owned(),
-                status: FrameStatus::Request,
-                data: serde_json::json!({}),
-            };
-            sender.get().send(&frame);
+    // Send board:join once per (board_id, websocket client_id), including reconnects.
+    Effect::new(move || {
+        let state = board.get();
+        if state.connection_status != crate::state::board::ConnectionStatus::Connected {
+            return;
         }
+        let Some(board_id) = state.board_id.clone() else {
+            return;
+        };
+        let Some(client_id) = state.self_client_id.clone() else {
+            return;
+        };
+        let key = (board_id.clone(), client_id.clone());
+        if last_join_key.get().as_ref() == Some(&key) {
+            return;
+        }
+
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(board_id),
+            from: None,
+            syscall: "board:join".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({}),
+        };
+        sender.get().send(&frame);
+        last_join_key.set(Some(key));
     });
 
     on_cleanup(move || {
@@ -79,6 +100,8 @@ pub fn BoardPage() -> impl IntoView {
             b.board_id = None;
             b.board_name = None;
             b.self_client_id = None;
+            b.follow_client_id = None;
+            b.jump_to_client_id = None;
             b.objects.clear();
             b.savepoints.clear();
             b.drag_objects.clear();

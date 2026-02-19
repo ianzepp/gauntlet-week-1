@@ -19,15 +19,8 @@ pub fn BoardStamp() -> impl IntoView {
     let users = move || {
         let state = board.get();
         let self_client_id = state.self_client_id.unwrap_or_default();
-        let mut rows = state
-            .presence
-            .values()
-            .cloned()
-            .collect::<Vec<_>>();
-        rows.sort_by(|a, b| match (
-            a.client_id == self_client_id,
-            b.client_id == self_client_id,
-        ) {
+        let mut rows = state.presence.values().cloned().collect::<Vec<_>>();
+        rows.sort_by(|a, b| match (a.client_id == self_client_id, b.client_id == self_client_id) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
             _ => a
@@ -47,11 +40,53 @@ pub fn BoardStamp() -> impl IntoView {
                     users()
                         .into_iter()
                         .map(|p| {
+                            let client_id = p.client_id.clone();
+                            let is_self = board.get().self_client_id.as_deref() == Some(client_id.as_str());
+                            let follow_client_for_class = client_id.clone();
+                            let follow_client_for_title = client_id.clone();
                             view! {
                                 <div class="board-stamp__user-row">
                                     <span class="board-stamp__user-color" style:background=p.color.clone()></span>
-                                    <span class="board-stamp__user-name" title=p.client_id.clone()>{p.name}</span>
-                                    <span class="board-stamp__user-actions"></span>
+                                    <button
+                                        class="board-stamp__user-name"
+                                        title=p.client_id.clone()
+                                        on:click={
+                                            let client_id = client_id.clone();
+                                            move |_| {
+                                                board.update(|b| b.jump_to_client_id = Some(client_id.clone()));
+                                            }
+                                        }
+                                    >
+                                        {p.name}
+                                    </button>
+                                    <span class="board-stamp__user-actions">
+                                        <button
+                                            class="board-stamp__follow-btn"
+                                            class:board-stamp__follow-btn--active=move || board.get().follow_client_id.as_deref() == Some(follow_client_for_class.as_str())
+                                            title=move || if is_self {
+                                                "Cannot follow your own viewport"
+                                            } else if board.get().follow_client_id.as_deref() == Some(follow_client_for_title.as_str()) {
+                                                "Disable follow camera"
+                                            } else {
+                                                "Follow camera"
+                                            }
+                                            disabled=is_self
+                                            on:click={
+                                                let client_id = client_id.clone();
+                                                move |_| {
+                                                    board.update(|b| {
+                                                        if b.follow_client_id.as_deref() == Some(client_id.as_str()) {
+                                                            b.follow_client_id = None;
+                                                        } else {
+                                                            b.follow_client_id = Some(client_id.clone());
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        >
+                                            "◎"
+                                        </button>
+                                    </span>
                                 </div>
                             }
                         })

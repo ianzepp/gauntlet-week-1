@@ -70,6 +70,8 @@ pub struct Presence {
     pub name: String,
     pub color: String,
     pub cursor: Option<Point>,
+    pub viewport_center: Option<Point>,
+    pub viewport_zoom: Option<f64>,
 }
 
 /// A 2D point.

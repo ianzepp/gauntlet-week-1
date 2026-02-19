@@ -143,7 +143,6 @@ async fn connect_and_run(
     let (mut ws_write, mut ws_read) = ws.split();
 
     board.update(|b| b.connection_status = ConnectionStatus::Connected);
-    send_board_join_for_active_board(tx, board);
 
     // Spawn a task to forward outgoing messages from our channel to the WS.
     let mut rx_borrow = rx.borrow_mut();
@@ -241,7 +240,6 @@ fn handle_session_connected_frame(
             .and_then(|v| v.as_str())
             .map(str::to_owned);
     });
-    send_board_join_for_active_board(tx, board);
     send_board_list_request(tx);
     send_board_users_list_request(tx, board);
     true
@@ -383,6 +381,7 @@ fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardStat
             | "object:drag:end"
             | "cursor:moved"
             | "cursor:clear"
+            | "viewport:update"
     )
 }
 
@@ -446,6 +445,7 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
         }
         "cursor:moved" => apply_cursor_moved(board, &frame.data, frame.ts),
         "cursor:clear" => apply_cursor_clear(board, &frame.data),
+        "viewport:update" => apply_viewport_update(board, &frame.data),
         _ => {}
     }
 }
@@ -593,6 +593,11 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
         .unwrap_or("#8a8178");
 
     let existing_cursor = board.presence.get(client_id).and_then(|p| p.cursor.clone());
+    let existing_viewport_center = board
+        .presence
+        .get(client_id)
+        .and_then(|p| p.viewport_center.clone());
+    let existing_viewport_zoom = board.presence.get(client_id).and_then(|p| p.viewport_zoom);
     board.presence.insert(
         client_id.to_owned(),
         Presence {
@@ -601,8 +606,36 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
             name: user_name.to_owned(),
             color: user_color.to_owned(),
             cursor: existing_cursor,
+            viewport_center: existing_viewport_center,
+            viewport_zoom: existing_viewport_zoom,
         },
     );
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn apply_viewport_update(board: &mut BoardState, data: &serde_json::Value) {
+    use crate::net::types::Point;
+
+    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
+        return;
+    };
+    let Some(center_x) = data.get("center_x").and_then(|v| v.as_f64()) else {
+        return;
+    };
+    let Some(center_y) = data.get("center_y").and_then(|v| v.as_f64()) else {
+        return;
+    };
+    let Some(zoom) = data.get("zoom").and_then(|v| v.as_f64()) else {
+        return;
+    };
+
+    if !board.presence.contains_key(client_id) {
+        upsert_presence_from_payload(board, data);
+    }
+    if let Some(p) = board.presence.get_mut(client_id) {
+        p.viewport_center = Some(Point { x: center_x, y: center_y });
+        p.viewport_zoom = Some(zoom);
+    }
 }
 
 #[cfg(feature = "hydrate")]
@@ -711,28 +744,6 @@ fn handle_error_frame(frame: &Frame, boards: leptos::prelude::RwSignal<BoardsSta
     }
     leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
     true
-}
-
-#[cfg(feature = "hydrate")]
-fn send_board_join_for_active_board(
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
-    board: leptos::prelude::RwSignal<BoardState>,
-) {
-    let Some(board_id) = board.get_untracked().board_id else {
-        return;
-    };
-
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: "board:join".to_owned(),
-        status: crate::net::types::FrameStatus::Request,
-        data: serde_json::json!({}),
-    };
-    let _ = send_frame(tx, &frame);
 }
 
 #[cfg(feature = "hydrate")]
