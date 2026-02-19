@@ -561,35 +561,45 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
         return Outcome::Done;
     }
 
-    let x = req
-        .data
-        .get("x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let y = req
-        .data
-        .get("y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let name = req
-        .data
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("anonymous");
-    let color = req
-        .data
-        .get("color")
-        .and_then(|v| v.as_str())
-        .unwrap_or("#6366f1");
+    let op = req.syscall.split_once(':').map_or("moved", |(_, op)| op);
+    match op {
+        "clear" => {
+            let mut data = Data::new();
+            data.insert("client_id".into(), serde_json::json!(client_id));
+            Outcome::BroadcastExcludeSender(data)
+        }
+        _ => {
+            let x = req
+                .data
+                .get("x")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            let y = req
+                .data
+                .get("y")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            let name = req
+                .data
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("anonymous");
+            let color = req
+                .data
+                .get("color")
+                .and_then(|v| v.as_str())
+                .unwrap_or("#6366f1");
 
-    let mut data = Data::new();
-    data.insert("client_id".into(), serde_json::json!(client_id));
-    data.insert("x".into(), serde_json::json!(x));
-    data.insert("y".into(), serde_json::json!(y));
-    data.insert("name".into(), serde_json::json!(name));
-    data.insert("color".into(), serde_json::json!(color));
+            let mut data = Data::new();
+            data.insert("client_id".into(), serde_json::json!(client_id));
+            data.insert("x".into(), serde_json::json!(x));
+            data.insert("y".into(), serde_json::json!(y));
+            data.insert("name".into(), serde_json::json!(name));
+            data.insert("color".into(), serde_json::json!(color));
 
-    Outcome::BroadcastExcludeSender(data)
+            Outcome::BroadcastExcludeSender(data)
+        }
+    }
 }
 
 // =============================================================================

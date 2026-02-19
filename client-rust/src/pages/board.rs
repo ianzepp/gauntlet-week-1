@@ -37,6 +37,7 @@ pub fn BoardPage() -> impl IntoView {
             b.objects.clear();
             b.drag_objects.clear();
             b.drag_updated_at.clear();
+            b.cursor_updated_at.clear();
             b.selection.clear();
             b.presence.clear();
         });
@@ -78,6 +79,7 @@ pub fn BoardPage() -> impl IntoView {
             b.objects.clear();
             b.drag_objects.clear();
             b.drag_updated_at.clear();
+            b.cursor_updated_at.clear();
             b.selection.clear();
             b.presence.clear();
         });

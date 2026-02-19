@@ -13,6 +13,7 @@ pub struct BoardState {
     pub board_name: Option<String>,
     pub connection_status: ConnectionStatus,
     pub presence: HashMap<String, Presence>,
+    pub cursor_updated_at: HashMap<String, i64>,
     pub objects: HashMap<String, BoardObject>,
     pub selection: HashSet<String>,
     pub drag_objects: HashMap<String, BoardObject>,

@@ -217,6 +217,7 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(engine) = engine.borrow().as_ref() {
                     sync_canvas_view_state(engine, _canvas_view, None);
                 }
+                send_cursor_clear(_board, _sender);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -449,6 +450,24 @@ fn send_cursor_moved(
             "name": user.name,
             "color": user.color
         }),
+    };
+    let _ = sender.get_untracked().send(&frame);
+}
+
+#[cfg(feature = "hydrate")]
+fn send_cursor_clear(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "cursor:clear".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({}),
     };
     let _ = sender.get_untracked().send(&frame);
 }

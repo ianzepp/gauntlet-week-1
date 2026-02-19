@@ -145,6 +145,7 @@ fn apply_cursor_moved_supports_server_shape() {
             "name": "Alice",
             "color": "#22c55e"
         }),
+        100,
     );
 
     let p = board.presence.get("client:c-1").expect("cursor presence");
@@ -177,6 +178,7 @@ fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
             "name": "Alice",
             "color": "#22c55e"
         }),
+        120,
     );
 
     assert!(!board.presence.contains_key("client:c-1"));
@@ -184,6 +186,47 @@ fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
     let cursor = p.cursor.as_ref().expect("cursor point");
     assert_eq!(cursor.x, 50.0);
     assert_eq!(cursor.y, 60.0);
+}
+
+#[test]
+fn apply_cursor_clear_removes_cursor_for_client_presence() {
+    let mut board = crate::state::board::BoardState::default();
+    apply_cursor_moved(
+        &mut board,
+        &serde_json::json!({
+            "client_id": "c-9",
+            "x": 1.0,
+            "y": 2.0,
+            "name": "Agent",
+            "color": "#fff"
+        }),
+        100,
+    );
+
+    apply_cursor_clear(&mut board, &serde_json::json!({ "client_id": "c-9" }));
+    let p = board.presence.get("client:c-9").expect("presence");
+    assert!(p.cursor.is_none());
+    assert!(!board.cursor_updated_at.contains_key("client:c-9"));
+}
+
+#[test]
+fn cleanup_stale_cursors_clears_old_cursor_points() {
+    let mut board = crate::state::board::BoardState::default();
+    apply_cursor_moved(
+        &mut board,
+        &serde_json::json!({
+            "client_id": "c-2",
+            "x": 10.0,
+            "y": 20.0,
+            "name": "Agent",
+            "color": "#fff"
+        }),
+        100,
+    );
+
+    cleanup_stale_cursors(&mut board, 5000);
+    let p = board.presence.get("client:c-2").expect("presence");
+    assert!(p.cursor.is_none());
 }
 
 #[test]

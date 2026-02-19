@@ -312,6 +312,34 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
 }
 
 #[tokio::test]
+async fn cursor_clear_broadcasts_to_peers() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
+        register_two_clients(&state, board_id).await;
+    let mut current_board = Some(board_id);
+    let user_id = Uuid::new_v4();
+
+    let text = request_json(board_id, "cursor:clear", Data::new());
+    let sender_frames =
+        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+
+    assert!(sender_frames.is_empty());
+    assert_no_board_broadcast(&mut sender_rx).await;
+
+    let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
+    assert_eq!(peer_broadcast.syscall, "cursor:clear");
+    let expected_client_id = sender_client_id.to_string();
+    assert_eq!(
+        peer_broadcast
+            .data
+            .get("client_id")
+            .and_then(|v| v.as_str()),
+        Some(expected_client_id.as_str())
+    );
+}
+
+#[tokio::test]
 async fn object_drag_broadcasts_ephemeral_transform_to_peers() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;

@@ -309,6 +309,7 @@ fn handle_board_frame(
             if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
                 board.update(|b| {
                     b.presence.remove(user_id);
+                    b.cursor_updated_at.remove(user_id);
                 });
             }
             true
@@ -324,7 +325,13 @@ fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardStat
     });
     matches!(
         frame.syscall.as_str(),
-        "object:create" | "object:update" | "object:delete" | "object:drag" | "object:drag:end" | "cursor:moved"
+        "object:create"
+            | "object:update"
+            | "object:delete"
+            | "object:drag"
+            | "object:drag:end"
+            | "cursor:moved"
+            | "cursor:clear"
     )
 }
 
@@ -332,6 +339,7 @@ fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardStat
 fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
     use crate::net::types::{BoardObject, FrameStatus};
     cleanup_stale_drags(board, frame.ts);
+    cleanup_stale_cursors(board, frame.ts);
 
     match frame.syscall.as_str() {
         "object:create" if frame.status == FrameStatus::Done => {
@@ -385,7 +393,8 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
                 board.drag_updated_at.remove(id);
             }
         }
-        "cursor:moved" => apply_cursor_moved(board, &frame.data),
+        "cursor:moved" => apply_cursor_moved(board, &frame.data, frame.ts),
+        "cursor:clear" => apply_cursor_clear(board, &frame.data),
         _ => {}
     }
 }
@@ -459,10 +468,30 @@ fn cleanup_stale_drags(board: &mut BoardState, now_ts: i64) {
 }
 
 #[cfg(any(test, feature = "hydrate"))]
-fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value) {
+fn cleanup_stale_cursors(board: &mut BoardState, now_ts: i64) {
+    const CURSOR_STALE_MS: i64 = 3000;
+    if now_ts <= 0 {
+        return;
+    }
+    let stale = board
+        .cursor_updated_at
+        .iter()
+        .filter_map(|(id, ts)| (now_ts - *ts > CURSOR_STALE_MS).then_some(id.clone()))
+        .collect::<Vec<_>>();
+    for id in stale {
+        board.cursor_updated_at.remove(&id);
+        if let Some(p) = board.presence.get_mut(&id) {
+            p.cursor = None;
+        }
+    }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64) {
     use crate::net::types::{Point, Presence};
 
     if let Ok(p) = serde_json::from_value::<Presence>(data.clone()) {
+        board.cursor_updated_at.insert(p.user_id.clone(), ts);
         board.presence.insert(p.user_id.clone(), p);
         return;
     }
@@ -487,19 +516,29 @@ fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value) {
         .iter_mut()
         .find(|(_, p)| p.name == name && p.color == color)
     {
+        board.cursor_updated_at.insert(existing.user_id.clone(), ts);
         existing.cursor = Some(Point { x, y });
         return;
     }
 
+    let key = format!("client:{client_id}");
+    board.cursor_updated_at.insert(key.clone(), ts);
     board.presence.insert(
-        format!("client:{client_id}"),
-        Presence {
-            user_id: format!("client:{client_id}"),
-            name: name.to_owned(),
-            color: color.to_owned(),
-            cursor: Some(Point { x, y }),
-        },
+        key.clone(),
+        Presence { user_id: key, name: name.to_owned(), color: color.to_owned(), cursor: Some(Point { x, y }) },
     );
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn apply_cursor_clear(board: &mut BoardState, data: &serde_json::Value) {
+    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
+        return;
+    };
+    let key = format!("client:{client_id}");
+    board.cursor_updated_at.remove(&key);
+    if let Some(p) = board.presence.get_mut(&key) {
+        p.cursor = None;
+    }
 }
 
 #[cfg(feature = "hydrate")]
