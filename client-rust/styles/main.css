@@ -468,13 +468,7 @@ a:hover {
     grid-area: canvas;
     position: relative;
     min-height: 0;
-    background:
-        linear-gradient(var(--canvas-grid) 1px, transparent 1px),
-        linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px),
-        linear-gradient(var(--canvas-grid-major) 1px, transparent 1px),
-        linear-gradient(90deg, var(--canvas-grid-major) 1px, transparent 1px),
-        var(--canvas-bg);
-    background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, auto;
+    background: var(--canvas-bg);
 }
 
 .board-page__right-panel {
