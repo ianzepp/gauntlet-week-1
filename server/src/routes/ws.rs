@@ -351,206 +351,229 @@ async fn handle_board(
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
 
     match op {
-        "join" => {
-            let Some(board_id) = req.board_id.or_else(|| {
-                req.data
-                    .get("board_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.parse().ok())
-            }) else {
-                return Err(req.error("board_id required"));
-            };
+        "join" => handle_board_join(state, current_board, client_id, user_id, user_name, user_color, client_tx, req).await,
+        "part" => handle_board_part(state, current_board, client_id, user_id, user_name, user_color, req).await,
+        "create" => handle_board_create(state, user_id, req).await,
+        "list" => handle_board_list(state, user_id, req).await,
+        "users:list" => handle_board_users_list(state, *current_board, req).await,
+        "delete" => handle_board_delete(state, user_id, req).await,
+        "savepoint:create" => handle_board_savepoint_create(state, *current_board, user_id, req).await,
+        "savepoint:list" => handle_board_savepoint_list(state, *current_board, user_id, req).await,
+        _ => Err(req.error(format!("unknown board op: {op}"))),
+    }
+}
 
-            // Part current board if already joined.
-            if let Some(old_board) = current_board.take() {
-                let mut part_data = Data::new();
-                part_data.insert("client_id".into(), serde_json::json!(client_id));
-                part_data.insert("user_id".into(), serde_json::json!(user_id));
-                part_data.insert("user_name".into(), serde_json::json!(user_name));
-                part_data.insert("user_color".into(), serde_json::json!(user_color));
-                let part_frame = Frame::request("board:part", part_data).with_board_id(old_board);
-                services::persistence::enqueue_frame(state, &part_frame);
-                services::board::broadcast(state, old_board, &part_frame, Some(client_id)).await;
-                services::board::part_board(state, old_board, client_id).await;
-            }
+fn board_id_from_frame(req: &Frame, current_board: Option<Uuid>) -> Option<Uuid> {
+    req.board_id.or(current_board).or_else(|| {
+        req.data
+            .get("board_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse().ok())
+    })
+}
 
-            match services::board::join_board(
-                state,
-                board_id,
-                user_id,
-                user_name,
-                user_color,
-                client_id,
-                client_tx.clone(),
-            )
-            .await
+fn make_board_part_frame(board_id: Uuid, client_id: Uuid, user_id: Uuid, user_name: &str, user_color: &str) -> Frame {
+    let mut part_data = Data::new();
+    part_data.insert("client_id".into(), serde_json::json!(client_id));
+    part_data.insert("user_id".into(), serde_json::json!(user_id));
+    part_data.insert("user_name".into(), serde_json::json!(user_name));
+    part_data.insert("user_color".into(), serde_json::json!(user_color));
+    Frame::request("board:part", part_data).with_board_id(board_id)
+}
+
+async fn handle_board_join(
+    state: &AppState,
+    current_board: &mut Option<Uuid>,
+    client_id: Uuid,
+    user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
+    client_tx: &mpsc::Sender<Frame>,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, None) else {
+        return Err(req.error("board_id required"));
+    };
+
+    if let Some(old_board) = current_board.take() {
+        let part_frame = make_board_part_frame(old_board, client_id, user_id, user_name, user_color);
+        services::persistence::enqueue_frame(state, &part_frame);
+        services::board::broadcast(state, old_board, &part_frame, Some(client_id)).await;
+        services::board::part_board(state, old_board, client_id).await;
+    }
+
+    match services::board::join_board(
+        state,
+        board_id,
+        user_id,
+        user_name,
+        user_color,
+        client_id,
+        client_tx.clone(),
+    )
+    .await
+    {
+        Ok(objects) => {
+            *current_board = Some(board_id);
+
+            let item_payloads = objects.iter().map(object_to_data).collect::<Vec<_>>();
+            let mut done = Data::new();
+            done.insert("count".into(), serde_json::json!(item_payloads.len()));
+            if let Ok(Some(name)) = sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
+                .bind(board_id)
+                .fetch_optional(&state.pool)
+                .await
             {
-                Ok(objects) => {
-                    *current_board = Some(board_id);
-
-                    let item_payloads = objects.iter().map(object_to_data).collect::<Vec<_>>();
-
-                    let mut done = Data::new();
-                    done.insert("count".into(), serde_json::json!(item_payloads.len()));
-                    if let Ok(Some(name)) = sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
-                        .bind(board_id)
-                        .fetch_optional(&state.pool)
-                        .await
-                    {
-                        done.insert("name".into(), serde_json::json!(name));
-                    }
-
-                    let mut broadcast = Data::new();
-                    broadcast.insert("client_id".into(), serde_json::json!(client_id));
-                    broadcast.insert("user_id".into(), serde_json::json!(user_id));
-                    broadcast.insert("user_name".into(), serde_json::json!(user_name));
-                    broadcast.insert("user_color".into(), serde_json::json!(user_color));
-
-                    Ok(Outcome::ReplyStreamAndBroadcast { items: item_payloads, done, broadcast })
-                }
-                Err(e) => Err(req.error_from(&e)),
+                done.insert("name".into(), serde_json::json!(name));
             }
+
+            let mut broadcast = Data::new();
+            broadcast.insert("client_id".into(), serde_json::json!(client_id));
+            broadcast.insert("user_id".into(), serde_json::json!(user_id));
+            broadcast.insert("user_name".into(), serde_json::json!(user_name));
+            broadcast.insert("user_color".into(), serde_json::json!(user_color));
+
+            Ok(Outcome::ReplyStreamAndBroadcast { items: item_payloads, done, broadcast })
         }
-        "part" => {
-            let board_id = req.board_id.or(*current_board).or_else(|| {
-                req.data
-                    .get("board_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.parse().ok())
-            });
-            let Some(board_id) = board_id else {
-                return Err(req.error("board_id required"));
-            };
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
 
-            if *current_board == Some(board_id) {
-                let mut part_data = Data::new();
-                part_data.insert("client_id".into(), serde_json::json!(client_id));
-                part_data.insert("user_id".into(), serde_json::json!(user_id));
-                part_data.insert("user_name".into(), serde_json::json!(user_name));
-                part_data.insert("user_color".into(), serde_json::json!(user_color));
-                let part_frame = Frame::request("board:part", part_data).with_board_id(board_id);
-                services::persistence::enqueue_frame(state, &part_frame);
-                services::board::broadcast(state, board_id, &part_frame, Some(client_id)).await;
-                services::board::part_board(state, board_id, client_id).await;
-                *current_board = None;
-            }
+async fn handle_board_part(
+    state: &AppState,
+    current_board: &mut Option<Uuid>,
+    client_id: Uuid,
+    user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, *current_board) else {
+        return Err(req.error("board_id required"));
+    };
 
-            Ok(Outcome::Done)
-        }
-        "create" => {
-            let name = req
-                .data
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Untitled Board");
-            match services::board::create_board(&state.pool, name, user_id).await {
-                Ok(row) => {
-                    let mut data = Data::new();
-                    data.insert("id".into(), serde_json::json!(row.id));
-                    data.insert("name".into(), serde_json::json!(row.name));
-                    Ok(Outcome::Reply(data))
-                }
-                Err(e) => Err(req.error_from(&e)),
-            }
-        }
-        "list" => match services::board::list_boards(&state.pool, user_id).await {
-            Ok(boards) => {
-                let list: Vec<serde_json::Value> = boards
-                    .iter()
-                    .map(|b| serde_json::json!({"id": b.id, "name": b.name}))
-                    .collect();
-                let mut data = Data::new();
-                data.insert("boards".into(), serde_json::json!(list));
-                Ok(Outcome::Reply(data))
-            }
-            Err(e) => Err(req.error_from(&e)),
-        },
-        "users:list" => {
-            let board_id = req.board_id.or(*current_board).or_else(|| {
-                req.data
-                    .get("board_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.parse().ok())
-            });
-            let Some(board_id) = board_id else {
-                return Err(req.error("board_id required"));
-            };
+    if *current_board == Some(board_id) {
+        let part_frame = make_board_part_frame(board_id, client_id, user_id, user_name, user_color);
+        services::persistence::enqueue_frame(state, &part_frame);
+        services::board::broadcast(state, board_id, &part_frame, Some(client_id)).await;
+        services::board::part_board(state, board_id, client_id).await;
+        *current_board = None;
+    }
 
-            let users = services::board::list_board_users(state, board_id).await;
-            let users_json: Vec<serde_json::Value> = users
-                .into_iter()
-                .map(|u| {
-                    serde_json::json!({
-                        "client_id": u.client_id,
-                        "user_id": u.user_id,
-                        "user_name": u.user_name,
-                        "user_color": u.user_color
-                    })
-                })
-                .collect();
+    Ok(Outcome::Done)
+}
+
+async fn handle_board_create(state: &AppState, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
+    let name = req
+        .data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Untitled Board");
+
+    match services::board::create_board(&state.pool, name, user_id).await {
+        Ok(row) => {
             let mut data = Data::new();
-            data.insert("users".into(), serde_json::json!(users_json));
+            data.insert("id".into(), serde_json::json!(row.id));
+            data.insert("name".into(), serde_json::json!(row.name));
             Ok(Outcome::Reply(data))
         }
-        "delete" => {
-            let Some(board_id) = req
-                .data
-                .get("board_id")
-                .and_then(|v| v.as_str())
-                .and_then(|s| s.parse().ok())
-            else {
-                return Err(req.error("board_id required"));
-            };
-            match services::board::delete_board(&state.pool, board_id, user_id).await {
-                Ok(()) => Ok(Outcome::Done),
-                Err(e) => Err(req.error_from(&e)),
-            }
-        }
-        "savepoint:create" => {
-            let board_id = req.board_id.or(*current_board).or_else(|| {
-                req.data
-                    .get("board_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.parse().ok())
-            });
-            let Some(board_id) = board_id else {
-                return Err(req.error("board_id required"));
-            };
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
 
-            let label = req.data.get("label").and_then(|v| v.as_str());
-            match services::savepoint::create_savepoint(state, board_id, user_id, label, false, "manual").await {
-                Ok(row) => {
-                    let mut data = Data::new();
-                    data.insert("savepoint".into(), services::savepoint::savepoint_row_to_json(row));
-                    Ok(Outcome::Reply(data))
-                }
-                Err(e) => Err(req.error_from(&e)),
-            }
+async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
+    match services::board::list_boards(&state.pool, user_id).await {
+        Ok(boards) => {
+            let list: Vec<serde_json::Value> = boards
+                .iter()
+                .map(|b| serde_json::json!({"id": b.id, "name": b.name}))
+                .collect();
+            let mut data = Data::new();
+            data.insert("boards".into(), serde_json::json!(list));
+            Ok(Outcome::Reply(data))
         }
-        "savepoint:list" => {
-            let board_id = req.board_id.or(*current_board).or_else(|| {
-                req.data
-                    .get("board_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| s.parse().ok())
-            });
-            let Some(board_id) = board_id else {
-                return Err(req.error("board_id required"));
-            };
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
 
-            match services::savepoint::list_savepoints(state, board_id, user_id).await {
-                Ok(rows) => {
-                    let mut data = Data::new();
-                    data.insert(
-                        "savepoints".into(),
-                        serde_json::json!(services::savepoint::savepoint_rows_to_json(rows)),
-                    );
-                    Ok(Outcome::Reply(data))
-                }
-                Err(e) => Err(req.error_from(&e)),
-            }
+async fn handle_board_users_list(state: &AppState, current_board: Option<Uuid>, req: &Frame) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, current_board) else {
+        return Err(req.error("board_id required"));
+    };
+
+    let users = services::board::list_board_users(state, board_id).await;
+    let users_json: Vec<serde_json::Value> = users
+        .into_iter()
+        .map(|u| {
+            serde_json::json!({
+                "client_id": u.client_id,
+                "user_id": u.user_id,
+                "user_name": u.user_name,
+                "user_color": u.user_color
+            })
+        })
+        .collect();
+    let mut data = Data::new();
+    data.insert("users".into(), serde_json::json!(users_json));
+    Ok(Outcome::Reply(data))
+}
+
+async fn handle_board_delete(state: &AppState, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
+    let Some(board_id) = req
+        .data
+        .get("board_id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok())
+    else {
+        return Err(req.error("board_id required"));
+    };
+    match services::board::delete_board(&state.pool, board_id, user_id).await {
+        Ok(()) => Ok(Outcome::Done),
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
+
+async fn handle_board_savepoint_create(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    user_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, current_board) else {
+        return Err(req.error("board_id required"));
+    };
+
+    let label = req.data.get("label").and_then(|v| v.as_str());
+    match services::savepoint::create_savepoint(state, board_id, user_id, label, false, "manual").await {
+        Ok(row) => {
+            let mut data = Data::new();
+            data.insert("savepoint".into(), services::savepoint::savepoint_row_to_json(row));
+            Ok(Outcome::Reply(data))
         }
-        _ => Err(req.error(format!("unknown board op: {op}"))),
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
+
+async fn handle_board_savepoint_list(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    user_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, current_board) else {
+        return Err(req.error("board_id required"));
+    };
+
+    match services::savepoint::list_savepoints(state, board_id, user_id).await {
+        Ok(rows) => {
+            let mut data = Data::new();
+            data.insert(
+                "savepoints".into(),
+                serde_json::json!(services::savepoint::savepoint_rows_to_json(rows)),
+            );
+            Ok(Outcome::Reply(data))
+        }
+        Err(e) => Err(req.error_from(&e)),
     }
 }
 
