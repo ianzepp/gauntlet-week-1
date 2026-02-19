@@ -113,7 +113,20 @@ async fn snapshot_objects(state: &AppState, board_id: Uuid) -> Result<Vec<BoardO
 
     let mut objects = Vec::with_capacity(rows.len());
     for (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version) in rows {
-        objects.push(BoardObject { id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version });
+        objects.push(BoardObject {
+            id,
+            board_id,
+            kind,
+            x,
+            y,
+            width,
+            height,
+            rotation,
+            z_index,
+            props,
+            created_by,
+            version,
+        });
     }
     Ok(objects)
 }
@@ -170,9 +183,26 @@ pub async fn create_savepoint(
     Ok(row)
 }
 
-pub async fn list_savepoints(state: &AppState, board_id: Uuid, user_id: Uuid) -> Result<Vec<SavepointRow>, SavepointError> {
+pub async fn list_savepoints(
+    state: &AppState,
+    board_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<SavepointRow>, SavepointError> {
     ensure_board_access(&state.pool, board_id, user_id).await?;
-    let rows = sqlx::query_as::<_, (Uuid, Uuid, i64, i64, Option<Uuid>, bool, String, Option<String>, serde_json::Value)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            i64,
+            i64,
+            Option<Uuid>,
+            bool,
+            String,
+            Option<String>,
+            serde_json::Value,
+        ),
+    >(
         "SELECT id, board_id, seq, ts, created_by, is_auto, reason, label, snapshot
          FROM board_savepoints
          WHERE board_id = $1
@@ -185,17 +215,19 @@ pub async fn list_savepoints(state: &AppState, board_id: Uuid, user_id: Uuid) ->
 
     Ok(rows
         .into_iter()
-        .map(|(id, board_id, seq, ts, created_by, is_auto, reason, label, snapshot)| SavepointRow {
-            id,
-            board_id,
-            seq,
-            ts,
-            created_by,
-            is_auto,
-            reason,
-            label,
-            snapshot,
-        })
+        .map(
+            |(id, board_id, seq, ts, created_by, is_auto, reason, label, snapshot)| SavepointRow {
+                id,
+                board_id,
+                seq,
+                ts,
+                created_by,
+                is_auto,
+                reason,
+                label,
+                snapshot,
+            },
+        )
         .collect())
 }
 

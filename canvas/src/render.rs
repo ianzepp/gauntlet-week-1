@@ -542,7 +542,12 @@ fn draw_node_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, zoom: 
     Ok(())
 }
 
-fn draw_edge_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, zoom: f64) -> Result<(), JsValue> {
+fn draw_edge_selection(
+    ctx: &CanvasRenderingContext2d,
+    obj: &BoardObject,
+    doc: &DocStore,
+    zoom: f64,
+) -> Result<(), JsValue> {
     let Some(a) = hit::edge_endpoint_a_resolved(obj, doc) else {
         return Ok(());
     };

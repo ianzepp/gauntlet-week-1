@@ -648,7 +648,8 @@ impl EngineCore {
             EdgeEnd::A => "a",
             EdgeEnd::B => "b",
         };
-        let endpoint = if let Some((target_id, ux, uy, snapped_world)) = self.find_edge_attachment_target(*id, world_pt) {
+        let endpoint = if let Some((target_id, ux, uy, snapped_world)) = self.find_edge_attachment_target(*id, world_pt)
+        {
             serde_json::json!({
                 "type": "attached",
                 "object_id": target_id,
@@ -713,7 +714,8 @@ impl EngineCore {
                     return None;
                 }
                 let center = Point::new(obj.x + (obj.width * 0.5), obj.y + (obj.height * 0.5));
-                hit::point_in_rect(center, frame.x, frame.y, frame.width, frame.height, frame.rotation).then_some(obj.id)
+                hit::point_in_rect(center, frame.x, frame.y, frame.width, frame.height, frame.rotation)
+                    .then_some(obj.id)
             })
             .collect()
     }

@@ -346,10 +346,12 @@ async fn handle_board(
             }
         }
         "savepoint:create" => {
-            let board_id = req
-                .board_id
-                .or(*current_board)
-                .or_else(|| req.data.get("board_id").and_then(|v| v.as_str()).and_then(|s| s.parse().ok()));
+            let board_id = req.board_id.or(*current_board).or_else(|| {
+                req.data
+                    .get("board_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse().ok())
+            });
             let Some(board_id) = board_id else {
                 return Err(req.error("board_id required"));
             };
@@ -365,10 +367,12 @@ async fn handle_board(
             }
         }
         "savepoint:list" => {
-            let board_id = req
-                .board_id
-                .or(*current_board)
-                .or_else(|| req.data.get("board_id").and_then(|v| v.as_str()).and_then(|s| s.parse().ok()));
+            let board_id = req.board_id.or(*current_board).or_else(|| {
+                req.data
+                    .get("board_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse().ok())
+            });
             let Some(board_id) = board_id else {
                 return Err(req.error("board_id required"));
             };
@@ -376,7 +380,10 @@ async fn handle_board(
             match services::savepoint::list_savepoints(state, board_id, user_id).await {
                 Ok(rows) => {
                     let mut data = Data::new();
-                    data.insert("savepoints".into(), serde_json::json!(services::savepoint::savepoint_rows_to_json(rows)));
+                    data.insert(
+                        "savepoints".into(),
+                        serde_json::json!(services::savepoint::savepoint_rows_to_json(rows)),
+                    );
                     Ok(Outcome::Reply(data))
                 }
                 Err(e) => Err(req.error_from(&e)),

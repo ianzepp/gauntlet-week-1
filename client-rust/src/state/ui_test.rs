@@ -92,5 +92,8 @@ fn right_tab_default_is_chat() {
 fn right_tab_variants_are_distinct() {
     assert_ne!(RightTab::Chat, RightTab::Ai);
     assert_ne!(RightTab::Chat, RightTab::Boards);
+    assert_ne!(RightTab::Chat, RightTab::Records);
     assert_ne!(RightTab::Ai, RightTab::Boards);
+    assert_ne!(RightTab::Ai, RightTab::Records);
+    assert_ne!(RightTab::Boards, RightTab::Records);
 }

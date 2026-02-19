@@ -382,10 +382,7 @@ pub fn CanvasHost() -> impl IntoView {
             let Some((_object_id, video_id)) = active_youtube.get() else {
                 return String::new();
             };
-            return format!(
-                "https://www.youtube.com/embed/{}?autoplay=1&rel=0&modestbranding=1",
-                video_id
-            );
+            return format!("https://www.youtube.com/embed/{}?autoplay=1&rel=0&modestbranding=1", video_id);
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -585,7 +582,10 @@ fn youtube_object_at_point(engine: &Engine, world: CanvasPoint) -> Option<uuid::
         .sorted_objects()
         .into_iter()
         .rev()
-        .find(|obj| obj.kind == CanvasKind::Youtube && canvas::hit::point_in_rect(world, obj.x, obj.y, obj.width, obj.height, obj.rotation))
+        .find(|obj| {
+            obj.kind == CanvasKind::Youtube
+                && canvas::hit::point_in_rect(world, obj.x, obj.y, obj.width, obj.height, obj.rotation)
+        })
         .map(|obj| obj.id)
 }
 
@@ -1000,7 +1000,14 @@ fn place_shape_at_cursor(
 }
 
 #[cfg(feature = "hydrate")]
-fn materialize_shape_props(kind: &str, x: f64, y: f64, width: f64, _height: f64, props: serde_json::Value) -> serde_json::Value {
+fn materialize_shape_props(
+    kind: &str,
+    x: f64,
+    y: f64,
+    width: f64,
+    _height: f64,
+    props: serde_json::Value,
+) -> serde_json::Value {
     if kind != "line" && kind != "arrow" {
         return props;
     }

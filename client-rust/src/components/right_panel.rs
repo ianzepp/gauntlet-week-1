@@ -1,10 +1,11 @@
-//! Collapsible right panel with icon rail for Chat, AI, and Boards.
+//! Collapsible right panel with icon rail for boards, records, chat, and AI.
 
 use leptos::prelude::*;
 
 use crate::components::ai_panel::AiPanel;
 use crate::components::chat_panel::ChatPanel;
 use crate::components::mission_control::MissionControl;
+use crate::components::rewind_shelf::RewindShelf;
 use crate::state::ui::{RightTab, UiState};
 
 /// Collapsible right sidebar with icon rail and expandable content panel.
@@ -50,6 +51,24 @@ pub fn RightPanel() -> impl IntoView {
 
                 <button
                     class="right-panel__rail-button ui-tooltip ui-tooltip--left"
+                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Records
+                    on:click=move |_| toggle_tab(RightTab::Records)
+                    title="Field Records"
+                    attr:data-tooltip="Field Records"
+                >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <ellipse cx="10" cy="5" rx="6" ry="2.5" />
+                        <path d="M4 5 V10" />
+                        <path d="M16 5 V10" />
+                        <ellipse cx="10" cy="10" rx="6" ry="2.5" />
+                        <path d="M4 10 V15" />
+                        <path d="M16 10 V15" />
+                        <ellipse cx="10" cy="15" rx="6" ry="2.5" />
+                    </svg>
+                </button>
+
+                <button
+                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
                     class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Chat
                     on:click=move |_| toggle_tab(RightTab::Chat)
                     title="Chat"
@@ -88,6 +107,7 @@ pub fn RightPanel() -> impl IntoView {
                                 RightTab::Chat => "Chat",
                                 RightTab::Ai => "Field Notes",
                                 RightTab::Boards => "Boards",
+                                RightTab::Records => "Field Records",
                             }}
                         </span>
                         <button class="right-panel__close" on:click=move |_| ui.update(|u| u.right_panel_expanded = false)>
@@ -100,6 +120,7 @@ pub fn RightPanel() -> impl IntoView {
                             RightTab::Chat => view! { <ChatPanel/> }.into_any(),
                             RightTab::Ai => view! { <AiPanel/> }.into_any(),
                             RightTab::Boards => view! { <MissionControl/> }.into_any(),
+                            RightTab::Records => view! { <RewindShelf/> }.into_any(),
                         }}
                     </div>
                 </div>

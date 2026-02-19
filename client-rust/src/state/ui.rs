@@ -61,4 +61,5 @@ pub enum RightTab {
     Chat,
     Ai,
     Boards,
+    Records,
 }

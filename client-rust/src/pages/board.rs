@@ -9,7 +9,6 @@ use crate::components::board_stamp::BoardStamp;
 use crate::components::canvas_host::CanvasHost;
 use crate::components::left_panel::LeftPanel;
 use crate::components::right_panel::RightPanel;
-use crate::components::rewind_shelf::RewindShelf;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
 use crate::net::types::{Frame, FrameStatus};
@@ -111,9 +110,6 @@ pub fn BoardPage() -> impl IntoView {
             </div>
             <div class="board-page__right-panel">
                 <RightPanel/>
-            </div>
-            <div class="board-page__rewind">
-                <RewindShelf/>
             </div>
             <div class="board-page__status-bar">
                 <StatusBar/>
