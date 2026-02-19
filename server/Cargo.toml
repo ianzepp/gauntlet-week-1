@@ -1,5 +1,5 @@
 [package]
-name = "gauntlet-week-1"
+name = "server"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
@@ -30,7 +30,7 @@ dotenvy = "0.15"
 # Leptos SSR integration
 leptos = { version = "0.8", features = ["ssr"] }
 leptos_axum = "0.8"
-client-rust = { path = "../client-rust", features = ["ssr"] }
+client = { path = "../client", features = ["ssr"] }
 
 [dev-dependencies]
 tokio-tungstenite = "0.26"

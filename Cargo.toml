@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["server", "canvas", "client-rust"]
+members = ["server", "canvas", "client"]
 
 [profile.dev]
 debug = 0
@@ -15,20 +15,20 @@ panic = "abort"
 
 # cargo-leptos configuration for the workspace
 [[workspace.metadata.leptos]]
-name = "gauntlet-ui"
+name = "client"
 
 # Server binary crate
-bin-package = "gauntlet-week-1"
+bin-package = "server"
 
 # Frontend library crate (compiled to WASM)
-lib-package = "client-rust"
+lib-package = "client"
 
 # Output directory
 site-root = "target/site"
 site-pkg-dir = "pkg"
 
 # CSS (plain CSS, no preprocessor for now)
-style-file = "client-rust/styles/main.css"
+style-file = "client/styles/main.css"
 
 # Static assets
 assets-dir = "public"

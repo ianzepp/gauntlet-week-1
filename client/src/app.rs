@@ -113,7 +113,7 @@ pub fn App() -> impl IntoView {
     });
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/gauntlet-ui.css"/>
+        <Stylesheet id="leptos" href="/pkg/client.css"/>
         <Title text="Gauntlet"/>
 
         <Router>

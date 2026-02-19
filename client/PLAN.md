@@ -1,4 +1,4 @@
-# Revised Plan: `client-rust/` — Full Leptos UI, Then Canvas
+# Revised Plan: `client/` — Full Leptos UI, Then Canvas
 
 ## Context
 

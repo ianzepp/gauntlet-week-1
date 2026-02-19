@@ -11,7 +11,7 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      STATIC_DIR: /app/client/dist
+      STATIC_DIR: /app/site
       LEPTOS_SITE_ROOT: /app/site
       DATABASE_URL: postgres://${POSTGRES_USER:-gauntlet_week_1}:${POSTGRES_PASSWORD:-gauntlet_week_1}@postgres:5432/${POSTGRES_DB:-gauntlet_week_1_pg}
       DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:-5}

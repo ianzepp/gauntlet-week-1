@@ -54,7 +54,7 @@ fn log_startup_env_config(port: u16) {
 
     log_env_line("HOST", env_or_default("HOST", "0.0.0.0"));
     log_env_line("PORT", port);
-    log_env_line("STATIC_DIR", env_or_default("STATIC_DIR", "../client/dist"));
+    log_env_line("STATIC_DIR", env_or_default("STATIC_DIR", "../target/site"));
 
     log_env_line("DATABASE_URL_SET", env_is_set("DATABASE_URL"));
     log_env_line("DB_MAX_CONNECTIONS", env_parse_or("DB_MAX_CONNECTIONS", 5_u32));

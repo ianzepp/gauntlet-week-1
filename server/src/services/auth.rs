@@ -105,7 +105,7 @@ pub async fn fetch_github_user(access_token: &str) -> Result<GitHubUser, AuthErr
     let resp = client
         .get("https://api.github.com/user")
         .header("Authorization", format!("Bearer {access_token}"))
-        .header("User-Agent", "gauntlet-week-1")
+        .header("User-Agent", "server")
         .send()
         .await
         .map_err(|e| AuthError::GitHubApi(e.to_string()))?;

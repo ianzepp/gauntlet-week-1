@@ -2,7 +2,7 @@
 
 Real-time collaborative whiteboard with AI agent. Built for the Gauntlet AI program (Week 1).
 
-**Stack:** Rust/Axum + React/Konva.js + PostgreSQL + WebSockets
+**Stack:** Rust/Axum + Leptos/WASM + PostgreSQL + WebSockets
 
 **Live:** *(deploy link TBD)*
 
@@ -10,7 +10,7 @@ Real-time collaborative whiteboard with AI agent. Built for the Gauntlet AI prog
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Browser (React + Konva.js + Zustand)                       │
+│  Browser (Leptos + WASM + canvas crate)                     │
 │                                                             │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────────────────┐ │
 │  │ Toolbar  │  │ Konva Canvas │  │ Remote Cursors        │ │
@@ -23,7 +23,7 @@ Real-time collaborative whiteboard with AI agent. Built for the Gauntlet AI prog
 │                       │                                     │
 │              ┌────────┴────────┐                            │
 │              │  Frame Client   │  WebSocket singleton       │
-│              │  (send/receive) │  Zustand store mutations   │
+│              │  (send/receive) │  Signal-backed state       │
 │              │  auto-reconnect │  optimistic object create  │
 │              └────────┬────────┘                            │
 └───────────────────────┼─────────────────────────────────────┘
@@ -171,44 +171,18 @@ gauntlet-week-1/
 │               ├── 004_frames.sql
 │               └── 005_sessions.sql
 ├── client/
-│   ├── package.json               # Bun + Vite + React + Konva
-│   └── src/
-│       ├── App.tsx                # Root: auth check, page routing, dark mode
-│       ├── main.tsx               # Vite entry point
-│       ├── pages/
-│       │   ├── LoginPage.tsx      # GitHub OAuth redirect button
-│       │   ├── DashboardPage.tsx  # Board list + create board
-│       │   └── BoardPage.tsx      # Board workspace (toolbar + canvas + panels)
-│       ├── canvas/
-│       │   └── Canvas.tsx         # Konva Stage: pan/zoom, grid, object render, cursors, selection ring
-│       ├── components/
-│       │   ├── Toolbar.tsx        # Top bar: board name, presence chips, logout
-│       │   ├── LeftPanel.tsx      # Collapsible tool rail + inspector
-│       │   ├── ToolRail.tsx       # Tool buttons (select, sticky, rect, ellipse, ...)
-│       │   ├── ToolStrip.tsx      # Shape/color quick-create strip for sticky/rectangle
-│       │   ├── InspectorPanel.tsx # Selection inspector: position, size, color
-│       │   ├── RightPanel.tsx     # Collapsible right rail: boards, chat, AI
-│       │   ├── MissionControl.tsx # In-board board list / switcher
-│       │   ├── ChatPanel.tsx      # Persistent board chat
-│       │   ├── AiPanel.tsx        # AI prompt input + response display
-│       │   ├── StatusBar.tsx      # Bottom bar: connection, object count, zoom
-│       │   ├── BoardStamp.tsx     # Canvas overlay stamp
-│       │   ├── BoardCard.tsx      # Reusable board card (full + mini variants)
-│       │   └── UserFieldReport.tsx # User profile popover with stats
-│       ├── hooks/
-│       │   ├── useFrameClient.ts  # WS lifecycle, reconnect, frame dispatch
-│       │   ├── useAI.ts           # AI prompt sender + grid context builder
-│       │   └── useCanvasSize.ts   # ResizeObserver for canvas container
-│       ├── lib/
-│       │   ├── frameClient.ts     # FrameClient class (WS singleton, pub/sub)
-│       │   ├── api.ts             # REST helpers (auth, profile, WS ticket)
-│       │   ├── grid.ts            # 8x8 grid utilities for AI spatial context
-│       │   └── types.ts           # Shared TypeScript types
-│       └── store/
-│           └── board.ts           # Zustand store (objects, presence, selection, UI)
+│   ├── Cargo.toml
+│   ├── src/
+│   │   ├── app.rs                 # Leptos app shell + route wiring
+│   │   ├── pages/                 # Route-level page components
+│   │   ├── components/            # Reusable UI components
+│   │   ├── state/                 # Signal-backed domain state
+│   │   └── net/                   # REST + websocket protocol client
+│   └── styles/
+│       └── main.css
 ├── docs/
 │   └── DESIGN.md                  # Design system spec (theme, palette, typography)
-├── Dockerfile                     # Multi-stage: Bun build → Rust build → slim runtime
+├── Dockerfile                     # Multi-stage Rust build → slim runtime
 ├── docker-compose.yml             # App + Postgres 16 for local dev
 ├── run-dev.sh                     # Local dev runner (docker-compose wrapper)
 └── .env.example
@@ -258,14 +232,13 @@ GitHub OAuth and LLM are both optional — server starts without them.
 - Multi-select (rubber band selection)
 - Copy/paste
 - Viewport culling (render only visible objects)
-- URL-based routing (currently state-based page switching in App.tsx)
+- Advanced URL patterns beyond dashboard/login/board routes
 
 ## Setup
 
 ### Prerequisites
 
 - Rust 1.85+ (see `rust-toolchain.toml`)
-- Bun or npm (frontend package manager/runtime)
 - PostgreSQL (or Neon connection string)
 - GitHub OAuth App ([register here](https://github.com/settings/applications/new))
 - Anthropic or OpenAI API key (optional — AI features disabled without it)
@@ -310,8 +283,8 @@ you change code/dependencies:
 
 ## Deployment
 
-`Dockerfile` builds both the Rust server and the React client. Axum serves the
-compiled client from `STATIC_DIR=/app/client/dist` in the runtime image.
+`Dockerfile` builds the Rust server plus Leptos WASM assets via `cargo leptos`.
+Runtime serves site assets from `LEPTOS_SITE_ROOT=/app/site`.
 
 No platform-specific deployment config is currently checked in (for example,
 no committed `fly.toml` or deploy workflow). Deploy to your target platform by:
@@ -337,7 +310,7 @@ cargo run --manifest-path server/Cargo.toml --release -- --migrate-only
 | `/api/ws?ticket=` | GET | Ticket | WebSocket upgrade |
 | `/healthz` | GET | No | Health check |
 
-All other paths serve the React SPA (`client/dist/index.html`).
+All other paths are handled by the Leptos SSR fallback router.
 
 ## References
 

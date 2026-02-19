@@ -18,7 +18,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 use crate::state::AppState;
 
-/// Shared API routes used by both the React and Leptos servers.
+/// Shared API routes used by the SSR app and websocket clients.
 fn api_routes(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -42,14 +42,14 @@ fn api_routes(state: AppState) -> Router {
 pub fn leptos_app(state: AppState) -> Router {
     let conf = get_configuration(None).expect("leptos configuration");
     let leptos_options = conf.leptos_options;
-    let routes = generate_route_list(client_rust::app::App);
+    let routes = generate_route_list(client::app::App);
 
     let leptos_router = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let opts = leptos_options.clone();
-            move || client_rust::app::shell(opts.clone())
+            move || client::app::shell(opts.clone())
         })
-        .fallback(leptos_axum::file_and_error_handler(client_rust::app::shell))
+        .fallback(leptos_axum::file_and_error_handler(client::app::shell))
         .with_state(leptos_options);
 
     api_routes(state).merge(leptos_router)

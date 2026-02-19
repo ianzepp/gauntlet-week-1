@@ -1,7 +1,7 @@
-//! # client-rust
+//! # client
 //!
 //! Leptos + WASM frontend for the collaborative whiteboard application.
-//! Replaces the React + Konva.js `client/` with a Rust-native UI layer.
+//! Rust-native UI layer for the collaborative whiteboard application.
 //!
 //! ARCHITECTURE
 //! ============
