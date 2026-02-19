@@ -34,6 +34,7 @@ pub fn BoardPage() -> impl IntoView {
         board.update(|b| {
             b.board_id.clone_from(&id);
             b.board_name = None;
+            b.self_client_id = None;
             b.objects.clear();
             b.savepoints.clear();
             b.drag_objects.clear();
@@ -77,6 +78,7 @@ pub fn BoardPage() -> impl IntoView {
         board.update(|b| {
             b.board_id = None;
             b.board_name = None;
+            b.self_client_id = None;
             b.objects.clear();
             b.savepoints.clear();
             b.drag_objects.clear();

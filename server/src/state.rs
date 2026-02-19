@@ -47,11 +47,20 @@ pub struct BoardObject {
 
 /// Per-board live state. Kept in memory for real-time performance.
 /// Flushed to Postgres by the persistence task.
+#[derive(Debug, Clone)]
+pub struct ConnectedClient {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_color: String,
+}
+
 pub struct BoardState {
     /// Current objects keyed by object ID.
     pub objects: HashMap<Uuid, BoardObject>,
     /// Connected clients: `client_id` -> sender for outgoing frames.
     pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,
+    /// Connected user metadata for each client.
+    pub users: HashMap<Uuid, ConnectedClient>,
     /// Object IDs modified since last flush.
     pub dirty: HashSet<Uuid>,
 }
@@ -59,7 +68,7 @@ pub struct BoardState {
 impl BoardState {
     #[must_use]
     pub fn new() -> Self {
-        Self { objects: HashMap::new(), clients: HashMap::new(), dirty: HashSet::new() }
+        Self { objects: HashMap::new(), clients: HashMap::new(), users: HashMap::new(), dirty: HashSet::new() }
     }
 }
 

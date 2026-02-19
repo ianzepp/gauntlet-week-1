@@ -174,8 +174,18 @@ async fn connect_and_run(
         }
     };
 
-    // Run both tasks; when either finishes, the connection is done.
-    futures::future::select(Box::pin(send_task), Box::pin(recv_task)).await;
+    let heartbeat_task = async {
+        loop {
+            gloo_timers::future::sleep(std::time::Duration::from_secs(20)).await;
+            send_board_users_list_request(tx, board);
+        }
+    };
+
+    // Run heartbeat alongside IO; when send/recv finishes, connection is done.
+    let io_task = async {
+        futures::future::select(Box::pin(send_task), Box::pin(recv_task)).await;
+    };
+    futures::future::select(Box::pin(io_task), Box::pin(heartbeat_task)).await;
 
     Ok(())
 }
@@ -223,9 +233,17 @@ fn handle_session_connected_frame(
     if frame.syscall != "session:connected" {
         return false;
     }
-    board.update(|b| b.connection_status = ConnectionStatus::Connected);
+    board.update(|b| {
+        b.connection_status = ConnectionStatus::Connected;
+        b.self_client_id = frame
+            .data
+            .get("client_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_owned);
+    });
     send_board_join_for_active_board(tx, board);
     send_board_list_request(tx);
+    send_board_users_list_request(tx, board);
     true
 }
 
@@ -236,7 +254,7 @@ fn handle_board_frame(
     boards: leptos::prelude::RwSignal<BoardsState>,
     tx: &futures::channel::mpsc::UnboundedSender<String>,
 ) -> bool {
-    use crate::net::types::{BoardObject, FrameStatus, Presence, Savepoint};
+    use crate::net::types::{BoardObject, FrameStatus, Savepoint};
 
     match frame.syscall.as_str() {
         "board:join" if frame.status == FrameStatus::Done => {
@@ -256,20 +274,25 @@ fn handle_board_frame(
                 board.update(|b| b.board_name = Some(name.to_owned()));
             }
             send_board_savepoint_list_request(tx, board);
+            send_board_users_list_request(tx, board);
             true
         }
         "board:join" => {
-            if frame.data.get("client_id").is_some()
-                && frame.data.get("objects").is_none()
-                && let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str())
-            {
+            if frame.data.get("client_id").is_some() && frame.data.get("objects").is_none() {
                 board.update(|b| {
-                    b.presence.entry(user_id.to_owned()).or_insert(Presence {
-                        user_id: user_id.to_owned(),
-                        name: "Agent".to_owned(),
-                        color: "#8a8178".to_owned(),
-                        cursor: None,
-                    });
+                    upsert_presence_from_payload(b, &frame.data);
+                });
+            }
+            true
+        }
+        "board:users:list" if frame.status == FrameStatus::Done => {
+            if let Some(rows) = frame.data.get("users").and_then(|v| v.as_array()) {
+                board.update(|b| {
+                    b.presence.clear();
+                    b.cursor_updated_at.clear();
+                    for row in rows {
+                        upsert_presence_from_payload(b, row);
+                    }
                 });
             }
             true
@@ -334,10 +357,10 @@ fn handle_board_frame(
             true
         }
         "board:part" => {
-            if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
+            if let Some(client_id) = frame.data.get("client_id").and_then(|v| v.as_str()) {
                 board.update(|b| {
-                    b.presence.remove(user_id);
-                    b.cursor_updated_at.remove(user_id);
+                    b.presence.remove(client_id);
+                    b.cursor_updated_at.remove(client_id);
                 });
             }
             true
@@ -516,13 +539,7 @@ fn cleanup_stale_cursors(board: &mut BoardState, now_ts: i64) {
 
 #[cfg(any(test, feature = "hydrate"))]
 fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64) {
-    use crate::net::types::{Point, Presence};
-
-    if let Ok(p) = serde_json::from_value::<Presence>(data.clone()) {
-        board.cursor_updated_at.insert(p.user_id.clone(), ts);
-        board.presence.insert(p.user_id.clone(), p);
-        return;
-    }
+    use crate::net::types::Point;
 
     let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
         return;
@@ -533,28 +550,13 @@ fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64)
     let Some(y) = data.get("y").and_then(|v| v.as_f64()) else {
         return;
     };
-    let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("Agent");
-    let color = data
-        .get("color")
-        .and_then(|v| v.as_str())
-        .unwrap_or("#8a8178");
-
-    if let Some((_, existing)) = board
-        .presence
-        .iter_mut()
-        .find(|(_, p)| p.name == name && p.color == color)
-    {
-        board.cursor_updated_at.insert(existing.user_id.clone(), ts);
-        existing.cursor = Some(Point { x, y });
-        return;
+    board.cursor_updated_at.insert(client_id.to_owned(), ts);
+    if !board.presence.contains_key(client_id) {
+        upsert_presence_from_payload(board, data);
     }
-
-    let key = format!("client:{client_id}");
-    board.cursor_updated_at.insert(key.clone(), ts);
-    board.presence.insert(
-        key.clone(),
-        Presence { user_id: key, name: name.to_owned(), color: color.to_owned(), cursor: Some(Point { x, y }) },
-    );
+    if let Some(p) = board.presence.get_mut(client_id) {
+        p.cursor = Some(Point { x, y });
+    }
 }
 
 #[cfg(any(test, feature = "hydrate"))]
@@ -562,11 +564,45 @@ fn apply_cursor_clear(board: &mut BoardState, data: &serde_json::Value) {
     let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
         return;
     };
-    let key = format!("client:{client_id}");
-    board.cursor_updated_at.remove(&key);
-    if let Some(p) = board.presence.get_mut(&key) {
+    board.cursor_updated_at.remove(client_id);
+    if let Some(p) = board.presence.get_mut(client_id) {
         p.cursor = None;
     }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value) {
+    use crate::net::types::Presence;
+
+    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
+        return;
+    };
+    let user_id = data
+        .get("user_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or(client_id);
+    let user_name = data
+        .get("user_name")
+        .or_else(|| data.get("name"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("Agent");
+    let user_color = data
+        .get("user_color")
+        .or_else(|| data.get("color"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("#8a8178");
+
+    let existing_cursor = board.presence.get(client_id).and_then(|p| p.cursor.clone());
+    board.presence.insert(
+        client_id.to_owned(),
+        Presence {
+            client_id: client_id.to_owned(),
+            user_id: user_id.to_owned(),
+            name: user_name.to_owned(),
+            color: user_color.to_owned(),
+            cursor: existing_cursor,
+        },
+    );
 }
 
 #[cfg(feature = "hydrate")]
@@ -729,6 +765,27 @@ fn send_board_savepoint_list_request(
         board_id: Some(board_id),
         from: None,
         syscall: "board:savepoint:list".to_owned(),
+        status: crate::net::types::FrameStatus::Request,
+        data: serde_json::json!({}),
+    };
+    let _ = send_frame(tx, &frame);
+}
+
+#[cfg(feature = "hydrate")]
+fn send_board_users_list_request(
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    board: leptos::prelude::RwSignal<BoardState>,
+) {
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "board:users:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
         data: serde_json::json!({}),
     };

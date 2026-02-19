@@ -14,7 +14,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::frame::Frame;
-use crate::state::{AppState, BoardObject, BoardState};
+use crate::state::{AppState, BoardObject, BoardState, ConnectedClient};
 
 // =============================================================================
 // TYPES
@@ -43,6 +43,14 @@ pub struct BoardRow {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BoardUser {
+    pub client_id: Uuid,
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_color: String,
 }
 
 // =============================================================================
@@ -120,6 +128,8 @@ pub async fn join_board(
     state: &AppState,
     board_id: Uuid,
     user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
     client_id: Uuid,
     tx: mpsc::Sender<Frame>,
 ) -> Result<Vec<BoardObject>, BoardError> {
@@ -153,6 +163,10 @@ pub async fn join_board(
     }
 
     board_state.clients.insert(client_id, tx);
+    board_state.users.insert(
+        client_id,
+        ConnectedClient { user_id, user_name: user_name.to_owned(), user_color: user_color.to_owned() },
+    );
     let objects: Vec<BoardObject> = board_state.objects.values().cloned().collect();
 
     info!(%board_id, %client_id, clients = board_state.clients.len(), "client joined board");
@@ -168,6 +182,7 @@ pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
     };
 
     board_state.clients.remove(&client_id);
+    board_state.users.remove(&client_id);
     info!(%board_id, %client_id, remaining = board_state.clients.len(), "client left board");
 
     if board_state.clients.is_empty() {
@@ -199,6 +214,24 @@ pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
             }
         }
     }
+}
+
+/// List currently connected users for a board keyed by connection.
+pub async fn list_board_users(state: &AppState, board_id: Uuid) -> Vec<BoardUser> {
+    let boards = state.boards.read().await;
+    let Some(board_state) = boards.get(&board_id) else {
+        return Vec::new();
+    };
+    board_state
+        .users
+        .iter()
+        .map(|(client_id, user)| BoardUser {
+            client_id: *client_id,
+            user_id: user.user_id,
+            user_name: user.user_name.clone(),
+            user_color: user.user_color.clone(),
+        })
+        .collect()
 }
 
 // =============================================================================

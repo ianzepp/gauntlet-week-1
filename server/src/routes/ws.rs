@@ -91,6 +91,13 @@ pub async fn handle_ws(
 
 async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
     let client_id = Uuid::new_v4();
+    let (user_name, user_color) = match fetch_user_identity(&state, user_id).await {
+        Ok(identity) => identity,
+        Err(e) => {
+            warn!(%user_id, error = %e, "ws: failed to fetch user profile");
+            ("Agent".to_owned(), "#8a8178".to_owned())
+        }
+    };
 
     // Per-connection channel for receiving broadcast frames from peers.
     let (client_tx, mut client_rx) = mpsc::channel::<Frame>(ws_client_channel_capacity());
@@ -98,7 +105,9 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
     // Send session:connected with user_id.
     let welcome = Frame::request("session:connected", Data::new())
         .with_data("client_id", client_id.to_string())
-        .with_data("user_id", user_id.to_string());
+        .with_data("user_id", user_id.to_string())
+        .with_data("user_name", user_name.clone())
+        .with_data("user_color", user_color.clone());
     if send_frame(&mut socket, &welcome).await.is_err() {
         return;
     }
@@ -116,7 +125,18 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                 let Ok(msg) = msg else { break };
                 match msg {
                     Message::Text(text) => {
-                        dispatch_frame(&state, &mut socket, &mut current_board, client_id, user_id, &client_tx, &text).await;
+                        dispatch_frame(
+                            &state,
+                            &mut socket,
+                            &mut current_board,
+                            client_id,
+                            user_id,
+                            &user_name,
+                            &user_color,
+                            &client_tx,
+                            &text,
+                        )
+                        .await;
                     }
                     Message::Close(_) => break,
                     _ => {}
@@ -135,6 +155,8 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
         let mut part_data = Data::new();
         part_data.insert("client_id".into(), serde_json::json!(client_id));
         part_data.insert("user_id".into(), serde_json::json!(user_id));
+        part_data.insert("user_name".into(), serde_json::json!(user_name));
+        part_data.insert("user_color".into(), serde_json::json!(user_color));
         let part_frame = Frame::request("board:part", part_data).with_board_id(board_id);
         services::persistence::enqueue_frame(&state, &part_frame);
         services::board::broadcast(&state, board_id, &part_frame, Some(client_id)).await;
@@ -155,10 +177,13 @@ async fn dispatch_frame(
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
     user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
     client_tx: &mpsc::Sender<Frame>,
     text: &str,
 ) {
-    let sender_frames = process_inbound_text(state, current_board, client_id, user_id, client_tx, text).await;
+    let sender_frames =
+        process_inbound_text(state, current_board, client_id, user_id, user_name, user_color, client_tx, text).await;
     for frame in sender_frames {
         let _ = send_frame(socket, &frame).await;
     }
@@ -173,6 +198,8 @@ async fn process_inbound_text(
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
     user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
     client_tx: &mpsc::Sender<Frame>,
     text: &str,
 ) -> Vec<Frame> {
@@ -200,7 +227,7 @@ async fn process_inbound_text(
 
     // Dispatch to handler — returns Outcome or error Frame.
     let result = match prefix {
-        "board" => handle_board(state, current_board, client_id, user_id, client_tx, &req).await,
+        "board" => handle_board(state, current_board, client_id, user_id, user_name, user_color, client_tx, &req).await,
         "object" => handle_object(state, *current_board, user_id, &req).await,
         "chat" => handle_chat(state, *current_board, &req).await,
         "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
@@ -266,6 +293,8 @@ async fn handle_board(
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
     user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
     client_tx: &mpsc::Sender<Frame>,
     req: &Frame,
 ) -> Result<Outcome, Frame> {
@@ -287,7 +316,17 @@ async fn handle_board(
                 services::board::part_board(state, old_board, client_id).await;
             }
 
-            match services::board::join_board(state, board_id, user_id, client_id, client_tx.clone()).await {
+            match services::board::join_board(
+                state,
+                board_id,
+                user_id,
+                user_name,
+                user_color,
+                client_id,
+                client_tx.clone(),
+            )
+            .await
+            {
                 Ok(objects) => {
                     *current_board = Some(board_id);
 
@@ -297,6 +336,8 @@ async fn handle_board(
                     let mut broadcast = Data::new();
                     broadcast.insert("client_id".into(), serde_json::json!(client_id));
                     broadcast.insert("user_id".into(), serde_json::json!(user_id));
+                    broadcast.insert("user_name".into(), serde_json::json!(user_name));
+                    broadcast.insert("user_color".into(), serde_json::json!(user_color));
 
                     Ok(Outcome::ReplyAndBroadcast { reply, broadcast })
                 }
@@ -331,6 +372,33 @@ async fn handle_board(
             }
             Err(e) => Err(req.error_from(&e)),
         },
+        "users:list" => {
+            let board_id = req.board_id.or(*current_board).or_else(|| {
+                req.data
+                    .get("board_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse().ok())
+            });
+            let Some(board_id) = board_id else {
+                return Err(req.error("board_id required"));
+            };
+
+            let users = services::board::list_board_users(state, board_id).await;
+            let users_json: Vec<serde_json::Value> = users
+                .into_iter()
+                .map(|u| {
+                    serde_json::json!({
+                        "client_id": u.client_id,
+                        "user_id": u.user_id,
+                        "user_name": u.user_name,
+                        "user_color": u.user_color
+                    })
+                })
+                .collect();
+            let mut data = Data::new();
+            data.insert("users".into(), serde_json::json!(users_json));
+            Ok(Outcome::Reply(data))
+        }
         "delete" => {
             let Some(board_id) = req
                 .data
@@ -639,27 +707,23 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
                 .get("y")
                 .and_then(serde_json::Value::as_f64)
                 .unwrap_or(0.0);
-            let name = req
-                .data
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("anonymous");
-            let color = req
-                .data
-                .get("color")
-                .and_then(|v| v.as_str())
-                .unwrap_or("#6366f1");
 
             let mut data = Data::new();
             data.insert("client_id".into(), serde_json::json!(client_id));
             data.insert("x".into(), serde_json::json!(x));
             data.insert("y".into(), serde_json::json!(y));
-            data.insert("name".into(), serde_json::json!(name));
-            data.insert("color".into(), serde_json::json!(color));
 
             Outcome::BroadcastExcludeSender(data)
         }
     }
+}
+
+async fn fetch_user_identity(state: &AppState, user_id: Uuid) -> Result<(String, String), sqlx::Error> {
+    let row = sqlx::query_as::<_, (String, String)>("SELECT name, color FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await?;
+    Ok(row)
 }
 
 // =============================================================================

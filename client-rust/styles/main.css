@@ -1738,14 +1738,14 @@ a:hover {
     top: var(--space-md);
     right: var(--space-md);
     z-index: var(--z-canvas-ui);
-    min-width: 180px;
+    min-width: 220px;
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
     padding: var(--space-sm) var(--space-md);
     opacity: 0.75;
-    pointer-events: none;
+    pointer-events: auto;
     display: grid;
-    gap: 2px;
+    gap: 4px;
 }
 
 .board-stamp::before {
@@ -1773,6 +1773,43 @@ a:hover {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-secondary);
+}
+
+.board-stamp__users {
+    display: grid;
+    gap: 4px;
+    margin-top: var(--space-xs);
+}
+
+.board-stamp__user-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) 52px;
+    align-items: center;
+    gap: var(--space-xs);
+    min-height: 16px;
+}
+
+.board-stamp__user-color {
+    width: 10px;
+    height: 10px;
+}
+
+.board-stamp__user-name {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.board-stamp__user-actions {
+    width: 52px;
+    height: 14px;
+    border: 1px dashed var(--border-default);
+    opacity: 0.35;
 }
 
 /* User field report */

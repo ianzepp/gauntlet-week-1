@@ -305,7 +305,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let cursor = p.cursor.as_ref()?;
                     let screen_x = cursor.x * zoom + pan_x;
                     let screen_y = cursor.y * zoom + pan_y;
-                    Some((p.user_id.clone(), p.name.clone(), p.color.clone(), screen_x, screen_y))
+                    Some((p.client_id.clone(), p.name.clone(), p.color.clone(), screen_x, screen_y))
                 })
                 .collect::<Vec<_>>();
         }

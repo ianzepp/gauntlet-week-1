@@ -65,6 +65,7 @@ pub struct Savepoint {
 /// Presence information for a connected user on a board.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Presence {
+    pub client_id: String,
     pub user_id: String,
     pub name: String,
     pub color: String,
