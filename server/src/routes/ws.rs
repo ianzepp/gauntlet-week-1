@@ -199,7 +199,7 @@ async fn dispatch_frame(
     }
 }
 
-/// Parse and process one inbound text frame and return frames for the sender.
+/// Parse and process one inbound binary frame and return frames for the sender.
 ///
 /// This keeps the websocket transport concerns separate from frame handling,
 /// so tests can exercise frame dispatch and AI broadcast behavior end-to-end.
