@@ -342,6 +342,40 @@ fn handle_board_frame(
             true
         }
         "board:delete" if frame.status == FrameStatus::Done => {
+            if let Some(deleted_board_id) = deleted_board_id(frame)
+                && board.get().board_id.as_deref() == Some(deleted_board_id.as_str())
+            {
+                board.update(|b| {
+                    b.board_id = None;
+                    b.board_name = None;
+                    b.follow_client_id = None;
+                    b.jump_to_client_id = None;
+                    b.objects.clear();
+                    b.savepoints.clear();
+                    b.drag_objects.clear();
+                    b.drag_updated_at.clear();
+                    b.cursor_updated_at.clear();
+                    b.join_streaming = false;
+                    b.selection.clear();
+                    b.presence.clear();
+                });
+                #[cfg(feature = "hydrate")]
+                if let Some(window) = web_sys::window() {
+                    let _ = window.location().set_href("/");
+                }
+            }
+            send_board_list_request(tx);
+            true
+        }
+        "board:delete" => {
+            if let Some(deleted_board_id) = deleted_board_id(frame)
+                && board.get().board_id.as_deref() == Some(deleted_board_id.as_str())
+            {
+                #[cfg(feature = "hydrate")]
+                if let Some(window) = web_sys::window() {
+                    let _ = window.location().set_href("/");
+                }
+            }
             send_board_list_request(tx);
             true
         }
@@ -435,6 +469,16 @@ fn parse_board_list_preview_object(row: &serde_json::Value) -> Option<BoardListP
         rotation,
         z_index,
     })
+}
+
+#[cfg(feature = "hydrate")]
+fn deleted_board_id(frame: &Frame) -> Option<String> {
+    frame
+        .data
+        .get("board_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned)
+        .or_else(|| frame.board_id.clone())
 }
 
 #[cfg(feature = "hydrate")]

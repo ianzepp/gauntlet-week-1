@@ -589,7 +589,26 @@ async fn handle_board_delete(state: &AppState, user_id: Uuid, req: &Frame) -> Re
         return Err(req.error("board_id required"));
     };
     match services::board::delete_board(&state.pool, board_id, user_id).await {
-        Ok(()) => Ok(Outcome::Done),
+        Ok(()) => {
+            let mut notify_data = Data::new();
+            notify_data.insert("board_id".into(), serde_json::json!(board_id));
+            let notify = Frame::request("board:delete", notify_data).with_board_id(board_id);
+
+            let recipients = {
+                let mut boards = state.boards.write().await;
+                let mut txs = Vec::new();
+                for board_state in boards.values() {
+                    txs.extend(board_state.clients.values().cloned());
+                }
+                boards.remove(&board_id);
+                txs
+            };
+
+            for tx in recipients {
+                let _ = tx.try_send(notify.clone());
+            }
+            Ok(Outcome::Done)
+        }
         Err(e) => Err(req.error_from(&e)),
     }
 }
