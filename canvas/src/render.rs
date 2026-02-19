@@ -32,6 +32,8 @@ const ARROW_ANGLE: f64 = PI / 6.0;
 
 /// Selection dash segment length in screen pixels.
 const SELECTION_DASH_PX: f64 = 4.0;
+/// Small visual marker for an endpoint attached to another shape.
+const ATTACHED_ANCHOR_RADIUS_WORLD: f64 = 3.0;
 
 /// Draw the full scene: grid, objects, selection UI.
 ///
@@ -260,6 +262,8 @@ fn draw_edge(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, 
     let Some(b) = hit::edge_endpoint_b_resolved(obj, doc) else {
         return;
     };
+    let a_attached = endpoint_is_attached(obj, "a");
+    let b_attached = endpoint_is_attached(obj, "b");
 
     ctx.save();
     apply_stroke_style(ctx, props);
@@ -272,6 +276,17 @@ fn draw_edge(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, 
     if arrowhead {
         let angle = (b.y - a.y).atan2(b.x - a.x);
         draw_arrowhead(ctx, b.x, b.y, angle);
+    }
+
+    // Attachment marker in normal mode so snapped endpoints are visible.
+    ctx.set_fill_style_str("#fff");
+    for (pt, attached) in [(a, a_attached), (b, b_attached)] {
+        if !attached {
+            continue;
+        }
+        ctx.begin_path();
+        let _ = ctx.arc(pt.x, pt.y, ATTACHED_ANCHOR_RADIUS_WORLD, 0.0, 2.0 * PI);
+        ctx.fill();
     }
 
     ctx.restore();
@@ -439,6 +454,14 @@ fn draw_edge_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &
 
     ctx.restore();
     Ok(())
+}
+
+fn endpoint_is_attached(obj: &BoardObject, key: &str) -> bool {
+    obj.props
+        .get(key)
+        .and_then(|v| v.get("type"))
+        .and_then(serde_json::Value::as_str)
+        == Some("attached")
 }
 
 // =============================================================
