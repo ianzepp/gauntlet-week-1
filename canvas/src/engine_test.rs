@@ -118,6 +118,7 @@ fn core_default_camera_is_identity() {
     assert_eq!(cam.pan_x, 0.0);
     assert_eq!(cam.pan_y, 0.0);
     assert_eq!(cam.zoom, 1.0);
+    assert_eq!(cam.view_rotation_deg, 0.0);
 }
 
 #[test]
@@ -1439,11 +1440,11 @@ fn wheel_zoom_clamps_min() {
 fn wheel_zoom_preserves_world_point_under_cursor() {
     let mut core = EngineCore::new();
     let screen = pt(400.0, 300.0);
-    let before = core.camera.screen_to_world(screen);
+    let before = core.screen_to_world(screen);
 
     core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
 
-    let after = core.camera.screen_to_world(screen);
+    let after = core.screen_to_world(screen);
     assert!((before.x - after.x).abs() < 0.01);
     assert!((before.y - after.y).abs() < 0.01);
 }
@@ -2489,11 +2490,11 @@ fn zoom_preserves_world_point_with_pan_offset() {
     core.camera.pan_x = 200.0;
     core.camera.pan_y = 150.0;
     let screen = pt(500.0, 400.0);
-    let before = core.camera.screen_to_world(screen);
+    let before = core.screen_to_world(screen);
 
     core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
 
-    let after = core.camera.screen_to_world(screen);
+    let after = core.screen_to_world(screen);
     assert!((before.x - after.x).abs() < 0.01);
     assert!((before.y - after.y).abs() < 0.01);
 }
@@ -2505,11 +2506,11 @@ fn zoom_preserves_world_point_deeply_zoomed() {
     core.camera.pan_x = -1000.0;
     core.camera.pan_y = -800.0;
     let screen = pt(300.0, 200.0);
-    let before = core.camera.screen_to_world(screen);
+    let before = core.screen_to_world(screen);
 
     core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
 
-    let after = core.camera.screen_to_world(screen);
+    let after = core.screen_to_world(screen);
     assert!((before.x - after.x).abs() < 0.01);
     assert!((before.y - after.y).abs() < 0.01);
 }

@@ -150,7 +150,7 @@ impl EngineCore {
 
     /// Handle a pointer-down event. Returns actions for the host.
     pub fn on_pointer_down(&mut self, screen_pt: Point, button: Button, _modifiers: Modifiers) -> Vec<Action> {
-        let world_pt = self.camera.screen_to_world(screen_pt);
+        let world_pt = self.screen_to_world(screen_pt);
         let mut actions = Vec::new();
 
         // Middle button always pans.
@@ -183,7 +183,7 @@ impl EngineCore {
 
     /// Handle a pointer-move event. Returns actions for the host.
     pub fn on_pointer_move(&mut self, screen_pt: Point, _modifiers: Modifiers) -> Vec<Action> {
-        let world_pt = self.camera.screen_to_world(screen_pt);
+        let world_pt = self.screen_to_world(screen_pt);
 
         match self.input.clone() {
             InputState::Idle => Vec::new(),
@@ -363,14 +363,16 @@ impl EngineCore {
     pub fn on_wheel(&mut self, screen_pt: Point, delta: WheelDelta, modifiers: Modifiers) -> Vec<Action> {
         if modifiers.ctrl || modifiers.meta {
             // Zoom toward cursor.
+            let anchor_world = self.screen_to_world(screen_pt);
             let factor = if delta.dy < 0.0 { ZOOM_FACTOR } else { 1.0 / ZOOM_FACTOR };
-            let new_zoom = (self.camera.zoom * factor).clamp(ZOOM_MIN, ZOOM_MAX);
-            let ratio = new_zoom / self.camera.zoom;
+            self.camera.zoom = (self.camera.zoom * factor).clamp(ZOOM_MIN, ZOOM_MAX);
 
-            // Adjust pan so the world point under the cursor stays fixed.
-            self.camera.pan_x = screen_pt.x - ratio * (screen_pt.x - self.camera.pan_x);
-            self.camera.pan_y = screen_pt.y - ratio * (screen_pt.y - self.camera.pan_y);
-            self.camera.zoom = new_zoom;
+            // Adjust pan so the world point under the cursor stays fixed,
+            // accounting for view rotation around viewport center.
+            let center = self.viewport_center();
+            let unrotated_screen = hit::rotate_point(screen_pt, center, -self.camera.view_rotation_deg);
+            self.camera.pan_x = unrotated_screen.x - (anchor_world.x * self.camera.zoom);
+            self.camera.pan_y = unrotated_screen.y - (anchor_world.y * self.camera.zoom);
         } else {
             // Pan.
             self.camera.pan_x -= delta.dx;
@@ -762,6 +764,15 @@ impl EngineCore {
             .sorted_objects()
             .last()
             .map_or(0, |obj| obj.z_index + 1)
+    }
+
+    fn viewport_center(&self) -> Point {
+        Point::new(self.viewport_width * 0.5, self.viewport_height * 0.5)
+    }
+
+    fn screen_to_world(&self, screen_pt: Point) -> Point {
+        self.camera
+            .screen_to_world(screen_pt, self.viewport_center())
     }
 }
 
