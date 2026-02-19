@@ -34,6 +34,7 @@ pub struct BoardListPreviewObject {
 #[derive(Clone, Debug, Default)]
 pub struct BoardsState {
     pub items: Vec<BoardListItem>,
+    pub list_rev: Option<String>,
     pub loading: bool,
     pub create_pending: bool,
     pub created_board_id: Option<String>,

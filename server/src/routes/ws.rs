@@ -503,6 +503,52 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
     match services::board::list_boards(&state.pool, user_id).await {
         Ok(boards) => {
             let board_ids = boards.iter().map(|b| b.id).collect::<Vec<_>>();
+            let since_rev = req
+                .data
+                .get("since_rev")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+
+            let object_agg = if board_ids.is_empty() {
+                (0_i64, 0_i64)
+            } else {
+                let mut builder = sqlx::QueryBuilder::new(
+                    "SELECT COUNT(*)::BIGINT AS object_count, \
+                     COALESCE((EXTRACT(EPOCH FROM MAX(updated_at)) * 1000000)::BIGINT, 0) AS max_obj_updated_us \
+                     FROM board_objects WHERE board_id IN (",
+                );
+                {
+                    let mut separated = builder.separated(", ");
+                    for board_id in &board_ids {
+                        separated.push_bind(board_id);
+                    }
+                }
+                builder.push(")");
+                builder
+                    .build_query_as::<(i64, i64)>()
+                    .fetch_one(&state.pool)
+                    .await
+                    .map_err(|e| req.error(format!("board:list aggregate failed: {e}")))?
+            };
+            let board_id_fingerprint = board_ids
+                .iter()
+                .map(uuid::Uuid::to_string)
+                .collect::<Vec<_>>()
+                .join(",");
+            let rev = format!(
+                "{}:{}:{}:{}",
+                boards.len(),
+                object_agg.0,
+                object_agg.1,
+                board_id_fingerprint
+            );
+            if since_rev.as_deref() == Some(rev.as_str()) {
+                let mut data = Data::new();
+                data.insert("noop".into(), serde_json::json!(true));
+                data.insert("rev".into(), serde_json::json!(rev));
+                return Ok(Outcome::Reply(data));
+            }
+
             let mut previews = match services::board::list_board_preview_objects(&state.pool, &board_ids, 64).await {
                 Ok(previews) => previews,
                 Err(e) => {
@@ -571,6 +617,7 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
                 .collect();
             let mut data = Data::new();
             data.insert("boards".into(), serde_json::json!(list));
+            data.insert("rev".into(), serde_json::json!(rev));
             Ok(Outcome::Reply(data))
         }
         Err(e) => Err(req.error_from(&e)),

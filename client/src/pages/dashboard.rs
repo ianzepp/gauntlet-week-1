@@ -46,7 +46,7 @@ pub fn DashboardPage() -> impl IntoView {
             return;
         }
         boards.update(|s| s.loading = true);
-        send_board_list(sender);
+        send_board_list(sender, boards);
         requested_list.set(true);
     });
 
@@ -231,7 +231,8 @@ fn CreateBoardDialog(
     }
 }
 
-fn send_board_list(sender: RwSignal<FrameSender>) {
+fn send_board_list(sender: RwSignal<FrameSender>, boards: RwSignal<BoardsState>) {
+    let since_rev = boards.get_untracked().list_rev;
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
@@ -240,7 +241,9 @@ fn send_board_list(sender: RwSignal<FrameSender>) {
         from: None,
         syscall: "board:list".to_owned(),
         status: FrameStatus::Request,
-        data: serde_json::json!({}),
+        data: serde_json::json!({
+            "since_rev": since_rev
+        }),
     };
     let _ = sender.get_untracked().send(&frame);
 }

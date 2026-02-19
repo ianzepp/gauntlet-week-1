@@ -203,7 +203,7 @@ fn dispatch_frame(
     chat: leptos::prelude::RwSignal<ChatState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) {
-    if handle_session_connected_frame(frame, board, tx) {
+    if handle_session_connected_frame(frame, board, boards, tx) {
         return;
     }
     if handle_board_frame(frame, board, boards, tx) {
@@ -230,6 +230,7 @@ fn dispatch_frame(
 fn handle_session_connected_frame(
     frame: &Frame,
     board: leptos::prelude::RwSignal<BoardState>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) -> bool {
     if frame.syscall != "session:connected" {
@@ -243,7 +244,7 @@ fn handle_session_connected_frame(
             .and_then(|v| v.as_str())
             .map(str::to_owned);
     });
-    send_board_list_request(tx);
+    send_board_list_request(tx, boards);
     send_board_users_list_request(tx, board);
     true
 }
@@ -318,9 +319,21 @@ fn handle_board_frame(
             true
         }
         Some("list") if frame.status == FrameStatus::Done => {
-            let list = parse_board_list_items(&frame.data);
+            let noop = frame
+                .data
+                .get("noop")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let rev = frame
+                .data
+                .get("rev")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned);
             boards.update(|s| {
-                s.items = list;
+                if !noop {
+                    s.items = parse_board_list_items(&frame.data);
+                }
+                s.list_rev = rev;
                 s.loading = false;
                 s.error = None;
             });
@@ -328,7 +341,7 @@ fn handle_board_frame(
         }
         Some("list:refresh") => {
             boards.update(|s| s.loading = true);
-            send_board_list_request(tx);
+            send_board_list_request(tx, boards);
             true
         }
         Some("create") if frame.status == FrameStatus::Done => {
@@ -343,7 +356,7 @@ fn handle_board_frame(
                     s.created_board_id = Some(created.id.clone());
                     s.error = None;
                 });
-                send_board_list_request(tx);
+                send_board_list_request(tx, boards);
             } else {
                 boards.update(|s| s.create_pending = false);
             }
@@ -351,12 +364,12 @@ fn handle_board_frame(
         }
         Some("delete") if frame.status == FrameStatus::Done => {
             handle_deleted_board_eject(frame, board);
-            send_board_list_request(tx);
+            send_board_list_request(tx, boards);
             true
         }
         Some("delete") => {
             handle_deleted_board_eject(frame, board);
-            send_board_list_request(tx);
+            send_board_list_request(tx, boards);
             true
         }
         Some("savepoint:list") if frame.status == FrameStatus::Done => {
@@ -871,7 +884,11 @@ fn handle_error_frame(frame: &Frame, boards: leptos::prelude::RwSignal<BoardsSta
 }
 
 #[cfg(feature = "hydrate")]
-fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>) {
+fn send_board_list_request(
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
+    boards: leptos::prelude::RwSignal<BoardsState>,
+) {
+    let since_rev = boards.get_untracked().list_rev;
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
@@ -880,7 +897,9 @@ fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>
         from: None,
         syscall: "board:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
-        data: serde_json::json!({}),
+        data: serde_json::json!({
+            "since_rev": since_rev
+        }),
     };
     let _ = send_frame(tx, &frame);
 }
