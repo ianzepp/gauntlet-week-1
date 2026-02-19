@@ -217,8 +217,7 @@ async fn process_inbound_text(
     req.from = Some(user_id.to_string());
 
     let prefix = req.prefix();
-    let is_ephemeral =
-        prefix == "cursor" || prefix == "viewport" || req.syscall == "object:drag" || req.syscall == "object:drag:end";
+    let is_ephemeral = prefix == "cursor" || req.syscall == "object:drag" || req.syscall == "object:drag:end";
 
     // Persist inbound request (skip ephemeral frames).
     if !is_ephemeral {
@@ -232,7 +231,6 @@ async fn process_inbound_text(
         "object" => handle_object(state, *current_board, user_id, &req).await,
         "chat" => handle_chat(state, *current_board, &req).await,
         "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
-        "viewport" => Ok(handle_viewport(*current_board, client_id, &req)),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
     };
@@ -699,56 +697,27 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
             Outcome::BroadcastExcludeSender(data)
         }
         _ => {
-            let x = req
-                .data
-                .get("x")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0);
-            let y = req
-                .data
-                .get("y")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0);
-
             let mut data = Data::new();
             data.insert("client_id".into(), serde_json::json!(client_id));
-            data.insert("x".into(), serde_json::json!(x));
-            data.insert("y".into(), serde_json::json!(y));
+            if let Some(x) = req.data.get("x").and_then(serde_json::Value::as_f64) {
+                data.insert("x".into(), serde_json::json!(x));
+            }
+            if let Some(y) = req.data.get("y").and_then(serde_json::Value::as_f64) {
+                data.insert("y".into(), serde_json::json!(y));
+            }
+            if let Some(center_x) = req.data.get("camera_center_x").and_then(serde_json::Value::as_f64) {
+                data.insert("camera_center_x".into(), serde_json::json!(center_x));
+            }
+            if let Some(center_y) = req.data.get("camera_center_y").and_then(serde_json::Value::as_f64) {
+                data.insert("camera_center_y".into(), serde_json::json!(center_y));
+            }
+            if let Some(zoom) = req.data.get("camera_zoom").and_then(serde_json::Value::as_f64) {
+                data.insert("camera_zoom".into(), serde_json::json!(zoom));
+            }
 
             Outcome::BroadcastExcludeSender(data)
         }
     }
-}
-
-fn handle_viewport(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> Outcome {
-    if current_board.is_none() {
-        // Silently ignore viewport updates before joining.
-        return Outcome::BroadcastExcludeSender(Data::new());
-    }
-
-    let center_x = req
-        .data
-        .get("center_x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let center_y = req
-        .data
-        .get("center_y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let zoom = req
-        .data
-        .get("zoom")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(1.0);
-
-    let mut data = Data::new();
-    data.insert("client_id".into(), serde_json::json!(client_id));
-    data.insert("center_x".into(), serde_json::json!(center_x));
-    data.insert("center_y".into(), serde_json::json!(center_y));
-    data.insert("zoom".into(), serde_json::json!(zoom));
-
-    Outcome::BroadcastExcludeSender(data)
 }
 
 async fn fetch_user_identity(state: &AppState, user_id: Uuid) -> Result<(String, String), sqlx::Error> {

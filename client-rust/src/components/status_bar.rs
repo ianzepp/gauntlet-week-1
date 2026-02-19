@@ -26,7 +26,7 @@ pub fn StatusBar() -> impl IntoView {
     let object_count = move || board.get().objects.len();
     let board_name = move || board.get().board_name.unwrap_or_default();
     let cursor = move || canvas_view.get().cursor_world;
-    let viewport_center = move || canvas_view.get().viewport_center_world.clone();
+    let camera_center = move || canvas_view.get().camera_center_world.clone();
     let zoom = move || canvas_view.get().zoom;
 
     let user = move || auth.get().user;
@@ -49,7 +49,7 @@ pub fn StatusBar() -> impl IntoView {
                 <span class="status-bar__item">{move || format_cursor(cursor())}</span>
 
                 <span class="status-bar__divider"></span>
-                <span class="status-bar__item">{move || format_point(viewport_center())}</span>
+                <span class="status-bar__item">{move || format_point(camera_center())}</span>
 
                 <span class="status-bar__divider"></span>
                 <Show when=move || user().is_some()>

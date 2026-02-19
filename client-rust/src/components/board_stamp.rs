@@ -64,7 +64,7 @@ pub fn BoardStamp() -> impl IntoView {
                                             class="board-stamp__follow-btn"
                                             class:board-stamp__follow-btn--active=move || board.get().follow_client_id.as_deref() == Some(follow_client_for_class.as_str())
                                             title=move || if is_self {
-                                                "Cannot follow your own viewport"
+                                                "Cannot follow your own camera"
                                             } else if board.get().follow_client_id.as_deref() == Some(follow_client_for_title.as_str()) {
                                                 "Disable follow camera"
                                             } else {
@@ -84,7 +84,10 @@ pub fn BoardStamp() -> impl IntoView {
                                                 }
                                             }
                                         >
-                                            "◎"
+                                            <svg viewBox="0 0 20 20" aria-hidden="true">
+                                                <circle cx="10" cy="10" r="5.5"></circle>
+                                                <circle cx="10" cy="10" r="1.5"></circle>
+                                            </svg>
                                         </button>
                                     </span>
                                 </div>

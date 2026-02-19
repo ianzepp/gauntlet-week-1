@@ -46,7 +46,9 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_drag_sent_ms = RwSignal::new(0.0_f64);
     #[cfg(feature = "hydrate")]
-    let last_viewport_sent_ms = RwSignal::new(0.0_f64);
+    let last_presence_sent_ms = RwSignal::new(0.0_f64);
+    #[cfg(feature = "hydrate")]
+    let last_presence_sent = RwSignal::new(None::<(f64, f64, f64)>);
     #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
@@ -69,7 +71,16 @@ pub fn CanvasHost() -> impl IntoView {
             sync_viewport(&mut instance, &canvas_ref_mount);
             center_world_origin(&mut instance);
             sync_canvas_view_state(&instance, _canvas_view, None);
-            send_viewport_update_if_needed(&instance, _board, _sender, last_viewport_sent_ms, true);
+            send_cursor_presence_if_needed(
+                &instance,
+                _board,
+                _auth,
+                _sender,
+                last_presence_sent_ms,
+                last_presence_sent,
+                None,
+                true,
+            );
             let _ = instance.render();
             *engine.borrow_mut() = Some(instance);
         });
@@ -98,7 +109,16 @@ pub fn CanvasHost() -> impl IntoView {
                 if last_centered_board.get_untracked() != board_id {
                     center_world_origin(engine);
                     last_centered_board.set(board_id.clone());
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, true);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                 }
                 sync_canvas_view_state(engine, _canvas_view, None);
                 let _ = engine.render();
@@ -121,17 +141,16 @@ pub fn CanvasHost() -> impl IntoView {
             let Some(target) = target_view else {
                 return;
             };
-            let Some(center) = target.viewport_center else {
+            let Some(center) = target.camera_center else {
                 return;
             };
-            let Some(zoom) = target.viewport_zoom else {
+            let Some(zoom) = target.camera_zoom else {
                 return;
             };
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 sync_viewport(engine, &canvas_ref_follow);
                 set_camera_view(engine, center.x, center.y, zoom);
                 sync_canvas_view_state(engine, _canvas_view, None);
-                send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, true);
                 let _ = engine.render();
                 if _board.get_untracked().jump_to_client_id.as_deref() == Some(target_client.as_str()) {
                     _board.update(|b| b.jump_to_client_id = None);
@@ -170,7 +189,16 @@ pub fn CanvasHost() -> impl IntoView {
                     open_inspector_on_double_click(engine, &ev, _ui);
                     update_youtube_overlay_from_click(engine, point, &ev, active_youtube);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        Some(point),
+                        false,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -191,9 +219,17 @@ pub fn CanvasHost() -> impl IntoView {
                 if placement_shape(_ui.get().active_tool).is_some() {
                     preview_cursor.set(Some(point));
                     if let Some(engine) = engine.borrow().as_ref() {
-                        send_cursor_moved(engine, point, _auth, _board, _sender);
+                        send_cursor_presence_if_needed(
+                            engine,
+                            _board,
+                            _auth,
+                            _sender,
+                            last_presence_sent_ms,
+                            last_presence_sent,
+                            Some(point),
+                            false,
+                        );
                         sync_canvas_view_state(engine, _canvas_view, Some(point));
-                        send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
                     }
                     return;
                 }
@@ -203,8 +239,16 @@ pub fn CanvasHost() -> impl IntoView {
                     let actions = engine.on_pointer_move(point, modifiers);
                     process_actions(actions, engine, _board, _sender);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
-                    send_cursor_moved(engine, point, _auth, _board, _sender);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        Some(point),
+                        false,
+                    );
                     send_object_drag_if_needed(engine, _board, _sender, last_drag_sent_ms);
                     let _ = engine.render();
                 }
@@ -235,7 +279,16 @@ pub fn CanvasHost() -> impl IntoView {
                     process_actions(actions, engine, _board, _sender);
                     sync_selection_from_engine(engine, _board);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        Some(point),
+                        false,
+                    );
                     last_drag_sent_ms.set(0.0);
                     send_object_drag_end(active_transform, _board, _sender);
                     let _ = engine.render();
@@ -263,7 +316,16 @@ pub fn CanvasHost() -> impl IntoView {
                     let actions = engine.on_wheel(point, delta, modifiers);
                     process_actions(actions, engine, _board, _sender);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        false,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -282,7 +344,16 @@ pub fn CanvasHost() -> impl IntoView {
                 preview_cursor.set(None);
                 if let Some(engine) = engine.borrow().as_ref() {
                     sync_canvas_view_state(engine, _canvas_view, None);
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        false,
+                    );
                 }
                 send_cursor_clear(_board, _sender);
             }
@@ -321,7 +392,16 @@ pub fn CanvasHost() -> impl IntoView {
                     process_actions(actions, engine, _board, _sender);
                     sync_selection_from_engine(engine, _board);
                     sync_canvas_view_state(engine, _canvas_view, None);
-                    send_viewport_update_if_needed(engine, _board, _sender, last_viewport_sent_ms, false);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        false,
+                    );
                     if key == "Escape" {
                         send_object_drag_end(active_transform, _board, _sender);
                     }
@@ -462,12 +542,12 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
-    let viewport_telemetry = move || {
+    let camera_telemetry = move || {
         let view = _canvas_view.get();
         format!(
             "({}, {}) · {}%",
-            view.viewport_center_world.x.round() as i64,
-            view.viewport_center_world.y.round() as i64,
+            view.camera_center_world.x.round() as i64,
+            view.camera_center_world.y.round() as i64,
             (view.zoom * 100.0).round() as i64
         )
     };
@@ -508,7 +588,7 @@ pub fn CanvasHost() -> impl IntoView {
                         .collect_view()
                 }}
             </div>
-            <div class="canvas-viewport-telemetry">{viewport_telemetry}</div>
+            <div class="canvas-camera-telemetry">{camera_telemetry}</div>
             <Show when=youtube_overlay_open>
                 <div class="canvas-video-overlay" style=youtube_overlay_style>
                     <button class="canvas-video-overlay__close" on:click=move |_| active_youtube.set(None)>
@@ -557,24 +637,56 @@ fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: f64)
 }
 
 #[cfg(feature = "hydrate")]
-fn send_viewport_update_if_needed(
+fn send_cursor_presence_if_needed(
     engine: &Engine,
     board: RwSignal<BoardState>,
+    auth: RwSignal<AuthState>,
     sender: RwSignal<FrameSender>,
     last_sent_ms: RwSignal<f64>,
+    last_sent_view: RwSignal<Option<(f64, f64, f64)>>,
+    cursor_screen: Option<CanvasPoint>,
     force: bool,
 ) {
-    let now = now_ms();
-    if !force && now - last_sent_ms.get_untracked() < 120.0 {
+    let state = board.get_untracked();
+    if state.connection_status != crate::state::board::ConnectionStatus::Connected {
         return;
     }
-    let Some(board_id) = board.get_untracked().board_id else {
+    if state.self_client_id.is_none() {
+        return;
+    }
+    let Some(user) = auth.get_untracked().user else {
+        return;
+    };
+    let has_cursor_point = cursor_screen.is_some();
+
+    let now = now_ms();
+    if !force && !has_cursor_point && now - last_sent_ms.get_untracked() < 120.0 {
+        return;
+    }
+    let Some(board_id) = state.board_id else {
         return;
     };
 
     let camera = engine.camera();
     let center_screen = CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5);
     let center_world = camera.screen_to_world(center_screen);
+    let center_x = center_world.x;
+    let center_y = center_world.y;
+    let zoom = camera.zoom;
+    let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p));
+
+    if !force
+        && !has_cursor_point
+        && let Some((last_x, last_y, last_zoom)) = last_sent_view.get_untracked()
+    {
+        let dx = center_x - last_x;
+        let dy = center_y - last_y;
+        let center_dist = (dx * dx + dy * dy).sqrt();
+        let zoom_delta = (zoom - last_zoom).abs();
+        if center_dist < 0.75 && zoom_delta < 0.003 {
+            return;
+        }
+    }
 
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
@@ -582,16 +694,21 @@ fn send_viewport_update_if_needed(
         ts: 0,
         board_id: Some(board_id),
         from: None,
-        syscall: "viewport:update".to_owned(),
+        syscall: "cursor:moved".to_owned(),
         status: FrameStatus::Request,
         data: serde_json::json!({
-            "center_x": center_world.x,
-            "center_y": center_world.y,
-            "zoom": camera.zoom
+            "x": cursor_world.as_ref().map(|p| p.x),
+            "y": cursor_world.as_ref().map(|p| p.y),
+            "name": user.name,
+            "color": user.color,
+            "camera_center_x": center_x,
+            "camera_center_y": center_y,
+            "camera_zoom": zoom,
         }),
     };
     if sender.get_untracked().send(&frame) {
         last_sent_ms.set(now);
+        last_sent_view.set(Some((center_x, center_y, zoom)));
     }
 }
 
@@ -800,13 +917,13 @@ fn sync_selection_from_engine(engine: &Engine, board: RwSignal<BoardState>) {
 #[cfg(feature = "hydrate")]
 fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState>, cursor_screen: Option<CanvasPoint>) {
     let camera = engine.camera();
-    let viewport_center_screen = CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5);
-    let viewport_center_world = camera.screen_to_world(viewport_center_screen);
+    let camera_center_screen = CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5);
+    let camera_center_world = camera.screen_to_world(camera_center_screen);
     let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p));
 
     canvas_view.update(|v| {
         v.cursor_world = cursor_world.map(|p| WirePoint { x: p.x, y: p.y });
-        v.viewport_center_world = WirePoint { x: viewport_center_world.x, y: viewport_center_world.y };
+        v.camera_center_world = WirePoint { x: camera_center_world.x, y: camera_center_world.y };
         v.zoom = camera.zoom;
         v.pan_x = camera.pan_x;
         v.pan_y = camera.pan_y;
@@ -822,39 +939,6 @@ fn active_transform_object_id(engine: &Engine) -> Option<String> {
         | CanvasInputState::DraggingEdgeEndpoint { id, .. } => Some(id.to_string()),
         _ => None,
     }
-}
-
-#[cfg(feature = "hydrate")]
-fn send_cursor_moved(
-    engine: &Engine,
-    point_screen: CanvasPoint,
-    auth: RwSignal<AuthState>,
-    board: RwSignal<BoardState>,
-    sender: RwSignal<FrameSender>,
-) {
-    let Some(board_id) = board.get_untracked().board_id else {
-        return;
-    };
-    let Some(user) = auth.get_untracked().user else {
-        return;
-    };
-    let world = engine.camera().screen_to_world(point_screen);
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: "cursor:moved".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({
-            "x": world.x,
-            "y": world.y,
-            "name": user.name,
-            "color": user.color
-        }),
-    };
-    let _ = sender.get_untracked().send(&frame);
 }
 
 #[cfg(feature = "hydrate")]

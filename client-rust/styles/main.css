@@ -610,7 +610,7 @@ a:hover {
     white-space: nowrap;
 }
 
-.canvas-viewport-telemetry {
+.canvas-camera-telemetry {
     position: absolute;
     right: var(--space-md);
     bottom: calc(var(--space-md) + 24px);
@@ -1753,7 +1753,7 @@ a:hover {
 .board-stamp {
     position: absolute;
     top: var(--space-md);
-    right: var(--space-md);
+    right: calc(var(--space-md) + 56px);
     z-index: var(--z-canvas-ui);
     min-width: 220px;
     background: var(--bg-primary);
@@ -1839,14 +1839,20 @@ a:hover {
     border: 1px solid var(--border-default);
     background: transparent;
     color: var(--text-secondary);
-    width: 16px;
-    height: 14px;
+    width: 18px;
+    height: 16px;
     padding: 0;
-    font-size: 10px;
-    line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+.board-stamp__follow-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
 }
 
 .board-stamp__follow-btn:disabled {

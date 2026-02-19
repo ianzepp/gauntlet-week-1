@@ -381,7 +381,6 @@ fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardStat
             | "object:drag:end"
             | "cursor:moved"
             | "cursor:clear"
-            | "viewport:update"
     )
 }
 
@@ -445,7 +444,6 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
         }
         "cursor:moved" => apply_cursor_moved(board, &frame.data, frame.ts),
         "cursor:clear" => apply_cursor_clear(board, &frame.data),
-        "viewport:update" => apply_viewport_update(board, &frame.data),
         _ => {}
     }
 }
@@ -544,18 +542,26 @@ fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64)
     let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
         return;
     };
-    let Some(x) = data.get("x").and_then(|v| v.as_f64()) else {
-        return;
-    };
-    let Some(y) = data.get("y").and_then(|v| v.as_f64()) else {
-        return;
-    };
-    board.cursor_updated_at.insert(client_id.to_owned(), ts);
+    let x = data.get("x").and_then(|v| v.as_f64());
+    let y = data.get("y").and_then(|v| v.as_f64());
+    let camera_center_x = data.get("camera_center_x").and_then(|v| v.as_f64());
+    let camera_center_y = data.get("camera_center_y").and_then(|v| v.as_f64());
+    let camera_zoom = data.get("camera_zoom").and_then(|v| v.as_f64());
+
     if !board.presence.contains_key(client_id) {
         upsert_presence_from_payload(board, data);
     }
     if let Some(p) = board.presence.get_mut(client_id) {
-        p.cursor = Some(Point { x, y });
+        if let (Some(x), Some(y)) = (x, y) {
+            board.cursor_updated_at.insert(client_id.to_owned(), ts);
+            p.cursor = Some(Point { x, y });
+        }
+        if let (Some(cx), Some(cy)) = (camera_center_x, camera_center_y) {
+            p.camera_center = Some(Point { x: cx, y: cy });
+        }
+        if let Some(zoom) = camera_zoom {
+            p.camera_zoom = Some(zoom);
+        }
     }
 }
 
@@ -593,11 +599,11 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
         .unwrap_or("#8a8178");
 
     let existing_cursor = board.presence.get(client_id).and_then(|p| p.cursor.clone());
-    let existing_viewport_center = board
+    let existing_camera_center = board
         .presence
         .get(client_id)
-        .and_then(|p| p.viewport_center.clone());
-    let existing_viewport_zoom = board.presence.get(client_id).and_then(|p| p.viewport_zoom);
+        .and_then(|p| p.camera_center.clone());
+    let existing_camera_zoom = board.presence.get(client_id).and_then(|p| p.camera_zoom);
     board.presence.insert(
         client_id.to_owned(),
         Presence {
@@ -606,37 +612,12 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
             name: user_name.to_owned(),
             color: user_color.to_owned(),
             cursor: existing_cursor,
-            viewport_center: existing_viewport_center,
-            viewport_zoom: existing_viewport_zoom,
+            camera_center: existing_camera_center,
+            camera_zoom: existing_camera_zoom,
         },
     );
 }
 
-#[cfg(any(test, feature = "hydrate"))]
-fn apply_viewport_update(board: &mut BoardState, data: &serde_json::Value) {
-    use crate::net::types::Point;
-
-    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
-        return;
-    };
-    let Some(center_x) = data.get("center_x").and_then(|v| v.as_f64()) else {
-        return;
-    };
-    let Some(center_y) = data.get("center_y").and_then(|v| v.as_f64()) else {
-        return;
-    };
-    let Some(zoom) = data.get("zoom").and_then(|v| v.as_f64()) else {
-        return;
-    };
-
-    if !board.presence.contains_key(client_id) {
-        upsert_presence_from_payload(board, data);
-    }
-    if let Some(p) = board.presence.get_mut(client_id) {
-        p.viewport_center = Some(Point { x: center_x, y: center_y });
-        p.viewport_zoom = Some(zoom);
-    }
-}
 
 #[cfg(feature = "hydrate")]
 fn handle_chat_frame(frame: &Frame, chat: leptos::prelude::RwSignal<ChatState>) -> bool {
