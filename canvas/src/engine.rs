@@ -146,6 +146,17 @@ impl EngineCore {
         self.dpr = dpr;
     }
 
+    /// Set canvas view rotation in degrees.
+    pub fn set_view_rotation_deg(&mut self, deg: f64) {
+        self.camera.view_rotation_deg = deg;
+    }
+
+    /// Current canvas view rotation in degrees.
+    #[must_use]
+    pub fn view_rotation_deg(&self) -> f64 {
+        self.camera.view_rotation_deg
+    }
+
     // --- Input events ---
 
     /// Handle a pointer-down event. Returns actions for the host.
@@ -894,6 +905,17 @@ impl Engine {
     /// Update viewport dimensions and device pixel ratio.
     pub fn set_viewport(&mut self, width_css: f64, height_css: f64, dpr: f64) {
         self.core.set_viewport(width_css, height_css, dpr);
+    }
+
+    /// Set canvas view rotation in degrees.
+    pub fn set_view_rotation_deg(&mut self, deg: f64) {
+        self.core.set_view_rotation_deg(deg);
+    }
+
+    /// Current canvas view rotation in degrees.
+    #[must_use]
+    pub fn view_rotation_deg(&self) -> f64 {
+        self.core.view_rotation_deg()
     }
 
     // --- Input events (delegated) ---

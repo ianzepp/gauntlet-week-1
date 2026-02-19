@@ -440,6 +440,14 @@ fn core_set_viewport_fractional_dpr() {
     assert_eq!(core.dpr, 1.25);
 }
 
+#[test]
+fn core_set_and_get_view_rotation_deg() {
+    let mut core = EngineCore::new();
+    core.set_view_rotation_deg(37.5);
+    assert_eq!(core.view_rotation_deg(), 37.5);
+    assert_eq!(core.camera.view_rotation_deg, 37.5);
+}
+
 // =============================================================
 // EngineCore: queries
 // =============================================================
@@ -502,6 +510,27 @@ fn select_click_body_selects_and_starts_drag() {
 
     // Click in the middle of the rect.
     let actions = core.on_pointer_down(pt(50.0, 40.0), Button::Primary, no_modifiers());
+    assert_eq!(core.selection(), Some(id));
+    assert!(matches!(core.input, InputState::DraggingObject { .. }));
+    assert!(has_render_needed(&actions));
+}
+
+#[test]
+fn select_click_body_with_view_rotation_selects_correctly() {
+    let mut core = EngineCore::new();
+    core.set_viewport(800.0, 600.0, 1.0);
+    core.set_view_rotation_deg(90.0);
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    let viewport_center = pt(core.viewport_width * 0.5, core.viewport_height * 0.5);
+    let rect_center_world = pt(50.0, 40.0);
+    let screen_pt = core
+        .camera
+        .world_to_screen(rect_center_world, viewport_center);
+
+    let actions = core.on_pointer_down(screen_pt, Button::Primary, no_modifiers());
     assert_eq!(core.selection(), Some(id));
     assert!(matches!(core.input, InputState::DraggingObject { .. }));
     assert!(has_render_needed(&actions));
@@ -776,6 +805,27 @@ fn dragging_object_accumulates_moves() {
     let updated = core.object(&id).unwrap();
     assert_eq!(updated.x, 20.0);
     assert_eq!(updated.y, 20.0);
+}
+
+#[test]
+fn dragging_object_respects_view_rotation_mapping() {
+    let mut core = EngineCore::new();
+    core.set_viewport(800.0, 600.0, 1.0);
+    core.set_view_rotation_deg(90.0);
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+
+    let viewport_center = pt(core.viewport_width * 0.5, core.viewport_height * 0.5);
+    let start_world = pt(50.0, 40.0);
+    let start_screen = core.camera.world_to_screen(start_world, viewport_center);
+    core.on_pointer_down(start_screen, Button::Primary, no_modifiers());
+
+    // At 90deg view rotation, +10 screen X maps to -10 world Y.
+    core.on_pointer_move(pt(start_screen.x + 10.0, start_screen.y), no_modifiers());
+    let updated = core.object(&id).unwrap();
+    assert!((updated.x - 0.0).abs() < 1e-9);
+    assert!((updated.y - (-10.0)).abs() < 1e-9);
 }
 
 // =============================================================
@@ -1445,6 +1495,24 @@ fn wheel_zoom_preserves_world_point_under_cursor() {
     core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
 
     let after = core.screen_to_world(screen);
+    assert!((before.x - after.x).abs() < 0.01);
+    assert!((before.y - after.y).abs() < 0.01);
+}
+
+#[test]
+fn wheel_zoom_preserves_world_point_under_cursor_with_view_rotation() {
+    let mut core = EngineCore::new();
+    core.set_viewport(1000.0, 800.0, 1.0);
+    core.camera.pan_x = 120.0;
+    core.camera.pan_y = -80.0;
+    core.camera.zoom = 1.8;
+    core.set_view_rotation_deg(33.0);
+
+    let screen = pt(620.0, 370.0);
+    let before = core.screen_to_world(screen);
+    core.on_wheel(screen, WheelDelta { dx: 0.0, dy: -10.0 }, ctrl_modifier());
+    let after = core.screen_to_world(screen);
+
     assert!((before.x - after.x).abs() < 0.01);
     assert!((before.y - after.y).abs() < 0.01);
 }

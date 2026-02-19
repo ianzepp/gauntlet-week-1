@@ -46,6 +46,8 @@ pub fn CanvasHost() -> impl IntoView {
     let _sender = expect_context::<RwSignal<FrameSender>>();
     let _ui = expect_context::<RwSignal<UiState>>();
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
+    let compass_ref = NodeRef::<leptos::html::Div>::new();
+    let _compass_drag_active = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -520,6 +522,209 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let on_compass_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let compass_ref = compass_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                ev.prevent_default();
+                ev.stop_propagation();
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                let Some(compass) = compass_ref.get() else {
+                    return;
+                };
+                let _ = compass.set_pointer_capture(ev.pointer_id());
+
+                _compass_drag_active.set(true);
+                if let Some(angle) = compass_angle_from_pointer(&ev, &compass)
+                    && let Some(engine) = engine.borrow_mut().as_mut()
+                {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(angle);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_compass_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let compass_ref = compass_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                if !_compass_drag_active.get_untracked() || _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                let Some(compass) = compass_ref.get() else {
+                    return;
+                };
+                if let Some(angle) = compass_angle_from_pointer(&ev, &compass)
+                    && let Some(engine) = engine.borrow_mut().as_mut()
+                {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(angle);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_compass_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                _compass_drag_active.set(false);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_compass_snap_n = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::MouseEvent| {
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(0.0);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_compass_snap_e = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::MouseEvent| {
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(90.0);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_compass_snap_s = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::MouseEvent| {
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(180.0);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_compass_snap_w = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::MouseEvent| {
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(270.0);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_compass_reset = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::MouseEvent| {
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    engine.set_view_rotation_deg(0.0);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+
+    let compass_angle_deg = move || normalize_degrees_360(_canvas_view.get().view_rotation_deg);
+    let compass_knob_style = move || {
+        let angle = compass_angle_deg();
+        format!("transform: rotate({angle:.2}deg);")
+    };
+
+    let canvas_world_overlay_style = move || {
+        let view = _canvas_view.get();
+        let cx = view.viewport_width * 0.5;
+        let cy = view.viewport_height * 0.5;
+        format!(
+            "transform: translate({cx:.2}px, {cy:.2}px) rotate({:.2}deg) translate({:.2}px, {:.2}px); transform-origin: 0 0;",
+            view.view_rotation_deg, -cx, -cy
+        )
+    };
+
     let remote_cursors = move || {
         #[cfg(feature = "hydrate")]
         {
@@ -650,10 +855,11 @@ pub fn CanvasHost() -> impl IntoView {
     let camera_telemetry = move || {
         let view = _canvas_view.get();
         format!(
-            "({}, {}) · {}%",
+            "({}, {}) · {}% · {:.0}deg",
             view.camera_center_world.x.round() as i64,
             view.camera_center_world.y.round() as i64,
-            (view.zoom * 100.0).round() as i64
+            (view.zoom * 100.0).round() as i64,
+            normalize_degrees_360(view.view_rotation_deg)
         )
     };
 
@@ -677,38 +883,68 @@ pub fn CanvasHost() -> impl IntoView {
                     view! { <div class=class_name style=style></div> }
                 })
             }}
-            <div class="canvas-cursors">
-                {move || {
-                    remote_cursors()
-                        .into_iter()
-                        .map(|(_id, name, color, x, y)| {
-                            let style = remote_cursor_style(x, y, &color);
-                            let title = name.clone();
-                            view! {
-                                <div class="canvas-cursor" style=style title=title>
-                                    <span class="canvas-cursor__name">{name}</span>
-                                </div>
-                            }
-                        })
-                        .collect_view()
-                }}
+            <div class="canvas-world-overlay" style=canvas_world_overlay_style>
+                <div class="canvas-cursors">
+                    {move || {
+                        remote_cursors()
+                            .into_iter()
+                            .map(|(_id, name, color, x, y)| {
+                                let style = remote_cursor_style(x, y, &color);
+                                let title = name.clone();
+                                view! {
+                                    <div class="canvas-cursor" style=style title=title>
+                                        <span class="canvas-cursor__name">{name}</span>
+                                    </div>
+                                }
+                            })
+                            .collect_view()
+                    }}
+                </div>
+                <Show when=youtube_overlay_open>
+                    <div class="canvas-video-overlay" style=youtube_overlay_style>
+                        <button class="canvas-video-overlay__close" on:click=move |_| active_youtube.set(None)>
+                            "✕"
+                        </button>
+                        <iframe
+                            class="canvas-video-overlay__frame"
+                            style=youtube_overlay_frame_style
+                            src=youtube_overlay_src
+                            allow="autoplay; encrypted-media; picture-in-picture"
+                            allowfullscreen=true
+                            referrerpolicy="strict-origin-when-cross-origin"
+                        ></iframe>
+                    </div>
+                </Show>
             </div>
             <div class="canvas-camera-telemetry">{camera_telemetry}</div>
-            <Show when=youtube_overlay_open>
-                <div class="canvas-video-overlay" style=youtube_overlay_style>
-                    <button class="canvas-video-overlay__close" on:click=move |_| active_youtube.set(None)>
-                        "✕"
-                    </button>
-                    <iframe
-                        class="canvas-video-overlay__frame"
-                        style=youtube_overlay_frame_style
-                        src=youtube_overlay_src
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                        allowfullscreen=true
-                        referrerpolicy="strict-origin-when-cross-origin"
-                    ></iframe>
+            <div
+                class="canvas-compass"
+                node_ref=compass_ref
+                on:pointerdown=on_compass_pointer_down
+                on:pointermove=on_compass_pointer_move
+                on:pointerup=on_compass_pointer_up
+                on:pointercancel=on_compass_pointer_up
+                on:pointerleave=on_compass_pointer_up
+            >
+                <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_compass_snap_n>
+                    "N"
+                </button>
+                <button class="canvas-compass__snap canvas-compass__snap--e" on:click=on_compass_snap_e>
+                    "E"
+                </button>
+                <button class="canvas-compass__snap canvas-compass__snap--s" on:click=on_compass_snap_s>
+                    "S"
+                </button>
+                <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_compass_snap_w>
+                    "W"
+                </button>
+                <button class="canvas-compass__reset" on:dblclick=on_compass_reset title="Double-click to reset view rotation">
+                    {move || format!("{:.0}deg", compass_angle_deg())}
+                </button>
+                <div class="canvas-compass__knob-track" style=compass_knob_style>
+                    <div class="canvas-compass__knob"></div>
                 </div>
-            </Show>
+            </div>
         </>
     }
 }
@@ -776,12 +1012,12 @@ fn send_cursor_presence_if_needed(
     };
 
     let camera = engine.camera();
-    let center_screen = CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5);
-    let center_world = camera.screen_to_world(center_screen);
+    let center_screen = viewport_center_screen(engine);
+    let center_world = camera.screen_to_world(center_screen, center_screen);
     let center_x = center_world.x;
     let center_y = center_world.y;
     let zoom = camera.zoom;
-    let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p));
+    let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p, center_screen));
 
     if !force
         && !has_cursor_point
@@ -841,6 +1077,29 @@ fn map_button(button: i16) -> CanvasButton {
 }
 
 #[cfg(feature = "hydrate")]
+fn viewport_center_screen(engine: &Engine) -> CanvasPoint {
+    CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5)
+}
+
+fn normalize_degrees_360(deg: f64) -> f64 {
+    deg.rem_euclid(360.0)
+}
+
+#[cfg(feature = "hydrate")]
+fn compass_angle_from_pointer(ev: &leptos::ev::PointerEvent, element: &web_sys::HtmlDivElement) -> Option<f64> {
+    let rect = element.get_bounding_client_rect();
+    let cx = rect.x() + (rect.width() * 0.5);
+    let cy = rect.y() + (rect.height() * 0.5);
+    let dx = f64::from(ev.client_x()) - cx;
+    let dy = f64::from(ev.client_y()) - cy;
+    if dx.abs() < f64::EPSILON && dy.abs() < f64::EPSILON {
+        return None;
+    }
+
+    Some(normalize_degrees_360(dy.atan2(dx).to_degrees() + 90.0))
+}
+
+#[cfg(feature = "hydrate")]
 fn map_modifiers(shift: bool, ctrl: bool, alt: bool, meta: bool) -> CanvasModifiers {
     CanvasModifiers { shift, ctrl, alt, meta }
 }
@@ -883,7 +1142,8 @@ fn update_youtube_overlay_from_click(
     if ev.button() != 0 {
         return;
     }
-    let world = engine.camera().screen_to_world(point_screen);
+    let center = viewport_center_screen(engine);
+    let world = engine.camera().screen_to_world(point_screen, center);
     let Some(selected_id) = youtube_object_at_point(engine, world) else {
         return;
     };
@@ -1025,9 +1285,9 @@ fn sync_selection_from_engine(engine: &Engine, board: RwSignal<BoardState>) {
 #[cfg(feature = "hydrate")]
 fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState>, cursor_screen: Option<CanvasPoint>) {
     let camera = engine.camera();
-    let camera_center_screen = CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5);
-    let camera_center_world = camera.screen_to_world(camera_center_screen);
-    let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p));
+    let camera_center_screen = viewport_center_screen(engine);
+    let camera_center_world = camera.screen_to_world(camera_center_screen, camera_center_screen);
+    let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p, camera_center_screen));
 
     canvas_view.update(|v| {
         v.cursor_world = cursor_world.map(|p| WirePoint { x: p.x, y: p.y });
@@ -1035,6 +1295,9 @@ fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState
         v.zoom = camera.zoom;
         v.pan_x = camera.pan_x;
         v.pan_y = camera.pan_y;
+        v.view_rotation_deg = camera.view_rotation_deg;
+        v.viewport_width = engine.core.viewport_width;
+        v.viewport_height = engine.core.viewport_height;
     });
 }
 
@@ -1266,7 +1529,8 @@ fn place_shape_at_cursor(
         return;
     };
 
-    let world = engine.camera().screen_to_world(point_screen);
+    let center = viewport_center_screen(engine);
+    let world = engine.camera().screen_to_world(point_screen, center);
     let x = world.x - (width * 0.5);
     let y = world.y - (height * 0.5);
     let id = uuid::Uuid::new_v4().to_string();

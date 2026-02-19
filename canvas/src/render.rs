@@ -12,7 +12,7 @@ use std::f64::consts::PI;
 use wasm_bindgen::JsValue;
 use web_sys::CanvasRenderingContext2d;
 
-use crate::camera::Camera;
+use crate::camera::{Camera, Point};
 use crate::consts::{FRAC_PI_5, HANDLE_RADIUS_PX, STAR_INNER_RATIO};
 use crate::doc::{BoardObject, DocStore, ObjectKind, Props};
 use crate::hit;
@@ -51,14 +51,19 @@ pub fn draw(
     viewport_h: f64,
     dpr: f64,
 ) -> Result<(), JsValue> {
+    let viewport_center = Point::new(viewport_w * 0.5, viewport_h * 0.5);
+
     // Layer 1: clear and set up transforms.
     ctx.set_transform(dpr, 0.0, 0.0, dpr, 0.0, 0.0)?;
     ctx.clear_rect(0.0, 0.0, viewport_w, viewport_h);
+    ctx.translate(viewport_center.x, viewport_center.y)?;
+    ctx.rotate(camera.view_rotation_deg.to_radians())?;
+    ctx.translate(-viewport_center.x, -viewport_center.y)?;
     ctx.translate(camera.pan_x, camera.pan_y)?;
     ctx.scale(camera.zoom, camera.zoom)?;
 
     // Layer 2: grid.
-    draw_grid(ctx, camera, viewport_w, viewport_h)?;
+    draw_grid(ctx, camera, viewport_w, viewport_h, viewport_center)?;
 
     // Layer 3: objects in z-order (bottom first).
     for obj in doc.sorted_objects() {
@@ -79,7 +84,13 @@ pub fn draw(
 // Grid
 // =============================================================
 
-fn draw_grid(ctx: &CanvasRenderingContext2d, camera: &Camera, viewport_w: f64, viewport_h: f64) -> Result<(), JsValue> {
+fn draw_grid(
+    ctx: &CanvasRenderingContext2d,
+    camera: &Camera,
+    viewport_w: f64,
+    viewport_h: f64,
+    viewport_center: Point,
+) -> Result<(), JsValue> {
     if camera.zoom < GRID_MIN_ZOOM {
         return Ok(());
     }
@@ -91,11 +102,36 @@ fn draw_grid(ctx: &CanvasRenderingContext2d, camera: &Camera, viewport_w: f64, v
         GRID_SPACING
     };
 
-    // Compute visible world bounds.
-    let world_left = -camera.pan_x / camera.zoom;
-    let world_top = -camera.pan_y / camera.zoom;
-    let world_right = (viewport_w - camera.pan_x) / camera.zoom;
-    let world_bottom = (viewport_h - camera.pan_y) / camera.zoom;
+    // Compute world bounds from rotated viewport corners, then overscan.
+    let corners = [
+        Point::new(0.0, 0.0),
+        Point::new(viewport_w, 0.0),
+        Point::new(viewport_w, viewport_h),
+        Point::new(0.0, viewport_h),
+    ];
+    let world_corners = corners.map(|corner| camera.screen_to_world(corner, viewport_center));
+    let min_x = world_corners
+        .iter()
+        .map(|p| p.x)
+        .fold(f64::INFINITY, f64::min);
+    let max_x = world_corners
+        .iter()
+        .map(|p| p.x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_y = world_corners
+        .iter()
+        .map(|p| p.y)
+        .fold(f64::INFINITY, f64::min);
+    let max_y = world_corners
+        .iter()
+        .map(|p| p.y)
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    let overscan_world = 0.5 * viewport_w.hypot(viewport_h) / camera.zoom;
+    let world_left = min_x - overscan_world;
+    let world_top = min_y - overscan_world;
+    let world_right = max_x + overscan_world;
+    let world_bottom = max_y + overscan_world;
 
     // Snap to grid.
     let start_x = (world_left / spacing).floor() * spacing;
