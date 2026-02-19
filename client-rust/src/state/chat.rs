@@ -1,3 +1,10 @@
+//! Chat-panel state and message DTOs.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Chat transport is websocket-based; this state is the local projection used
+//! by chat UI components.
+
 #[cfg(test)]
 #[path = "chat_test.rs"]
 mod chat_test;

@@ -1,4 +1,9 @@
 //! Dashboard page listing boards with create and open actions.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! This is the authenticated landing route. It requests board inventory over
+//! websocket once connectivity is ready and coordinates create->navigate flow.
 
 use leptos::prelude::*;
 use leptos_router::NavigateOptions;

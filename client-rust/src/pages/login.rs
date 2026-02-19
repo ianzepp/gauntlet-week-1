@@ -1,4 +1,9 @@
 //! Login page with GitHub OAuth redirect button.
+//!
+//! DESIGN
+//! ======
+//! Kept intentionally minimal: auth complexity stays server-side and this view
+//! remains a stable handoff surface to `/auth/github`.
 
 use leptos::prelude::*;
 

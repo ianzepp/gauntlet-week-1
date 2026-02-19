@@ -1,4 +1,9 @@
 //! Reusable card component for board list items on the dashboard.
+//!
+//! DESIGN
+//! ======
+//! Keeps board list presentation consistent between dashboard and mission
+//! control while centralizing navigation affordances.
 
 use leptos::prelude::*;
 

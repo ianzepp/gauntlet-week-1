@@ -1,4 +1,9 @@
 //! Root application component with routing and context providers.
+//!
+//! ARCHITECTURE
+//! ============
+//! This module is the composition root for client state contexts, route setup,
+//! and hydrate-only side effects (auth bootstrap, websocket spawn, theme init).
 
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};

@@ -1,4 +1,9 @@
 //! In-board board switcher listing available boards with navigation.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Supports board-to-board navigation without leaving the board route, which
+//! relies on route-transition membership handling in `pages::board`.
 
 use leptos::prelude::*;
 

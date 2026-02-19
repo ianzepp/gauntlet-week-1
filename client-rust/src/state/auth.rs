@@ -1,3 +1,10 @@
+//! Auth-session state for the current browser user.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Used by route guards and user-aware components to coordinate login redirects
+//! and identity-dependent rendering.
+
 #[cfg(test)]
 #[path = "auth_test.rs"]
 mod auth_test;

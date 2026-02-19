@@ -1,4 +1,9 @@
 //! Real-time board chat panel displaying and sending messages.
+//!
+//! DESIGN
+//! ======
+//! Chat interactions are frame-protocol driven so panel behavior stays aligned
+//! with websocket history + broadcast semantics.
 
 use leptos::prelude::*;
 

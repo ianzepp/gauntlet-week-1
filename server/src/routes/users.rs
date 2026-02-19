@@ -1,4 +1,9 @@
 //! User profile routes.
+//!
+//! DESIGN
+//! ======
+//! Profile responses combine durable SQL aggregates with in-memory fallbacks
+//! for live board objects that may not yet be flushed.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

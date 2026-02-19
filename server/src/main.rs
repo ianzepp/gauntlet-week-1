@@ -1,3 +1,15 @@
+//! Server entrypoint for CollabBoard backend runtime.
+//!
+//! ARCHITECTURE
+//! ============
+//! Bootstraps infrastructure (DB, optional LLM, optional OAuth), wires shared
+//! `AppState`, starts persistence workers, and serves the Axum + Leptos app.
+//!
+//! TRADE-OFFS
+//! ==========
+//! Optional integrations (LLM, GitHub OAuth) are non-fatal at startup so the
+//! core realtime board can run in constrained environments.
+
 #![allow(dead_code)]
 
 mod db;

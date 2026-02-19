@@ -1,4 +1,14 @@
 //! Session and WS-ticket management.
+//!
+//! ARCHITECTURE
+//! ============
+//! HTTP auth uses long-lived session tokens, while websocket upgrades use
+//! one-time short-lived tickets to avoid sending cookies over WS query params.
+//!
+//! TRADE-OFFS
+//! ==========
+//! Ticket consumption is destructive (`DELETE ... RETURNING`) to guarantee
+//! single use; this favors replay safety over reconnect convenience.
 
 use std::fmt::Write;
 

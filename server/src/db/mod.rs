@@ -1,4 +1,9 @@
 //! Database initialization and migration runner.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Startup uses this module to create the shared SQLx pool and enforce schema
+//! migrations before accepting websocket/API traffic.
 
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;

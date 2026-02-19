@@ -1,3 +1,10 @@
+//! Shared wire-protocol DTOs for the client/server boundary.
+//!
+//! DESIGN
+//! ======
+//! These types intentionally mirror server frame payloads so serde round-trips
+//! stay lossless and websocket dispatch code can remain schema-driven.
+
 #[cfg(test)]
 #[path = "types_test.rs"]
 mod types_test;

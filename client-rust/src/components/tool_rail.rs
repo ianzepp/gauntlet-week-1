@@ -1,4 +1,9 @@
 //! Vertical strip of tool buttons for selecting the active drawing tool.
+//!
+//! DESIGN
+//! ======
+//! Keeps active-tool switching centralized so other components can treat tool
+//! choice as state, not direct DOM coupling.
 
 use leptos::prelude::*;
 

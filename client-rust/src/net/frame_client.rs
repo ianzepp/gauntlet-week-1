@@ -6,6 +6,11 @@
 //!
 //! All WebSocket logic is gated behind `#[cfg(feature = "hydrate")]` since it
 //! requires a browser environment.
+//!
+//! ERROR HANDLING
+//! ==============
+//! Parse/transport failures are handled defensively and translated into state
+//! updates/logging so realtime UX can recover through reconnect loops.
 
 #[cfg(any(test, feature = "hydrate"))]
 use crate::net::types::Frame;

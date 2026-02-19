@@ -1,6 +1,11 @@
 //! CollabBoard-specific tool definitions for the AI agent.
 //!
 //! Tool names match the G4 Week 1 spec exactly (issue #19).
+//!
+//! DESIGN
+//! ======
+//! Definitions are provider-agnostic and converted by adapters, keeping the
+//! command surface stable even when LLM backend implementations change.
 
 use super::types::Tool;
 

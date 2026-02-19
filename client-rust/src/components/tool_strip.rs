@@ -1,4 +1,9 @@
 //! Quick-create flyout for sticky notes and rectangles.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Converts tool shortcuts into optimistic create frames so the canvas can
+//! respond immediately while server reconciliation stays authoritative.
 
 use leptos::prelude::*;
 

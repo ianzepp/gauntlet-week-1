@@ -3,6 +3,11 @@
 //! Reads the user's preference from `localStorage` and applies the
 //! `.dark-mode` class to the `<html>` element. Toggle writes back to
 //! `localStorage` and updates the class. Requires a browser environment.
+//!
+//! TRADE-OFFS
+//! ==========
+//! Preference persistence is best-effort browser-only behavior; SSR paths
+//! safely no-op to keep server rendering deterministic.
 
 #[cfg(feature = "hydrate")]
 const STORAGE_KEY: &str = "gauntlet_week_1_dark";

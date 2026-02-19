@@ -1,4 +1,9 @@
 //! Router assembly.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! This module binds HTTP + websocket endpoints and stitches API routes with
+//! Leptos SSR rendering under a single Axum router.
 
 pub mod auth;
 pub mod users;

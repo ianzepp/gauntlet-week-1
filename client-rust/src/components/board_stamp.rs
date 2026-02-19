@@ -1,4 +1,9 @@
 //! Semi-transparent overlay label displayed on the canvas area.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Provides persistent board identity in the drawing viewport without affecting
+//! interactive canvas hit-testing.
 
 use leptos::prelude::*;
 

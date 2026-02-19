@@ -1,3 +1,11 @@
+//! Canvas viewport telemetry used by non-canvas UI surfaces.
+//!
+//! ARCHITECTURE
+//! ============
+//! `CanvasHost` owns authoritative camera/cursor coordinates and publishes
+//! snapshots through this struct so other components (status bar, overlays)
+//! can render without direct canvas coupling.
+
 use crate::net::types::Point;
 
 /// Live canvas telemetry consumed by chrome (status bar).

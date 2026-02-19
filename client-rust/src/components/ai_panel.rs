@@ -1,4 +1,9 @@
 //! AI assistant panel for sending prompts and displaying responses.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Encodes prompt interactions as `ai:prompt` frames and renders streamed
+//! response history from shared AI state.
 
 use leptos::prelude::*;
 

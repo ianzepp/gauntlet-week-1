@@ -1,4 +1,9 @@
 //! Top bar displaying board name, presence avatars, back button, and logout.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! This component surfaces session/board metadata and primary navigation
+//! controls that remain visible during board workflows.
 
 use std::collections::HashSet;
 

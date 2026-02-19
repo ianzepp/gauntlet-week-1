@@ -1,4 +1,9 @@
 //! Collapsible right panel with icon rail for boards, records, chat, and AI.
+//!
+//! ARCHITECTURE
+//! ============
+//! Right-side tools are organized as tabbed subviews so chat/AI/records can
+//! share one rail without overlapping canvas layout logic.
 
 use leptos::prelude::*;
 

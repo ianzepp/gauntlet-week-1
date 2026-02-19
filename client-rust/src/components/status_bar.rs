@@ -1,4 +1,9 @@
 //! Bottom status bar showing connection status, zoom level, and object count.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Renders low-frequency board telemetry so users can monitor connection and
+//! viewport state without opening additional panels.
 
 use leptos::prelude::*;
 

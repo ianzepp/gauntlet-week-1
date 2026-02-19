@@ -1,3 +1,10 @@
+//! Reusable UI component modules.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Components render board chrome and interaction surfaces while reading/writing
+//! shared state from Leptos context providers.
+
 pub mod ai_panel;
 pub mod board_card;
 pub mod board_stamp;

@@ -1,3 +1,9 @@
+//! AI-assistant conversation state.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Stores user-visible AI transcript + request lifecycle flags for panel UI.
+
 #[cfg(test)]
 #[path = "ai_test.rs"]
 mod ai_test;

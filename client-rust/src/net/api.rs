@@ -3,6 +3,11 @@
 //! Client-side (hydrate): real HTTP calls via `gloo-net`.
 //! Server-side (SSR): stubs returning `None`/error since these endpoints
 //! are only meaningful in the browser.
+//!
+//! ERROR HANDLING
+//! ==============
+//! Callers get `Option`/`Result` outputs instead of panics so auth/profile
+//! fetch failures degrade UI behavior without crashing hydration.
 
 #![allow(clippy::unused_async)]
 

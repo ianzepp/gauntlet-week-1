@@ -1,4 +1,9 @@
 //! Bridge component between Leptos state and the imperative `canvas::Engine`.
+//!
+//! ARCHITECTURE
+//! ============
+//! The canvas crate owns render-time performance concerns while this host maps
+//! websocket/state events into engine operations and publishes viewport telemetry.
 
 use leptos::prelude::*;
 

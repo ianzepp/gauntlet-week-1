@@ -1,4 +1,9 @@
 //! Savepoint list for the right-side "Field Records" panel.
+//!
+//! DESIGN
+//! ======
+//! Savepoints are protocol-backed snapshots; this shelf stays read-focused and
+//! delegates mutation requests to frame messages for server authority.
 
 use leptos::prelude::*;
 

@@ -1,3 +1,10 @@
+//! Board-list state for dashboard and mission-control views.
+//!
+//! DESIGN
+//! ======
+//! Separating list state from active-board state avoids accidental coupling
+//! between navigation inventory and in-board editing data.
+
 #[cfg(test)]
 #[path = "boards_test.rs"]
 mod boards_test;

@@ -1,3 +1,10 @@
+//! Board-session state for the active workspace.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! This model stores the local projection of one joined board, including
+//! real-time objects, peer presence, and transient interaction overlays.
+
 #[cfg(test)]
 #[path = "board_test.rs"]
 mod board_test;

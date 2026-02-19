@@ -3,6 +3,11 @@
 //! Leptos + WASM frontend for the collaborative whiteboard application.
 //! Replaces the React + Konva.js `client/` with a Rust-native UI layer.
 //!
+//! ARCHITECTURE
+//! ============
+//! The crate is split into routing/pages, reusable components, state models,
+//! and protocol clients so rendering and transport concerns remain decoupled.
+//!
 //! This crate contains pages, components, application state, network types,
 //! and the WebSocket frame client. It integrates with the `canvas` crate
 //! for imperative canvas rendering via the `CanvasHost` bridge component.

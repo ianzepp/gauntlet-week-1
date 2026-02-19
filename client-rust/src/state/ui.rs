@@ -1,3 +1,10 @@
+//! Local UI chrome state (tools, tabs, panel expansion).
+//!
+//! DESIGN
+//! ======
+//! Keeps transient presentation concerns out of domain state (`board`, `chat`)
+//! so rendering controls can evolve independently of protocol data.
+
 #[cfg(test)]
 #[path = "ui_test.rs"]
 mod ui_test;

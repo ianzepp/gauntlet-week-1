@@ -1,4 +1,9 @@
 //! Collapsible left panel containing a tool rail and inspector panel.
+//!
+//! ARCHITECTURE
+//! ============
+//! Keeps creation tools and selection inspector co-located so editing controls
+//! remain spatially consistent with canvas interactions.
 
 use leptos::prelude::*;
 

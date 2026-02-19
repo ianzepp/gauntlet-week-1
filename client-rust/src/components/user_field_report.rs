@@ -1,4 +1,9 @@
 //! User profile popover with statistics, shown on presence chip click.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Bridges presence chips to `/api/users/:id/profile` so collaboration context
+//! is available inline without leaving the board workspace.
 
 use leptos::prelude::*;
 

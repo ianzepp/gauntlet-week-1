@@ -1,4 +1,14 @@
 //! GitHub OAuth service — code exchange, profile fetch, user upsert.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! Route handlers call this module to keep OAuth transport details isolated
+//! from session and websocket logic.
+//!
+//! ERROR HANDLING
+//! ==============
+//! Upstream HTTP failures are normalized into `AuthError` variants so callers
+//! can translate them into stable API error responses.
 
 use sqlx::{PgPool, Row};
 use uuid::Uuid;

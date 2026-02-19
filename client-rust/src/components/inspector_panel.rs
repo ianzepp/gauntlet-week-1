@@ -1,4 +1,9 @@
 //! Property inspector for selected board objects.
+//!
+//! ARCHITECTURE
+//! ============
+//! Inspector edits are emitted as partial object updates so multiple clients
+//! can converge through server-side versioned object state.
 
 use leptos::prelude::*;
 
