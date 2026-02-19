@@ -109,6 +109,10 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
 
     // Per-connection channel for receiving broadcast frames from peers.
     let (client_tx, mut client_rx) = mpsc::channel::<Frame>(ws_client_channel_capacity());
+    {
+        let mut clients = state.ws_clients.write().await;
+        clients.insert(client_id, client_tx.clone());
+    }
 
     // Send session:connected with user_id.
     let welcome = Frame::request("session:connected", Data::new())
@@ -171,6 +175,10 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
         services::board::broadcast(&state, board_id, &part_frame, Some(client_id)).await;
 
         services::board::part_board(&state, board_id, client_id).await;
+    }
+    {
+        let mut clients = state.ws_clients.write().await;
+        clients.remove(&client_id);
     }
     info!(%client_id, "ws: client disconnected");
 }
@@ -387,6 +395,17 @@ fn make_board_part_frame(board_id: Uuid, client_id: Uuid, user_id: Uuid, user_na
     Frame::request("board:part", part_data).with_board_id(board_id)
 }
 
+async fn broadcast_board_list_refresh(state: &AppState) {
+    let frame = Frame::request("board:list:refresh", Data::new());
+    let recipients = {
+        let clients = state.ws_clients.read().await;
+        clients.values().cloned().collect::<Vec<_>>()
+    };
+    for tx in recipients {
+        let _ = tx.try_send(frame.clone());
+    }
+}
+
 async fn handle_board_join(
     state: &AppState,
     current_board: &mut Option<Uuid>,
@@ -470,6 +489,7 @@ async fn handle_board_create(state: &AppState, user_id: Uuid, req: &Frame) -> Re
 
     match services::board::create_board(&state.pool, name, user_id).await {
         Ok(row) => {
+            broadcast_board_list_refresh(state).await;
             let mut data = Data::new();
             data.insert("id".into(), serde_json::json!(row.id));
             data.insert("name".into(), serde_json::json!(row.name));
@@ -595,18 +615,18 @@ async fn handle_board_delete(state: &AppState, user_id: Uuid, req: &Frame) -> Re
             let notify = Frame::request("board:delete", notify_data).with_board_id(board_id);
 
             let recipients = {
-                let mut boards = state.boards.write().await;
-                let mut txs = Vec::new();
-                for board_state in boards.values() {
-                    txs.extend(board_state.clients.values().cloned());
-                }
-                boards.remove(&board_id);
-                txs
+                let clients = state.ws_clients.read().await;
+                clients.values().cloned().collect::<Vec<_>>()
             };
+            {
+                let mut boards = state.boards.write().await;
+                boards.remove(&board_id);
+            }
 
             for tx in recipients {
                 let _ = tx.try_send(notify.clone());
             }
+            broadcast_board_list_refresh(state).await;
             Ok(Outcome::Done)
         }
         Err(e) => Err(req.error_from(&e)),

@@ -88,6 +88,7 @@ impl Default for BoardState {
 pub struct AppState {
     pub pool: PgPool,
     pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+    pub ws_clients: Arc<RwLock<HashMap<Uuid, mpsc::Sender<Frame>>>>,
     /// Optional bounded queue sender for async frame persistence.
     /// `None` in tests or when frame persistence is disabled.
     pub frame_persist_tx: Option<mpsc::Sender<Frame>>,
@@ -105,6 +106,7 @@ impl AppState {
         Self {
             pool,
             boards: Arc::new(RwLock::new(HashMap::new())),
+            ws_clients: Arc::new(RwLock::new(HashMap::new())),
             frame_persist_tx: None,
             llm,
             rate_limiter: RateLimiter::new(),

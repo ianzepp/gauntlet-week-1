@@ -323,6 +323,11 @@ fn handle_board_frame(
             });
             true
         }
+        "board:list:refresh" => {
+            boards.update(|s| s.loading = true);
+            send_board_list_request(tx);
+            true
+        }
         "board:create" if frame.status == FrameStatus::Done => {
             if let Ok(created) = serde_json::from_value::<BoardListItem>(frame.data.clone()) {
                 boards.update(|s| {
@@ -343,7 +348,7 @@ fn handle_board_frame(
         }
         "board:delete" if frame.status == FrameStatus::Done => {
             if let Some(deleted_board_id) = deleted_board_id(frame)
-                && board.get().board_id.as_deref() == Some(deleted_board_id.as_str())
+                && board.get_untracked().board_id.as_deref() == Some(deleted_board_id.as_str())
             {
                 board.update(|b| {
                     b.board_id = None;
@@ -369,7 +374,7 @@ fn handle_board_frame(
         }
         "board:delete" => {
             if let Some(deleted_board_id) = deleted_board_id(frame)
-                && board.get().board_id.as_deref() == Some(deleted_board_id.as_str())
+                && board.get_untracked().board_id.as_deref() == Some(deleted_board_id.as_str())
             {
                 #[cfg(feature = "hydrate")]
                 if let Some(window) = web_sys::window() {
