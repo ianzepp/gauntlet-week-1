@@ -42,6 +42,16 @@ fn env_is_set(key: &str) -> bool {
     std::env::var(key).is_ok()
 }
 
+fn ensure_leptos_env_defaults() {
+    // Running with plain `cargo run -p server` does not set this cargo-leptos env.
+    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+        // SAFETY: process-local startup initialization before worker tasks.
+        unsafe {
+            std::env::set_var("LEPTOS_OUTPUT_NAME", "client");
+        }
+    }
+}
+
 fn log_env_line(key: &str, value: impl std::fmt::Display) {
     tracing::info!("using env: {key}={value}");
 }
@@ -119,6 +129,7 @@ fn log_startup_env_config(port: u16) {
 async fn main() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
+    ensure_leptos_env_defaults();
     let migrate_only = has_flag("--migrate-only");
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL required");

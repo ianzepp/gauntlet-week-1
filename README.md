@@ -161,6 +161,7 @@ Required auth context:
 
 - Preferred: set `PERF_SESSION_TOKEN`
 - Optional (single-client only): set `PERF_WS_TICKET`
+- Local no-login mode: set server env `PERF_TEST_AUTH_BYPASS=true` (enables `/api/dev/ws-ticket` bootstrap)
 
 Key perf env vars:
 

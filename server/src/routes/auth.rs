@@ -6,6 +6,7 @@ use axum::response::{IntoResponse, Json, Redirect, Response};
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 use serde::Deserialize;
 use time::Duration;
+use uuid::Uuid;
 
 use crate::services::{auth as auth_svc, session};
 use crate::state::AppState;
@@ -31,6 +32,10 @@ pub(crate) fn cookie_secure() -> bool {
     std::env::var("GITHUB_REDIRECT_URI")
         .map(|uri| uri.starts_with("https://"))
         .unwrap_or(false)
+}
+
+fn perf_test_auth_bypass_enabled() -> bool {
+    env_bool("PERF_TEST_AUTH_BYPASS").unwrap_or(false)
 }
 
 // =============================================================================
@@ -199,6 +204,36 @@ pub async fn ws_ticket(State(state): State<AppState>, auth: AuthUser) -> Result<
     let ticket = session::create_ws_ticket(&state.pool, auth.user.id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(serde_json::json!({ "ticket": ticket })))
+}
+
+/// `POST /api/dev/ws-ticket` — perf-test-only ticket bootstrap without OAuth/session.
+///
+/// Enabled only when `PERF_TEST_AUTH_BYPASS=true`.
+pub async fn dev_ws_ticket(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    if !perf_test_auth_bypass_enabled() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let user_id =
+        Uuid::parse_str("00000000-0000-0000-0000-00000000f00d").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let user_name = "Perf User".to_owned();
+
+    sqlx::query(
+        "INSERT INTO users (id, name, color) VALUES ($1, $2, $3)
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, color = EXCLUDED.color",
+    )
+    .bind(user_id)
+    .bind(user_name)
+    .bind("#4CAF50")
+    .execute(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let ticket = session::create_ws_ticket(&state.pool, user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     Ok(Json(serde_json::json!({ "ticket": ticket })))
 }
 

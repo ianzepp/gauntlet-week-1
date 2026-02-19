@@ -16,20 +16,28 @@ From workspace root:
 cargo test -p perf -- --ignored --nocapture
 ```
 
-## Required auth setup
+## Auth modes
 
-Provide either:
+The harness supports three modes:
 
-- `PERF_SESSION_TOKEN` (recommended): used to mint one-time WS tickets via `/api/auth/ws-ticket`
-- `PERF_WS_TICKET` (single-client only): direct one-time ticket for simple runs
+1. `PERF_SESSION_TOKEN` (recommended for stable runs):
+- Uses `/api/auth/ws-ticket` with `session_token` cookie.
 
-Mass-user test requires `PERF_SESSION_TOKEN` so it can mint many tickets.
+2. `PERF_WS_TICKET` (single-client only):
+- Direct one-time ticket for simple single-client runs.
+- Not valid for mass-user runs.
+
+3. Dev bootstrap (no token required):
+- Server must run with `PERF_TEST_AUTH_BYPASS=true`.
+- Harness calls `/api/dev/ws-ticket` to mint ephemeral users + tickets.
+- Useful for local perf work without OAuth/login.
 
 ## Environment variables
 
 - `PERF_BASE_URL` default: `http://127.0.0.1:3000`
 - `PERF_SESSION_TOKEN` optional
 - `PERF_WS_TICKET` optional
+- `PERF_TEST_AUTH_BYPASS` (server env; set to `true` to enable `/api/dev/ws-ticket`)
 - `PERF_BASELINE_REQUESTS` default: `200`
 - `PERF_COMPLEXITY_COUNTS` default: `100,500,1000`
 - `PERF_MASS_USERS` default: `25`

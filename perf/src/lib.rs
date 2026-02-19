@@ -255,34 +255,12 @@ pub async fn acquire_ws_ticket(config: &PerfConfig) -> Result<String, PerfError>
         return Ok(ticket.clone());
     }
 
-    let Some(session_token) = config.session_token.clone() else {
-        return Err(PerfError::MissingAuth);
-    };
+    if let Some(session_token) = config.session_token.clone() {
+        return fetch_ticket_with_session(config, &session_token).await;
+    }
 
-    let client = reqwest::Client::new();
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        COOKIE,
-        HeaderValue::from_str(&format!("session_token={session_token}"))?,
-    );
-
-    let url = format!(
-        "{}/api/auth/ws-ticket",
-        config.base_url.trim_end_matches('/')
-    );
-    let body = client
-        .post(url)
-        .headers(headers)
-        .send()
-        .await?
-        .error_for_status()?
-        .json::<serde_json::Value>()
-        .await?;
-
-    body.get("ticket")
-        .and_then(serde_json::Value::as_str)
-        .map(ToOwned::to_owned)
-        .ok_or(PerfError::MissingField("ticket"))
+    // Dev/perf fallback path: requires server-side PERF_TEST_AUTH_BYPASS=true.
+    fetch_ticket_via_dev_bootstrap(config).await
 }
 
 /// Acquire multiple one-time WS tickets.
@@ -344,6 +322,54 @@ fn frame_error_message(frame: &Frame) -> String {
         .and_then(serde_json::Value::as_str)
         .unwrap_or("request failed")
         .to_owned()
+}
+
+async fn fetch_ticket_with_session(
+    config: &PerfConfig,
+    session_token: &str,
+) -> Result<String, PerfError> {
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        COOKIE,
+        HeaderValue::from_str(&format!("session_token={session_token}"))?,
+    );
+
+    let url = format!(
+        "{}/api/auth/ws-ticket",
+        config.base_url.trim_end_matches('/')
+    );
+    let body = client
+        .post(url)
+        .headers(headers)
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<serde_json::Value>()
+        .await?;
+
+    body.get("ticket")
+        .and_then(serde_json::Value::as_str)
+        .map(ToOwned::to_owned)
+        .ok_or(PerfError::MissingField("ticket"))
+}
+
+async fn fetch_ticket_via_dev_bootstrap(config: &PerfConfig) -> Result<String, PerfError> {
+    let client = reqwest::Client::new();
+    let url = format!(
+        "{}/api/dev/ws-ticket",
+        config.base_url.trim_end_matches('/')
+    );
+    let response = client.post(url).send().await?;
+    if !response.status().is_success() {
+        return Err(PerfError::MissingAuth);
+    }
+
+    let body = response.json::<serde_json::Value>().await?;
+    body.get("ticket")
+        .and_then(serde_json::Value::as_str)
+        .map(ToOwned::to_owned)
+        .ok_or(PerfError::MissingField("ticket"))
 }
 
 fn ws_url(base_url: &str, ticket: &str) -> Result<String, PerfError> {

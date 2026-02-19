@@ -40,7 +40,7 @@ async fn create_and_join_board(client: &mut WsPerfClient) -> Result<String, Perf
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-#[ignore = "live perf test; run manually with PERF_SESSION_TOKEN and --ignored"]
+#[ignore = "live perf test; run manually with PERF_SESSION_TOKEN or server PERF_TEST_AUTH_BYPASS=true, plus --ignored"]
 async fn ws_round_trip_latency_test() -> Result<(), PerfError> {
     let config = PerfConfig::from_env();
     let mut client = connect_client(&config).await?;
@@ -60,7 +60,7 @@ async fn ws_round_trip_latency_test() -> Result<(), PerfError> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-#[ignore = "live perf test; run manually with PERF_SESSION_TOKEN and --ignored"]
+#[ignore = "live perf test; run manually with PERF_SESSION_TOKEN or server PERF_TEST_AUTH_BYPASS=true, plus --ignored"]
 async fn board_complexity_object_create_perf_test() -> Result<(), PerfError> {
     let config = PerfConfig::from_env();
     let mut client = connect_client(&config).await?;
@@ -122,7 +122,7 @@ async fn run_mass_user_worker(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
-#[ignore = "live perf test; run manually with PERF_SESSION_TOKEN and --ignored"]
+#[ignore = "live perf test; run manually with PERF_SESSION_TOKEN or server PERF_TEST_AUTH_BYPASS=true, plus --ignored"]
 async fn mass_user_concurrent_perf_test() -> Result<(), PerfError> {
     let config = PerfConfig::from_env();
 

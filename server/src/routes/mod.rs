@@ -31,6 +31,7 @@ fn api_routes(state: AppState) -> Router {
         .route("/api/auth/me", get(auth::me))
         .route("/api/auth/logout", post(auth::logout))
         .route("/api/auth/ws-ticket", post(auth::ws_ticket))
+        .route("/api/dev/ws-ticket", post(auth::dev_ws_ticket))
         .route("/api/users/{id}/profile", get(users::user_profile))
         .route("/api/ws", get(ws::handle_ws))
         .route("/healthz", get(healthz))
