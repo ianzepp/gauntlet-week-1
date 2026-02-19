@@ -4,11 +4,11 @@ use axum::extract::{FromRef, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json, Redirect, Response};
 use axum_extra::extract::cookie::{Cookie, CookieJar};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use time::Duration;
 use uuid::Uuid;
 
-use crate::services::{auth as auth_svc, session};
+use crate::services::{auth as auth_svc, email_auth, session};
 use crate::state::AppState;
 
 const COOKIE_NAME: &str = "session_token";
@@ -205,6 +205,98 @@ pub async fn ws_ticket(State(state): State<AppState>, auth: AuthUser) -> Result<
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(serde_json::json!({ "ticket": ticket })))
+}
+
+#[derive(Deserialize)]
+pub struct RequestEmailCodeBody {
+    pub email: String,
+}
+
+#[derive(Serialize)]
+pub struct RequestEmailCodeResponse {
+    pub ok: bool,
+    pub code: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct VerifyEmailCodeBody {
+    pub email: String,
+    pub code: String,
+}
+
+#[derive(Serialize)]
+pub struct VerifyEmailCodeResponse {
+    pub ok: bool,
+}
+
+pub(crate) fn include_email_code_in_response() -> bool {
+    env_bool("AUTH_EMAIL_CODE_IN_RESPONSE").unwrap_or(true)
+}
+
+fn resend_env() -> Option<(String, String)> {
+    let api_key = std::env::var("RESEND_API_KEY").ok()?;
+    let from = std::env::var("RESEND_FROM").ok()?;
+    if api_key.trim().is_empty() || from.trim().is_empty() {
+        return None;
+    }
+    Some((api_key, from))
+}
+
+/// `POST /api/auth/email/request-code` — create and return an email access code.
+pub async fn request_email_code(
+    State(state): State<AppState>,
+    Json(body): Json<RequestEmailCodeBody>,
+) -> Result<Json<RequestEmailCodeResponse>, StatusCode> {
+    let code = match email_auth::request_access_code(&state.pool, &body.email).await {
+        Ok(code) => code,
+        Err(email_auth::EmailAuthError::InvalidEmail) => return Err(StatusCode::BAD_REQUEST),
+        Err(email_auth::EmailAuthError::Db(_)) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(_) => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    let include_code = include_email_code_in_response();
+    if let Some((resend_api_key, resend_from)) = resend_env() {
+        if let Err(error) = email_auth::send_access_code_email(&resend_api_key, &resend_from, &body.email, &code).await
+        {
+            tracing::error!(%error, email = body.email, "failed to send email login code");
+            return Err(StatusCode::BAD_GATEWAY);
+        }
+    } else if !include_code {
+        tracing::warn!("email login code requested but Resend not configured and response echo disabled");
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    Ok(Json(RequestEmailCodeResponse { ok: true, code: include_code.then_some(code) }))
+}
+
+/// `POST /api/auth/email/verify-code` — verify email code and create session cookie.
+pub async fn verify_email_code(
+    State(state): State<AppState>,
+    Json(body): Json<VerifyEmailCodeBody>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user_id = match email_auth::verify_access_code(&state.pool, &body.email, &body.code).await {
+        Ok(user_id) => user_id,
+        Err(email_auth::EmailAuthError::InvalidEmail | email_auth::EmailAuthError::InvalidCode) => {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        Err(email_auth::EmailAuthError::VerificationFailed) => return Err(StatusCode::UNAUTHORIZED),
+        Err(email_auth::EmailAuthError::EmailDelivery(_)) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(email_auth::EmailAuthError::Db(_)) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    let token = session::create_session(&state.pool, user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let secure = cookie_secure();
+    let session_cookie = Cookie::build((COOKIE_NAME, token))
+        .path("/")
+        .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(secure);
+
+    let jar = CookieJar::new().add(session_cookie);
+    Ok((jar, Json(VerifyEmailCodeResponse { ok: true })))
 }
 
 /// `POST /api/dev/ws-ticket` — perf-test-only ticket bootstrap without OAuth/session.

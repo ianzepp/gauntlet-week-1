@@ -8,6 +8,7 @@
 pub mod ai;
 pub mod auth;
 pub mod board;
+pub mod email_auth;
 pub mod object;
 pub mod persistence;
 pub mod savepoint;

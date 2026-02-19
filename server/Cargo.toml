@@ -22,6 +22,7 @@ tower-http = { version = "0.6", features = ["cors", "compression-gzip", "fs", "t
 tracing = "0.1"
 tracing-subscriber = "0.3"
 rand = "0.9"
+sha2 = "0.10"
 thiserror = "2"
 time = "0.3"
 async-trait = "0.1"
@@ -32,6 +33,7 @@ frames = { path = "../frames" }
 leptos = { version = "0.8", features = ["ssr"] }
 leptos_axum = "0.8"
 client = { path = "../client", features = ["ssr"] }
+resend-rs = "0.21.0"
 
 [dev-dependencies]
 tokio-tungstenite = "0.26"

@@ -30,6 +30,8 @@ fn api_routes(state: AppState) -> Router {
         .route("/auth/github/callback", get(auth::github_callback))
         .route("/api/auth/me", get(auth::me))
         .route("/api/auth/logout", post(auth::logout))
+        .route("/api/auth/email/request-code", post(auth::request_email_code))
+        .route("/api/auth/email/verify-code", post(auth::verify_email_code))
         .route("/api/auth/ws-ticket", post(auth::ws_ticket))
         .route("/api/dev/ws-ticket", post(auth::dev_ws_ticket))
         .route("/api/users/{id}/profile", get(users::user_profile))

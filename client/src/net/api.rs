@@ -12,6 +12,8 @@
 #![allow(clippy::unused_async)]
 
 use super::types::{User, UserProfile};
+#[cfg(feature = "hydrate")]
+use serde::Deserialize;
 
 /// Fetch the currently authenticated user from `/api/auth/me`.
 /// Returns `None` if not authenticated or on the server.
@@ -85,6 +87,75 @@ pub async fn create_ws_ticket() -> Result<String, String> {
     }
     #[cfg(not(feature = "hydrate"))]
     {
+        Err("not available on server".to_owned())
+    }
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Debug, Deserialize)]
+struct RequestEmailCodeResponse {
+    ok: bool,
+    code: Option<String>,
+}
+
+/// Request a 6-character email login code via `POST /api/auth/email/request-code`.
+///
+/// Returns an optional code string when the server is configured to echo codes.
+pub async fn request_email_login_code(email: &str) -> Result<Option<String>, String> {
+    #[cfg(feature = "hydrate")]
+    {
+        let payload = serde_json::json!({ "email": email });
+        let resp = gloo_net::http::Request::post("/api/auth/email/request-code")
+            .json(&payload)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.ok() {
+            return Err(format!("request code failed: {}", resp.status()));
+        }
+        let body: RequestEmailCodeResponse = resp.json().await.map_err(|e| e.to_string())?;
+        if !body.ok {
+            return Err("request code failed".to_owned());
+        }
+        Ok(body.code)
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        let _ = email;
+        Err("not available on server".to_owned())
+    }
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Debug, Deserialize)]
+struct VerifyEmailCodeResponse {
+    ok: bool,
+}
+
+/// Verify an email login code via `POST /api/auth/email/verify-code`.
+pub async fn verify_email_login_code(email: &str, code: &str) -> Result<(), String> {
+    #[cfg(feature = "hydrate")]
+    {
+        let payload = serde_json::json!({ "email": email, "code": code });
+        let resp = gloo_net::http::Request::post("/api/auth/email/verify-code")
+            .json(&payload)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.ok() {
+            return Err(format!("verify code failed: {}", resp.status()));
+        }
+        let body: VerifyEmailCodeResponse = resp.json().await.map_err(|e| e.to_string())?;
+        if !body.ok {
+            return Err("verify code failed".to_owned());
+        }
+        Ok(())
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        let _ = (email, code);
         Err("not available on server".to_owned())
     }
 }

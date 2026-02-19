@@ -92,3 +92,18 @@ fn cookie_secure_https_inference_logic() {
     assert!("https://myapp.com/callback".starts_with("https://"));
     assert!(!"http://localhost/callback".starts_with("https://"));
 }
+
+#[test]
+fn include_email_code_in_response_defaults_true() {
+    let key = "AUTH_EMAIL_CODE_IN_RESPONSE";
+    unsafe { std::env::remove_var(key) };
+    assert!(include_email_code_in_response());
+}
+
+#[test]
+fn include_email_code_in_response_respects_env() {
+    let key = "AUTH_EMAIL_CODE_IN_RESPONSE";
+    unsafe { std::env::set_var(key, "false") };
+    assert!(!include_email_code_in_response());
+    unsafe { std::env::remove_var(key) };
+}
