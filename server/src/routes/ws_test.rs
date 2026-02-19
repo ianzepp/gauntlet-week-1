@@ -347,6 +347,35 @@ async fn object_drag_broadcasts_ephemeral_transform_to_peers() {
 }
 
 #[tokio::test]
+async fn object_drag_end_broadcasts_to_peers_without_sender_reply() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
+        register_two_clients(&state, board_id).await;
+    let mut current_board = Some(board_id);
+    let user_id = Uuid::new_v4();
+    let object_id = Uuid::new_v4();
+
+    let mut data = Data::new();
+    data.insert("id".into(), json!(object_id));
+    let text = request_json(board_id, "object:drag:end", data);
+
+    let sender_frames =
+        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+
+    assert!(sender_frames.is_empty());
+    assert_no_board_broadcast(&mut sender_rx).await;
+
+    let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
+    assert_eq!(peer_broadcast.syscall, "object:drag:end");
+    assert_eq!(peer_broadcast.status, Status::Request);
+    assert_eq!(
+        peer_broadcast.data.get("id").and_then(|v| v.as_str()),
+        Some(object_id.to_string().as_str())
+    );
+}
+
+#[tokio::test]
 async fn chat_history_requires_joined_board() {
     let state = test_helpers::test_app_state();
     let (client_tx, mut client_rx) = mpsc::channel(8);

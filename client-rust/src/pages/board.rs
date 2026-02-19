@@ -35,6 +35,8 @@ pub fn BoardPage() -> impl IntoView {
             b.board_id.clone_from(&id);
             b.board_name = None;
             b.objects.clear();
+            b.drag_objects.clear();
+            b.drag_updated_at.clear();
             b.selection.clear();
             b.presence.clear();
         });
@@ -74,6 +76,8 @@ pub fn BoardPage() -> impl IntoView {
             b.board_id = None;
             b.board_name = None;
             b.objects.clear();
+            b.drag_objects.clear();
+            b.drag_updated_at.clear();
             b.selection.clear();
             b.presence.clear();
         });

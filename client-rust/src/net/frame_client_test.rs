@@ -208,10 +208,101 @@ fn apply_object_frame_drag_updates_object_geometry() {
         &mut board,
     );
 
-    let obj = board.objects.get("obj-1").expect("object should exist");
+    let obj = board
+        .drag_objects
+        .get("obj-1")
+        .expect("drag shadow should exist");
     assert_eq!(obj.x, 200.0);
     assert_eq!(obj.y, 300.0);
     assert_eq!(obj.width, Some(150.0));
     assert_eq!(obj.height, Some(90.0));
     assert_eq!(obj.rotation, 45.0);
+
+    let base = board
+        .objects
+        .get("obj-1")
+        .expect("authoritative object should exist");
+    assert_eq!(base.x, 0.0);
+    assert_eq!(base.y, 0.0);
+}
+
+#[test]
+fn apply_object_frame_drag_end_clears_drag_shadow() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.objects.insert(obj.id.clone(), obj.clone());
+    board.drag_objects.insert(obj.id.clone(), obj);
+    board.drag_updated_at.insert("obj-1".to_owned(), 100);
+
+    apply_object_frame(
+        &frame("object:drag:end", FrameStatus::Request, serde_json::json!({ "id": "obj-1" })),
+        &mut board,
+    );
+
+    assert!(!board.drag_objects.contains_key("obj-1"));
+    assert!(!board.drag_updated_at.contains_key("obj-1"));
+}
+
+#[test]
+fn apply_object_frame_drag_is_ignored_for_locally_selected_object() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.selection.insert(obj.id.clone());
+    board.objects.insert(obj.id.clone(), obj);
+
+    apply_object_frame(
+        &frame(
+            "object:drag",
+            FrameStatus::Request,
+            serde_json::json!({
+                "id": "obj-1",
+                "x": 200.0,
+                "y": 300.0
+            }),
+        ),
+        &mut board,
+    );
+
+    assert!(!board.drag_objects.contains_key("obj-1"));
+}
+
+#[test]
+fn cleanup_stale_drags_removes_expired_entries() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.objects.insert(obj.id.clone(), obj.clone());
+    board.drag_objects.insert(obj.id.clone(), obj);
+    board.drag_updated_at.insert("obj-1".to_owned(), 100);
+
+    cleanup_stale_drags(&mut board, 1700);
+
+    assert!(!board.drag_objects.contains_key("obj-1"));
+    assert!(!board.drag_updated_at.contains_key("obj-1"));
+}
+
+#[test]
+fn apply_object_frame_drag_smooths_from_previous_drag_state() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.objects.insert(obj.id.clone(), obj.clone());
+    board
+        .drag_objects
+        .insert(obj.id.clone(), crate::net::types::BoardObject { x: 100.0, y: 100.0, ..obj });
+
+    apply_object_frame(
+        &frame(
+            "object:drag",
+            FrameStatus::Request,
+            serde_json::json!({
+                "id": "obj-1",
+                "x": 200.0,
+                "y": 200.0
+            }),
+        ),
+        &mut board,
+    );
+
+    let dragged = board.drag_objects.get("obj-1").expect("drag object");
+    assert!(dragged.x > 100.0 && dragged.x < 200.0);
+    assert!(dragged.y > 100.0 && dragged.y < 200.0);
 }

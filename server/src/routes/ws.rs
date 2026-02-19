@@ -190,7 +190,7 @@ async fn process_inbound_text(
     req.from = Some(user_id.to_string());
 
     let prefix = req.prefix();
-    let is_ephemeral = prefix == "cursor" || req.syscall == "object:drag";
+    let is_ephemeral = prefix == "cursor" || req.syscall == "object:drag" || req.syscall == "object:drag:end";
 
     // Persist inbound request (skip ephemeral frames).
     if !is_ephemeral {
@@ -532,6 +532,19 @@ async fn handle_object(
                     data.insert(key.into(), value.clone());
                 }
             }
+            Ok(Outcome::BroadcastExcludeSender(data))
+        }
+        "drag:end" => {
+            let Some(object_id) = req
+                .data
+                .get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<Uuid>().ok())
+            else {
+                return Err(req.error("id required"));
+            };
+            let mut data = Data::new();
+            data.insert("id".into(), serde_json::json!(object_id));
             Ok(Outcome::BroadcastExcludeSender(data))
         }
         _ => Err(req.error(format!("unknown object op: {op}"))),

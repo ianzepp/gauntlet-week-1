@@ -77,8 +77,9 @@ pub fn CanvasHost() -> impl IntoView {
             let mut snapshot = Vec::new();
             let state = _board.get();
             let board_id = state.board_id.clone();
-            for obj in state.objects.values() {
-                if let Some(mapped) = to_canvas_object(obj, board_id.as_deref()) {
+            for (id, obj) in &state.objects {
+                let source = state.drag_objects.get(id).unwrap_or(obj);
+                if let Some(mapped) = to_canvas_object(source, board_id.as_deref()) {
                     snapshot.push(mapped);
                 }
             }
@@ -162,6 +163,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let _ = canvas.release_pointer_capture(ev.pointer_id());
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
+                    let active_transform = active_transform_object_id(engine);
                     sync_viewport(engine, &canvas_ref);
                     let point = pointer_point(&ev);
                     let button = map_button(ev.button());
@@ -171,6 +173,7 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_selection_from_engine(engine, _board);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
                     last_drag_sent_ms.set(0.0);
+                    send_object_drag_end(active_transform, _board, _sender);
                     let _ = engine.render();
                 }
             }
@@ -229,16 +232,21 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::KeyboardEvent| {
                 if let Some(engine) = engine.borrow_mut().as_mut() {
+                    let active_transform = active_transform_object_id(engine);
                     sync_viewport(engine, &canvas_ref);
                     let key = ev.key();
                     if should_prevent_default_key(&key) {
                         ev.prevent_default();
                     }
+                    let key_for_engine = key.clone();
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
-                    let actions = engine.on_key_down(CanvasKey(key), modifiers);
+                    let actions = engine.on_key_down(CanvasKey(key_for_engine), modifiers);
                     process_actions(actions, engine, _board, _sender);
                     sync_selection_from_engine(engine, _board);
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    if key == "Escape" {
+                        send_object_drag_end(active_transform, _board, _sender);
+                    }
                     let _ = engine.render();
                 }
             }
@@ -402,6 +410,17 @@ fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState
 }
 
 #[cfg(feature = "hydrate")]
+fn active_transform_object_id(engine: &Engine) -> Option<String> {
+    match engine.core.input.clone() {
+        CanvasInputState::DraggingObject { id, .. }
+        | CanvasInputState::ResizingObject { id, .. }
+        | CanvasInputState::RotatingObject { id, .. }
+        | CanvasInputState::DraggingEdgeEndpoint { id, .. } => Some(id.to_string()),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "hydrate")]
 fn send_cursor_moved(
     engine: &Engine,
     point_screen: CanvasPoint,
@@ -483,6 +502,27 @@ fn send_object_drag_if_needed(
     if sender.get_untracked().send(&frame) {
         last_sent_ms.set(now);
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn send_object_drag_end(id: Option<String>, board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+    let Some(id) = id else {
+        return;
+    };
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "object:drag:end".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({ "id": id }),
+    };
+    let _ = sender.get_untracked().send(&frame);
 }
 
 #[cfg(feature = "hydrate")]

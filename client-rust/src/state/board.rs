@@ -15,6 +15,8 @@ pub struct BoardState {
     pub presence: HashMap<String, Presence>,
     pub objects: HashMap<String, BoardObject>,
     pub selection: HashSet<String>,
+    pub drag_objects: HashMap<String, BoardObject>,
+    pub drag_updated_at: HashMap<String, i64>,
 }
 
 /// WebSocket connection status.

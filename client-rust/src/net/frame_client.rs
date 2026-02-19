@@ -245,6 +245,8 @@ fn handle_board_frame(
             {
                 board.update(|b| {
                     b.objects.clear();
+                    b.drag_objects.clear();
+                    b.drag_updated_at.clear();
                     for obj in objs {
                         b.objects.insert(obj.id.clone(), obj);
                     }
@@ -322,13 +324,14 @@ fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardStat
     });
     matches!(
         frame.syscall.as_str(),
-        "object:create" | "object:update" | "object:delete" | "object:drag" | "cursor:moved"
+        "object:create" | "object:update" | "object:delete" | "object:drag" | "object:drag:end" | "cursor:moved"
     )
 }
 
 #[cfg(any(test, feature = "hydrate"))]
 fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
     use crate::net::types::{BoardObject, FrameStatus};
+    cleanup_stale_drags(board, frame.ts);
 
     match frame.syscall.as_str() {
         "object:create" if frame.status == FrameStatus::Done => {
@@ -340,6 +343,8 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
                 if let Some(existing) = board.objects.get_mut(id) {
                     merge_object_update(existing, &frame.data);
+                    board.drag_objects.remove(id);
+                    board.drag_updated_at.remove(id);
                 } else {
                     // Defensive: don't keep stale selection for unknown objects.
                     board.selection.remove(id);
@@ -350,17 +355,85 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
                 board.objects.remove(id);
                 board.selection.remove(id);
+                board.drag_objects.remove(id);
+                board.drag_updated_at.remove(id);
             }
         }
         "object:drag" => {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str())
-                && let Some(existing) = board.objects.get_mut(id)
+                && let Some(existing) = board.objects.get(id)
             {
-                merge_object_update(existing, &frame.data);
+                // Conflict guard: don't apply peer drag jitter onto local selected object.
+                if board.selection.contains(id) {
+                    return;
+                }
+                let mut dragged = existing.clone();
+                merge_object_update(&mut dragged, &frame.data);
+                if let Some(prev) = board.drag_objects.get(id) {
+                    smooth_drag_object(prev, &mut dragged, &frame.data);
+                }
+                board.drag_objects.insert(id.to_owned(), dragged);
+                board.drag_updated_at.insert(id.to_owned(), frame.ts);
+            }
+        }
+        "object:drag:end" => {
+            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
+                board.drag_objects.remove(id);
+                board.drag_updated_at.remove(id);
             }
         }
         "cursor:moved" => apply_cursor_moved(board, &frame.data),
         _ => {}
+    }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn smooth_drag_object(
+    previous: &crate::net::types::BoardObject,
+    next: &mut crate::net::types::BoardObject,
+    patch: &serde_json::Value,
+) {
+    const ALPHA: f64 = 0.45;
+    if patch.get("x").is_some() {
+        next.x = lerp(previous.x, next.x, ALPHA);
+    }
+    if patch.get("y").is_some() {
+        next.y = lerp(previous.y, next.y, ALPHA);
+    }
+    if patch.get("width").is_some()
+        && let (Some(prev), Some(curr)) = (previous.width, next.width)
+    {
+        next.width = Some(lerp(prev, curr, ALPHA));
+    }
+    if patch.get("height").is_some()
+        && let (Some(prev), Some(curr)) = (previous.height, next.height)
+    {
+        next.height = Some(lerp(prev, curr, ALPHA));
+    }
+    if patch.get("rotation").is_some() {
+        next.rotation = lerp(previous.rotation, next.rotation, ALPHA);
+    }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn cleanup_stale_drags(board: &mut BoardState, now_ts: i64) {
+    const DRAG_STALE_MS: i64 = 1500;
+    if now_ts <= 0 {
+        return;
+    }
+    let stale = board
+        .drag_updated_at
+        .iter()
+        .filter_map(|(id, ts)| (now_ts - *ts > DRAG_STALE_MS).then_some(id.clone()))
+        .collect::<Vec<_>>();
+    for id in stale {
+        board.drag_updated_at.remove(&id);
+        board.drag_objects.remove(&id);
     }
 }
 
