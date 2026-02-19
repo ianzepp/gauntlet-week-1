@@ -17,11 +17,23 @@ pub fn BoardStamp() -> impl IntoView {
     };
     let object_count = move || board.get().objects.len();
     let users = move || {
-        let mut rows = board.get().presence.values().cloned().collect::<Vec<_>>();
-        rows.sort_by(|a, b| {
-            a.name
+        let state = board.get();
+        let self_client_id = state.self_client_id.unwrap_or_default();
+        let mut rows = state
+            .presence
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        rows.sort_by(|a, b| match (
+            a.client_id == self_client_id,
+            b.client_id == self_client_id,
+        ) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a
+                .name
                 .cmp(&b.name)
-                .then_with(|| a.client_id.cmp(&b.client_id))
+                .then_with(|| a.client_id.cmp(&b.client_id)),
         });
         rows
     };
