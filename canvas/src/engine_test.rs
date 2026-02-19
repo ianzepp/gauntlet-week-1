@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::*;
 use crate::doc::{BoardObject, ObjectKind, PartialBoardObject};
-use crate::hit::EdgeEnd;
+use crate::hit::{EdgeEnd, edge_endpoint_b_resolved};
 use crate::input::{Button, InputState, Key, Modifiers, Tool, WheelDelta};
 
 // =============================================================
@@ -2121,6 +2121,37 @@ fn draw_arrow_zero_length_kept() {
     assert_eq!(core.doc.len(), 1);
     assert!(has_object_created(&actions));
     assert_eq!(core.doc.sorted_objects()[0].kind, ObjectKind::Arrow);
+}
+
+#[test]
+fn dragging_edge_endpoint_snaps_to_shape_and_tracks_target_motion() {
+    let mut core = EngineCore::new();
+    let target = make_object_at(ObjectKind::Rect, 100.0, 100.0, 100.0, 80.0);
+    let target_id = target.id;
+    core.apply_create(target);
+
+    let edge = make_edge(ObjectKind::Line, 10.0, 10.0, 40.0, 10.0);
+    let edge_id = edge.id;
+    core.apply_create(edge);
+    core.ui.selected_id = Some(edge_id);
+
+    core.on_pointer_down(pt(40.0, 10.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::DraggingEdgeEndpoint { id, end: EdgeEnd::B } if id == edge_id));
+
+    // Move endpoint near/inside target shape; it should attach.
+    core.on_pointer_move(pt(150.0, 102.0), no_modifiers());
+    let line = core.object(&edge_id).unwrap();
+    assert_eq!(line.props["b"]["type"], "attached");
+    assert_eq!(line.props["b"]["object_id"], target_id.to_string());
+
+    let before = edge_endpoint_b_resolved(line, &core.doc).unwrap();
+
+    // Move the target; attached endpoint should move with it.
+    let partial = PartialBoardObject { x: Some(150.0), ..Default::default() };
+    core.apply_update(&target_id, &partial);
+    let line = core.object(&edge_id).unwrap();
+    let after = edge_endpoint_b_resolved(line, &core.doc).unwrap();
+    assert!(after.x > before.x);
 }
 
 // =============================================================

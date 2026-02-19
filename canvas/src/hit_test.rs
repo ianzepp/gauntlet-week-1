@@ -505,6 +505,70 @@ fn edge_endpoint_partial_props() {
     assert!(edge_endpoint_a(&obj).is_none());
 }
 
+#[test]
+fn edge_endpoint_resolved_attached_uses_target_geometry() {
+    let target = make_node(ObjectKind::Rect, 100.0, 100.0, 100.0, 80.0, 0.0);
+    let target_id = target.id;
+    let edge = BoardObject {
+        id: Uuid::new_v4(),
+        board_id: Uuid::new_v4(),
+        kind: ObjectKind::Line,
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0,
+        rotation: 0.0,
+        z_index: 1,
+        props: json!({
+            "a": { "type": "free", "x": 0.0, "y": 0.0 },
+            "b": { "type": "attached", "object_id": target_id, "ux": 1.0, "uy": 0.5 }
+        }),
+        created_by: None,
+        version: 1,
+    };
+
+    let mut doc = DocStore::new();
+    doc.insert(target);
+    doc.insert(edge.clone());
+
+    let b = edge_endpoint_b_resolved(&edge, &doc).unwrap();
+    assert!(approx_eq(b.x, 200.0));
+    assert!(approx_eq(b.y, 140.0));
+}
+
+#[test]
+fn edge_endpoint_resolved_attached_falls_back_to_embedded_free_point() {
+    let edge = BoardObject {
+        id: Uuid::new_v4(),
+        board_id: Uuid::new_v4(),
+        kind: ObjectKind::Line,
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0,
+        rotation: 0.0,
+        z_index: 1,
+        props: json!({
+            "a": { "type": "free", "x": 0.0, "y": 0.0 },
+            "b": {
+                "type": "attached",
+                "object_id": Uuid::new_v4(),
+                "ux": 1.0,
+                "uy": 0.5,
+                "x": 25.0,
+                "y": 30.0
+            }
+        }),
+        created_by: None,
+        version: 1,
+    };
+
+    let doc = DocStore::new();
+    let b = edge_endpoint_b_resolved(&edge, &doc).unwrap();
+    assert!(approx_eq(b.x, 25.0));
+    assert!(approx_eq(b.y, 30.0));
+}
+
 // =============================================================
 // resize_handle_positions
 // =============================================================

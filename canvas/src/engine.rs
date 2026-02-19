@@ -8,6 +8,8 @@ use crate::hit::{self, EdgeEnd, HitPart, ResizeAnchor};
 use crate::input::{Button, InputState, Key, Modifiers, Tool, UiState, WheelDelta};
 use crate::render;
 
+const EDGE_ATTACH_SNAP_PX: f64 = 16.0;
+
 #[cfg(test)]
 #[path = "engine_test.rs"]
 mod engine_test;
@@ -587,13 +589,57 @@ impl EngineCore {
             EdgeEnd::A => "a",
             EdgeEnd::B => "b",
         };
+        let endpoint = if let Some((target_id, ux, uy, snapped_world)) = self.find_edge_attachment_target(*id, world_pt) {
+            serde_json::json!({
+                "type": "attached",
+                "object_id": target_id,
+                "ux": ux,
+                "uy": uy,
+                "x": snapped_world.x,
+                "y": snapped_world.y
+            })
+        } else {
+            serde_json::json!({
+                "type": "free",
+                "x": world_pt.x,
+                "y": world_pt.y
+            })
+        };
         let partial = PartialBoardObject {
             props: Some(serde_json::json!({
-                key: { "type": "free", "x": world_pt.x, "y": world_pt.y },
+                key: endpoint,
             })),
             ..Default::default()
         };
         self.doc.apply_partial(id, &partial);
+    }
+
+    fn find_edge_attachment_target(&self, edge_id: ObjectId, world_pt: Point) -> Option<(ObjectId, f64, f64, Point)> {
+        let snap_radius = self.camera.screen_dist_to_world(EDGE_ATTACH_SNAP_PX);
+        let mut best: Option<(ObjectId, f64, f64, Point, f64)> = None;
+
+        let objects = self.doc.sorted_objects();
+        for obj in objects.iter().rev() {
+            if obj.id == edge_id {
+                continue;
+            }
+            if matches!(obj.kind, ObjectKind::Line | ObjectKind::Arrow) {
+                continue;
+            }
+
+            let (ux, uy, snapped_world) = anchor_on_object_boundary(obj, world_pt);
+            let dist = hit::distance_to_segment(world_pt, snapped_world, snapped_world);
+            if dist > snap_radius {
+                continue;
+            }
+
+            match best {
+                Some((_, _, _, _, best_dist)) if dist >= best_dist => {}
+                _ => best = Some((obj.id, ux, uy, snapped_world, dist)),
+            }
+        }
+
+        best.map(|(id, ux, uy, world, _)| (id, ux, uy, world))
     }
 
     fn create_default_object(&self, kind: ObjectKind, x: f64, y: f64, width: f64, height: f64) -> BoardObject {
@@ -623,6 +669,70 @@ impl EngineCore {
             .last()
             .map_or(0, |obj| obj.z_index + 1)
     }
+}
+
+fn anchor_on_object_boundary(obj: &BoardObject, world_pt: Point) -> (f64, f64, Point) {
+    if obj.width <= 0.0 || obj.height <= 0.0 {
+        let center = Point::new(obj.x, obj.y);
+        return (0.5, 0.5, center);
+    }
+
+    let local = hit::world_to_local(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation);
+
+    let (local_x, local_y) = if obj.kind == ObjectKind::Ellipse {
+        nearest_ellipse_boundary_local(local, obj.width, obj.height)
+    } else {
+        nearest_rect_boundary_local(local, obj.width, obj.height)
+    };
+
+    let ux = (local_x / obj.width).clamp(0.0, 1.0);
+    let uy = (local_y / obj.height).clamp(0.0, 1.0);
+    let snapped = hit::attached_anchor_world_point(obj, ux, uy);
+    (ux, uy, snapped)
+}
+
+fn nearest_rect_boundary_local(local: Point, width: f64, height: f64) -> (f64, f64) {
+    let x = local.x.clamp(0.0, width);
+    let y = local.y.clamp(0.0, height);
+
+    let inside = local.x >= 0.0 && local.x <= width && local.y >= 0.0 && local.y <= height;
+    if !inside {
+        return (x, y);
+    }
+
+    let to_left = x;
+    let to_right = width - x;
+    let to_top = y;
+    let to_bottom = height - y;
+    let min = to_left.min(to_right).min(to_top).min(to_bottom);
+
+    if (min - to_left).abs() < f64::EPSILON {
+        (0.0, y)
+    } else if (min - to_right).abs() < f64::EPSILON {
+        (width, y)
+    } else if (min - to_top).abs() < f64::EPSILON {
+        (x, 0.0)
+    } else {
+        (x, height)
+    }
+}
+
+fn nearest_ellipse_boundary_local(local: Point, width: f64, height: f64) -> (f64, f64) {
+    let cx = width * 0.5;
+    let cy = height * 0.5;
+    if cx <= f64::EPSILON || cy <= f64::EPSILON {
+        return nearest_rect_boundary_local(local, width, height);
+    }
+
+    let dx = local.x - cx;
+    let dy = local.y - cy;
+    let denom = (dx * dx) / (cx * cx) + (dy * dy) / (cy * cy);
+    if denom <= 1e-9 {
+        return (cx, 0.0);
+    }
+
+    let scale = 1.0 / denom.sqrt();
+    (cx + dx * scale, cy + dy * scale)
 }
 
 /// The full canvas engine. Wraps `EngineCore` and owns the browser canvas element.

@@ -60,13 +60,13 @@ pub fn draw(
 
     // Layer 3: objects in z-order (bottom first).
     for obj in doc.sorted_objects() {
-        draw_object(ctx, obj)?;
+        draw_object(ctx, obj, doc)?;
     }
 
     // Layer 4: selection UI.
     if let Some(sel_id) = ui.selected_id {
         if let Some(obj) = doc.get(&sel_id) {
-            draw_selection(ctx, obj, camera.zoom)?;
+            draw_selection(ctx, obj, doc, camera.zoom)?;
         }
     }
 
@@ -125,7 +125,7 @@ fn draw_grid(ctx: &CanvasRenderingContext2d, camera: &Camera, viewport_w: f64, v
 // Object dispatch
 // =============================================================
 
-fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject) -> Result<(), JsValue> {
+fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore) -> Result<(), JsValue> {
     let props = Props::new(&obj.props);
 
     match obj.kind {
@@ -134,7 +134,7 @@ fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject) -> Result<(), 
         ObjectKind::Diamond => draw_diamond(ctx, obj, &props),
         ObjectKind::Star => draw_star(ctx, obj, &props),
         ObjectKind::Line | ObjectKind::Arrow => {
-            draw_edge(ctx, obj, &props, obj.kind == ObjectKind::Arrow);
+            draw_edge(ctx, obj, doc, &props, obj.kind == ObjectKind::Arrow);
             Ok(())
         }
     }
@@ -253,11 +253,11 @@ fn draw_star(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_
 // Edge renderers
 // =============================================================
 
-fn draw_edge(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>, arrowhead: bool) {
-    let Some(a) = hit::edge_endpoint_a(obj) else {
+fn draw_edge(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, props: &Props<'_>, arrowhead: bool) {
+    let Some(a) = hit::edge_endpoint_a_resolved(obj, doc) else {
         return;
     };
-    let Some(b) = hit::edge_endpoint_b(obj) else {
+    let Some(b) = hit::edge_endpoint_b_resolved(obj, doc) else {
         return;
     };
 
@@ -340,9 +340,9 @@ fn draw_text(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_
 // Selection UI
 // =============================================================
 
-fn draw_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, zoom: f64) -> Result<(), JsValue> {
+fn draw_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, zoom: f64) -> Result<(), JsValue> {
     match obj.kind {
-        ObjectKind::Line | ObjectKind::Arrow => draw_edge_selection(ctx, obj, zoom),
+        ObjectKind::Line | ObjectKind::Arrow => draw_edge_selection(ctx, obj, doc, zoom),
         _ => draw_node_selection(ctx, obj, zoom),
     }
 }
@@ -415,11 +415,11 @@ fn draw_node_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, zoom: 
     Ok(())
 }
 
-fn draw_edge_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, zoom: f64) -> Result<(), JsValue> {
-    let Some(a) = hit::edge_endpoint_a(obj) else {
+fn draw_edge_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, zoom: f64) -> Result<(), JsValue> {
+    let Some(a) = hit::edge_endpoint_a_resolved(obj, doc) else {
         return Ok(());
     };
-    let Some(b) = hit::edge_endpoint_b(obj) else {
+    let Some(b) = hit::edge_endpoint_b_resolved(obj, doc) else {
         return Ok(());
     };
 

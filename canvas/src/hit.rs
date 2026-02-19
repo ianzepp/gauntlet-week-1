@@ -265,6 +265,63 @@ pub fn edge_endpoint_b(obj: &BoardObject) -> Option<Point> {
     Some(Point { x, y })
 }
 
+/// Resolve endpoint A from object props.
+///
+/// Supports:
+/// - free endpoints: `{ "x": f64, "y": f64 }`
+/// - attached endpoints:
+///   `{ "type": "attached", "object_id": "<uuid>", "ux": f64, "uy": f64 }`
+#[must_use]
+pub fn edge_endpoint_a_resolved(obj: &BoardObject, doc: &DocStore) -> Option<Point> {
+    resolve_edge_endpoint(obj, "a", doc)
+}
+
+/// Resolve endpoint B from object props.
+///
+/// Supports:
+/// - free endpoints: `{ "x": f64, "y": f64 }`
+/// - attached endpoints:
+///   `{ "type": "attached", "object_id": "<uuid>", "ux": f64, "uy": f64 }`
+#[must_use]
+pub fn edge_endpoint_b_resolved(obj: &BoardObject, doc: &DocStore) -> Option<Point> {
+    resolve_edge_endpoint(obj, "b", doc)
+}
+
+fn resolve_edge_endpoint(obj: &BoardObject, key: &str, doc: &DocStore) -> Option<Point> {
+    let endpoint = obj.props.get(key)?;
+    if endpoint.get("type").and_then(serde_json::Value::as_str) == Some("attached") {
+        let maybe_attached = endpoint
+            .get("object_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|s| uuid::Uuid::parse_str(s).ok())
+            .and_then(|object_id| {
+                let target = doc.get(&object_id)?;
+                let ux = endpoint.get("ux").and_then(serde_json::Value::as_f64)?;
+                let uy = endpoint.get("uy").and_then(serde_json::Value::as_f64)?;
+                Some(attached_anchor_world_point(target, ux, uy))
+            });
+        if maybe_attached.is_some() {
+            return maybe_attached;
+        }
+    }
+
+    let x = endpoint.get("x")?.as_f64()?;
+    let y = endpoint.get("y")?.as_f64()?;
+    Some(Point { x, y })
+}
+
+/// Convert normalized local anchor coordinates into world point on an object.
+///
+/// `ux` and `uy` are in [0, 1] in the object's unrotated local box.
+#[must_use]
+pub fn attached_anchor_world_point(obj: &BoardObject, ux: f64, uy: f64) -> Point {
+    let ux = ux.clamp(0.0, 1.0);
+    let uy = uy.clamp(0.0, 1.0);
+    let local_world = Point { x: obj.x + (ux * obj.width), y: obj.y + (uy * obj.height) };
+    let center = Point { x: obj.x + (obj.width * 0.5), y: obj.y + (obj.height * 0.5) };
+    rotate_point(local_world, center, obj.rotation)
+}
+
 // =============================================================
 // Resize handle positions (in world space)
 // =============================================================
@@ -329,7 +386,7 @@ pub fn hit_test(world_pt: Point, doc: &DocStore, camera: &Camera, selected_id: O
     // 1. Test selected object handles first.
     if let Some(sel_id) = selected_id {
         if let Some(obj) = doc.get(&sel_id) {
-            if let Some(hit) = hit_test_handles(world_pt, obj, handle_radius_world, camera.zoom) {
+            if let Some(hit) = hit_test_handles(world_pt, obj, doc, handle_radius_world, camera.zoom) {
                 return Some(hit);
             }
         }
@@ -338,7 +395,7 @@ pub fn hit_test(world_pt: Point, doc: &DocStore, camera: &Camera, selected_id: O
     // 2. Test all objects in reverse draw order (topmost first).
     let sorted = doc.sorted_objects();
     for obj in sorted.iter().rev() {
-        if let Some(part) = hit_test_body(world_pt, obj, handle_radius_world) {
+        if let Some(part) = hit_test_body(world_pt, obj, doc, handle_radius_world) {
             return Some(Hit { object_id: obj.id, part });
         }
     }
@@ -347,16 +404,16 @@ pub fn hit_test(world_pt: Point, doc: &DocStore, camera: &Camera, selected_id: O
 }
 
 /// Test handles (resize, rotate, edge endpoints) on a single selected object.
-fn hit_test_handles(world_pt: Point, obj: &BoardObject, radius: f64, zoom: f64) -> Option<Hit> {
+fn hit_test_handles(world_pt: Point, obj: &BoardObject, doc: &DocStore, radius: f64, zoom: f64) -> Option<Hit> {
     match obj.kind {
         ObjectKind::Line | ObjectKind::Arrow => {
             // Edge endpoints.
-            if let Some(a) = edge_endpoint_a(obj) {
+            if let Some(a) = edge_endpoint_a_resolved(obj, doc) {
                 if point_near_point(world_pt, a, radius) {
                     return Some(Hit { object_id: obj.id, part: HitPart::EdgeEndpoint(EdgeEnd::A) });
                 }
             }
-            if let Some(b) = edge_endpoint_b(obj) {
+            if let Some(b) = edge_endpoint_b_resolved(obj, doc) {
                 if point_near_point(world_pt, b, radius) {
                     return Some(Hit { object_id: obj.id, part: HitPart::EdgeEndpoint(EdgeEnd::B) });
                 }
@@ -383,7 +440,7 @@ fn hit_test_handles(world_pt: Point, obj: &BoardObject, radius: f64, zoom: f64) 
 }
 
 /// Test the body/interior of a single object.
-fn hit_test_body(world_pt: Point, obj: &BoardObject, edge_radius: f64) -> Option<HitPart> {
+fn hit_test_body(world_pt: Point, obj: &BoardObject, doc: &DocStore, edge_radius: f64) -> Option<HitPart> {
     match obj.kind {
         ObjectKind::Rect => {
             if point_in_rect(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
@@ -414,8 +471,8 @@ fn hit_test_body(world_pt: Point, obj: &BoardObject, edge_radius: f64) -> Option
             }
         }
         ObjectKind::Line | ObjectKind::Arrow => {
-            let a = edge_endpoint_a(obj)?;
-            let b = edge_endpoint_b(obj)?;
+            let a = edge_endpoint_a_resolved(obj, doc)?;
+            let b = edge_endpoint_b_resolved(obj, doc)?;
             if distance_to_segment(world_pt, a, b) <= edge_radius {
                 Some(HitPart::EdgeBody)
             } else {
