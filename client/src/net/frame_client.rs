@@ -257,9 +257,7 @@ fn handle_board_frame(
 
     match frame.syscall.as_str() {
         "board:join" if frame.status == FrameStatus::Done => {
-            if let Some(objects) = frame.data.get("objects")
-                && let Ok(objs) = serde_json::from_value::<Vec<BoardObject>>(objects.clone())
-            {
+            if let Some(objs) = parse_board_objects(&frame.data) {
                 board.update(|b| {
                     b.objects.clear();
                     b.drag_objects.clear();
@@ -802,7 +800,7 @@ fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_js
     if let Some(r) = data.get("rotation").and_then(|v| v.as_f64()) {
         obj.rotation = r;
     }
-    if let Some(z) = data.get("z_index").and_then(|v| v.as_i64()) {
+    if let Some(z) = data.get("z_index").and_then(number_as_i64) {
         #[allow(clippy::cast_possible_truncation)]
         {
             obj.z_index = z as i32;
@@ -811,9 +809,16 @@ fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_js
     if let Some(props) = data.get("props") {
         obj.props = props.clone();
     }
-    if let Some(v) = data.get("version").and_then(|v| v.as_i64()) {
+    if let Some(v) = data.get("version").and_then(number_as_i64) {
         obj.version = v;
     }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn parse_board_objects(data: &serde_json::Value) -> Option<Vec<crate::net::types::BoardObject>> {
+    data.get("objects")
+        .cloned()
+        .and_then(|v| serde_json::from_value::<Vec<crate::net::types::BoardObject>>(v).ok())
 }
 
 #[cfg(any(test, feature = "hydrate"))]
@@ -867,7 +872,7 @@ fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
         return None;
     }
     let timestamp = pick_number(data, &["timestamp", "ts"]).unwrap_or(0.0);
-    let mutations = data.get("mutations").and_then(|v| v.as_i64());
+    let mutations = data.get("mutations").and_then(number_as_i64);
 
     Some(AiMessage { id, role, content, timestamp, mutations })
 }
@@ -895,7 +900,7 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
         },
         content: content.to_owned(),
         timestamp: frame.ts as f64,
-        mutations: frame.data.get("mutations").and_then(|v| v.as_i64()),
+        mutations: frame.data.get("mutations").and_then(number_as_i64),
     })
 }
 
@@ -930,6 +935,22 @@ fn pick_number(data: &serde_json::Value, keys: &[&str]) -> Option<f64> {
         }
     }
     None
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn number_as_i64(value: &serde_json::Value) -> Option<i64> {
+    value.as_i64().or_else(|| {
+        value
+            .as_f64()
+            .filter(|v| v.is_finite() && v.fract() == 0.0)
+            .and_then(|v| {
+                if (i64::MIN as f64..=i64::MAX as f64).contains(&v) {
+                    Some(v as i64)
+                } else {
+                    None
+                }
+            })
+    })
 }
 
 #[cfg(test)]

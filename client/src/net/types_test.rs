@@ -153,6 +153,27 @@ fn board_object_with_no_optional_fields() {
     assert_eq!(obj, back);
 }
 
+#[test]
+fn board_object_deserializes_integral_float_int_fields() {
+    let value = serde_json::json!({
+        "id": "obj-3",
+        "board_id": "b-1",
+        "kind": "rect",
+        "x": 1.0,
+        "y": 2.0,
+        "width": 10.0,
+        "height": 20.0,
+        "rotation": 0.0,
+        "z_index": 5.0,
+        "props": {},
+        "created_by": null,
+        "version": 7.0
+    });
+    let obj: BoardObject = serde_json::from_value(value).unwrap();
+    assert_eq!(obj.z_index, 5);
+    assert_eq!(obj.version, 7);
+}
+
 // =============================================================
 // Presence + Point serde round-trip
 // =============================================================

@@ -136,6 +136,47 @@ fn merge_object_update_applies_known_fields() {
 }
 
 #[test]
+fn merge_object_update_accepts_integral_float_int_fields() {
+    let mut obj = object();
+    merge_object_update(
+        &mut obj,
+        &serde_json::json!({
+            "z_index": 12.0,
+            "version": 8.0
+        }),
+    );
+    assert_eq!(obj.z_index, 12);
+    assert_eq!(obj.version, 8);
+}
+
+#[test]
+fn parse_board_objects_accepts_integral_float_int_fields() {
+    let data = serde_json::json!({
+        "objects": [
+            {
+                "id": "obj-1",
+                "board_id": "b-1",
+                "kind": "rectangle",
+                "x": 10.0,
+                "y": 20.0,
+                "width": 100.0,
+                "height": 80.0,
+                "rotation": 0.0,
+                "z_index": 5.0,
+                "props": {"fill":"#fff"},
+                "created_by": "u-1",
+                "version": 3.0
+            }
+        ]
+    });
+
+    let objects = parse_board_objects(&data).expect("board objects");
+    assert_eq!(objects.len(), 1);
+    assert_eq!(objects[0].z_index, 5);
+    assert_eq!(objects[0].version, 3);
+}
+
+#[test]
 fn apply_object_frame_delete_clears_selected_object() {
     let mut board = crate::state::board::BoardState::default();
     let obj = object();
