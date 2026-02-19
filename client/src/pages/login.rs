@@ -15,7 +15,19 @@ pub fn LoginPage() -> impl IntoView {
             <div class="login-card">
                 <h1>"Gauntlet AI"</h1>
                 <h2 class="login-card__title">"G4 - Ian Zepp - Week 1"</h2>
-                <a href="/auth/github" class="login-button">
+                <a
+                    href="/auth/github"
+                    class="login-button"
+                    on:click=move |ev| {
+                        ev.prevent_default();
+                        #[cfg(feature = "hydrate")]
+                        {
+                            if let Some(window) = web_sys::window() {
+                                let _ = window.location().set_href("/auth/github");
+                            }
+                        }
+                    }
+                >
                     "Sign in with GitHub"
                 </a>
             </div>

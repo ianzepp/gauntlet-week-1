@@ -115,88 +115,99 @@ pub fn DashboardPage() -> impl IntoView {
     };
 
     view! {
-        <div class="dashboard-page">
-            <header class="dashboard-page__header toolbar">
-                <span class="toolbar__board-name">"Boards"</span>
-                <span class="toolbar__divider" aria-hidden="true"></span>
-                <button class="btn toolbar__new-board" on:click=on_create>
-                    "+ New Board"
-                </button>
-
-                <span class="toolbar__spacer"></span>
-
-                <button
-                    class="btn toolbar__dark-toggle"
-                    on:click=move |_| {
-                        let current = ui.get().dark_mode;
-                        let next = crate::util::dark_mode::toggle(current);
-                        ui.update(|u| u.dark_mode = next);
-                    }
-                    title="Toggle dark mode"
-                >
-                    {move || if ui.get().dark_mode { "☀" } else { "☾" }}
-                </button>
-
-                <span class="toolbar__self">
-                    {move || self_identity().0}
-                    " ("
-                    <span class="toolbar__self-method">{move || self_identity().1}</span>
-                    ")"
-                </span>
-
-                <button class="btn toolbar__logout" on:click=on_logout title="Logout">
-                    "Logout"
-                </button>
-            </header>
-
-            <div class="dashboard-page__grid">
-                <Show when=move || boards.get().error.is_some()>
-                    <p class="dashboard-page__error">
-                        {move || boards.get().error.unwrap_or_default()}
-                    </p>
-                </Show>
-                <Show
-                    when=move || !boards.get().loading
-                    fallback=move || view! { <p>"Loading boards..."</p> }
-                >
-                    <div class="dashboard-page__cards">
-                        {move || {
-                            boards
-                                .get()
-                                .items
-                                .into_iter()
-                                .map(|b| {
-                                    view! {
-                                        <BoardCard
-                                            id=b.id
-                                            name=b.name
-                                            snapshot=b.snapshot
-                                            on_delete=on_board_delete_request
-                                        />
-                                    }
-                                })
-                                .collect::<Vec<_>>()
-                        }}
+        <Show
+            when=move || !auth.get().loading && auth.get().user.is_some()
+            fallback=move || {
+                view! {
+                    <div class="dashboard-page">
+                        <p>{move || if auth.get().loading { "Loading..." } else { "Redirecting to login..." }}</p>
                     </div>
+                }
+            }
+        >
+            <div class="dashboard-page">
+                <header class="dashboard-page__header toolbar">
+                    <span class="toolbar__board-name">"Boards"</span>
+                    <span class="toolbar__divider" aria-hidden="true"></span>
+                    <button class="btn toolbar__new-board" on:click=on_create>
+                        "+ New Board"
+                    </button>
+
+                    <span class="toolbar__spacer"></span>
+
+                    <button
+                        class="btn toolbar__dark-toggle"
+                        on:click=move |_| {
+                            let current = ui.get().dark_mode;
+                            let next = crate::util::dark_mode::toggle(current);
+                            ui.update(|u| u.dark_mode = next);
+                        }
+                        title="Toggle dark mode"
+                    >
+                        {move || if ui.get().dark_mode { "☀" } else { "☾" }}
+                    </button>
+
+                    <span class="toolbar__self">
+                        {move || self_identity().0}
+                        " ("
+                        <span class="toolbar__self-method">{move || self_identity().1}</span>
+                        ")"
+                    </span>
+
+                    <button class="btn toolbar__logout" on:click=on_logout title="Logout">
+                        "Logout"
+                    </button>
+                </header>
+
+                <div class="dashboard-page__grid">
+                    <Show when=move || boards.get().error.is_some()>
+                        <p class="dashboard-page__error">
+                            {move || boards.get().error.unwrap_or_default()}
+                        </p>
+                    </Show>
+                    <Show
+                        when=move || !boards.get().loading
+                        fallback=move || view! { <p>"Loading boards..."</p> }
+                    >
+                        <div class="dashboard-page__cards">
+                            {move || {
+                                boards
+                                    .get()
+                                    .items
+                                    .into_iter()
+                                    .map(|b| {
+                                        view! {
+                                            <BoardCard
+                                                id=b.id
+                                                name=b.name
+                                                snapshot=b.snapshot
+                                                on_delete=on_board_delete_request
+                                            />
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                            }}
+                        </div>
+                    </Show>
+                </div>
+                <Show when=move || show_create.get()>
+                    <CreateBoardDialog
+                        name=new_board_name
+                        on_cancel=on_cancel
+                        boards=boards
+                        sender=sender
+                    />
+                </Show>
+                <Show when=move || delete_board_id.get().is_some()>
+                    <DeleteBoardDialog
+                        board_id=delete_board_id
+                        on_cancel=on_delete_cancel
+                        boards=boards
+                        sender=sender
+                    />
                 </Show>
             </div>
-            <Show when=move || show_create.get()>
-                <CreateBoardDialog
-                    name=new_board_name
-                    on_cancel=on_cancel
-                    boards=boards
-                    sender=sender
-                />
-            </Show>
-            <Show when=move || delete_board_id.get().is_some()>
-                <DeleteBoardDialog
-                    board_id=delete_board_id
-                    on_cancel=on_delete_cancel
-                    boards=boards
-                    sender=sender
-                />
-            </Show>
-        </div>
+        </Show>
     }
 }
 
