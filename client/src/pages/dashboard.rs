@@ -50,6 +50,28 @@ pub fn DashboardPage() -> impl IntoView {
         requested_list.set(true);
     });
 
+    #[cfg(feature = "hydrate")]
+    {
+        let poll_alive = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let poll_alive_task = poll_alive.clone();
+        let board_poll = board;
+        let boards_poll = boards;
+        let sender_poll = sender;
+        leptos::task::spawn_local(async move {
+            loop {
+                gloo_timers::future::sleep(std::time::Duration::from_secs(10)).await;
+                if !poll_alive_task.load(std::sync::atomic::Ordering::Relaxed) {
+                    break;
+                }
+                if !matches!(board_poll.get_untracked().connection_status, ConnectionStatus::Connected) {
+                    continue;
+                }
+                send_board_list(sender_poll, boards_poll);
+            }
+        });
+        on_cleanup(move || poll_alive.store(false, std::sync::atomic::Ordering::Relaxed));
+    }
+
     // Create-board dialog state.
     let show_create = RwSignal::new(false);
     let new_board_name = RwSignal::new(String::new());
