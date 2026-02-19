@@ -363,6 +363,14 @@ async fn handle_board(
 
             // Part current board if already joined.
             if let Some(old_board) = current_board.take() {
+                let mut part_data = Data::new();
+                part_data.insert("client_id".into(), serde_json::json!(client_id));
+                part_data.insert("user_id".into(), serde_json::json!(user_id));
+                part_data.insert("user_name".into(), serde_json::json!(user_name));
+                part_data.insert("user_color".into(), serde_json::json!(user_color));
+                let part_frame = Frame::request("board:part", part_data).with_board_id(old_board);
+                services::persistence::enqueue_frame(state, &part_frame);
+                services::board::broadcast(state, old_board, &part_frame, Some(client_id)).await;
                 services::board::part_board(state, old_board, client_id).await;
             }
 
@@ -402,6 +410,32 @@ async fn handle_board(
                 }
                 Err(e) => Err(req.error_from(&e)),
             }
+        }
+        "part" => {
+            let board_id = req.board_id.or(*current_board).or_else(|| {
+                req.data
+                    .get("board_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse().ok())
+            });
+            let Some(board_id) = board_id else {
+                return Err(req.error("board_id required"));
+            };
+
+            if *current_board == Some(board_id) {
+                let mut part_data = Data::new();
+                part_data.insert("client_id".into(), serde_json::json!(client_id));
+                part_data.insert("user_id".into(), serde_json::json!(user_id));
+                part_data.insert("user_name".into(), serde_json::json!(user_name));
+                part_data.insert("user_color".into(), serde_json::json!(user_color));
+                let part_frame = Frame::request("board:part", part_data).with_board_id(board_id);
+                services::persistence::enqueue_frame(state, &part_frame);
+                services::board::broadcast(state, board_id, &part_frame, Some(client_id)).await;
+                services::board::part_board(state, board_id, client_id).await;
+                *current_board = None;
+            }
+
+            Ok(Outcome::Done)
         }
         "create" => {
             let name = req

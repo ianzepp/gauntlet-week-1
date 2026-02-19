@@ -682,6 +682,36 @@ async fn multi_user_single_change_reaches_other_user() {
 }
 
 #[tokio::test]
+async fn board_part_broadcasts_immediately_to_peers() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (client_a_id, client_a_tx, mut client_a_rx, _client_b_id, _client_b_tx, mut client_b_rx) =
+        register_two_clients(&state, board_id).await;
+    let user_a = Uuid::new_v4();
+    let mut current_board_a = Some(board_id);
+
+    let req = request_bytes(board_id, "board:part", Data::new());
+    let a_reply =
+        process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req).await;
+
+    assert_eq!(a_reply.len(), 1);
+    assert_eq!(a_reply[0].syscall, "board:part");
+    assert_eq!(a_reply[0].status, Status::Done);
+    assert!(current_board_a.is_none());
+
+    let peer_broadcast = recv_board_broadcast(&mut client_b_rx).await;
+    assert_eq!(peer_broadcast.syscall, "board:part");
+    assert_eq!(peer_broadcast.status, Status::Request);
+    let client_a_id_str = client_a_id.to_string();
+    assert_eq!(
+        peer_broadcast.data.get("client_id").and_then(|v| v.as_str()),
+        Some(client_a_id_str.as_str())
+    );
+
+    assert_no_board_broadcast(&mut client_a_rx).await;
+}
+
+#[tokio::test]
 async fn multi_user_concurrent_changes_on_different_objects_sync_both_users() {
     let mut obj_a = test_helpers::dummy_object();
     obj_a.version = 1;
