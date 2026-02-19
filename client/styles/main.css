@@ -444,8 +444,7 @@ a:hover {
 
 /* Board layout */
 .board-page {
-    --left-chrome-width: 52px;
-    --station-log-right-offset: calc(var(--space-md) + 56px);
+    --canvas-overlay-edge-offset: var(--space-md);
     display: grid;
     grid-template-areas:
         "toolbar toolbar toolbar"
@@ -488,14 +487,6 @@ a:hover {
 .board-page__status-bar {
     grid-area: status;
     z-index: var(--z-chrome);
-}
-
-.board-page--right-expanded {
-    --station-log-right-offset: calc(var(--space-md) + 376px);
-}
-
-.board-page--left-expanded {
-    --left-chrome-width: 212px;
 }
 
 .canvas-host {
@@ -635,7 +626,7 @@ a:hover {
 
 .canvas-compass {
     position: absolute;
-    left: calc(var(--left-chrome-width) + var(--space-md));
+    left: var(--canvas-overlay-edge-offset);
     bottom: calc(var(--space-md) + 24px);
     width: 74px;
     height: 74px;
@@ -1918,7 +1909,7 @@ a:hover {
 .board-stamp {
     position: absolute;
     top: var(--space-md);
-    right: var(--station-log-right-offset);
+    right: var(--canvas-overlay-edge-offset);
     z-index: var(--z-canvas-ui);
     min-width: 220px;
     background: var(--bg-primary);
