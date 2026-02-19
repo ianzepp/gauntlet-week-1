@@ -272,13 +272,6 @@ a:hover {
     gap: var(--space-md);
 }
 
-.login-card__title {
-    font-family: var(--font-script);
-    font-size: 56px;
-    line-height: 1;
-    color: var(--text-primary);
-}
-
 .login-card__subtitle {
     font-family: var(--font-mono);
     font-size: 10px;

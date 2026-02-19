@@ -14,7 +14,6 @@ pub fn LoginPage() -> impl IntoView {
         <div class="login-page">
             <div class="login-card">
                 <h1>"Gauntlet AI"</h1>
-                <h2 class="login-card__title">"G4 - Ian Zepp - Week 1"</h2>
                 <a
                     href="/auth/github"
                     class="login-button"
