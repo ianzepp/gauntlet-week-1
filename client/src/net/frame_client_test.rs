@@ -110,6 +110,60 @@ fn parse_ai_prompt_message_returns_none_when_payload_has_no_text() {
 }
 
 #[test]
+fn parse_ai_prompt_user_message_reads_prompt() {
+    let f = frame("ai:prompt", FrameStatus::Done, serde_json::json!({"prompt":"draft release notes"}));
+    let msg = parse_ai_prompt_user_message(&f).expect("user prompt message");
+    assert_eq!(msg.id, "f-1");
+    assert_eq!(msg.role, "user");
+    assert_eq!(msg.content, "draft release notes");
+    assert_eq!(msg.timestamp, 123.0);
+}
+
+#[test]
+fn parse_ai_prompt_user_message_prefers_parent_id_for_reconciliation() {
+    let mut f = frame("ai:prompt", FrameStatus::Done, serde_json::json!({"prompt":"draft release notes"}));
+    f.id = "reply-id".to_owned();
+    f.parent_id = Some("request-id".to_owned());
+    let msg = parse_ai_prompt_user_message(&f).expect("user prompt message");
+    assert_eq!(msg.id, "request-id");
+}
+
+#[test]
+fn parse_ai_prompt_user_message_rejects_blank_prompt() {
+    let f = frame("ai:prompt", FrameStatus::Done, serde_json::json!({"prompt":"   "}));
+    assert!(parse_ai_prompt_user_message(&f).is_none());
+}
+
+#[test]
+fn upsert_ai_user_message_updates_existing_pending_row() {
+    let mut state = crate::state::ai::AiState {
+        messages: vec![crate::state::ai::AiMessage {
+            id: "f-1".to_owned(),
+            role: "user".to_owned(),
+            content: "draft".to_owned(),
+            timestamp: 0.0,
+            mutations: None,
+        }],
+        loading: true,
+    };
+
+    upsert_ai_user_message(
+        &mut state,
+        crate::state::ai::AiMessage {
+            id: "f-1".to_owned(),
+            role: "user".to_owned(),
+            content: "draft release notes".to_owned(),
+            timestamp: 123.0,
+            mutations: None,
+        },
+    );
+
+    assert_eq!(state.messages.len(), 1);
+    assert_eq!(state.messages[0].content, "draft release notes");
+    assert_eq!(state.messages[0].timestamp, 123.0);
+}
+
+#[test]
 fn merge_object_update_applies_known_fields() {
     let mut obj = object();
     merge_object_update(

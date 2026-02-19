@@ -1587,13 +1587,6 @@ a:hover {
     flex-direction: column;
     gap: 0;
     background: var(--bg-primary);
-    background-image: repeating-linear-gradient(
-        transparent,
-        transparent 27px,
-        var(--border-subtle) 27px,
-        var(--border-subtle) 28px
-    );
-    background-size: 100% 28px;
 }
 
 .ai-panel__empty {

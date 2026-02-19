@@ -16,7 +16,7 @@
 use crate::net::types::Frame;
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::ai::AiMessage;
-#[cfg(feature = "hydrate")]
+#[cfg(any(test, feature = "hydrate"))]
 use crate::state::ai::AiState;
 #[cfg(feature = "hydrate")]
 use crate::state::auth::AuthState;
@@ -823,6 +823,9 @@ fn handle_ai_frame(frame: &Frame, ai: leptos::prelude::RwSignal<AiState>) -> boo
             true
         }
         "ai:prompt" if frame.status == FrameStatus::Done || frame.status == FrameStatus::Error => {
+            if let Some(user_msg) = parse_ai_prompt_user_message(frame) {
+                ai.update(|a| upsert_ai_user_message(a, user_msg));
+            }
             if let Some(msg) = parse_ai_prompt_message(frame) {
                 ai.update(|a| {
                     a.messages.push(msg);
@@ -849,6 +852,22 @@ fn handle_ai_frame(frame: &Frame, ai: leptos::prelude::RwSignal<AiState>) -> boo
         }
         _ => false,
     }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn upsert_ai_user_message(ai: &mut AiState, msg: AiMessage) {
+    if let Some(existing) = ai
+        .messages
+        .iter_mut()
+        .find(|existing| existing.id == msg.id && existing.role == "user")
+    {
+        existing.content = msg.content;
+        if existing.timestamp == 0.0 {
+            existing.timestamp = msg.timestamp;
+        }
+        return;
+    }
+    ai.messages.push(msg);
 }
 
 #[cfg(feature = "hydrate")]
@@ -1069,6 +1088,28 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
         content: content.to_owned(),
         timestamp: frame.ts as f64,
         mutations: frame.data.get("mutations").and_then(number_as_i64),
+    })
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn parse_ai_prompt_user_message(frame: &Frame) -> Option<AiMessage> {
+    let prompt = frame
+        .data
+        .get("prompt")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)?;
+    if prompt.is_empty() {
+        return None;
+    }
+
+    Some(AiMessage {
+        // ai:prompt done/error replies carry a new id and set parent_id to the original request id.
+        // Use parent_id so optimistic user rows reconcile instead of duplicating.
+        id: frame.parent_id.clone().unwrap_or_else(|| frame.id.clone()),
+        role: "user".to_owned(),
+        content: prompt.to_owned(),
+        timestamp: frame.ts as f64,
+        mutations: None,
     })
 }
 

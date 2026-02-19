@@ -1099,13 +1099,18 @@ async fn handle_ai(
                     }
 
                     let mut data = Data::new();
+                    data.insert("prompt".into(), serde_json::json!(prompt));
                     if let Some(text) = &result.text {
                         data.insert("text".into(), serde_json::json!(text));
                     }
                     data.insert("mutations".into(), serde_json::json!(result.mutations.len()));
                     Ok(Outcome::Reply(data))
                 }
-                Err(e) => Err(req.error_from(&e)),
+                Err(e) => {
+                    let mut err = req.error_from(&e);
+                    err.data.insert("prompt".into(), serde_json::json!(prompt));
+                    Err(err)
+                }
             }
         }
         "history" => ai_history(state, board_id, user_id, req).await,

@@ -66,19 +66,42 @@ pub fn AiPanel() -> impl IntoView {
             return;
         }
 
+        let prompt = text.trim().to_owned();
+        let frame_id = uuid::Uuid::new_v4().to_string();
         let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: frame_id.clone(),
             parent_id: None,
             ts: 0,
             board_id: board.get().board_id.clone(),
             from: None,
             syscall: "ai:prompt".to_owned(),
             status: FrameStatus::Request,
-            data: serde_json::json!({ "prompt": text }),
+            data: serde_json::json!({ "prompt": prompt }),
         };
-        sender.get().send(&frame);
-        ai.update(|a| a.loading = true);
-        input.set(String::new());
+        if sender.get().send(&frame) {
+            ai.update(|a| {
+                a.messages.push(crate::state::ai::AiMessage {
+                    id: frame_id,
+                    role: "user".to_owned(),
+                    content: prompt,
+                    timestamp: 0.0,
+                    mutations: None,
+                });
+                a.loading = true;
+            });
+            input.set(String::new());
+        } else {
+            ai.update(|a| {
+                a.messages.push(crate::state::ai::AiMessage {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    role: "error".to_owned(),
+                    content: "AI request failed: not connected".to_owned(),
+                    timestamp: 0.0,
+                    mutations: None,
+                });
+                a.loading = false;
+            });
+        }
     };
 
     let on_click = move |_| do_send();
@@ -119,7 +142,6 @@ pub fn AiPanel() -> impl IntoView {
                                     class:ai-panel__message--assistant=is_assistant
                                     class:ai-panel__message--error=is_error
                                 >
-                                    <span class="ai-panel__role">{role.clone()}</span>
                                     <div class="ai-panel__content" class:ai-panel__markdown=is_assistant>
                                         {if is_assistant {
                                             view! { <pre class="ai-panel__markdown-pre">{content}</pre> }.into_any()

@@ -1052,6 +1052,7 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     let reply = &sender_frames[0];
     assert_eq!(reply.syscall, "ai:prompt");
     assert_eq!(reply.status, Status::Done);
+    assert_eq!(reply.data.get("prompt").and_then(|v| v.as_str()), Some("create a sticky"));
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(1));
     assert_eq!(reply.data.get("text").and_then(|v| v.as_str()), Some("Created a sticky."));
 
@@ -1139,6 +1140,7 @@ async fn ai_prompt_resize_sticky_broadcasts_update_and_replies_with_text() {
     let reply = &sender_frames[0];
     assert_eq!(reply.syscall, "ai:prompt");
     assert_eq!(reply.status, Status::Done);
+    assert_eq!(reply.data.get("prompt").and_then(|v| v.as_str()), Some("resize sticky 4"));
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(1));
     assert_eq!(reply.data.get("text").and_then(|v| v.as_str()), Some("Resized sticky 4."));
 
@@ -1222,6 +1224,7 @@ async fn ai_prompt_multi_tool_single_turn_broadcasts_all_mutations_and_replies_w
     let reply = &sender_frames[0];
     assert_eq!(reply.syscall, "ai:prompt");
     assert_eq!(reply.status, Status::Done);
+    assert_eq!(reply.data.get("prompt").and_then(|v| v.as_str()), Some("create two stickies"));
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(2));
     assert_eq!(reply.data.get("text").and_then(|v| v.as_str()), Some("Added two stickies."));
 
