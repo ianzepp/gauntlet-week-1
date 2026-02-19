@@ -1,4 +1,4 @@
-//! WebSocket handler — bidirectional frame relay.
+//! WebSocket handler — bidirectional binary frame relay.
 //!
 //! DESIGN
 //! ======
@@ -124,7 +124,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                 let Some(msg) = msg else { break };
                 let Ok(msg) = msg else { break };
                 match msg {
-                    Message::Text(text) => {
+                    Message::Binary(bytes) => {
                         dispatch_frame(
                             &state,
                             &mut socket,
@@ -134,10 +134,11 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                             &user_name,
                             &user_color,
                             &client_tx,
-                            &text,
+                            &bytes,
                         )
                         .await;
                     }
+                    Message::Text(_) => {}
                     Message::Close(_) => break,
                     _ => {}
                 }
@@ -170,7 +171,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
 // FRAME DISPATCH
 // =============================================================================
 
-/// Parse an incoming JSON frame, dispatch to handler, apply outcome.
+/// Parse an incoming binary frame, dispatch to handler, apply outcome.
 async fn dispatch_frame(
     state: &AppState,
     socket: &mut WebSocket,
@@ -180,10 +181,19 @@ async fn dispatch_frame(
     user_name: &str,
     user_color: &str,
     client_tx: &mpsc::Sender<Frame>,
-    text: &str,
+    bytes: &[u8],
 ) {
-    let sender_frames =
-        process_inbound_text(state, current_board, client_id, user_id, user_name, user_color, client_tx, text).await;
+    let sender_frames = process_inbound_bytes(
+        state,
+        current_board,
+        client_id,
+        user_id,
+        user_name,
+        user_color,
+        client_tx,
+        bytes,
+    )
+    .await;
     for frame in sender_frames {
         let _ = send_frame(socket, &frame).await;
     }
@@ -193,7 +203,7 @@ async fn dispatch_frame(
 ///
 /// This keeps the websocket transport concerns separate from frame handling,
 /// so tests can exercise frame dispatch and AI broadcast behavior end-to-end.
-async fn process_inbound_text(
+async fn process_inbound_bytes(
     state: &AppState,
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
@@ -201,13 +211,22 @@ async fn process_inbound_text(
     user_name: &str,
     user_color: &str,
     client_tx: &mpsc::Sender<Frame>,
-    text: &str,
+    bytes: &[u8],
 ) -> Vec<Frame> {
-    let mut req: Frame = match serde_json::from_str(text) {
-        Ok(r) => r,
+    let inbound = match frames::decode_frame(bytes) {
+        Ok(frame) => frame,
         Err(e) => {
             warn!(%client_id, error = %e, "ws: invalid inbound frame");
-            let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid json: {e}"));
+            let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid frame: {e}"));
+            services::persistence::enqueue_frame(state, &err);
+            return vec![err];
+        }
+    };
+    let mut req = match Frame::try_from(inbound) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!(%client_id, error = %e, "ws: inbound frame conversion failed");
+            let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid frame: {e}"));
             services::persistence::enqueue_frame(state, &err);
             return vec![err];
         }
@@ -615,7 +634,14 @@ async fn handle_object(
             let version = req
                 .data
                 .get("version")
-                .and_then(serde_json::Value::as_i64)
+                .and_then(|value| {
+                    value.as_i64().or_else(|| {
+                        value
+                            .as_f64()
+                            .filter(|v| v.fract() == 0.0)
+                            .map(|v| v as i64)
+                    })
+                })
                 .and_then(|v| i32::try_from(v).ok())
                 .unwrap_or(0);
 
@@ -899,13 +925,8 @@ async fn ai_history(state: &AppState, board_id: Uuid, user_id: Uuid, req: &Frame
 // =============================================================================
 
 async fn send_frame(socket: &mut WebSocket, frame: &Frame) -> Result<(), ()> {
-    let json = match serde_json::to_string(frame) {
-        Ok(j) => j,
-        Err(e) => {
-            warn!(error = %e, "ws: failed to serialize frame");
-            return Err(());
-        }
-    };
+    let wire = frames::Frame::from(frame);
+    let bytes = frames::encode_frame(&wire);
     let is_cursor = frame.syscall.starts_with("cursor:");
     if !is_cursor {
         if frame.status == crate::frame::Status::Error {
@@ -925,7 +946,7 @@ async fn send_frame(socket: &mut WebSocket, frame: &Frame) -> Result<(), ()> {
         }
     }
     socket
-        .send(Message::Text(json.into()))
+        .send(Message::Binary(bytes.into()))
         .await
         .map_err(|_| ())
 }

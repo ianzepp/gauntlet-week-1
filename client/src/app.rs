@@ -25,7 +25,7 @@ use crate::state::{
 #[derive(Clone, Debug, Default)]
 pub struct FrameSender {
     #[cfg(feature = "hydrate")]
-    pub tx: Option<futures::channel::mpsc::UnboundedSender<String>>,
+    pub tx: Option<futures::channel::mpsc::UnboundedSender<Vec<u8>>>,
 }
 
 impl FrameSender {

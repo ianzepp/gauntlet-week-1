@@ -11,29 +11,8 @@ mod types_test;
 
 use serde::{Deserialize, Serialize};
 
-/// A frame in the WebSocket protocol. Frames are the unit of communication
-/// between client and server over the WebSocket connection.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Frame {
-    pub id: String,
-    pub parent_id: Option<String>,
-    pub ts: i64,
-    pub board_id: Option<String>,
-    pub from: Option<String>,
-    pub syscall: String,
-    pub status: FrameStatus,
-    pub data: serde_json::Value,
-}
-
-/// Status of a frame in the request/response lifecycle.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum FrameStatus {
-    Request,
-    Done,
-    Error,
-    Cancel,
-}
+pub use frames::Frame;
+pub use frames::Status as FrameStatus;
 
 /// A board object as represented in the wire protocol.
 /// The `canvas` crate has its own `BoardObject` type; the `CanvasHost` bridge

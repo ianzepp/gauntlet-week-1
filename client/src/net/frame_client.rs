@@ -39,12 +39,8 @@ use leptos::prelude::Update;
 ///
 /// Returns `false` if the channel is closed (no active connection).
 #[cfg(feature = "hydrate")]
-pub fn send_frame(tx: &futures::channel::mpsc::UnboundedSender<String>, frame: &Frame) -> bool {
-    if let Ok(json) = serde_json::to_string(frame) {
-        tx.unbounded_send(json).is_ok()
-    } else {
-        false
-    }
+pub fn send_frame(tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>, frame: &Frame) -> bool {
+    tx.unbounded_send(frames::encode_frame(frame)).is_ok()
 }
 
 /// Spawn the WebSocket frame client lifecycle as a local async task.
@@ -58,10 +54,10 @@ pub fn spawn_frame_client(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
-) -> futures::channel::mpsc::UnboundedSender<String> {
+) -> futures::channel::mpsc::UnboundedSender<Vec<u8>> {
     use futures::channel::mpsc;
 
-    let (tx, rx) = mpsc::unbounded::<String>();
+    let (tx, rx) = mpsc::unbounded::<Vec<u8>>();
     let tx_clone = tx.clone();
 
     leptos::task::spawn_local(frame_client_loop(auth, ai, board, boards, chat, tx_clone, rx));
@@ -77,8 +73,8 @@ async fn frame_client_loop(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
-    tx: futures::channel::mpsc::UnboundedSender<String>,
-    rx: futures::channel::mpsc::UnboundedReceiver<String>,
+    tx: futures::channel::mpsc::UnboundedSender<Vec<u8>>,
+    rx: futures::channel::mpsc::UnboundedReceiver<Vec<u8>>,
 ) {
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -137,8 +133,8 @@ async fn connect_and_run(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
-    rx: &std::rc::Rc<std::cell::RefCell<futures::channel::mpsc::UnboundedReceiver<String>>>,
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
+    rx: &std::rc::Rc<std::cell::RefCell<futures::channel::mpsc::UnboundedReceiver<Vec<u8>>>>,
 ) -> Result<(), String> {
     use futures::StreamExt;
     use gloo_net::websocket::Message;
@@ -154,7 +150,7 @@ async fn connect_and_run(
     let send_task = async {
         use futures::SinkExt;
         while let Some(msg) = rx_borrow.next().await {
-            if ws_write.send(Message::Text(msg)).await.is_err() {
+            if ws_write.send(Message::Bytes(msg)).await.is_err() {
                 break;
             }
         }
@@ -164,12 +160,12 @@ async fn connect_and_run(
     let recv_task = async {
         while let Some(msg) = ws_read.next().await {
             match msg {
-                Ok(Message::Text(text)) => {
-                    if let Ok(frame) = serde_json::from_str::<Frame>(&text) {
+                Ok(Message::Bytes(bytes)) => {
+                    if let Ok(frame) = frames::decode_frame(&bytes) {
                         dispatch_frame(&frame, auth, ai, board, boards, chat, tx);
                     }
                 }
-                Ok(Message::Bytes(_)) => {}
+                Ok(Message::Text(_)) => {}
                 Err(e) => {
                     leptos::logging::warn!("WS recv error: {e}");
                     break;
@@ -203,7 +199,7 @@ fn dispatch_frame(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) {
     if handle_session_connected_frame(frame, board, tx) {
         return;
@@ -232,7 +228,7 @@ fn dispatch_frame(
 fn handle_session_connected_frame(
     frame: &Frame,
     board: leptos::prelude::RwSignal<BoardState>,
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) -> bool {
     if frame.syscall != "session:connected" {
         return false;
@@ -255,7 +251,7 @@ fn handle_board_frame(
     frame: &Frame,
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) -> bool {
     use crate::net::types::{BoardObject, FrameStatus, Savepoint};
 
@@ -732,7 +728,7 @@ fn handle_error_frame(frame: &Frame, boards: leptos::prelude::RwSignal<BoardsSta
 }
 
 #[cfg(feature = "hydrate")]
-fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<String>) {
+fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>) {
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
@@ -748,7 +744,7 @@ fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<String>)
 
 #[cfg(feature = "hydrate")]
 fn send_board_savepoint_list_request(
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
     board: leptos::prelude::RwSignal<BoardState>,
 ) {
     let Some(board_id) = board.get_untracked().board_id else {
@@ -769,7 +765,7 @@ fn send_board_savepoint_list_request(
 
 #[cfg(feature = "hydrate")]
 fn send_board_users_list_request(
-    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
     board: leptos::prelude::RwSignal<BoardState>,
 ) {
     let Some(board_id) = board.get_untracked().board_id else {

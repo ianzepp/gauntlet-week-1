@@ -42,16 +42,16 @@ impl LlmChat for MockLlm {
     }
 }
 
-fn ai_prompt_json(board_id: Uuid, prompt: &str) -> String {
+fn ai_prompt_bytes(board_id: Uuid, prompt: &str) -> Vec<u8> {
     let mut data = Data::new();
     data.insert("prompt".into(), json!(prompt));
     let req = Frame::request("ai:prompt", data).with_board_id(board_id);
-    serde_json::to_string(&req).expect("frame should serialize")
+    frames::encode_frame(&frames::Frame::from(&req))
 }
 
-fn request_json(board_id: Uuid, syscall: &str, data: Data) -> String {
+fn request_bytes(board_id: Uuid, syscall: &str, data: Data) -> Vec<u8> {
     let req = Frame::request(syscall, data).with_board_id(board_id);
-    serde_json::to_string(&req).expect("frame should serialize")
+    frames::encode_frame(&frames::Frame::from(&req))
 }
 
 async fn recv_board_broadcast(rx: &mut mpsc::Receiver<Frame>) -> Frame {
@@ -76,15 +76,17 @@ async fn assert_no_board_broadcast(rx: &mut mpsc::Receiver<Frame>) {
     );
 }
 
-async fn process_inbound_text(
+async fn process_inbound_bytes(
     state: &AppState,
     current_board: &mut Option<Uuid>,
     client_id: Uuid,
     user_id: Uuid,
     client_tx: &mpsc::Sender<Frame>,
-    text: &str,
+    bytes: &[u8],
 ) -> Vec<Frame> {
-    let parsed = serde_json::from_str::<Frame>(text).ok();
+    let parsed = frames::decode_frame(bytes)
+        .ok()
+        .and_then(|wire| Frame::try_from(wire).ok());
     let user_name = parsed
         .as_ref()
         .and_then(|f| f.data.get("name"))
@@ -96,7 +98,17 @@ async fn process_inbound_text(
         .and_then(serde_json::Value::as_str)
         .unwrap_or("#8a8178");
 
-    super::process_inbound_text(state, current_board, client_id, user_id, user_name, user_color, client_tx, text).await
+    super::process_inbound_bytes(
+        state,
+        current_board,
+        client_id,
+        user_id,
+        user_name,
+        user_color,
+        client_tx,
+        bytes,
+    )
+    .await
 }
 
 #[cfg(feature = "live-db-tests")]
@@ -157,10 +169,10 @@ async fn board_join_requires_board_id() {
     let mut current_board = None;
 
     let req = Frame::request("board:join", Data::new());
-    let text = serde_json::to_string(&req).expect("frame should serialize");
+    let text = frames::encode_frame(&frames::Frame::from(&req));
 
     let reply =
-        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].syscall, "board:join");
@@ -182,10 +194,10 @@ async fn board_unknown_op_returns_error() {
     let mut current_board = None;
 
     let req = Frame::request("board:not_a_real_op", Data::new()).with_board_id(Uuid::new_v4());
-    let text = serde_json::to_string(&req).expect("frame should serialize");
+    let text = frames::encode_frame(&frames::Frame::from(&req));
 
     let reply =
-        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].syscall, "board:not_a_real_op");
@@ -208,10 +220,10 @@ async fn chat_message_requires_joined_board() {
 
     let mut data = Data::new();
     data.insert("message".into(), json!("hello"));
-    let text = request_json(Uuid::new_v4(), "chat:message", data);
+    let text = request_bytes(Uuid::new_v4(), "chat:message", data);
 
     let reply =
-        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].syscall, "chat:message");
@@ -237,10 +249,10 @@ async fn chat_message_requires_non_empty_message() {
 
     let mut data = Data::new();
     data.insert("message".into(), json!("    "));
-    let text = request_json(board_id, "chat:message", data);
+    let text = request_bytes(board_id, "chat:message", data);
 
     let reply =
-        process_inbound_text(&state, &mut current_board, sender_client_id, Uuid::new_v4(), &sender_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, Uuid::new_v4(), &sender_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].syscall, "chat:message");
@@ -268,10 +280,10 @@ async fn chat_message_broadcasts_to_peers_and_replies_with_trimmed_message() {
 
     let mut data = Data::new();
     data.insert("message".into(), json!("  hello board  "));
-    let text = request_json(board_id, "chat:message", data);
+    let text = request_bytes(board_id, "chat:message", data);
 
     let sender_frames =
-        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
 
     assert_eq!(sender_frames.len(), 1);
     assert_eq!(sender_frames[0].syscall, "chat:message");
@@ -309,10 +321,10 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
     data.insert("y".into(), json!(654.25));
     data.insert("name".into(), json!("Alice"));
     data.insert("color".into(), json!("#22c55e"));
-    let text = request_json(board_id, "cursor:moved", data);
+    let text = request_bytes(board_id, "cursor:moved", data);
 
     let sender_frames =
-        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
 
     // Cursor events are peer-only and do not echo a response frame to sender.
     assert!(sender_frames.is_empty());
@@ -343,9 +355,9 @@ async fn cursor_clear_broadcasts_to_peers() {
     let mut current_board = Some(board_id);
     let user_id = Uuid::new_v4();
 
-    let text = request_json(board_id, "cursor:clear", Data::new());
+    let text = request_bytes(board_id, "cursor:clear", Data::new());
     let sender_frames =
-        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
 
     assert!(sender_frames.is_empty());
     assert_no_board_broadcast(&mut sender_rx).await;
@@ -378,10 +390,10 @@ async fn object_drag_broadcasts_ephemeral_transform_to_peers() {
     data.insert("width".into(), json!(180.0));
     data.insert("height".into(), json!(95.0));
     data.insert("rotation".into(), json!(15.0));
-    let text = request_json(board_id, "object:drag", data);
+    let text = request_bytes(board_id, "object:drag", data);
 
     let sender_frames =
-        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
 
     // Drag events are peer-only, no sender reply.
     assert!(sender_frames.is_empty());
@@ -409,10 +421,10 @@ async fn object_drag_end_broadcasts_to_peers_without_sender_reply() {
 
     let mut data = Data::new();
     data.insert("id".into(), json!(object_id));
-    let text = request_json(board_id, "object:drag:end", data);
+    let text = request_bytes(board_id, "object:drag:end", data);
 
     let sender_frames =
-        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
 
     assert!(sender_frames.is_empty());
     assert_no_board_broadcast(&mut sender_rx).await;
@@ -431,10 +443,10 @@ async fn chat_history_requires_joined_board() {
     let state = test_helpers::test_app_state();
     let (client_tx, mut client_rx) = mpsc::channel(8);
     let mut current_board = None;
-    let text = request_json(Uuid::new_v4(), "chat:history", Data::new());
+    let text = request_bytes(Uuid::new_v4(), "chat:history", Data::new());
 
     let reply =
-        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].syscall, "chat:history");
@@ -505,10 +517,10 @@ async fn chat_history_returns_persisted_messages_for_board() {
     let state = AppState::new(pool, None, None);
     let (client_tx, _client_rx) = mpsc::channel(8);
     let mut current_board = Some(board_id);
-    let text = request_json(board_id, "chat:history", Data::new());
+    let text = request_bytes(board_id, "chat:history", Data::new());
 
     let reply =
-        process_inbound_text(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
+        process_inbound_bytes(&state, &mut current_board, Uuid::new_v4(), Uuid::new_v4(), &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].status, Status::Done);
@@ -592,9 +604,9 @@ async fn ai_history_returns_only_messages_for_requesting_user() {
     let state = AppState::new(pool, Some(llm), None);
     let (client_tx, _client_rx) = mpsc::channel(8);
     let mut current_board = Some(board_id);
-    let text = request_json(board_id, "ai:history", Data::new());
+    let text = request_bytes(board_id, "ai:history", Data::new());
 
-    let reply = process_inbound_text(&state, &mut current_board, Uuid::new_v4(), user_a, &client_tx, &text).await;
+    let reply = process_inbound_bytes(&state, &mut current_board, Uuid::new_v4(), user_a, &client_tx, &text).await;
 
     assert_eq!(reply.len(), 1);
     assert_eq!(reply[0].status, Status::Done);
@@ -626,10 +638,10 @@ async fn multi_user_single_change_reaches_other_user() {
     create_data.insert("x".into(), json!(120.0));
     create_data.insert("y".into(), json!(180.0));
     create_data.insert("props".into(), json!({ "text": "from user a", "color": "#FFEB3B" }));
-    let create_req = request_json(board_id, "object:create", create_data);
+    let create_req = request_bytes(board_id, "object:create", create_data);
 
     let a_reply =
-        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &create_req).await;
+        process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &create_req).await;
 
     assert_eq!(a_reply.len(), 1);
     assert_eq!(a_reply[0].status, Status::Done);
@@ -701,12 +713,12 @@ async fn multi_user_concurrent_changes_on_different_objects_sync_both_users() {
     update_b.insert("version".into(), json!(1));
     update_b.insert("y".into(), json!(900.0));
 
-    let req_a = request_json(board_id, "object:update", update_a);
-    let req_b = request_json(board_id, "object:update", update_b);
+    let req_a = request_bytes(board_id, "object:update", update_a);
+    let req_b = request_bytes(board_id, "object:update", update_b);
 
     let (a_reply, b_reply) = tokio::join!(
-        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req_a),
-        process_inbound_text(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &req_b)
+        process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req_a),
+        process_inbound_bytes(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &req_b)
     );
 
     assert_eq!(a_reply.len(), 1);
@@ -772,12 +784,12 @@ async fn multi_user_conflicting_same_object_edits_converge_after_retry() {
     update_b.insert("version".into(), json!(1));
     update_b.insert("x".into(), json!(330.0));
 
-    let req_a = request_json(board_id, "object:update", update_a);
-    let req_b = request_json(board_id, "object:update", update_b);
+    let req_a = request_bytes(board_id, "object:update", update_a);
+    let req_b = request_bytes(board_id, "object:update", update_b);
 
     let (a_reply, b_reply) = tokio::join!(
-        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req_a),
-        process_inbound_text(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &req_b)
+        process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req_a),
+        process_inbound_bytes(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &req_b)
     );
 
     assert_eq!(a_reply.len(), 1);
@@ -817,9 +829,9 @@ async fn multi_user_conflicting_same_object_edits_converge_after_retry() {
         retry.insert("id".into(), json!(shared_id));
         retry.insert("version".into(), json!(current_version));
         retry.insert("x".into(), json!(777.0));
-        let retry_req = request_json(board_id, "object:update", retry);
+        let retry_req = request_bytes(board_id, "object:update", retry);
         let b_retry =
-            process_inbound_text(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &retry_req).await;
+            process_inbound_bytes(&state, &mut current_board_b, client_b_id, user_b, &client_b_tx, &retry_req).await;
 
         assert_eq!(b_retry.len(), 1);
         assert_eq!(b_retry[0].status, Status::Done);
@@ -847,9 +859,9 @@ async fn multi_user_conflicting_same_object_edits_converge_after_retry() {
         retry.insert("id".into(), json!(shared_id));
         retry.insert("version".into(), json!(current_version));
         retry.insert("x".into(), json!(777.0));
-        let retry_req = request_json(board_id, "object:update", retry);
+        let retry_req = request_bytes(board_id, "object:update", retry);
         let a_retry =
-            process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &retry_req).await;
+            process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &retry_req).await;
 
         assert_eq!(a_retry.len(), 1);
         assert_eq!(a_retry[0].status, Status::Done);
@@ -887,10 +899,10 @@ async fn multi_user_stale_update_is_rejected_and_not_broadcast() {
     stale_update.insert("id".into(), json!(obj_id));
     stale_update.insert("version".into(), json!(1));
     stale_update.insert("x".into(), json!(999.0));
-    let stale_req = request_json(board_id, "object:update", stale_update);
+    let stale_req = request_bytes(board_id, "object:update", stale_update);
 
     let a_reply =
-        process_inbound_text(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &stale_req).await;
+        process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &stale_req).await;
 
     assert_eq!(a_reply.len(), 1);
     assert_eq!(a_reply[0].status, Status::Error);
@@ -935,13 +947,13 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
 
-    let sender_frames = process_inbound_text(
+    let sender_frames = process_inbound_bytes(
         &state,
         &mut current_board,
         sender_client_id,
         user_id,
         &sender_tx,
-        &ai_prompt_json(board_id, "create a sticky"),
+        &ai_prompt_bytes(board_id, "create a sticky"),
     )
     .await;
 
@@ -1022,13 +1034,13 @@ async fn ai_prompt_resize_sticky_broadcasts_update_and_replies_with_text() {
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
 
-    let sender_frames = process_inbound_text(
+    let sender_frames = process_inbound_bytes(
         &state,
         &mut current_board,
         sender_client_id,
         user_id,
         &sender_tx,
-        &ai_prompt_json(board_id, "resize sticky 4"),
+        &ai_prompt_bytes(board_id, "resize sticky 4"),
     )
     .await;
 
@@ -1105,13 +1117,13 @@ async fn ai_prompt_multi_tool_single_turn_broadcasts_all_mutations_and_replies_w
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
 
-    let sender_frames = process_inbound_text(
+    let sender_frames = process_inbound_bytes(
         &state,
         &mut current_board,
         sender_client_id,
         user_id,
         &sender_tx,
-        &ai_prompt_json(board_id, "create two stickies"),
+        &ai_prompt_bytes(board_id, "create two stickies"),
     )
     .await;
 
@@ -1219,13 +1231,13 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
     let user_id = Uuid::new_v4();
     let mut current_board = Some(board_id);
 
-    let first_reply = process_inbound_text(
+    let first_reply = process_inbound_bytes(
         &state,
         &mut current_board,
         sender_client_id,
         user_id,
         &sender_tx,
-        &ai_prompt_json(board_id, "do first batch"),
+        &ai_prompt_bytes(board_id, "do first batch"),
     )
     .await;
 
@@ -1247,13 +1259,13 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
             .all(|f| f.syscall == "object:create" && f.status == Status::Done)
     );
 
-    let second_reply = process_inbound_text(
+    let second_reply = process_inbound_bytes(
         &state,
         &mut current_board,
         sender_client_id,
         user_id,
         &sender_tx,
-        &ai_prompt_json(board_id, "do second batch"),
+        &ai_prompt_bytes(board_id, "do second batch"),
     )
     .await;
 

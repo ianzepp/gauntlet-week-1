@@ -56,6 +56,28 @@ pub enum Status {
     Cancel,
 }
 
+impl From<Status> for frames::Status {
+    fn from(value: Status) -> Self {
+        match value {
+            Status::Request => Self::Request,
+            Status::Done => Self::Done,
+            Status::Error => Self::Error,
+            Status::Cancel => Self::Cancel,
+        }
+    }
+}
+
+impl From<frames::Status> for Status {
+    fn from(value: frames::Status) -> Self {
+        match value {
+            frames::Status::Request => Self::Request,
+            frames::Status::Done => Self::Done,
+            frames::Status::Error => Self::Error,
+            frames::Status::Cancel => Self::Cancel,
+        }
+    }
+}
+
 impl Status {
     /// Terminal statuses end a response stream.
     #[must_use]
@@ -82,6 +104,12 @@ pub struct Frame {
     pub status: Status,
     #[serde(default)]
     pub data: Data,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum FrameConvertError {
+    #[error("invalid uuid in field `{field}`: {value}")]
+    InvalidUuid { field: &'static str, value: String },
 }
 
 fn default_status() -> Status {
@@ -185,6 +213,74 @@ impl Frame {
             status,
             data,
         }
+    }
+}
+
+impl From<&Frame> for frames::Frame {
+    fn from(value: &Frame) -> Self {
+        let data = serde_json::Value::Object(
+            value
+                .data
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        );
+
+        Self {
+            id: value.id.to_string(),
+            parent_id: value.parent_id.map(|v| v.to_string()),
+            ts: value.ts,
+            board_id: value.board_id.map(|v| v.to_string()),
+            from: value.from.clone(),
+            syscall: value.syscall.clone(),
+            status: value.status.into(),
+            data,
+        }
+    }
+}
+
+impl TryFrom<frames::Frame> for Frame {
+    type Error = FrameConvertError;
+
+    fn try_from(value: frames::Frame) -> Result<Self, Self::Error> {
+        let id = value
+            .id
+            .parse::<Uuid>()
+            .map_err(|_| FrameConvertError::InvalidUuid { field: "id", value: value.id.clone() })?;
+
+        let parent_id = match value.parent_id {
+            Some(parent) => Some(
+                parent
+                    .parse::<Uuid>()
+                    .map_err(|_| FrameConvertError::InvalidUuid { field: "parent_id", value: parent })?,
+            ),
+            None => None,
+        };
+
+        let board_id = match value.board_id {
+            Some(board) => Some(
+                board
+                    .parse::<Uuid>()
+                    .map_err(|_| FrameConvertError::InvalidUuid { field: "board_id", value: board })?,
+            ),
+            None => None,
+        };
+
+        let data = match value.data {
+            serde_json::Value::Object(map) => map.into_iter().collect(),
+            _ => Data::new(),
+        };
+
+        Ok(Self {
+            id,
+            parent_id,
+            ts: value.ts,
+            board_id,
+            from: value.from,
+            syscall: value.syscall,
+            status: value.status.into(),
+            data,
+        })
     }
 }
 

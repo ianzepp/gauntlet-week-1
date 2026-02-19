@@ -26,6 +26,7 @@ thiserror = "2"
 time = "0.3"
 async-trait = "0.1"
 dotenvy = "0.15"
+frames = { path = "../frames" }
 
 # Leptos SSR integration
 leptos = { version = "0.8", features = ["ssr"] }

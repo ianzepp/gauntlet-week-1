@@ -136,7 +136,14 @@ pub async fn update_object(
     if let Some(r) = updates.get("rotation").and_then(serde_json::Value::as_f64) {
         obj.rotation = r;
     }
-    if let Some(z) = updates.get("z_index").and_then(serde_json::Value::as_i64) {
+    if let Some(z) = updates.get("z_index").and_then(|value| {
+        value.as_i64().or_else(|| {
+            value
+                .as_f64()
+                .filter(|v| v.fract() == 0.0)
+                .map(|v| v as i64)
+        })
+    }) {
         #[allow(clippy::cast_possible_truncation)]
         {
             obj.z_index = z as i32;
