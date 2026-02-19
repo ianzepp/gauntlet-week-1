@@ -332,6 +332,14 @@ async fn handle_board(
 
                     let mut reply = Data::new();
                     reply.insert("objects".into(), serde_json::to_value(&objects).unwrap_or_default());
+                    if let Ok(Some(name)) =
+                        sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
+                            .bind(board_id)
+                            .fetch_optional(&state.pool)
+                            .await
+                    {
+                        reply.insert("name".into(), serde_json::json!(name));
+                    }
 
                     let mut broadcast = Data::new();
                     broadcast.insert("client_id".into(), serde_json::json!(client_id));

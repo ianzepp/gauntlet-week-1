@@ -25,6 +25,7 @@ pub fn StatusBar() -> impl IntoView {
 
     let object_count = move || board.get().objects.len();
     let board_name = move || board.get().board_name.unwrap_or_default();
+    let camera_locked = move || board.get().follow_client_id.is_some();
     let cursor = move || canvas_view.get().cursor_world;
     let camera_center = move || canvas_view.get().camera_center_world.clone();
     let zoom = move || canvas_view.get().zoom;
@@ -43,6 +44,11 @@ pub fn StatusBar() -> impl IntoView {
 
                 <span class="status-bar__divider"></span>
                 <span class="status-bar__item">{move || format!("{} objs", object_count())}</span>
+
+                <Show when=camera_locked>
+                    <span class="status-bar__divider"></span>
+                    <span class="status-bar__item">"LOCKED CAMERA"</span>
+                </Show>
             </div>
 
             <div class="status-bar__section">

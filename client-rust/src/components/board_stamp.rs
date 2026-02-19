@@ -77,8 +77,12 @@ pub fn BoardStamp() -> impl IntoView {
                                                     board.update(|b| {
                                                         if b.follow_client_id.as_deref() == Some(client_id.as_str()) {
                                                             b.follow_client_id = None;
+                                                            if b.jump_to_client_id.as_deref() == Some(client_id.as_str()) {
+                                                                b.jump_to_client_id = None;
+                                                            }
                                                         } else {
                                                             b.follow_client_id = Some(client_id.clone());
+                                                            b.jump_to_client_id = Some(client_id.clone());
                                                         }
                                                     });
                                                 }

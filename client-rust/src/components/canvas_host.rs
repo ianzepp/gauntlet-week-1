@@ -50,6 +50,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_presence_sent = RwSignal::new(None::<(f64, f64, f64)>);
     #[cfg(feature = "hydrate")]
+    let last_presence_bootstrap_key = RwSignal::new(None::<(String, String)>);
+    #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
@@ -83,6 +85,42 @@ pub fn CanvasHost() -> impl IntoView {
             );
             let _ = instance.render();
             *engine.borrow_mut() = Some(instance);
+        });
+    }
+
+    #[cfg(feature = "hydrate")]
+    {
+        let engine = Rc::clone(&engine);
+        let canvas_ref_bootstrap = canvas_ref.clone();
+        Effect::new(move || {
+            let state = _board.get();
+            if state.connection_status != crate::state::board::ConnectionStatus::Connected {
+                return;
+            }
+            let Some(board_id) = state.board_id.clone() else {
+                return;
+            };
+            let Some(client_id) = state.self_client_id.clone() else {
+                return;
+            };
+            let key = (board_id, client_id);
+            if last_presence_bootstrap_key.get().as_ref() == Some(&key) {
+                return;
+            }
+            if let Some(engine) = engine.borrow_mut().as_mut() {
+                sync_viewport(engine, &canvas_ref_bootstrap);
+                send_cursor_presence_if_needed(
+                    engine,
+                    _board,
+                    _auth,
+                    _sender,
+                    last_presence_sent_ms,
+                    last_presence_sent,
+                    None,
+                    true,
+                );
+                last_presence_bootstrap_key.set(Some(key));
+            }
         });
     }
 
@@ -170,6 +208,9 @@ pub fn CanvasHost() -> impl IntoView {
                     let _ = canvas.focus();
                     let _ = canvas.set_pointer_capture(ev.pointer_id());
                 }
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
                 let point = pointer_point(&ev);
                 if let Some((kind, width, height, props)) = placement_shape(_ui.get().active_tool) {
                     if let Some(engine) = engine.borrow().as_ref() {
@@ -216,6 +257,22 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
                 let point = pointer_point(&ev);
+                if _board.get().follow_client_id.is_some() {
+                    if let Some(engine) = engine.borrow().as_ref() {
+                        sync_canvas_view_state(engine, _canvas_view, Some(point));
+                        send_cursor_presence_if_needed(
+                            engine,
+                            _board,
+                            _auth,
+                            _sender,
+                            last_presence_sent_ms,
+                            last_presence_sent,
+                            Some(point),
+                            false,
+                        );
+                    }
+                    return;
+                }
                 if placement_shape(_ui.get().active_tool).is_some() {
                     preview_cursor.set(Some(point));
                     if let Some(engine) = engine.borrow().as_ref() {
@@ -269,6 +326,9 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(canvas) = canvas_ref.get() {
                     let _ = canvas.release_pointer_capture(ev.pointer_id());
                 }
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     let active_transform = active_transform_object_id(engine);
                     sync_viewport(engine, &canvas_ref);
@@ -308,6 +368,9 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::WheelEvent| {
                 ev.prevent_default();
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
                     let point = wheel_point(&ev);
@@ -371,6 +434,12 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::KeyboardEvent| {
                 let key = ev.key();
+                if _board.get().follow_client_id.is_some() {
+                    if key == "Escape" {
+                        active_youtube.set(None);
+                    }
+                    return;
+                }
                 if key == "Escape" && placement_shape(_ui.get().active_tool).is_some() {
                     ev.prevent_default();
                     _ui.update(|u| u.active_tool = ToolType::Select);
@@ -658,9 +727,12 @@ fn send_cursor_presence_if_needed(
         return;
     };
     let has_cursor_point = cursor_screen.is_some();
+    const CAMERA_ONLY_MIN_INTERVAL_MS: f64 = 40.0;
+    const CAMERA_CENTER_DEADBAND_WORLD: f64 = 0.2;
+    const CAMERA_ZOOM_DEADBAND: f64 = 0.001;
 
     let now = now_ms();
-    if !force && !has_cursor_point && now - last_sent_ms.get_untracked() < 120.0 {
+    if !force && !has_cursor_point && now - last_sent_ms.get_untracked() < CAMERA_ONLY_MIN_INTERVAL_MS {
         return;
     }
     let Some(board_id) = state.board_id else {
@@ -683,7 +755,7 @@ fn send_cursor_presence_if_needed(
         let dy = center_y - last_y;
         let center_dist = (dx * dx + dy * dy).sqrt();
         let zoom_delta = (zoom - last_zoom).abs();
-        if center_dist < 0.75 && zoom_delta < 0.003 {
+        if center_dist < CAMERA_CENTER_DEADBAND_WORLD && zoom_delta < CAMERA_ZOOM_DEADBAND {
             return;
         }
     }
