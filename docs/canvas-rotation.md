@@ -135,6 +135,42 @@ These are additive and preserve old call sites.
     - Snap targets (`0/90/180/270`) are accurate.
     - Reset returns view rotation to `0`.
 
+## Manual QA Matrix
+Use these exact checks in browser before rollout:
+
+1. Compass Drag
+- Action: Drag compass knob in a full circle clockwise/counterclockwise.
+- Expect: angle readout tracks smoothly without jumps.
+- Expect: world (objects + grid) rotates; object data is unchanged.
+
+2. Cardinal Snap Tolerance
+- Action: Drag close to `0/90/180/270` (within a few degrees).
+- Expect: rotation snaps to the nearest cardinal angle.
+
+3. Shift Snap
+- Action: Hold `Shift` while dragging compass.
+- Expect: rotation snaps to 15-degree increments.
+
+4. Reset
+- Action: Double-click compass center.
+- Expect: rotation becomes exactly `0`.
+
+5. Selection + Handles
+- Action: At `90` and `180`, select objects and hit resize/rotate handles.
+- Expect: handle hit-tests match cursor position.
+
+6. Drag + Pan + Zoom
+- Action: Drag object, pan canvas, and wheel-zoom around cursor at `33` and `90`.
+- Expect: object movement remains accurate; pan feels consistent; zoom anchors under cursor.
+
+7. Overlay Alignment
+- Action: With non-zero rotation, inspect remote cursors and YouTube overlays.
+- Expect: overlay positions stay aligned with rotated world.
+
+8. Follow/Jump Parity
+- Action: User A rotates/zooms/pans; User B follows or jumps to A.
+- Expect: B matches A center/zoom/rotation.
+
 ## Estimated Effort
 - Phase 1: Medium
 - Phase 2: Medium

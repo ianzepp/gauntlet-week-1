@@ -545,7 +545,7 @@ pub fn CanvasHost() -> impl IntoView {
                     && let Some(engine) = engine.borrow_mut().as_mut()
                 {
                     sync_viewport(engine, &canvas_ref);
-                    engine.set_view_rotation_deg(angle);
+                    engine.set_view_rotation_deg(apply_compass_drag_snapping(angle, ev.shift_key()));
                     sync_canvas_view_state(engine, _canvas_view, None);
                     let _ = engine.render();
                 }
@@ -574,7 +574,7 @@ pub fn CanvasHost() -> impl IntoView {
                     && let Some(engine) = engine.borrow_mut().as_mut()
                 {
                     sync_viewport(engine, &canvas_ref);
-                    engine.set_view_rotation_deg(angle);
+                    engine.set_view_rotation_deg(apply_compass_drag_snapping(angle, ev.shift_key()));
                     sync_canvas_view_state(engine, _canvas_view, None);
                     let _ = engine.render();
                 }
@@ -921,6 +921,7 @@ pub fn CanvasHost() -> impl IntoView {
             <div
                 class="canvas-compass"
                 node_ref=compass_ref
+                title="Drag to rotate view; hold Shift to snap by 15deg"
                 on:pointerdown=on_compass_pointer_down
                 on:pointermove=on_compass_pointer_move
                 on:pointerup=on_compass_pointer_up
@@ -1092,6 +1093,30 @@ fn viewport_center_screen(engine: &Engine) -> CanvasPoint {
 
 fn normalize_degrees_360(deg: f64) -> f64 {
     deg.rem_euclid(360.0)
+}
+
+#[cfg(feature = "hydrate")]
+fn angular_delta_deg(a: f64, b: f64) -> f64 {
+    let delta = (a - b).abs().rem_euclid(360.0);
+    delta.min(360.0 - delta)
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_compass_drag_snapping(raw_deg: f64, shift_snap: bool) -> f64 {
+    const CARDINAL_SNAP_EPS_DEG: f64 = 6.0;
+    const SHIFT_STEP_DEG: f64 = 15.0;
+
+    let mut deg = normalize_degrees_360(raw_deg);
+    for target in [0.0, 90.0, 180.0, 270.0] {
+        if angular_delta_deg(deg, target) <= CARDINAL_SNAP_EPS_DEG {
+            deg = target;
+            break;
+        }
+    }
+    if shift_snap {
+        deg = (deg / SHIFT_STEP_DEG).round() * SHIFT_STEP_DEG;
+    }
+    normalize_degrees_360(deg)
 }
 
 #[cfg(feature = "hydrate")]
