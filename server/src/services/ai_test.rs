@@ -605,3 +605,74 @@ async fn handle_prompt_mutations_only_returns_text() {
         "mutations-only response must still produce text for the client"
     );
 }
+
+#[tokio::test]
+async fn handle_prompt_tool_context_keeps_only_latest_round() {
+    use std::sync::Mutex as StdMutex;
+
+    struct CaptureToolContextLlm {
+        calls: StdMutex<usize>,
+        message_counts: StdMutex<Vec<usize>>,
+    }
+
+    #[async_trait::async_trait]
+    impl LlmChat for CaptureToolContextLlm {
+        async fn chat(
+            &self,
+            _max_tokens: u32,
+            _system: &str,
+            messages: &[Message],
+            _tools: Option<&[Tool]>,
+        ) -> Result<ChatResponse, LlmError> {
+            self.message_counts.lock().unwrap().push(messages.len());
+            let mut calls = self.calls.lock().unwrap();
+            let response = match *calls {
+                0 => ChatResponse {
+                    content: vec![ContentBlock::ToolUse {
+                        id: "tu_1".into(),
+                        name: "createStickyNote".into(),
+                        input: json!({ "text": "first", "x": 100, "y": 100 }),
+                    }],
+                    model: "mock".into(),
+                    stop_reason: "tool_use".into(),
+                    input_tokens: 10,
+                    output_tokens: 20,
+                },
+                1 => ChatResponse {
+                    content: vec![ContentBlock::ToolUse {
+                        id: "tu_2".into(),
+                        name: "createStickyNote".into(),
+                        input: json!({ "text": "second", "x": 220, "y": 140 }),
+                    }],
+                    model: "mock".into(),
+                    stop_reason: "tool_use".into(),
+                    input_tokens: 12,
+                    output_tokens: 18,
+                },
+                _ => ChatResponse {
+                    content: vec![ContentBlock::Text { text: "done".into() }],
+                    model: "mock".into(),
+                    stop_reason: "end_turn".into(),
+                    input_tokens: 16,
+                    output_tokens: 8,
+                },
+            };
+            *calls += 1;
+            Ok(response)
+        }
+    }
+
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let capture =
+        Arc::new(CaptureToolContextLlm { calls: StdMutex::new(0), message_counts: StdMutex::new(Vec::new()) });
+    let llm: Arc<dyn LlmChat> = capture.clone();
+
+    let result = handle_prompt(&state, &llm, board_id, Uuid::new_v4(), Uuid::new_v4(), "create two notes", None)
+        .await
+        .unwrap();
+
+    assert_eq!(result.mutations.len(), 2);
+    assert_eq!(result.text.as_deref(), Some("done"));
+    assert_eq!(*capture.message_counts.lock().unwrap(), vec![1, 3, 3]);
+}

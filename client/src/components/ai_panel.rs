@@ -21,31 +21,7 @@ pub fn AiPanel() -> impl IntoView {
     let sender = expect_context::<RwSignal<FrameSender>>();
 
     let input = RwSignal::new(String::new());
-    let last_history_board = RwSignal::new(None::<String>);
     let messages_ref = NodeRef::<leptos::html::Div>::new();
-
-    Effect::new(move || {
-        let Some(board_id) = board.get().board_id else {
-            return;
-        };
-
-        if last_history_board.get().as_deref() == Some(board_id.as_str()) {
-            return;
-        }
-
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(board_id.clone()),
-            from: None,
-            syscall: "ai:history".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({}),
-        };
-        sender.get().send(&frame);
-        last_history_board.set(Some(board_id));
-    });
 
     Effect::new(move || {
         let state = ai.get();

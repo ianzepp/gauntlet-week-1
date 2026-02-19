@@ -111,7 +111,7 @@ pub async fn handle_prompt(
     llm: &Arc<dyn LlmChat>,
     board_id: Uuid,
     client_id: Uuid,
-    user_id: Uuid,
+    _user_id: Uuid,
     prompt: &str,
     grid_context: Option<&str>,
 ) -> Result<AiResult, AiError> {
@@ -134,10 +134,10 @@ pub async fn handle_prompt(
     let system = build_system_prompt(&board_snapshot, grid_context);
     let tools = gauntlet_week_1_tools();
 
-    // Load recent conversation history for multi-turn context.
-    let mut messages = load_conversation_history(&state.pool, board_id, user_id).await;
-    messages
-        .push(Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) });
+    // Keep AI context scoped to the active prompt lifecycle only.
+    // We intentionally do not preload persisted history so refreshes start fresh.
+    let mut messages =
+        vec![Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) }];
 
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
@@ -200,9 +200,6 @@ pub async fn handle_prompt(
             break;
         }
 
-        // Push assistant message with the full content blocks.
-        messages.push(Message { role: "assistant".into(), content: Content::Blocks(response.content) });
-
         // Execute each tool call and collect results.
         let mut tool_results = Vec::new();
         for (tool_id, tool_name, input) in &tool_calls {
@@ -221,7 +218,10 @@ pub async fn handle_prompt(
             tool_results.push(ContentBlock::ToolResult { tool_use_id: tool_id.clone(), content, is_error });
         }
 
-        // Push tool results as a user message.
+        // Only carry the most recent tool-call exchange forward.
+        // Keep the initial user prompt + latest assistant tool_use + latest tool_result blocks.
+        messages.truncate(1);
+        messages.push(Message { role: "assistant".into(), content: Content::Blocks(response.content) });
         messages.push(Message { role: "user".into(), content: Content::Blocks(tool_results) });
 
         // If stop_reason is not tool_use, break.
@@ -249,67 +249,6 @@ pub async fn handle_prompt(
     );
 
     Ok(AiResult { mutations: all_mutations, text: final_text })
-}
-
-// =============================================================================
-// CONVERSATION HISTORY
-// =============================================================================
-
-/// Load the last few AI conversation turns from persisted frames for one user.
-/// Returns up to 10 exchanges (user prompt + assistant response pairs).
-#[cfg(test)]
-async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid, user_id: Uuid) -> Vec<Message> {
-    let _ = (pool, board_id, user_id);
-    // Unit tests use lazy pools and mocked LLM responses; skip DB history loading
-    // so tests stay fast and deterministic.
-    Vec::new()
-}
-
-/// Load the last few AI conversation turns from persisted frames for one user.
-/// Returns up to 10 exchanges (user prompt + assistant response pairs).
-#[cfg(not(test))]
-async fn load_conversation_history(pool: &sqlx::PgPool, board_id: Uuid, user_id: Uuid) -> Vec<Message> {
-    // Query the most recent ai:prompt request/done pairs (last 20 frames = 10 exchanges).
-    // We use a subquery to get the tail, then re-order chronologically.
-    let rows = sqlx::query_as::<_, (String, Option<String>, Option<String>)>(
-        "SELECT sub.status::text, sub.prompt, sub.text FROM (
-             SELECT f.status, f.seq,
-                    f.data->>'prompt' AS prompt,
-                    f.data->>'text' AS text
-             FROM frames f
-             WHERE f.board_id = $1
-               AND f.\"from\" = $2
-               AND f.syscall = 'ai:prompt'
-               AND f.status IN ('request', 'done')
-             ORDER BY f.seq DESC
-             LIMIT 20
-         ) sub
-         ORDER BY sub.seq ASC",
-    )
-    .bind(board_id)
-    .bind(user_id.to_string())
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
-
-    let mut messages = Vec::new();
-    for (status, prompt, text) in rows {
-        if status == "request" {
-            if let Some(p) = prompt {
-                if !p.is_empty() {
-                    messages.push(Message {
-                        role: "user".into(),
-                        content: Content::Text(format!("<user_input>{p}</user_input>")),
-                    });
-                }
-            }
-        } else if let Some(t) = text {
-            if !t.is_empty() {
-                messages.push(Message { role: "assistant".into(), content: Content::Text(t) });
-            }
-        }
-    }
-    messages
 }
 
 // =============================================================================
