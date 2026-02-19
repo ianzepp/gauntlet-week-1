@@ -237,11 +237,20 @@ impl EngineCore {
                 self.input = InputState::ResizingObject { id, anchor, start_world, orig_x, orig_y, orig_w, orig_h };
                 vec![Action::RenderNeeded]
             }
-            InputState::RotatingObject { id, center, orig_rotation: _ } => {
+            InputState::RotatingObject { id, center, orig_rotation } => {
                 let angle = (world_pt.y - center.y)
                     .atan2(world_pt.x - center.x)
                     .to_degrees()
                     + 90.0;
+                let delta = normalize_angle_delta(angle - orig_rotation);
+
+                if let Some(obj) = self.doc.get(&id).cloned()
+                    && obj.kind == ObjectKind::Frame
+                    && delta.abs() > f64::EPSILON
+                {
+                    let child_ids = self.grouped_children_in_frame(&obj);
+                    self.rotate_children_around_pivot(&child_ids, center, delta);
+                }
                 let partial = PartialBoardObject { rotation: Some(angle), ..Default::default() };
                 self.doc.apply_partial(&id, &partial);
                 self.input = InputState::RotatingObject { id, center, orig_rotation: angle };
@@ -319,6 +328,24 @@ impl EngineCore {
                 if let Some(obj) = self.doc.get(&id) {
                     let partial = PartialBoardObject { rotation: Some(obj.rotation), ..Default::default() };
                     actions.push(Action::ObjectUpdated { id, fields: partial });
+
+                    // Rotating a frame is a grouped transform: persist child geometry + rotation.
+                    if obj.kind == ObjectKind::Frame {
+                        let child_ids = self.grouped_children_in_frame(obj);
+                        for child_id in child_ids {
+                            if let Some(child) = self.doc.get(&child_id) {
+                                actions.push(Action::ObjectUpdated {
+                                    id: child_id,
+                                    fields: PartialBoardObject {
+                                        x: Some(child.x),
+                                        y: Some(child.y),
+                                        rotation: Some(child.rotation),
+                                        ..Default::default()
+                                    },
+                                });
+                            }
+                        }
+                    }
                 }
             }
             InputState::DraggingEdgeEndpoint { id, .. } => {
@@ -691,6 +718,22 @@ impl EngineCore {
             .collect()
     }
 
+    fn rotate_children_around_pivot(&mut self, child_ids: &[ObjectId], pivot: Point, delta_deg: f64) {
+        for child_id in child_ids {
+            if let Some(child) = self.doc.get(child_id).cloned() {
+                let center = Point::new(child.x + (child.width * 0.5), child.y + (child.height * 0.5));
+                let rotated_center = hit::rotate_point(center, pivot, delta_deg);
+                let partial = PartialBoardObject {
+                    x: Some(rotated_center.x - (child.width * 0.5)),
+                    y: Some(rotated_center.y - (child.height * 0.5)),
+                    rotation: Some(child.rotation + delta_deg),
+                    ..Default::default()
+                };
+                self.doc.apply_partial(child_id, &partial);
+            }
+        }
+    }
+
     fn create_default_object(&self, kind: ObjectKind, x: f64, y: f64, width: f64, height: f64) -> BoardObject {
         BoardObject {
             id: uuid::Uuid::new_v4(),
@@ -718,6 +761,10 @@ impl EngineCore {
             .last()
             .map_or(0, |obj| obj.z_index + 1)
     }
+}
+
+fn normalize_angle_delta(delta: f64) -> f64 {
+    ((delta + 180.0).rem_euclid(360.0)) - 180.0
 }
 
 fn anchor_on_object_boundary(obj: &BoardObject, world_pt: Point) -> (f64, f64, Point) {

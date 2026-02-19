@@ -1077,6 +1077,57 @@ fn rotating_above_center_gives_zero_degrees() {
     assert!(obj.rotation.abs() < 0.01);
 }
 
+#[test]
+fn rotating_frame_rotates_contained_children() {
+    let mut core = EngineCore::new();
+    let frame = make_object_at(ObjectKind::Frame, 0.0, 0.0, 300.0, 120.0);
+    let frame_id = frame.id;
+    core.apply_create(frame);
+
+    let c1 = make_object_at(ObjectKind::Ellipse, 40.0, 45.0, 30.0, 30.0);
+    let c1_id = c1.id;
+    core.apply_create(c1);
+
+    let c2 = make_object_at(ObjectKind::Ellipse, 130.0, 45.0, 30.0, 30.0);
+    let c2_id = c2.id;
+    core.apply_create(c2);
+
+    let c3 = make_object_at(ObjectKind::Ellipse, 220.0, 45.0, 30.0, 30.0);
+    let c3_id = c3.id;
+    core.apply_create(c3);
+
+    let outside = make_object_at(ObjectKind::Ellipse, 360.0, 45.0, 30.0, 30.0);
+    let outside_id = outside.id;
+    core.apply_create(outside);
+
+    let center = pt(150.0, 60.0);
+    core.input = InputState::RotatingObject { id: frame_id, center, orig_rotation: 0.0 };
+    core.on_pointer_move(pt(250.0, 60.0), no_modifiers()); // -> 90 deg
+
+    let frame_obj = core.object(&frame_id).unwrap();
+    assert!((frame_obj.rotation - 90.0).abs() < 0.01);
+
+    let c1 = core.object(&c1_id).unwrap();
+    assert!((c1.x - 135.0).abs() < 0.01);
+    assert!((c1.y - (-50.0)).abs() < 0.01);
+    assert!((c1.rotation - 90.0).abs() < 0.01);
+
+    let c2 = core.object(&c2_id).unwrap();
+    assert!((c2.x - 135.0).abs() < 0.01);
+    assert!((c2.y - 40.0).abs() < 0.01);
+    assert!((c2.rotation - 90.0).abs() < 0.01);
+
+    let c3 = core.object(&c3_id).unwrap();
+    assert!((c3.x - 135.0).abs() < 0.01);
+    assert!((c3.y - 130.0).abs() < 0.01);
+    assert!((c3.rotation - 90.0).abs() < 0.01);
+
+    let outside = core.object(&outside_id).unwrap();
+    assert!((outside.x - 360.0).abs() < 0.01);
+    assert!((outside.y - 45.0).abs() < 0.01);
+    assert!(outside.rotation.abs() < 0.01);
+}
+
 // =============================================================
 // Pointer move — DraggingEdgeEndpoint
 // =============================================================
@@ -1241,6 +1292,41 @@ fn pointer_up_rotating_emits_update() {
     let actions = core.on_pointer_up(pt(150.0, 40.0), Button::Primary, no_modifiers());
     assert!(matches!(core.input, InputState::Idle));
     assert!(has_object_updated(&actions));
+}
+
+#[test]
+fn pointer_up_rotating_frame_emits_child_updates() {
+    let mut core = EngineCore::new();
+    let frame = make_object_at(ObjectKind::Frame, 0.0, 0.0, 300.0, 120.0);
+    let frame_id = frame.id;
+    core.apply_create(frame);
+
+    let c1 = make_object_at(ObjectKind::Ellipse, 40.0, 45.0, 30.0, 30.0);
+    let c1_id = c1.id;
+    core.apply_create(c1);
+    let c2 = make_object_at(ObjectKind::Ellipse, 130.0, 45.0, 30.0, 30.0);
+    let c2_id = c2.id;
+    core.apply_create(c2);
+    let c3 = make_object_at(ObjectKind::Ellipse, 220.0, 45.0, 30.0, 30.0);
+    let c3_id = c3.id;
+    core.apply_create(c3);
+
+    let center = pt(150.0, 60.0);
+    core.input = InputState::RotatingObject { id: frame_id, center, orig_rotation: 0.0 };
+    core.on_pointer_move(pt(250.0, 60.0), no_modifiers());
+    let actions = core.on_pointer_up(pt(250.0, 60.0), Button::Primary, no_modifiers());
+
+    let updated_ids: Vec<ObjectId> = actions
+        .iter()
+        .filter_map(|a| match a {
+            Action::ObjectUpdated { id, .. } => Some(*id),
+            _ => None,
+        })
+        .collect();
+    assert!(updated_ids.contains(&frame_id));
+    assert!(updated_ids.contains(&c1_id));
+    assert!(updated_ids.contains(&c2_id));
+    assert!(updated_ids.contains(&c3_id));
 }
 
 // =============================================================
