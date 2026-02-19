@@ -77,6 +77,10 @@ pub fn DashboardPage() -> impl IntoView {
     let new_board_name = RwSignal::new(String::new());
     let delete_board_id = RwSignal::new(None::<String>);
 
+    // Join-board dialog state.
+    let show_join = RwSignal::new(false);
+    let join_code = RwSignal::new(String::new());
+
     let on_create = move |_| {
         show_create.set(true);
         new_board_name.set(String::new());
@@ -86,11 +90,26 @@ pub fn DashboardPage() -> impl IntoView {
     let on_delete_cancel = Callback::new(move |_| delete_board_id.set(None));
     let on_board_delete_request = Callback::new(move |id: String| delete_board_id.set(Some(id)));
 
+    let on_join = move |_| {
+        show_join.set(true);
+        join_code.set(String::new());
+    };
+    let on_join_cancel = Callback::new(move |_| show_join.set(false));
+
     let navigate_to_board = navigate.clone();
     Effect::new(move || {
         if let Some(board_id) = boards.get().created_board_id.clone() {
             boards.update(|s| s.created_board_id = None);
             navigate_to_board(&format!("/board/{board_id}"), NavigateOptions::default());
+        }
+    });
+
+    let navigate_to_redeemed = navigate.clone();
+    Effect::new(move || {
+        if let Some(board_id) = boards.get().redeemed_board_id.clone() {
+            boards.update(|s| s.redeemed_board_id = None);
+            show_join.set(false);
+            navigate_to_redeemed(&format!("/board/{board_id}"), NavigateOptions::default());
         }
     });
 
@@ -131,6 +150,9 @@ pub fn DashboardPage() -> impl IntoView {
                     <span class="toolbar__divider" aria-hidden="true"></span>
                     <button class="btn toolbar__new-board" on:click=on_create>
                         "+ New Board"
+                    </button>
+                    <button class="btn toolbar__join-board" on:click=on_join>
+                        "Join Board"
                     </button>
 
                     <span class="toolbar__spacer"></span>
@@ -203,6 +225,13 @@ pub fn DashboardPage() -> impl IntoView {
                         board_id=delete_board_id
                         on_cancel=on_delete_cancel
                         boards=boards
+                        sender=sender
+                    />
+                </Show>
+                <Show when=move || show_join.get()>
+                    <JoinBoardDialog
+                        code=join_code
+                        on_cancel=on_join_cancel
                         sender=sender
                     />
                 </Show>
@@ -309,6 +338,20 @@ fn send_board_delete(sender: RwSignal<FrameSender>, board_id: &str) {
     let _ = sender.get_untracked().send(&frame);
 }
 
+fn send_access_redeem(sender: RwSignal<FrameSender>, code: &str) {
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: None,
+        from: None,
+        syscall: "board:access:redeem".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({ "code": code }),
+    };
+    let _ = sender.get_untracked().send(&frame);
+}
+
 #[component]
 fn DeleteBoardDialog(
     board_id: RwSignal<Option<String>>,
@@ -338,6 +381,53 @@ fn DeleteBoardDialog(
                     </button>
                     <button class="btn btn--danger" on:click=move |_| submit.run(())>
                         "Delete"
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+/// Modal dialog for entering a board access code to join.
+#[component]
+fn JoinBoardDialog(code: RwSignal<String>, on_cancel: Callback<()>, sender: RwSignal<FrameSender>) -> impl IntoView {
+    let submit = Callback::new(move |_| {
+        let value = code.get();
+        if value.trim().is_empty() {
+            return;
+        }
+        send_access_redeem(sender, value.trim());
+    });
+
+    view! {
+        <div class="dialog-backdrop" on:click=move |_| on_cancel.run(())>
+            <div class="dialog" on:click=move |ev| ev.stop_propagation()>
+                <h2>"Join Board"</h2>
+                <label class="dialog__label">
+                    "Access Code"
+                    <input
+                        class="dialog__input"
+                        type="text"
+                        maxlength="6"
+                        placeholder="e.g. ABC123"
+                        prop:value=move || code.get()
+                        on:input=move |ev| {
+                            code.set(event_target_value(&ev).to_ascii_uppercase());
+                        }
+                        on:keydown=move |ev: leptos::ev::KeyboardEvent| {
+                            if ev.key() == "Enter" {
+                                ev.prevent_default();
+                                submit.run(());
+                            }
+                        }
+                    />
+                </label>
+                <div class="dialog__actions">
+                    <button class="btn" on:click=move |_| on_cancel.run(())>
+                        "Cancel"
+                    </button>
+                    <button class="btn btn--primary" on:click=move |_| submit.run(())>
+                        "Join"
                     </button>
                 </div>
             </div>

@@ -369,6 +369,79 @@ pub async fn resolve_user_id_by_email(pool: &PgPool, email: &str) -> Result<Opti
     Ok(row)
 }
 
+// =============================================================================
+// ACCESS CODES
+// =============================================================================
+
+/// Characters used for access codes (no ambiguous chars: 0/O/I/L/1).
+const ACCESS_CODE_CHARSET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const ACCESS_CODE_LENGTH: usize = 6;
+
+/// Generate a 6-char access code for a board.
+///
+/// # Errors
+///
+/// Returns `Forbidden` if the user is not an admin of the board,
+/// or a database error if the insert fails.
+pub async fn generate_access_code(pool: &PgPool, board_id: Uuid, user_id: Uuid) -> Result<String, BoardError> {
+    ensure_board_permission(pool, board_id, user_id, BoardPermission::Admin).await?;
+
+    let code = generate_random_code();
+
+    sqlx::query("INSERT INTO board_access_codes (code, board_id, created_by) VALUES ($1, $2, $3)")
+        .bind(&code)
+        .bind(board_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+
+    Ok(code)
+}
+
+/// Redeem an access code and add the user as an editor on the board.
+///
+/// # Errors
+///
+/// Returns `NotFound` if the code is invalid or expired,
+/// or a database error if the upsert fails.
+pub async fn redeem_access_code(pool: &PgPool, code: &str, user_id: Uuid) -> Result<Uuid, BoardError> {
+    let normalized = code.trim().to_ascii_uppercase();
+
+    let row =
+        sqlx::query_as::<_, (Uuid,)>("SELECT board_id FROM board_access_codes WHERE code = $1 AND expires_at > now()")
+            .bind(&normalized)
+            .fetch_optional(pool)
+            .await?;
+
+    let Some((board_id,)) = row else {
+        // Use a sentinel UUID for "code not found" — the user doesn't need to know which board.
+        return Err(BoardError::NotFound(Uuid::nil()));
+    };
+
+    // Add user as editor (upsert — no-op if already a member with same or higher role).
+    sqlx::query(
+        "INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'editor') \
+         ON CONFLICT (board_id, user_id) DO NOTHING",
+    )
+    .bind(board_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+
+    Ok(board_id)
+}
+
+fn generate_random_code() -> String {
+    use rand::Rng;
+    let mut rng = rand::rng();
+    (0..ACCESS_CODE_LENGTH)
+        .map(|_| {
+            let idx = rng.random_range(0..ACCESS_CODE_CHARSET.len());
+            ACCESS_CODE_CHARSET[idx] as char
+        })
+        .collect()
+}
+
 /// Load lightweight preview objects for a set of boards.
 ///
 /// # Errors

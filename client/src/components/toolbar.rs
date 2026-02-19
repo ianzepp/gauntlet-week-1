@@ -8,6 +8,8 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_location;
 
+use crate::app::FrameSender;
+use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 use crate::state::ui::UiState;
@@ -19,6 +21,8 @@ pub fn Toolbar() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     let ui = expect_context::<RwSignal<UiState>>();
     let location = use_location();
+
+    let show_share = RwSignal::new(false);
 
     let board_name = move || {
         board
@@ -47,6 +51,13 @@ pub fn Toolbar() -> impl IntoView {
         }
     };
 
+    let on_share = move |_| {
+        board.update(|b| b.generated_access_code = None);
+        show_share.set(true);
+    };
+
+    let on_share_cancel = Callback::new(move |_| show_share.set(false));
+
     view! {
         <div class="toolbar">
             <Show when=move || location.pathname.get().starts_with("/board/")>
@@ -57,6 +68,12 @@ pub fn Toolbar() -> impl IntoView {
 
             <span class="toolbar__board-name">{board_name}</span>
             <span class="toolbar__divider"></span>
+
+            <Show when=move || location.pathname.get().starts_with("/board/")>
+                <button class="btn toolbar__share" on:click=on_share title="Share board">
+                    "Share"
+                </button>
+            </Show>
 
             <span class="toolbar__spacer"></span>
 
@@ -82,6 +99,67 @@ pub fn Toolbar() -> impl IntoView {
             <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                 "Logout"
             </button>
+        </div>
+
+        <Show when=move || show_share.get()>
+            <ShareDialog board=board on_cancel=on_share_cancel />
+        </Show>
+    }
+}
+
+/// Dialog for generating and displaying a board access code.
+#[component]
+fn ShareDialog(board: RwSignal<BoardState>, on_cancel: Callback<()>) -> impl IntoView {
+    let sender = expect_context::<RwSignal<FrameSender>>();
+
+    let on_generate = move |_| {
+        let Some(board_id) = board.get_untracked().board_id else {
+            return;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(board_id),
+            from: None,
+            syscall: "board:access:generate".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({}),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    };
+
+    view! {
+        <div class="dialog-backdrop" on:click=move |_| on_cancel.run(())>
+            <div class="dialog" on:click=move |ev| ev.stop_propagation()>
+                <h2>"Share Board"</h2>
+                <Show
+                    when=move || board.get().generated_access_code.is_some()
+                    fallback=move || {
+                        view! {
+                            <p class="dialog__hint">"Generate a 6-character access code to share this board with others."</p>
+                            <div class="dialog__actions">
+                                <button class="btn" on:click=move |_| on_cancel.run(())>
+                                    "Cancel"
+                                </button>
+                                <button class="btn btn--primary" on:click=on_generate>
+                                    "Generate"
+                                </button>
+                            </div>
+                        }
+                    }
+                >
+                    <p class="dialog__hint">"Share this access code:"</p>
+                    <p class="dialog__code">
+                        {move || board.get().generated_access_code.unwrap_or_default()}
+                    </p>
+                    <div class="dialog__actions">
+                        <button class="btn btn--primary" on:click=move |_| on_cancel.run(())>
+                            "Done"
+                        </button>
+                    </div>
+                </Show>
+            </div>
         </div>
     }
 }

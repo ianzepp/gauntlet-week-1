@@ -408,6 +408,18 @@ fn handle_board_frame(
             }
             true
         }
+        Some("access:generate") if frame.status == FrameStatus::Done => {
+            if let Some(code) = frame.data.get("code").and_then(|v| v.as_str()) {
+                board.update(|b| b.generated_access_code = Some(code.to_owned()));
+            }
+            true
+        }
+        Some("access:redeem") if frame.status == FrameStatus::Done => {
+            if let Some(board_id) = frame.data.get("board_id").and_then(|v| v.as_str()) {
+                boards.update(|s| s.redeemed_board_id = Some(board_id.to_owned()));
+            }
+            true
+        }
         _ => false,
     }
 }

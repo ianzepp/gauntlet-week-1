@@ -373,6 +373,8 @@ async fn handle_board(
         "delete" => handle_board_delete(state, user_id, req).await,
         "savepoint:create" => handle_board_savepoint_create(state, *current_board, user_id, req).await,
         "savepoint:list" => handle_board_savepoint_list(state, *current_board, user_id, req).await,
+        "access:generate" => handle_board_access_generate(state, *current_board, user_id, req).await,
+        "access:redeem" => handle_board_access_redeem(state, user_id, req).await,
         _ => Err(req.error(format!("unknown board op: {op}"))),
     }
 }
@@ -712,6 +714,46 @@ async fn handle_board_savepoint_list(
                 "savepoints".into(),
                 serde_json::json!(services::savepoint::savepoint_rows_to_json(rows)),
             );
+            Ok(Outcome::Reply(data))
+        }
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
+
+// =============================================================================
+// ACCESS CODE HANDLERS
+// =============================================================================
+
+async fn handle_board_access_generate(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    user_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, current_board) else {
+        return Err(req.error("board_id required"));
+    };
+
+    match services::board::generate_access_code(&state.pool, board_id, user_id).await {
+        Ok(code) => {
+            let mut data = Data::new();
+            data.insert("code".into(), serde_json::json!(code));
+            Ok(Outcome::Reply(data))
+        }
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
+
+async fn handle_board_access_redeem(state: &AppState, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
+    let Some(code) = req.data.get("code").and_then(|v| v.as_str()) else {
+        return Err(req.error("code required"));
+    };
+
+    match services::board::redeem_access_code(&state.pool, code, user_id).await {
+        Ok(board_id) => {
+            broadcast_board_list_refresh(state).await;
+            let mut data = Data::new();
+            data.insert("board_id".into(), serde_json::json!(board_id));
             Ok(Outcome::Reply(data))
         }
         Err(e) => Err(req.error_from(&e)),
