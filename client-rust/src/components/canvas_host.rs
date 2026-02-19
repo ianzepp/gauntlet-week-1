@@ -725,27 +725,6 @@ fn place_shape_at_cursor(
     let id = uuid::Uuid::new_v4().to_string();
     let props = materialize_shape_props(kind, x, y, width, height, props);
 
-    let new_object = BoardObject {
-        id: id.clone(),
-        board_id: board_id.clone(),
-        kind: kind.to_owned(),
-        x,
-        y,
-        width: Some(width),
-        height: Some(height),
-        rotation: 0.0,
-        z_index: board.get_untracked().objects.len() as i32,
-        props: props.clone(),
-        created_by: Some("local".to_owned()),
-        version: 1,
-    };
-
-    board.update(|b| {
-        b.objects.insert(id.clone(), new_object);
-        b.selection.clear();
-        b.selection.insert(id.clone());
-    });
-
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
