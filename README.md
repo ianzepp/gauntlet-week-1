@@ -4,10 +4,12 @@ Real-time collaborative whiteboard with AI-assisted editing.
 
 ## Stack
 
-- Rust workspace with 3 crates: `server`, `client`, `canvas`
+- Rust workspace with 5 crates: `server`, `client`, `canvas`, `frames`, `perf`
 - Backend: Axum + SQLx + PostgreSQL + WebSocket frame protocol
 - Frontend: Leptos SSR + WASM hydration
 - Canvas engine: Rust `canvas` crate (imperative engine consumed by `client`)
+- Shared wire model: `frames` crate (protobuf binary frame codec + types)
+- Perf harness: `perf` crate (live E2E perf scenarios)
 - Optional AI providers: Anthropic or OpenAI
 
 ## Workspace Layout
@@ -18,6 +20,8 @@ gauntlet-week-1/
 ├── server/                   # Axum server crate (name: server)
 ├── client/                   # Leptos frontend crate (name: client)
 ├── canvas/                   # Canvas engine crate (name: canvas)
+├── frames/                   # Shared frame types + protobuf codec crate
+├── perf/                     # Live end-to-end perf test harness crate
 ├── public/                   # Static assets copied into Leptos site build
 ├── Dockerfile
 ├── docker-compose.yml
@@ -26,12 +30,12 @@ gauntlet-week-1/
 
 ## Runtime Architecture
 
-- Browser connects to `server` over WebSocket using a JSON frame protocol.
+- Browser connects to `server` over WebSocket using binary protobuf frames.
 - `server` dispatches frames by prefix (`board:*`, `object:*`, `cursor:*`, `chat:*`, `ai:*`).
 - In-memory board state is authoritative for live collaboration.
 - Object deltas are persisted to Postgres on a periodic dirty-flush loop.
 - Frame events are persisted through a bounded async queue + batched writer.
-- `client` maintains UI state and websocket lifecycle; `canvas` handles rendering/gestures.
+- `frames` owns shared wire types/encoding; `client` maintains UI state and websocket lifecycle; `canvas` handles rendering/gestures.
 
 ## Core Features
 
@@ -50,7 +54,7 @@ Each message is a frame with:
 - `id`, `parent_id`, `ts`
 - `syscall`, `status`
 - `board_id`, `from`
-- `data` (JSON payload)
+- `data` (JSON-like payload encoded as protobuf `Value`)
 
 Status flow:
 
@@ -129,6 +133,7 @@ Run primary crate suites:
 cargo test -p client
 cargo test -p server
 cargo test -p canvas --lib
+cargo test -p frames
 ```
 
 Formatting/linting:
@@ -137,6 +142,33 @@ Formatting/linting:
 cargo fmt --all
 cargo clippy -p client -p server --all-targets
 ```
+
+### Performance Tests
+
+The `perf` crate contains live end-to-end communication benchmarks:
+
+- WS request/response round-trip latency
+- Board complexity/object create scaling
+- Mass-user concurrent load
+
+Run (against a running server):
+
+```bash
+cargo test -p perf -- --ignored --nocapture
+```
+
+Required auth context:
+
+- Preferred: set `PERF_SESSION_TOKEN`
+- Optional (single-client only): set `PERF_WS_TICKET`
+
+Key perf env vars:
+
+- `PERF_BASE_URL` (default `http://127.0.0.1:3000`)
+- `PERF_BASELINE_REQUESTS` (default `200`)
+- `PERF_COMPLEXITY_COUNTS` (default `100,500,1000`)
+- `PERF_MASS_USERS` (default `25`)
+- `PERF_MASS_REQUESTS_PER_USER` (default `20`)
 
 ## API Endpoints
 
