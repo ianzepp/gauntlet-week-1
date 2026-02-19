@@ -40,6 +40,7 @@ fn make_user() -> User {
         name: "Alice".to_owned(),
         avatar_url: Some("https://example.com/avatar.png".to_owned()),
         color: "#3498db".to_owned(),
+        auth_method: "github".to_owned(),
     }
 }
 
@@ -250,10 +251,28 @@ fn user_round_trip() {
 
 #[test]
 fn user_without_avatar() {
-    let u = User { id: "u-2".to_owned(), name: "Bob".to_owned(), avatar_url: None, color: "#e74c3c".to_owned() };
+    let u = User {
+        id: "u-2".to_owned(),
+        name: "Bob".to_owned(),
+        avatar_url: None,
+        color: "#e74c3c".to_owned(),
+        auth_method: "email".to_owned(),
+    };
     let json = serde_json::to_string(&u).unwrap();
     let back: User = serde_json::from_str(&json).unwrap();
     assert_eq!(u, back);
+}
+
+#[test]
+fn user_defaults_auth_method_when_missing() {
+    let json = r##"{
+        "id": "u-3",
+        "name": "Casey",
+        "avatar_url": null,
+        "color": "#222"
+    }"##;
+    let user: User = serde_json::from_str(json).unwrap();
+    assert_eq!(user.auth_method, "session");
 }
 
 // =============================================================

@@ -80,6 +80,12 @@ pub struct User {
     pub name: String,
     pub avatar_url: Option<String>,
     pub color: String,
+    #[serde(default = "default_auth_method")]
+    pub auth_method: String,
+}
+
+fn default_auth_method() -> String {
+    "session".to_owned()
 }
 
 /// Extended user profile with statistics.

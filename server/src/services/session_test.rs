@@ -81,7 +81,13 @@ fn generate_ws_ticket_two_calls_differ() {
 
 #[test]
 fn session_user_debug() {
-    let user = SessionUser { id: Uuid::nil(), name: "alice".into(), avatar_url: None, color: "#FF0000".into() };
+    let user = SessionUser {
+        id: Uuid::nil(),
+        name: "alice".into(),
+        avatar_url: None,
+        color: "#FF0000".into(),
+        auth_method: "github".into(),
+    };
     let debug = format!("{user:?}");
     assert!(debug.contains("alice"));
 }
@@ -93,6 +99,7 @@ fn session_user_clone() {
         name: "bob".into(),
         avatar_url: Some("https://example.com/avatar.png".into()),
         color: "#00FF00".into(),
+        auth_method: "email".into(),
     };
     let cloned = user.clone();
     assert_eq!(cloned.id, user.id);
@@ -108,6 +115,7 @@ fn session_user_serialize_round_trip() {
         name: "charlie".into(),
         avatar_url: Some("https://example.com/pic.png".into()),
         color: "#0000FF".into(),
+        auth_method: "session".into(),
     };
     let json = serde_json::to_string(&user).unwrap();
     let restored: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -118,7 +126,13 @@ fn session_user_serialize_round_trip() {
 
 #[test]
 fn session_user_serialize_none_avatar() {
-    let user = SessionUser { id: Uuid::nil(), name: "dave".into(), avatar_url: None, color: "#FFFFFF".into() };
+    let user = SessionUser {
+        id: Uuid::nil(),
+        name: "dave".into(),
+        avatar_url: None,
+        color: "#FFFFFF".into(),
+        auth_method: "email".into(),
+    };
     let json = serde_json::to_string(&user).unwrap();
     let restored: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(restored["avatar_url"].is_null());

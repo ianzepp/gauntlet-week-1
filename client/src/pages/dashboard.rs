@@ -97,7 +97,7 @@ pub fn DashboardPage() -> impl IntoView {
     let self_identity = move || {
         auth.get()
             .user
-            .map(|user| (user.name, "github".to_owned()))
+            .map(|user| (user.name, user.auth_method))
             .unwrap_or_else(|| ("me".to_owned(), "session".to_owned()))
     };
 

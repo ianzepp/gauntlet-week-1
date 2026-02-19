@@ -45,6 +45,7 @@ pub struct SessionUser {
     pub name: String,
     pub avatar_url: Option<String>,
     pub color: String,
+    pub auth_method: String,
 }
 
 /// Create a session for the given user, returning the token.
@@ -61,7 +62,16 @@ pub async fn create_session(pool: &PgPool, user_id: Uuid) -> Result<String, sqlx
 /// Validate a session token and return the associated user.
 pub async fn validate_session(pool: &PgPool, token: &str) -> Result<Option<SessionUser>, sqlx::Error> {
     let row = sqlx::query(
-        r"SELECT u.id, u.name, u.avatar_url, u.color
+        r"SELECT
+              u.id,
+              u.name,
+              u.avatar_url,
+              u.color,
+              CASE
+                  WHEN u.github_id IS NOT NULL THEN 'github'
+                  WHEN u.email IS NOT NULL THEN 'email'
+                  ELSE 'session'
+              END AS auth_method
           FROM sessions s
           JOIN users u ON u.id = s.user_id
           WHERE s.token = $1 AND s.expires_at > now()",
@@ -75,6 +85,7 @@ pub async fn validate_session(pool: &PgPool, token: &str) -> Result<Option<Sessi
         name: r.get("name"),
         avatar_url: r.get("avatar_url"),
         color: r.get("color"),
+        auth_method: r.get("auth_method"),
     }))
 }
 
