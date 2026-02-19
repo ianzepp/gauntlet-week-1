@@ -25,7 +25,8 @@ use canvas::doc::{BoardObject as CanvasObject, ObjectKind as CanvasKind};
 use canvas::engine::{Action, Engine};
 #[cfg(feature = "hydrate")]
 use canvas::input::{
-    Button as CanvasButton, Key as CanvasKey, Modifiers as CanvasModifiers, Tool as CanvasTool, WheelDelta,
+    Button as CanvasButton, InputState as CanvasInputState, Key as CanvasKey, Modifiers as CanvasModifiers,
+    Tool as CanvasTool, WheelDelta,
 };
 
 /// Canvas host component.
@@ -42,6 +43,8 @@ pub fn CanvasHost() -> impl IntoView {
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
+    #[cfg(feature = "hydrate")]
+    let last_drag_sent_ms = RwSignal::new(0.0_f64);
     #[cfg(feature = "hydrate")]
     let engine = Rc::new(RefCell::new(None::<Engine>));
 
@@ -138,6 +141,7 @@ pub fn CanvasHost() -> impl IntoView {
                     process_actions(actions, engine, _board, _sender);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
                     send_cursor_moved(engine, point, _auth, _board, _sender);
+                    send_object_drag_if_needed(engine, _board, _sender, last_drag_sent_ms);
                     let _ = engine.render();
                 }
             }
@@ -166,6 +170,7 @@ pub fn CanvasHost() -> impl IntoView {
                     process_actions(actions, engine, _board, _sender);
                     sync_selection_from_engine(engine, _board);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    last_drag_sent_ms.set(0.0);
                     let _ = engine.render();
                 }
             }
@@ -427,6 +432,62 @@ fn send_cursor_moved(
         }),
     };
     let _ = sender.get_untracked().send(&frame);
+}
+
+#[cfg(feature = "hydrate")]
+fn send_object_drag_if_needed(
+    engine: &Engine,
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+    last_sent_ms: RwSignal<f64>,
+) {
+    let now = now_ms();
+    if now - last_sent_ms.get_untracked() < 33.0 {
+        return;
+    }
+
+    let object_id = match engine.core.input.clone() {
+        CanvasInputState::DraggingObject { id, .. }
+        | CanvasInputState::ResizingObject { id, .. }
+        | CanvasInputState::RotatingObject { id, .. }
+        | CanvasInputState::DraggingEdgeEndpoint { id, .. } => id,
+        _ => return,
+    };
+
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+    let Some(obj) = engine.object(&object_id) else {
+        return;
+    };
+
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "object:drag".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({
+            "id": obj.id.to_string(),
+            "x": obj.x,
+            "y": obj.y,
+            "width": obj.width,
+            "height": obj.height,
+            "rotation": obj.rotation,
+            "z_index": obj.z_index,
+            "props": obj.props,
+        }),
+    };
+    if sender.get_untracked().send(&frame) {
+        last_sent_ms.set(now);
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn now_ms() -> f64 {
+    js_sys::Date::now()
 }
 
 fn remote_cursor_style(x: f64, y: f64, color: &str) -> String {

@@ -185,3 +185,33 @@ fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
     assert_eq!(cursor.x, 50.0);
     assert_eq!(cursor.y, 60.0);
 }
+
+#[test]
+fn apply_object_frame_drag_updates_object_geometry() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.objects.insert(obj.id.clone(), obj);
+
+    apply_object_frame(
+        &frame(
+            "object:drag",
+            FrameStatus::Request,
+            serde_json::json!({
+                "id": "obj-1",
+                "x": 200.0,
+                "y": 300.0,
+                "width": 150.0,
+                "height": 90.0,
+                "rotation": 45.0
+            }),
+        ),
+        &mut board,
+    );
+
+    let obj = board.objects.get("obj-1").expect("object should exist");
+    assert_eq!(obj.x, 200.0);
+    assert_eq!(obj.y, 300.0);
+    assert_eq!(obj.width, Some(150.0));
+    assert_eq!(obj.height, Some(90.0));
+    assert_eq!(obj.rotation, 45.0);
+}

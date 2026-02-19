@@ -190,10 +190,10 @@ async fn process_inbound_text(
     req.from = Some(user_id.to_string());
 
     let prefix = req.prefix();
-    let is_cursor = prefix == "cursor";
+    let is_ephemeral = prefix == "cursor" || req.syscall == "object:drag";
 
-    // Persist inbound request (skip cursors).
-    if !is_cursor {
+    // Persist inbound request (skip ephemeral frames).
+    if !is_ephemeral {
         info!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
         services::persistence::enqueue_frame(state, &req);
     }
@@ -514,6 +514,25 @@ async fn handle_object(
                 }
                 Err(e) => Err(req.error_from(&e)),
             }
+        }
+        "drag" => {
+            let Some(object_id) = req
+                .data
+                .get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<Uuid>().ok())
+            else {
+                return Err(req.error("id required"));
+            };
+
+            let mut data = Data::new();
+            data.insert("id".into(), serde_json::json!(object_id));
+            for key in ["x", "y", "width", "height", "rotation", "z_index", "props"] {
+                if let Some(value) = req.data.get(key) {
+                    data.insert(key.into(), value.clone());
+                }
+            }
+            Ok(Outcome::BroadcastExcludeSender(data))
         }
         _ => Err(req.error(format!("unknown object op: {op}"))),
     }

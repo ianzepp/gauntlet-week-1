@@ -322,7 +322,7 @@ fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardStat
     });
     matches!(
         frame.syscall.as_str(),
-        "object:create" | "object:update" | "object:delete" | "cursor:moved"
+        "object:create" | "object:update" | "object:delete" | "object:drag" | "cursor:moved"
     )
 }
 
@@ -350,6 +350,13 @@ fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
                 board.objects.remove(id);
                 board.selection.remove(id);
+            }
+        }
+        "object:drag" => {
+            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str())
+                && let Some(existing) = board.objects.get_mut(id)
+            {
+                merge_object_update(existing, &frame.data);
             }
         }
         "cursor:moved" => apply_cursor_moved(board, &frame.data),

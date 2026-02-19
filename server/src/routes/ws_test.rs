@@ -312,6 +312,41 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
 }
 
 #[tokio::test]
+async fn object_drag_broadcasts_ephemeral_transform_to_peers() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
+        register_two_clients(&state, board_id).await;
+    let mut current_board = Some(board_id);
+    let user_id = Uuid::new_v4();
+
+    let mut data = Data::new();
+    data.insert("id".into(), json!(Uuid::new_v4()));
+    data.insert("x".into(), json!(120.0));
+    data.insert("y".into(), json!(210.0));
+    data.insert("width".into(), json!(180.0));
+    data.insert("height".into(), json!(95.0));
+    data.insert("rotation".into(), json!(15.0));
+    let text = request_json(board_id, "object:drag", data);
+
+    let sender_frames =
+        process_inbound_text(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &text).await;
+
+    // Drag events are peer-only, no sender reply.
+    assert!(sender_frames.is_empty());
+    assert_no_board_broadcast(&mut sender_rx).await;
+
+    let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
+    assert_eq!(peer_broadcast.syscall, "object:drag");
+    assert_eq!(peer_broadcast.status, Status::Request);
+    assert_eq!(peer_broadcast.data.get("x").and_then(|v| v.as_f64()), Some(120.0));
+    assert_eq!(peer_broadcast.data.get("y").and_then(|v| v.as_f64()), Some(210.0));
+    assert_eq!(peer_broadcast.data.get("width").and_then(|v| v.as_f64()), Some(180.0));
+    assert_eq!(peer_broadcast.data.get("height").and_then(|v| v.as_f64()), Some(95.0));
+    assert_eq!(peer_broadcast.data.get("rotation").and_then(|v| v.as_f64()), Some(15.0));
+}
+
+#[tokio::test]
 async fn chat_history_requires_joined_board() {
     let state = test_helpers::test_app_state();
     let (client_tx, mut client_rx) = mpsc::channel(8);
