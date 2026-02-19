@@ -13,6 +13,7 @@
 use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
 
+use futures::future::join_all;
 use serde_json::json;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -376,6 +377,7 @@ pub(crate) async fn execute_tool(
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
     match tool_name {
+        "batch" => execute_batch(state, board_id, input, mutations).await,
         "createStickyNote" => execute_create_sticky_note(state, board_id, input, mutations).await,
         "createShape" => execute_create_shape(state, board_id, input, mutations).await,
         "createFrame" => execute_create_frame(state, board_id, input, mutations).await,
@@ -387,6 +389,76 @@ pub(crate) async fn execute_tool(
         "getBoardState" => execute_get_board_state(state, board_id).await,
         _ => Ok(format!("unknown tool: {tool_name}")),
     }
+}
+
+async fn execute_batch(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let Some(calls) = input.get("calls").and_then(serde_json::Value::as_array) else {
+        return Ok("error: missing calls array".into());
+    };
+
+    let tasks = calls.iter().enumerate().map(|(index, call)| {
+        let tool = call
+            .get("tool")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+        let call_input = call.get("input").cloned().unwrap_or_else(|| json!({}));
+
+        async move {
+            if tool.is_empty() {
+                return (
+                    json!({
+                        "index": index,
+                        "tool": "",
+                        "ok": false,
+                        "result": "error: missing tool"
+                    }),
+                    Vec::new(),
+                );
+            }
+            if tool == "batch" {
+                return (
+                    json!({
+                        "index": index,
+                        "tool": tool,
+                        "ok": false,
+                        "result": "error: nested batch is not allowed"
+                    }),
+                    Vec::new(),
+                );
+            }
+
+            let mut local_mutations = Vec::new();
+            let (ok, result) = match execute_tool(state, board_id, &tool, &call_input, &mut local_mutations).await {
+                Ok(text) => (true, text),
+                Err(error) => (false, error.to_string()),
+            };
+
+            (
+                json!({
+                    "index": index,
+                    "tool": tool,
+                    "ok": ok,
+                    "result": result
+                }),
+                local_mutations,
+            )
+        }
+    });
+
+    let settled = join_all(tasks).await;
+    let mut results = Vec::with_capacity(settled.len());
+    for (result, local_mutations) in settled {
+        mutations.extend(local_mutations);
+        results.push(result);
+    }
+
+    Ok(json!({ "count": results.len(), "results": results }).to_string())
 }
 
 async fn get_object_snapshot(

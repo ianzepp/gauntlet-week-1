@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn tool_count() {
     let tools = gauntlet_week_1_tools();
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 10);
 }
 
 #[test]
@@ -11,6 +11,7 @@ fn tool_names_match_spec() {
     let tools = gauntlet_week_1_tools();
     let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
     let expected = [
+        "batch",
         "createStickyNote",
         "createShape",
         "createFrame",
@@ -62,4 +63,18 @@ fn get_board_state_has_no_required_params() {
     // No "required" key or empty
     let required = tool.input_schema.get("required");
     assert!(required.is_none() || required.unwrap().as_array().unwrap().is_empty());
+}
+
+#[test]
+fn batch_schema_requires_calls() {
+    let tools = gauntlet_week_1_tools();
+    let tool = tools.iter().find(|t| t.name == "batch").unwrap();
+    let required = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap();
+    let req_strs: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
+    assert!(req_strs.contains(&"calls"));
 }

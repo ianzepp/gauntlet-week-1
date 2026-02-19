@@ -11,11 +11,33 @@ use super::types::Tool;
 
 /// Build the set of tools available to the `CollabBoard` AI agent.
 ///
-/// Returns the 9 spec-required tools with exact names evaluators will test.
+/// Returns the standard board tools plus convenience orchestration helpers.
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn gauntlet_week_1_tools() -> Vec<Tool> {
     vec![
+        Tool {
+            name: "batch".into(),
+            description: "Execute multiple non-batch tool calls in parallel. Each call contains a tool name and input object.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "calls": {
+                        "type": "array",
+                        "description": "Array of non-batch tool calls to execute in parallel",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tool": { "type": "string", "description": "Tool name (must not be batch)" },
+                                "input": { "type": "object", "description": "Input payload for the tool" }
+                            },
+                            "required": ["tool", "input"]
+                        }
+                    }
+                },
+                "required": ["calls"]
+            }),
+        },
         Tool {
             name: "createStickyNote".into(),
             description: "Create a sticky note on the board.".into(),

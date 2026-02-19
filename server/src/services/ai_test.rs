@@ -281,6 +281,72 @@ async fn tool_unknown_returns_message() {
     assert!(result.contains("unknown tool"));
 }
 
+#[tokio::test]
+async fn tool_batch_executes_multiple_calls_and_collects_mutations() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "calls": [
+            {
+                "tool": "createStickyNote",
+                "input": { "text": "a", "x": 100, "y": 200 }
+            },
+            {
+                "tool": "createShape",
+                "input": { "type": "rectangle", "x": 240, "y": 200, "width": 120, "height": 80 }
+            }
+        ]
+    });
+
+    let result = execute_tool(&state, board_id, "batch", &input, &mut mutations)
+        .await
+        .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed.get("count").and_then(serde_json::Value::as_u64), Some(2));
+    assert_eq!(
+        parsed
+            .get("results")
+            .and_then(serde_json::Value::as_array)
+            .map(Vec::len),
+        Some(2)
+    );
+    assert_eq!(mutations.len(), 2);
+}
+
+#[tokio::test]
+async fn tool_batch_rejects_nested_batch_calls() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "calls": [
+            { "tool": "batch", "input": { "calls": [] } }
+        ]
+    });
+
+    let result = execute_tool(&state, board_id, "batch", &input, &mut mutations)
+        .await
+        .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let first = parsed
+        .get("results")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|items| items.first())
+        .cloned()
+        .unwrap_or_default();
+
+    assert_eq!(first.get("ok").and_then(serde_json::Value::as_bool), Some(false));
+    assert!(
+        first
+            .get("result")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .contains("nested batch")
+    );
+    assert!(mutations.is_empty());
+}
+
 // =========================================================================
 // handle_prompt (with MockLlm)
 // =========================================================================
