@@ -18,12 +18,6 @@ use crate::doc::{BoardObject, DocStore, ObjectKind, Props};
 use crate::hit;
 use crate::input::UiState;
 
-/// Grid spacing in world units at zoom = 1.0.
-const GRID_SPACING: f64 = 20.0;
-
-/// Minimum zoom level below which the grid is hidden entirely.
-const GRID_MIN_ZOOM: f64 = 0.2;
-
 /// Arrowhead length in world units.
 const ARROW_SIZE: f64 = 10.0;
 
@@ -35,7 +29,7 @@ const SELECTION_DASH_PX: f64 = 4.0;
 /// Small visual marker for an endpoint attached to another shape.
 const ATTACHED_ANCHOR_RADIUS_WORLD: f64 = 3.0;
 
-/// Draw the full scene: grid, objects, selection UI.
+/// Draw the full scene: objects and selection UI.
 ///
 /// `viewport_w` and `viewport_h` are in CSS pixels. `dpr` is the device pixel ratio.
 ///
@@ -62,100 +56,18 @@ pub fn draw(
     ctx.translate(camera.pan_x, camera.pan_y)?;
     ctx.scale(camera.zoom, camera.zoom)?;
 
-    // Layer 2: grid.
-    draw_grid(ctx, camera, viewport_w, viewport_h, viewport_center)?;
-
-    // Layer 3: objects in z-order (bottom first).
+    // Layer 2: objects in z-order (bottom first).
     for obj in doc.sorted_objects() {
         draw_object(ctx, obj, doc)?;
     }
 
-    // Layer 4: selection UI.
+    // Layer 3: selection UI.
     if let Some(sel_id) = ui.selected_id {
         if let Some(obj) = doc.get(&sel_id) {
             draw_selection(ctx, obj, doc, camera.zoom)?;
         }
     }
 
-    Ok(())
-}
-
-// =============================================================
-// Grid
-// =============================================================
-
-fn draw_grid(
-    ctx: &CanvasRenderingContext2d,
-    camera: &Camera,
-    viewport_w: f64,
-    viewport_h: f64,
-    viewport_center: Point,
-) -> Result<(), JsValue> {
-    if camera.zoom < GRID_MIN_ZOOM {
-        return Ok(());
-    }
-
-    // Adapt spacing: double it when zoom is low.
-    let spacing = if camera.zoom < 0.5 {
-        GRID_SPACING * 2.0
-    } else {
-        GRID_SPACING
-    };
-
-    // Compute world bounds from rotated viewport corners, then overscan.
-    let corners = [
-        Point::new(0.0, 0.0),
-        Point::new(viewport_w, 0.0),
-        Point::new(viewport_w, viewport_h),
-        Point::new(0.0, viewport_h),
-    ];
-    let world_corners = corners.map(|corner| camera.screen_to_world(corner, viewport_center));
-    let min_x = world_corners
-        .iter()
-        .map(|p| p.x)
-        .fold(f64::INFINITY, f64::min);
-    let max_x = world_corners
-        .iter()
-        .map(|p| p.x)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let min_y = world_corners
-        .iter()
-        .map(|p| p.y)
-        .fold(f64::INFINITY, f64::min);
-    let max_y = world_corners
-        .iter()
-        .map(|p| p.y)
-        .fold(f64::NEG_INFINITY, f64::max);
-
-    let overscan_world = 0.5 * viewport_w.hypot(viewport_h) / camera.zoom;
-    let world_left = min_x - overscan_world;
-    let world_top = min_y - overscan_world;
-    let world_right = max_x + overscan_world;
-    let world_bottom = max_y + overscan_world;
-
-    // Snap to grid.
-    let start_x = (world_left / spacing).floor() * spacing;
-    let start_y = (world_top / spacing).floor() * spacing;
-
-    // Dot radius in world units (1 CSS pixel).
-    let dot_radius = 1.0 / camera.zoom;
-
-    ctx.save();
-    ctx.set_fill_style_str("#ccc");
-
-    let mut x = start_x;
-    while x <= world_right {
-        let mut y = start_y;
-        while y <= world_bottom {
-            ctx.begin_path();
-            ctx.arc(x, y, dot_radius, 0.0, 2.0 * PI)?;
-            ctx.fill();
-            y += spacing;
-        }
-        x += spacing;
-    }
-
-    ctx.restore();
     Ok(())
 }
 
