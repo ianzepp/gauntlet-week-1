@@ -45,6 +45,7 @@ fn tool_type_variants_are_distinct() {
         ToolType::Select,
         ToolType::Sticky,
         ToolType::Rectangle,
+        ToolType::Frame,
         ToolType::Ellipse,
         ToolType::Youtube,
         ToolType::Line,

@@ -55,6 +55,7 @@ fn kind_serde_roundtrip() {
 fn kind_serde_all_variants() {
     let cases = [
         (ObjectKind::Rect, "\"rect\""),
+        (ObjectKind::Frame, "\"frame\""),
         (ObjectKind::Ellipse, "\"ellipse\""),
         (ObjectKind::Diamond, "\"diamond\""),
         (ObjectKind::Star, "\"star\""),
@@ -71,6 +72,7 @@ fn kind_serde_all_variants() {
 fn kind_deserialize_all_variants() {
     let cases = [
         ("\"rect\"", ObjectKind::Rect),
+        ("\"frame\"", ObjectKind::Frame),
         ("\"ellipse\"", ObjectKind::Ellipse),
         ("\"diamond\"", ObjectKind::Diamond),
         ("\"star\"", ObjectKind::Star),

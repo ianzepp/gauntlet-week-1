@@ -198,11 +198,26 @@ impl EngineCore {
             InputState::DraggingObject { id, last_world, orig_x, orig_y } => {
                 let dx = world_pt.x - last_world.x;
                 let dy = world_pt.y - last_world.y;
-                if let Some(obj) = self.doc.get(&id) {
+                if let Some(obj) = self.doc.get(&id).cloned() {
                     let new_x = obj.x + dx;
                     let new_y = obj.y + dy;
                     let partial = PartialBoardObject { x: Some(new_x), y: Some(new_y), ..Default::default() };
                     self.doc.apply_partial(&id, &partial);
+
+                    // Grouping behavior: moving a frame carries enclosed children.
+                    if obj.kind == ObjectKind::Frame {
+                        let child_ids = self.grouped_children_in_frame(&obj);
+                        for child_id in child_ids {
+                            if let Some(child) = self.doc.get(&child_id).cloned() {
+                                let child_partial = PartialBoardObject {
+                                    x: Some(child.x + dx),
+                                    y: Some(child.y + dy),
+                                    ..Default::default()
+                                };
+                                self.doc.apply_partial(&child_id, &child_partial);
+                            }
+                        }
+                    }
                 }
                 self.input = InputState::DraggingObject { id, last_world: world_pt, orig_x, orig_y };
                 vec![Action::RenderNeeded]
@@ -255,6 +270,23 @@ impl EngineCore {
                     // Only emit update if position actually changed.
                     if (obj.x - orig_x).abs() > f64::EPSILON || (obj.y - orig_y).abs() > f64::EPSILON {
                         actions.push(Action::ObjectUpdated { id, fields: partial });
+
+                        // If the dragged object is a frame, persist child positions too.
+                        if obj.kind == ObjectKind::Frame {
+                            let child_ids = self.grouped_children_in_frame(obj);
+                            for child_id in child_ids {
+                                if let Some(child) = self.doc.get(&child_id) {
+                                    actions.push(Action::ObjectUpdated {
+                                        id: child_id,
+                                        fields: PartialBoardObject {
+                                            x: Some(child.x),
+                                            y: Some(child.y),
+                                            ..Default::default()
+                                        },
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -443,8 +475,8 @@ impl EngineCore {
     fn handle_shape_tool_down(&mut self, world_pt: Point, tool: Tool, actions: &mut Vec<Action>) {
         let kind = match tool {
             Tool::Rect => ObjectKind::Rect,
-            Tool::Ellipse => ObjectKind::Ellipse,
             Tool::Diamond => ObjectKind::Diamond,
+            Tool::Ellipse => ObjectKind::Ellipse,
             Tool::Star => ObjectKind::Star,
             _ => return,
         };
@@ -640,6 +672,23 @@ impl EngineCore {
         }
 
         best.map(|(id, ux, uy, world, _)| (id, ux, uy, world))
+    }
+
+    fn grouped_children_in_frame(&self, frame: &BoardObject) -> Vec<ObjectId> {
+        self.doc
+            .sorted_objects()
+            .into_iter()
+            .filter_map(|obj| {
+                if obj.id == frame.id {
+                    return None;
+                }
+                if matches!(obj.kind, ObjectKind::Line | ObjectKind::Arrow) {
+                    return None;
+                }
+                let center = Point::new(obj.x + (obj.width * 0.5), obj.y + (obj.height * 0.5));
+                hit::point_in_rect(center, frame.x, frame.y, frame.width, frame.height, frame.rotation).then_some(obj.id)
+            })
+            .collect()
     }
 
     fn create_default_object(&self, kind: ObjectKind, x: f64, y: f64, width: f64, height: f64) -> BoardObject {

@@ -499,7 +499,7 @@ fn center_world_origin(engine: &mut Engine) {
 fn map_tool(tool: ToolType) -> CanvasTool {
     match tool {
         ToolType::Select => CanvasTool::Select,
-        ToolType::Sticky | ToolType::Rectangle | ToolType::Youtube => CanvasTool::Select,
+        ToolType::Sticky | ToolType::Rectangle | ToolType::Frame | ToolType::Youtube => CanvasTool::Select,
         ToolType::Ellipse => CanvasTool::Ellipse,
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
         ToolType::Text | ToolType::Draw | ToolType::Eraser => CanvasTool::Select,
@@ -880,6 +880,20 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "borderWidth": 1
             }),
         )),
+        ToolType::Frame => Some((
+            "frame",
+            520.0,
+            320.0,
+            serde_json::json!({
+                "title": "Frame",
+                "color": "#9AA3AD",
+                "backgroundColor": "rgba(154,163,173,0.08)",
+                "borderColor": "#1F1A17",
+                "borderWidth": 2,
+                "stroke": "#1F1A17",
+                "stroke_width": 2
+            }),
+        )),
         ToolType::Ellipse => Some((
             "ellipse",
             120.0,
@@ -933,6 +947,7 @@ fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
     match tool {
         ToolType::Sticky => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Rectangle => Some((160.0, 100.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Frame => Some((520.0, 320.0, "rgba(154, 163, 173, 0.20)")),
         ToolType::Ellipse => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Youtube => Some((320.0, 220.0, "rgba(217, 75, 75, 0.45)")),
         ToolType::Line => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
@@ -1012,6 +1027,7 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
 
     let kind = match obj.kind.as_str() {
         "rectangle" | "rect" | "sticky_note" => CanvasKind::Rect,
+        "frame" => CanvasKind::Frame,
         "ellipse" => CanvasKind::Ellipse,
         "diamond" => CanvasKind::Diamond,
         "star" => CanvasKind::Star,
@@ -1189,6 +1205,7 @@ fn process_actions(
 fn canvas_kind_to_wire(kind: CanvasKind) -> &'static str {
     match kind {
         CanvasKind::Rect => "rectangle",
+        CanvasKind::Frame => "frame",
         CanvasKind::Ellipse => "ellipse",
         CanvasKind::Diamond => "diamond",
         CanvasKind::Star => "star",

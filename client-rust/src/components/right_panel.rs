@@ -34,10 +34,11 @@ pub fn RightPanel() -> impl IntoView {
         <div class="right-panel">
             <div class="right-panel__rail">
                 <button
-                    class="right-panel__rail-button"
+                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
                     class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Boards
                     on:click=move |_| toggle_tab(RightTab::Boards)
                     title="Boards"
+                    attr:data-tooltip="Boards"
                 >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                         <rect x="3" y="3" width="6" height="6" />
@@ -48,10 +49,11 @@ pub fn RightPanel() -> impl IntoView {
                 </button>
 
                 <button
-                    class="right-panel__rail-button"
+                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
                     class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Chat
                     on:click=move |_| toggle_tab(RightTab::Chat)
                     title="Chat"
+                    attr:data-tooltip="Chat"
                 >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                         <rect x="3" y="3" width="14" height="10" />
@@ -60,10 +62,11 @@ pub fn RightPanel() -> impl IntoView {
                 </button>
 
                 <button
-                    class="right-panel__rail-button"
+                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
                     class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Ai
                     on:click=move |_| toggle_tab(RightTab::Ai)
                     title="Field Notes"
+                    attr:data-tooltip="Field Notes"
                 >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                         <path d="M10 2 L12 7 L18 7 L13 10 L15 16 L10 12 L5 16 L7 10 L2 7 L8 7 Z" />
@@ -72,7 +75,7 @@ pub fn RightPanel() -> impl IntoView {
 
                 <div class="right-panel__rail-spacer"></div>
 
-                <button class="right-panel__toggle" on:click=toggle_expand title="Toggle panel">
+                <button class="right-panel__toggle ui-tooltip ui-tooltip--left" on:click=toggle_expand title="Toggle panel" attr:data-tooltip="Toggle panel">
                     {move || if expanded() { "▶" } else { "◀" }}
                 </button>
             </div>

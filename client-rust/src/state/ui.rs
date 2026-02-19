@@ -36,6 +36,7 @@ pub enum ToolType {
     Select,
     Sticky,
     Rectangle,
+    Frame,
     Ellipse,
     Youtube,
     Line,

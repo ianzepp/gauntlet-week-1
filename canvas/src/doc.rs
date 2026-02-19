@@ -27,6 +27,8 @@ pub type ObjectId = Uuid;
 pub enum ObjectKind {
     /// Axis-aligned rectangle.
     Rect,
+    /// Frame container shape.
+    Frame,
     /// Ellipse inscribed within the bounding box.
     Ellipse,
     /// Diamond (rhombus) with vertices at bounding-box edge midpoints.

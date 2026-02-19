@@ -132,6 +132,7 @@ fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore
 
     match obj.kind {
         ObjectKind::Rect => draw_rect(ctx, obj, &props),
+        ObjectKind::Frame => draw_frame(ctx, obj, &props),
         ObjectKind::Ellipse => draw_ellipse(ctx, obj, &props),
         ObjectKind::Diamond => draw_diamond(ctx, obj, &props),
         ObjectKind::Star => draw_star(ctx, obj, &props),
@@ -158,6 +159,43 @@ fn draw_rect(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_
     ctx.stroke_rect(-obj.width / 2.0, -obj.height / 2.0, obj.width, obj.height);
 
     draw_text(ctx, obj, props)?;
+    ctx.restore();
+    Ok(())
+}
+
+fn draw_frame(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
+    ctx.save();
+    translate_and_rotate(ctx, obj)?;
+
+    let title_h = (obj.height * 0.14).clamp(18.0, 28.0);
+    let x = -obj.width * 0.5;
+    let y = -obj.height * 0.5;
+
+    // Body fill is very subtle so children remain visible.
+    ctx.set_fill_style_str("rgba(60, 64, 70, 0.06)");
+    ctx.fill_rect(x, y, obj.width, obj.height);
+
+    // Border.
+    apply_stroke_style(ctx, props);
+    ctx.stroke_rect(x, y, obj.width, obj.height);
+
+    // Header band.
+    ctx.set_fill_style_str("rgba(31, 26, 23, 0.16)");
+    ctx.fill_rect(x, y, obj.width, title_h);
+
+    // Title
+    let title = obj
+        .props
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Frame");
+    ctx.set_fill_style_str("#1F1A17");
+    ctx.set_text_align("left");
+    ctx.set_text_baseline("middle");
+    let font_size = (title_h * 0.45).clamp(10.0, 14.0);
+    ctx.set_font(&format!("{font_size:.0}px sans-serif"));
+    let _ = ctx.fill_text(title, x + 8.0, y + (title_h * 0.5));
+
     ctx.restore();
     Ok(())
 }

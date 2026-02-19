@@ -16,6 +16,7 @@ const PRIMARY_TOOLS: &[ToolDef] = &[ToolDef { tool: ToolType::Select, label: "Se
 const SHAPE_TOOLS: &[ToolDef] = &[
     ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false },
     ToolDef { tool: ToolType::Rectangle, label: "Rectangle", disabled: false },
+    ToolDef { tool: ToolType::Frame, label: "Frame", disabled: false },
     ToolDef { tool: ToolType::Ellipse, label: "Circle", disabled: false },
     ToolDef { tool: ToolType::Youtube, label: "YouTube", disabled: false },
     ToolDef { tool: ToolType::Line, label: "Line", disabled: false },
@@ -55,10 +56,11 @@ pub fn ToolRail() -> impl IntoView {
 
                 view! {
                     <button
-                        class="tool-rail__btn"
+                        class="tool-rail__btn ui-tooltip"
                         class:tool-rail__btn--active=is_active
                         class:tool-rail__btn--disabled=move || td.disabled
-                        title=title
+                        title=title.clone()
+                        attr:data-tooltip=title
                         disabled=td.disabled
                         on:click=on_click
                     >
@@ -85,7 +87,7 @@ pub fn ToolRail() -> impl IntoView {
 
             <div class="tool-rail__spacer"></div>
 
-            <button class="tool-rail__toggle" on:click=toggle_expand title="Toggle inspector">
+            <button class="tool-rail__toggle ui-tooltip" on:click=toggle_expand title="Toggle inspector" attr:data-tooltip="Toggle inspector">
                 {move || if expanded() { "◀" } else { "▶" }}
             </button>
         </div>
@@ -111,6 +113,13 @@ fn render_icon(tool: ToolType) -> impl IntoView {
         ToolType::Rectangle => view! {
             <svg viewBox="0 0 20 20" aria-hidden="true">
                 <rect x="2" y="4" width="16" height="12" />
+            </svg>
+        }
+        .into_any(),
+        ToolType::Frame => view! {
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+                <rect x="2" y="3" width="16" height="14" />
+                <line x1="2" y1="7" x2="18" y2="7" />
             </svg>
         }
         .into_any(),
