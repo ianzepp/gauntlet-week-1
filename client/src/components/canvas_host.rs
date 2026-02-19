@@ -1712,11 +1712,18 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
     let height = obj.height.unwrap_or(80.0).max(1.0);
     let mut props = obj.props.clone();
     if let Some(map) = props.as_object_mut() {
+        let color = map
+            .get("color")
+            .and_then(|v| v.as_str())
+            .map(ToOwned::to_owned);
         if let Some(v) = map
             .get("backgroundColor")
             .and_then(|v| v.as_str())
             .map(ToOwned::to_owned)
         {
+            map.entry("fill".to_owned())
+                .or_insert_with(|| serde_json::Value::String(v));
+        } else if let Some(v) = color.clone() {
             map.entry("fill".to_owned())
                 .or_insert_with(|| serde_json::Value::String(v));
         }
@@ -1727,8 +1734,14 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
         {
             map.entry("stroke".to_owned())
                 .or_insert_with(|| serde_json::Value::String(v));
+        } else if let Some(v) = color {
+            map.entry("stroke".to_owned())
+                .or_insert_with(|| serde_json::Value::String(v));
         }
-        if let Some(v) = map.get("borderWidth").and_then(|v| v.as_i64()) {
+        if let Some(v) = map
+            .get("borderWidth")
+            .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
+        {
             map.entry("stroke_width".to_owned())
                 .or_insert_with(|| serde_json::json!(v));
         }
