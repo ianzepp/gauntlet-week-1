@@ -37,6 +37,7 @@ pub enum ToolType {
     Sticky,
     Rectangle,
     Ellipse,
+    Youtube,
     Line,
     Connector,
     Text,

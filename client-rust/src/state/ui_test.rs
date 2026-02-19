@@ -46,6 +46,7 @@ fn tool_type_variants_are_distinct() {
         ToolType::Sticky,
         ToolType::Rectangle,
         ToolType::Ellipse,
+        ToolType::Youtube,
         ToolType::Line,
         ToolType::Connector,
         ToolType::Text,

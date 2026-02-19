@@ -47,6 +47,7 @@ pub fn CanvasHost() -> impl IntoView {
     let last_drag_sent_ms = RwSignal::new(0.0_f64);
     #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
+    let active_youtube = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
     let engine = Rc::new(RefCell::new(None::<Engine>));
 
@@ -129,6 +130,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let actions = engine.on_pointer_down(point, button, modifiers);
                     process_actions(actions, engine, _board, _sender);
                     open_inspector_on_double_click(engine, &ev, _ui);
+                    update_youtube_overlay_from_click(engine, point, &ev, active_youtube);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
                     let _ = engine.render();
                 }
@@ -260,6 +262,9 @@ pub fn CanvasHost() -> impl IntoView {
                     preview_cursor.set(None);
                     return;
                 }
+                if key == "Escape" {
+                    active_youtube.set(None);
+                }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     let active_transform = active_transform_object_id(engine);
                     sync_viewport(engine, &canvas_ref);
@@ -340,6 +345,81 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let youtube_overlay_open = move || active_youtube.get().is_some();
+
+    let youtube_overlay_style = move || {
+        #[cfg(feature = "hydrate")]
+        {
+            let Some((object_id, _video_id)) = active_youtube.get() else {
+                return String::new();
+            };
+            let view = _canvas_view.get();
+            let Some(obj) = _board.get().objects.get(&object_id).cloned() else {
+                return String::new();
+            };
+            let left = (obj.x * view.zoom) + view.pan_x;
+            let top = (obj.y * view.zoom) + view.pan_y;
+            let width = obj.width.unwrap_or(320.0) * view.zoom;
+            let height = obj.height.unwrap_or(220.0) * view.zoom;
+            format!(
+                "left: {:.2}px; top: {:.2}px; width: {:.2}px; height: {:.2}px; transform: rotate({:.2}deg); transform-origin: center center;",
+                left.max(0.0),
+                top.max(0.0),
+                width.max(80.0),
+                height.max(60.0),
+                obj.rotation
+            )
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            String::new()
+        }
+    };
+
+    let youtube_overlay_src = move || {
+        #[cfg(feature = "hydrate")]
+        {
+            let Some((_object_id, video_id)) = active_youtube.get() else {
+                return String::new();
+            };
+            return format!(
+                "https://www.youtube.com/embed/{}?autoplay=1&rel=0&modestbranding=1",
+                video_id
+            );
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            String::new()
+        }
+    };
+
+    let youtube_overlay_frame_style = move || {
+        #[cfg(feature = "hydrate")]
+        {
+            let Some((object_id, _video_id)) = active_youtube.get() else {
+                return String::new();
+            };
+            let view = _canvas_view.get();
+            let Some(obj) = _board.get().objects.get(&object_id).cloned() else {
+                return String::new();
+            };
+            let width = obj.width.unwrap_or(320.0) * view.zoom;
+            let height = obj.height.unwrap_or(220.0) * view.zoom;
+            let (screen_x, screen_y, screen_w, screen_h) = youtube_screen_local_geometry(width, height);
+            return format!(
+                "left: {:.2}px; top: {:.2}px; width: {:.2}px; height: {:.2}px;",
+                screen_x.max(0.0),
+                screen_y.max(0.0),
+                screen_w.max(32.0),
+                screen_h.max(24.0)
+            );
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            String::new()
+        }
+    };
+
     view! {
         <>
             <canvas
@@ -376,6 +456,21 @@ pub fn CanvasHost() -> impl IntoView {
                         .collect_view()
                 }}
             </div>
+            <Show when=youtube_overlay_open>
+                <div class="canvas-video-overlay" style=youtube_overlay_style>
+                    <button class="canvas-video-overlay__close" on:click=move |_| active_youtube.set(None)>
+                        "✕"
+                    </button>
+                    <iframe
+                        class="canvas-video-overlay__frame"
+                        style=youtube_overlay_frame_style
+                        src=youtube_overlay_src
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen=true
+                        referrerpolicy="strict-origin-when-cross-origin"
+                    ></iframe>
+                </div>
+            </Show>
         </>
     }
 }
@@ -404,7 +499,7 @@ fn center_world_origin(engine: &mut Engine) {
 fn map_tool(tool: ToolType) -> CanvasTool {
     match tool {
         ToolType::Select => CanvasTool::Select,
-        ToolType::Sticky | ToolType::Rectangle => CanvasTool::Select,
+        ToolType::Sticky | ToolType::Rectangle | ToolType::Youtube => CanvasTool::Select,
         ToolType::Ellipse => CanvasTool::Ellipse,
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
         ToolType::Text | ToolType::Draw | ToolType::Eraser => CanvasTool::Select,
@@ -451,6 +546,136 @@ fn open_inspector_on_double_click(engine: &Engine, ev: &leptos::ev::PointerEvent
     ui.update(|u| {
         u.left_panel_expanded = true;
     });
+}
+
+#[cfg(feature = "hydrate")]
+fn update_youtube_overlay_from_click(
+    engine: &Engine,
+    point_screen: CanvasPoint,
+    ev: &leptos::ev::PointerEvent,
+    active_youtube: RwSignal<Option<(String, String)>>,
+) {
+    if ev.button() != 0 {
+        return;
+    }
+    let world = engine.camera().screen_to_world(point_screen);
+    let Some(selected_id) = youtube_object_at_point(engine, world) else {
+        return;
+    };
+    let Some(obj) = engine.object(&selected_id) else {
+        return;
+    };
+    if obj.kind != CanvasKind::Youtube {
+        return;
+    }
+    if !youtube_play_button_hit(obj, world) && !youtube_screen_hit(obj, world) {
+        return;
+    }
+    let Some(video_id) = youtube_video_id_from_props(&obj.props) else {
+        return;
+    };
+    active_youtube.set(Some((selected_id.to_string(), video_id)));
+}
+
+#[cfg(feature = "hydrate")]
+fn youtube_object_at_point(engine: &Engine, world: CanvasPoint) -> Option<uuid::Uuid> {
+    engine
+        .core
+        .doc
+        .sorted_objects()
+        .into_iter()
+        .rev()
+        .find(|obj| obj.kind == CanvasKind::Youtube && canvas::hit::point_in_rect(world, obj.x, obj.y, obj.width, obj.height, obj.rotation))
+        .map(|obj| obj.id)
+}
+
+#[cfg(feature = "hydrate")]
+fn youtube_play_button_hit(obj: &CanvasObject, world: CanvasPoint) -> bool {
+    let local = canvas::hit::world_to_local(world, obj.x, obj.y, obj.width, obj.height, obj.rotation);
+    let (cx, cy, r) = youtube_play_button_local_geometry(obj.width, obj.height);
+    let dx = local.x - cx;
+    let dy = local.y - cy;
+    (dx * dx) + (dy * dy) <= (r * r)
+}
+
+#[cfg(feature = "hydrate")]
+fn youtube_screen_hit(obj: &CanvasObject, world: CanvasPoint) -> bool {
+    let local = canvas::hit::world_to_local(world, obj.x, obj.y, obj.width, obj.height, obj.rotation);
+    let (_, screen_y, screen_w, screen_h) = youtube_screen_local_geometry(obj.width, obj.height);
+    let screen_x = (obj.width - screen_w) * 0.5;
+    local.x >= screen_x && local.x <= screen_x + screen_w && local.y >= screen_y && local.y <= screen_y + screen_h
+}
+
+#[cfg(feature = "hydrate")]
+fn youtube_play_button_local_geometry(width: f64, height: f64) -> (f64, f64, f64) {
+    let (_screen_x, screen_y, _screen_w, screen_h) = youtube_screen_local_geometry(width, height);
+    let cy = screen_y + (screen_h * 0.5);
+    let cx = width * 0.5;
+    let r = width.min(height) * 0.12;
+    (cx, cy, r)
+}
+
+#[cfg(feature = "hydrate")]
+fn youtube_screen_local_geometry(width: f64, height: f64) -> (f64, f64, f64, f64) {
+    let bezel_pad_x = width * 0.08;
+    let bezel_pad_y = height * 0.14;
+    let bezel_w = width - (bezel_pad_x * 2.0);
+    let bezel_h = height - (bezel_pad_y * 2.0) - (height * 0.10);
+    let screen_pad = width.min(height) * 0.04;
+    let screen_w = bezel_w - (screen_pad * 2.0);
+    let screen_h = bezel_h - (screen_pad * 2.0);
+    let screen_x = (width - screen_w) * 0.5;
+    let screen_y = bezel_pad_y + screen_pad;
+    (screen_x, screen_y, screen_w, screen_h)
+}
+
+#[cfg(feature = "hydrate")]
+fn youtube_video_id_from_props(props: &serde_json::Value) -> Option<String> {
+    let raw = props.get("video_id").and_then(|v| v.as_str())?;
+    parse_youtube_video_id(raw)
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_youtube_video_id(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed.contains("youtube.com") && !trimmed.contains("youtu.be/") {
+        return sanitize_youtube_id(trimmed);
+    }
+    if let Some(idx) = trimmed.find("v=") {
+        let v = &trimmed[idx + 2..];
+        let end = v.find(['&', '#', '?']).unwrap_or(v.len());
+        return sanitize_youtube_id(&v[..end]);
+    }
+    if let Some(idx) = trimmed.find("youtu.be/") {
+        let v = &trimmed[idx + "youtu.be/".len()..];
+        let end = v.find(['&', '#', '?', '/']).unwrap_or(v.len());
+        return sanitize_youtube_id(&v[..end]);
+    }
+    if let Some(idx) = trimmed.find("/embed/") {
+        let v = &trimmed[idx + "/embed/".len()..];
+        let end = v.find(['&', '#', '?', '/']).unwrap_or(v.len());
+        return sanitize_youtube_id(&v[..end]);
+    }
+    None
+}
+
+#[cfg(feature = "hydrate")]
+fn sanitize_youtube_id(id: &str) -> Option<String> {
+    let cleaned = id.trim();
+    if cleaned.len() < 8 || cleaned.len() > 15 {
+        return None;
+    }
+    if cleaned
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        Some(cleaned.to_owned())
+    } else {
+        None
+    }
 }
 
 #[cfg(feature = "hydrate")]
@@ -666,6 +891,17 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "borderWidth": 1
             }),
         )),
+        ToolType::Youtube => Some((
+            "youtube_embed",
+            320.0,
+            220.0,
+            serde_json::json!({
+                "video_id": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1",
+                "title": "YouTube",
+                "stroke": "#1F1A17",
+                "stroke_width": 2
+            }),
+        )),
         ToolType::Line => Some((
             "line",
             180.0,
@@ -698,6 +934,7 @@ fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
         ToolType::Sticky => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Rectangle => Some((160.0, 100.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Ellipse => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Youtube => Some((320.0, 220.0, "rgba(217, 75, 75, 0.45)")),
         ToolType::Line => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         _ => None,
@@ -778,6 +1015,7 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
         "ellipse" => CanvasKind::Ellipse,
         "diamond" => CanvasKind::Diamond,
         "star" => CanvasKind::Star,
+        "youtube_embed" | "youtube" => CanvasKind::Youtube,
         "line" => CanvasKind::Line,
         "arrow" => CanvasKind::Arrow,
         _ => CanvasKind::Rect,
@@ -954,6 +1192,7 @@ fn canvas_kind_to_wire(kind: CanvasKind) -> &'static str {
         CanvasKind::Ellipse => "ellipse",
         CanvasKind::Diamond => "diamond",
         CanvasKind::Star => "star",
+        CanvasKind::Youtube => "youtube_embed",
         CanvasKind::Line => "line",
         CanvasKind::Arrow => "arrow",
     }

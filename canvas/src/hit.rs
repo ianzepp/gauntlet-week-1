@@ -470,6 +470,13 @@ fn hit_test_body(world_pt: Point, obj: &BoardObject, doc: &DocStore, edge_radius
                 None
             }
         }
+        ObjectKind::Youtube => {
+            if point_in_rect(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
+                Some(HitPart::Body)
+            } else {
+                None
+            }
+        }
         ObjectKind::Line | ObjectKind::Arrow => {
             let a = edge_endpoint_a_resolved(obj, doc)?;
             let b = edge_endpoint_b_resolved(obj, doc)?;

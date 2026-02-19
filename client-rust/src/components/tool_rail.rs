@@ -17,6 +17,7 @@ const SHAPE_TOOLS: &[ToolDef] = &[
     ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false },
     ToolDef { tool: ToolType::Rectangle, label: "Rectangle", disabled: false },
     ToolDef { tool: ToolType::Ellipse, label: "Circle", disabled: false },
+    ToolDef { tool: ToolType::Youtube, label: "YouTube", disabled: false },
     ToolDef { tool: ToolType::Line, label: "Line", disabled: false },
     ToolDef { tool: ToolType::Connector, label: "Arrow", disabled: false },
     ToolDef { tool: ToolType::Text, label: "Text", disabled: true },
@@ -116,6 +117,15 @@ fn render_icon(tool: ToolType) -> impl IntoView {
         ToolType::Ellipse => view! {
             <svg viewBox="0 0 20 20" aria-hidden="true">
                 <ellipse cx="10" cy="10" rx="8" ry="6" />
+            </svg>
+        }
+        .into_any(),
+        ToolType::Youtube => view! {
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+                <rect x="2" y="5" width="16" height="11" />
+                <polygon points="9,8 13,10.5 9,13" />
+                <line x1="6" y1="5" x2="4" y2="2" />
+                <line x1="14" y1="5" x2="16" y2="2" />
             </svg>
         }
         .into_any(),
