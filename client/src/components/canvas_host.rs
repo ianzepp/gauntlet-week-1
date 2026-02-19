@@ -55,7 +55,7 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_presence_sent_ms = RwSignal::new(0.0_f64);
     #[cfg(feature = "hydrate")]
-    let last_presence_sent = RwSignal::new(None::<(f64, f64, f64)>);
+    let last_presence_sent = RwSignal::new(None::<(f64, f64, f64, f64)>);
     #[cfg(feature = "hydrate")]
     let last_presence_bootstrap_key = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
@@ -223,9 +223,10 @@ pub fn CanvasHost() -> impl IntoView {
             let Some(zoom) = target.camera_zoom else {
                 return;
             };
+            let rotation = target.camera_rotation.unwrap_or(0.0);
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 sync_viewport(engine, &canvas_ref_follow);
-                set_camera_view(engine, center.x, center.y, zoom);
+                set_camera_view(engine, center.x, center.y, zoom, rotation);
                 sync_canvas_view_state(engine, _canvas_view, None);
                 let _ = engine.render();
                 if _board.get_untracked().jump_to_client_id.as_deref() == Some(target_client.as_str()) {
@@ -970,9 +971,10 @@ fn center_world_origin(engine: &mut Engine) {
 }
 
 #[cfg(feature = "hydrate")]
-fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: f64) {
+fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: f64, rotation_deg: f64) {
     let clamped_zoom = zoom.clamp(0.1, 10.0);
     engine.core.camera.zoom = clamped_zoom;
+    engine.set_view_rotation_deg(rotation_deg);
     engine.core.camera.pan_x = (engine.core.viewport_width * 0.5) - (center_x * clamped_zoom);
     engine.core.camera.pan_y = (engine.core.viewport_height * 0.5) - (center_y * clamped_zoom);
 }
@@ -984,7 +986,7 @@ fn send_cursor_presence_if_needed(
     auth: RwSignal<AuthState>,
     sender: RwSignal<FrameSender>,
     last_sent_ms: RwSignal<f64>,
-    last_sent_view: RwSignal<Option<(f64, f64, f64)>>,
+    last_sent_view: RwSignal<Option<(f64, f64, f64, f64)>>,
     cursor_screen: Option<CanvasPoint>,
     force: bool,
 ) {
@@ -1002,6 +1004,7 @@ fn send_cursor_presence_if_needed(
     const CAMERA_ONLY_MIN_INTERVAL_MS: f64 = 40.0;
     const CAMERA_CENTER_DEADBAND_WORLD: f64 = 0.2;
     const CAMERA_ZOOM_DEADBAND: f64 = 0.001;
+    const CAMERA_ROTATION_DEADBAND_DEG: f64 = 0.1;
 
     let now = now_ms();
     if !force && !has_cursor_point && now - last_sent_ms.get_untracked() < CAMERA_ONLY_MIN_INTERVAL_MS {
@@ -1017,17 +1020,22 @@ fn send_cursor_presence_if_needed(
     let center_x = center_world.x;
     let center_y = center_world.y;
     let zoom = camera.zoom;
+    let rotation = camera.view_rotation_deg;
     let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p, center_screen));
 
     if !force
         && !has_cursor_point
-        && let Some((last_x, last_y, last_zoom)) = last_sent_view.get_untracked()
+        && let Some((last_x, last_y, last_zoom, last_rotation)) = last_sent_view.get_untracked()
     {
         let dx = center_x - last_x;
         let dy = center_y - last_y;
         let center_dist = (dx * dx + dy * dy).sqrt();
         let zoom_delta = (zoom - last_zoom).abs();
-        if center_dist < CAMERA_CENTER_DEADBAND_WORLD && zoom_delta < CAMERA_ZOOM_DEADBAND {
+        let rotation_delta = (rotation - last_rotation).abs();
+        if center_dist < CAMERA_CENTER_DEADBAND_WORLD
+            && zoom_delta < CAMERA_ZOOM_DEADBAND
+            && rotation_delta < CAMERA_ROTATION_DEADBAND_DEG
+        {
             return;
         }
     }
@@ -1048,11 +1056,12 @@ fn send_cursor_presence_if_needed(
             "camera_center_x": center_x,
             "camera_center_y": center_y,
             "camera_zoom": zoom,
+            "camera_rotation": rotation,
         }),
     };
     if sender.get_untracked().send(&frame) {
         last_sent_ms.set(now);
-        last_sent_view.set(Some((center_x, center_y, zoom)));
+        last_sent_view.set(Some((center_x, center_y, zoom, rotation)));
     }
 }
 

@@ -61,7 +61,11 @@ enum Outcome {
     /// Reply to sender with one payload, broadcast different data to peers.
     ReplyAndBroadcast { reply: Data, broadcast: Data },
     /// Stream item payloads + terminal done payload to sender, and broadcast to peers.
-    ReplyStreamAndBroadcast { items: Vec<Data>, done: Data, broadcast: Data },
+    ReplyStreamAndBroadcast {
+        items: Vec<Data>,
+        done: Data,
+        broadcast: Data,
+    },
 }
 
 // =============================================================================
@@ -351,7 +355,9 @@ async fn handle_board(
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
 
     match op {
-        "join" => handle_board_join(state, current_board, client_id, user_id, user_name, user_color, client_tx, req).await,
+        "join" => {
+            handle_board_join(state, current_board, client_id, user_id, user_name, user_color, client_tx, req).await
+        }
         "part" => handle_board_part(state, current_board, client_id, user_id, user_name, user_color, req).await,
         "create" => handle_board_create(state, user_id, req).await,
         "list" => handle_board_list(state, user_id, req).await,
@@ -402,16 +408,8 @@ async fn handle_board_join(
         services::board::part_board(state, old_board, client_id).await;
     }
 
-    match services::board::join_board(
-        state,
-        board_id,
-        user_id,
-        user_name,
-        user_color,
-        client_id,
-        client_tx.clone(),
-    )
-    .await
+    match services::board::join_board(state, board_id, user_id, user_name, user_color, client_id, client_tx.clone())
+        .await
     {
         Ok(objects) => {
             *current_board = Some(board_id);
@@ -848,6 +846,13 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
                 .and_then(serde_json::Value::as_f64)
             {
                 data.insert("camera_zoom".into(), serde_json::json!(zoom));
+            }
+            if let Some(rotation) = req
+                .data
+                .get("camera_rotation")
+                .and_then(serde_json::Value::as_f64)
+            {
+                data.insert("camera_rotation".into(), serde_json::json!(rotation));
             }
             if let Some(name) = req.data.get("name").and_then(serde_json::Value::as_str) {
                 data.insert("name".into(), serde_json::json!(name));

@@ -319,6 +319,7 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
     let mut data = Data::new();
     data.insert("x".into(), json!(321.5));
     data.insert("y".into(), json!(654.25));
+    data.insert("camera_rotation".into(), json!(33.0));
     data.insert("name".into(), json!("Alice"));
     data.insert("color".into(), json!("#22c55e"));
     let text = request_bytes(board_id, "cursor:moved", data);
@@ -342,6 +343,13 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
     );
     assert_eq!(peer_broadcast.data.get("x").and_then(|v| v.as_f64()), Some(321.5));
     assert_eq!(peer_broadcast.data.get("y").and_then(|v| v.as_f64()), Some(654.25));
+    assert_eq!(
+        peer_broadcast
+            .data
+            .get("camera_rotation")
+            .and_then(|v| v.as_f64()),
+        Some(33.0)
+    );
     assert_eq!(peer_broadcast.data.get("name").and_then(|v| v.as_str()), Some("Alice"));
     assert_eq!(peer_broadcast.data.get("color").and_then(|v| v.as_str()), Some("#22c55e"));
 }
@@ -691,8 +699,7 @@ async fn board_part_broadcasts_immediately_to_peers() {
     let mut current_board_a = Some(board_id);
 
     let req = request_bytes(board_id, "board:part", Data::new());
-    let a_reply =
-        process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req).await;
+    let a_reply = process_inbound_bytes(&state, &mut current_board_a, client_a_id, user_a, &client_a_tx, &req).await;
 
     assert_eq!(a_reply.len(), 1);
     assert_eq!(a_reply[0].syscall, "board:part");
@@ -704,7 +711,10 @@ async fn board_part_broadcasts_immediately_to_peers() {
     assert_eq!(peer_broadcast.status, Status::Request);
     let client_a_id_str = client_a_id.to_string();
     assert_eq!(
-        peer_broadcast.data.get("client_id").and_then(|v| v.as_str()),
+        peer_broadcast
+            .data
+            .get("client_id")
+            .and_then(|v| v.as_str()),
         Some(client_a_id_str.as_str())
     );
 

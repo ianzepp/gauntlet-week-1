@@ -63,6 +63,7 @@ pub struct Presence {
     pub cursor: Option<Point>,
     pub camera_center: Option<Point>,
     pub camera_zoom: Option<f64>,
+    pub camera_rotation: Option<f64>,
 }
 
 /// A 2D point.

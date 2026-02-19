@@ -190,6 +190,7 @@ fn presence_round_trip_with_cursor() {
         cursor: Some(Point { x: 100.0, y: 200.0 }),
         camera_center: Some(Point { x: 300.0, y: 400.0 }),
         camera_zoom: Some(1.25),
+        camera_rotation: Some(42.0),
     };
     let json = serde_json::to_string(&p).unwrap();
     let back: Presence = serde_json::from_str(&json).unwrap();
@@ -206,6 +207,7 @@ fn presence_round_trip_without_cursor() {
         cursor: None,
         camera_center: None,
         camera_zoom: None,
+        camera_rotation: None,
     };
     let json = serde_json::to_string(&p).unwrap();
     let back: Presence = serde_json::from_str(&json).unwrap();
@@ -220,7 +222,8 @@ fn presence_requires_client_id() {
         "color": "#fff",
         "cursor": null,
         "camera_center": null,
-        "camera_zoom": null
+        "camera_zoom": null,
+        "camera_rotation": null
     }"##;
     assert!(serde_json::from_str::<Presence>(json).is_err());
 }

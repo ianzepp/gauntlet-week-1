@@ -566,6 +566,7 @@ fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64)
     let camera_center_x = data.get("camera_center_x").and_then(|v| v.as_f64());
     let camera_center_y = data.get("camera_center_y").and_then(|v| v.as_f64());
     let camera_zoom = data.get("camera_zoom").and_then(|v| v.as_f64());
+    let camera_rotation = data.get("camera_rotation").and_then(|v| v.as_f64());
 
     if !board.presence.contains_key(client_id) {
         upsert_presence_from_payload(board, data);
@@ -580,6 +581,9 @@ fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64)
         }
         if let Some(zoom) = camera_zoom {
             p.camera_zoom = Some(zoom);
+        }
+        if let Some(rotation) = camera_rotation {
+            p.camera_rotation = Some(rotation);
         }
     }
 }
@@ -623,6 +627,21 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
         .get(client_id)
         .and_then(|p| p.camera_center.clone());
     let existing_camera_zoom = board.presence.get(client_id).and_then(|p| p.camera_zoom);
+    let existing_camera_rotation = board
+        .presence
+        .get(client_id)
+        .and_then(|p| p.camera_rotation);
+    let payload_camera_center = data
+        .get("camera_center")
+        .and_then(|v| serde_json::from_value::<crate::net::types::Point>(v.clone()).ok())
+        .or_else(|| {
+            Some(crate::net::types::Point {
+                x: data.get("camera_center_x")?.as_f64()?,
+                y: data.get("camera_center_y")?.as_f64()?,
+            })
+        });
+    let payload_camera_zoom = data.get("camera_zoom").and_then(|v| v.as_f64());
+    let payload_camera_rotation = data.get("camera_rotation").and_then(|v| v.as_f64());
     board.presence.insert(
         client_id.to_owned(),
         Presence {
@@ -631,8 +650,9 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
             name: user_name.to_owned(),
             color: user_color.to_owned(),
             cursor: existing_cursor,
-            camera_center: existing_camera_center,
-            camera_zoom: existing_camera_zoom,
+            camera_center: payload_camera_center.or(existing_camera_center),
+            camera_zoom: payload_camera_zoom.or(existing_camera_zoom),
+            camera_rotation: payload_camera_rotation.or(existing_camera_rotation),
         },
     );
 }

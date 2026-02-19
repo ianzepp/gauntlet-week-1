@@ -40,6 +40,7 @@ fn presence(client_id: &str, user_id: &str, name: &str, color: &str) -> crate::n
         cursor: None,
         camera_center: None,
         camera_zoom: None,
+        camera_rotation: None,
     }
 }
 
@@ -501,7 +502,8 @@ fn apply_cursor_moved_sets_camera_fields_when_present() {
             "y": 2.0,
             "camera_center_x": 10.0,
             "camera_center_y": 20.0,
-            "camera_zoom": 2.0
+            "camera_zoom": 2.0,
+            "camera_rotation": 33.0
         }),
         200,
     );
@@ -511,6 +513,7 @@ fn apply_cursor_moved_sets_camera_fields_when_present() {
     assert_eq!(center.x, 10.0);
     assert_eq!(center.y, 20.0);
     assert_eq!(p.camera_zoom, Some(2.0));
+    assert_eq!(p.camera_rotation, Some(33.0));
 }
 
 #[test]

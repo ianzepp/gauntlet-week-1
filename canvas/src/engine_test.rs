@@ -590,6 +590,26 @@ fn select_click_resize_handle_starts_resize() {
     let _ = actions;
 }
 
+#[test]
+fn select_click_resize_handle_with_view_rotation_starts_resize() {
+    let mut core = EngineCore::new();
+    core.set_viewport(800.0, 600.0, 1.0);
+    core.set_view_rotation_deg(90.0);
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+
+    let viewport_center = pt(core.viewport_width * 0.5, core.viewport_height * 0.5);
+    let se_handle_world = pt(100.0, 80.0);
+    let se_handle_screen = core
+        .camera
+        .world_to_screen(se_handle_world, viewport_center);
+    let actions = core.on_pointer_down(se_handle_screen, Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::ResizingObject { .. }));
+    let _ = actions;
+}
+
 // =============================================================
 // Pointer down — Select tool on rotate handle
 // =============================================================
@@ -604,6 +624,26 @@ fn select_click_rotate_handle_starts_rotation() {
 
     // Rotate handle is above center-top (50, -24) at zoom 1.
     let actions = core.on_pointer_down(pt(50.0, -24.0), Button::Primary, no_modifiers());
+    assert!(matches!(core.input, InputState::RotatingObject { .. }));
+    let _ = actions;
+}
+
+#[test]
+fn select_click_rotate_handle_with_view_rotation_starts_rotation() {
+    let mut core = EngineCore::new();
+    core.set_viewport(800.0, 600.0, 1.0);
+    core.set_view_rotation_deg(90.0);
+    let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_id = Some(id);
+
+    let viewport_center = pt(core.viewport_width * 0.5, core.viewport_height * 0.5);
+    let rotate_handle_world = pt(50.0, -24.0);
+    let rotate_handle_screen = core
+        .camera
+        .world_to_screen(rotate_handle_world, viewport_center);
+    let actions = core.on_pointer_down(rotate_handle_screen, Button::Primary, no_modifiers());
     assert!(matches!(core.input, InputState::RotatingObject { .. }));
     let _ = actions;
 }
@@ -756,6 +796,17 @@ fn secondary_button_is_noop() {
 #[test]
 fn panning_updates_camera() {
     let mut core = EngineCore::new();
+    core.input = InputState::Panning { last_screen: pt(100.0, 100.0) };
+    let actions = core.on_pointer_move(pt(120.0, 110.0), no_modifiers());
+    assert_eq!(core.camera.pan_x, 20.0);
+    assert_eq!(core.camera.pan_y, 10.0);
+    assert!(has_render_needed(&actions));
+}
+
+#[test]
+fn panning_updates_camera_with_view_rotation() {
+    let mut core = EngineCore::new();
+    core.set_view_rotation_deg(90.0);
     core.input = InputState::Panning { last_screen: pt(100.0, 100.0) };
     let actions = core.on_pointer_move(pt(120.0, 110.0), no_modifiers());
     assert_eq!(core.camera.pan_x, 20.0);
