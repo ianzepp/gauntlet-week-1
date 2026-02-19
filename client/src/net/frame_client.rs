@@ -25,7 +25,7 @@ use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::ConnectionStatus;
 #[cfg(feature = "hydrate")]
-use crate::state::boards::{BoardListItem, BoardsState};
+use crate::state::boards::{BoardListItem, BoardListPreviewObject, BoardsState};
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::chat::ChatMessage;
 #[cfg(feature = "hydrate")]
@@ -315,12 +315,7 @@ fn handle_board_frame(
             true
         }
         "board:list" if frame.status == FrameStatus::Done => {
-            let list = frame
-                .data
-                .get("boards")
-                .cloned()
-                .and_then(|v| serde_json::from_value::<Vec<BoardListItem>>(v).ok())
-                .unwrap_or_default();
+            let list = parse_board_list_items(&frame.data);
             boards.update(|s| {
                 s.items = list;
                 s.loading = false;
@@ -384,6 +379,58 @@ fn handle_board_frame(
         }
         _ => false,
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListItem> {
+    let Some(rows) = data.get("boards").and_then(|v| v.as_array()) else {
+        return Vec::new();
+    };
+
+    rows.iter()
+        .filter_map(|row| {
+            let id = row.get("id")?.as_str()?.to_owned();
+            let name = row.get("name")?.as_str()?.to_owned();
+            let snapshot = row
+                .get("snapshot")
+                .and_then(serde_json::Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(parse_board_list_preview_object)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            Some(BoardListItem { id, name, snapshot })
+        })
+        .collect()
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_board_list_preview_object(row: &serde_json::Value) -> Option<BoardListPreviewObject> {
+    let kind = row.get("kind").and_then(serde_json::Value::as_str)?.to_owned();
+    let x = row.get("x").and_then(serde_json::Value::as_f64)?;
+    let y = row.get("y").and_then(serde_json::Value::as_f64)?;
+    let width = row.get("width").and_then(serde_json::Value::as_f64);
+    let height = row.get("height").and_then(serde_json::Value::as_f64);
+    let rotation = row
+        .get("rotation")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let z_index = row
+        .get("z_index")
+        .and_then(|value| value.as_i64().or_else(|| value.as_f64().map(|n| n.round() as i64)))
+        .and_then(|n| i32::try_from(n).ok())
+        .unwrap_or(0);
+    Some(BoardListPreviewObject {
+        kind,
+        x,
+        y,
+        width,
+        height,
+        rotation,
+        z_index,
+    })
 }
 
 #[cfg(feature = "hydrate")]

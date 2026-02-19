@@ -482,9 +482,72 @@ async fn handle_board_create(state: &AppState, user_id: Uuid, req: &Frame) -> Re
 async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
     match services::board::list_boards(&state.pool, user_id).await {
         Ok(boards) => {
+            let board_ids = boards.iter().map(|b| b.id).collect::<Vec<_>>();
+            let mut previews = match services::board::list_board_preview_objects(&state.pool, &board_ids, 64).await {
+                Ok(previews) => previews,
+                Err(e) => {
+                    warn!(error = %e, "board:list preview query failed; continuing without previews");
+                    std::collections::HashMap::new()
+                }
+            };
+
+            let live_boards = state.boards.read().await;
+            for board in &boards {
+                if let Some(live) = live_boards.get(&board.id) {
+                    let mut snapshot = live
+                        .objects
+                        .values()
+                        .map(|obj| services::board::BoardPreviewObject {
+                            kind: obj.kind.clone(),
+                            x: obj.x,
+                            y: obj.y,
+                            width: obj.width,
+                            height: obj.height,
+                            rotation: obj.rotation,
+                            z_index: obj.z_index,
+                        })
+                        .collect::<Vec<_>>();
+                    snapshot.sort_by_key(|obj| obj.z_index);
+                    if snapshot.len() > 64 {
+                        snapshot.truncate(64);
+                    }
+                    previews.insert(board.id, snapshot);
+                }
+            }
+
+            let preview_counts = boards
+                .iter()
+                .map(|b| {
+                    let count = previews.get(&b.id).map_or(0_usize, std::vec::Vec::len);
+                    format!("{}:{count}", b.id)
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let mut persisted_counts = Vec::with_capacity(boards.len());
+            for board in &boards {
+                let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM board_objects WHERE board_id = $1")
+                    .bind(board.id)
+                    .fetch_one(&state.pool)
+                    .await
+                    .unwrap_or(-1);
+                persisted_counts.push(format!("{}:{count}", board.id));
+            }
+            info!(
+                board_count = boards.len(),
+                preview_counts = %preview_counts,
+                persisted_counts = %persisted_counts.join(", "),
+                "board:list assembled dashboard snapshots"
+            );
+
             let list: Vec<serde_json::Value> = boards
                 .iter()
-                .map(|b| serde_json::json!({"id": b.id, "name": b.name}))
+                .map(|b| {
+                    serde_json::json!({
+                        "id": b.id,
+                        "name": b.name,
+                        "snapshot": previews.remove(&b.id).unwrap_or_default(),
+                    })
+                })
                 .collect();
             let mut data = Data::new();
             data.insert("boards".into(), serde_json::json!(list));

@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 
+use sqlx::QueryBuilder;
 use sqlx::PgPool;
 use tokio::sync::mpsc;
 use tracing::info;
@@ -59,6 +60,17 @@ pub struct BoardUser {
     pub user_color: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct BoardPreviewObject {
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+}
+
 // =============================================================================
 // CRUD
 // =============================================================================
@@ -100,6 +112,56 @@ pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, 
         .into_iter()
         .map(|(id, name, owner_id)| BoardRow { id, name, owner_id })
         .collect())
+}
+
+/// Load lightweight preview objects for a set of boards.
+///
+/// # Errors
+///
+/// Returns a database error if the query fails.
+pub async fn list_board_preview_objects(
+    pool: &PgPool,
+    board_ids: &[Uuid],
+    per_board_limit: i64,
+) -> Result<HashMap<Uuid, Vec<BoardPreviewObject>>, BoardError> {
+    if board_ids.is_empty() || per_board_limit <= 0 {
+        return Ok(HashMap::new());
+    }
+
+    let mut builder = QueryBuilder::new(
+        "SELECT board_id, kind, x, y, width, height, rotation, z_index
+         FROM (
+            SELECT board_id, kind, x, y, width, height, rotation, z_index, id,
+                   row_number() OVER (PARTITION BY board_id ORDER BY z_index ASC, id ASC) AS row_num
+            FROM board_objects
+            WHERE board_id IN (",
+    );
+    {
+        let mut separated = builder.separated(", ");
+        for board_id in board_ids {
+            separated.push_bind(board_id);
+        }
+    }
+    builder.push(
+        ")
+         ) ranked
+         WHERE row_num <= ",
+    );
+    builder.push_bind(per_board_limit);
+    builder.push(" ORDER BY board_id ASC, z_index ASC, row_num ASC");
+
+    let rows = builder
+        .build_query_as::<(Uuid, String, f64, f64, Option<f64>, Option<f64>, f64, i32)>()
+        .fetch_all(pool)
+        .await?;
+
+    let mut out: HashMap<Uuid, Vec<BoardPreviewObject>> = HashMap::new();
+    for (board_id, kind, x, y, width, height, rotation, z_index) in rows {
+        out.entry(board_id)
+            .or_default()
+            .push(BoardPreviewObject { kind, x, y, width, height, rotation, z_index });
+    }
+    Ok(out)
 }
 
 /// Delete a board by ID.

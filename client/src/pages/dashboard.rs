@@ -98,7 +98,7 @@ pub fn DashboardPage() -> impl IntoView {
                                 .get()
                                 .items
                                 .into_iter()
-                                .map(|b| view! { <BoardCard id=b.id name=b.name/> })
+                                .map(|b| view! { <BoardCard id=b.id name=b.name snapshot=b.snapshot/> })
                                 .collect::<Vec<_>>()
                         }}
                     </div>
