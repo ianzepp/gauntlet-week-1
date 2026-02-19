@@ -16,9 +16,9 @@ const PRIMARY_TOOLS: &[ToolDef] = &[ToolDef { tool: ToolType::Select, label: "Se
 const SHAPE_TOOLS: &[ToolDef] = &[
     ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false },
     ToolDef { tool: ToolType::Rectangle, label: "Rectangle", disabled: false },
-    ToolDef { tool: ToolType::Ellipse, label: "Ellipse", disabled: true },
-    ToolDef { tool: ToolType::Line, label: "Line", disabled: true },
-    ToolDef { tool: ToolType::Connector, label: "Connector", disabled: true },
+    ToolDef { tool: ToolType::Ellipse, label: "Circle", disabled: false },
+    ToolDef { tool: ToolType::Line, label: "Line", disabled: false },
+    ToolDef { tool: ToolType::Connector, label: "Arrow", disabled: false },
     ToolDef { tool: ToolType::Text, label: "Text", disabled: true },
 ];
 

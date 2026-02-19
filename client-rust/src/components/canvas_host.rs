@@ -655,6 +655,39 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "borderWidth": 1
             }),
         )),
+        ToolType::Ellipse => Some((
+            "ellipse",
+            120.0,
+            120.0,
+            serde_json::json!({
+                "color": "#D94B4B",
+                "backgroundColor": "#D94B4B",
+                "borderColor": "#D94B4B",
+                "borderWidth": 1
+            }),
+        )),
+        ToolType::Line => Some((
+            "line",
+            180.0,
+            0.0,
+            serde_json::json!({
+                "color": "#D94B4B",
+                "backgroundColor": "#D94B4B",
+                "borderColor": "#D94B4B",
+                "borderWidth": 2
+            }),
+        )),
+        ToolType::Connector => Some((
+            "arrow",
+            180.0,
+            0.0,
+            serde_json::json!({
+                "color": "#D94B4B",
+                "backgroundColor": "#D94B4B",
+                "borderColor": "#D94B4B",
+                "borderWidth": 2
+            }),
+        )),
         _ => None,
     }
 }
@@ -664,6 +697,9 @@ fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
     match tool {
         ToolType::Sticky => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Rectangle => Some((160.0, 100.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Ellipse => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Line => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
+        ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         _ => None,
     }
 }
@@ -687,6 +723,7 @@ fn place_shape_at_cursor(
     let x = world.x - (width * 0.5);
     let y = world.y - (height * 0.5);
     let id = uuid::Uuid::new_v4().to_string();
+    let props = materialize_shape_props(kind, x, y, width, height, props);
 
     let new_object = BoardObject {
         id: id.clone(),
@@ -729,6 +766,20 @@ fn place_shape_at_cursor(
         }),
     };
     let _ = sender.get_untracked().send(&frame);
+}
+
+#[cfg(feature = "hydrate")]
+fn materialize_shape_props(kind: &str, x: f64, y: f64, width: f64, _height: f64, props: serde_json::Value) -> serde_json::Value {
+    if kind != "line" && kind != "arrow" {
+        return props;
+    }
+    let mut map = match props {
+        serde_json::Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    map.insert("a".to_owned(), serde_json::json!({ "x": x, "y": y }));
+    map.insert("b".to_owned(), serde_json::json!({ "x": x + width, "y": y }));
+    serde_json::Value::Object(map)
 }
 
 #[cfg(feature = "hydrate")]
