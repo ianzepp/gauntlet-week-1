@@ -3,18 +3,86 @@ use std::time::Duration;
 
 use super::*;
 
-fn print_metrics(name: &str, metrics: &LatencyMetrics) {
-    println!(
-        "[{name}] count={} min={:.2}ms p50={:.2}ms p95={:.2}ms p99={:.2}ms avg={:.2}ms max={:.2}ms ops/s={:.2}",
-        metrics.count,
-        metrics.min_ms,
-        metrics.p50_ms,
-        metrics.p95_ms,
-        metrics.p99_ms,
-        metrics.avg_ms,
-        metrics.max_ms,
-        metrics.ops_per_sec
+fn print_scenario_table(name: &str, by_count: &[(usize, LatencyMetrics)]) {
+    println!("SCENARIO: {name}");
+
+    let counts = by_count
+        .iter()
+        .map(|(count, _)| count.to_string())
+        .collect::<Vec<_>>();
+    println!("N(count):     {}", counts.join(" | "));
+
+    print_metric_row(
+        "min_ms",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.min_ms))
+            .collect::<Vec<_>>(),
     );
+    print_metric_row(
+        "p50_ms",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.p50_ms))
+            .collect::<Vec<_>>(),
+    );
+    print_metric_row(
+        "p95_ms",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.p95_ms))
+            .collect::<Vec<_>>(),
+    );
+    print_metric_row(
+        "p99_ms",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.p99_ms))
+            .collect::<Vec<_>>(),
+    );
+    print_metric_row(
+        "avg_ms",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.avg_ms))
+            .collect::<Vec<_>>(),
+    );
+    print_metric_row(
+        "max_ms",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.max_ms))
+            .collect::<Vec<_>>(),
+    );
+    print_metric_row(
+        "ops_per_sec",
+        by_count
+            .iter()
+            .map(|(_, m)| format!("{:.2}", m.ops_per_sec))
+            .collect::<Vec<_>>(),
+    );
+
+    let json = serde_json::json!({
+        "scenario": name,
+        "counts": by_count.iter().map(|(count, metrics)| {
+            serde_json::json!({
+                "n_count": count,
+                "sample_count": metrics.count,
+                "min_ms": metrics.min_ms,
+                "p50_ms": metrics.p50_ms,
+                "p95_ms": metrics.p95_ms,
+                "p99_ms": metrics.p99_ms,
+                "avg_ms": metrics.avg_ms,
+                "max_ms": metrics.max_ms,
+                "ops_per_sec": metrics.ops_per_sec
+            })
+        }).collect::<Vec<_>>()
+    });
+    println!("JSON: {json}");
+}
+
+fn print_metric_row(label: &str, values: Vec<String>) {
+    println!("{label:12} {}", values.join(" | "));
 }
 
 async fn connect_client(config: &PerfConfig) -> Result<WsPerfClient, PerfError> {
@@ -53,9 +121,12 @@ async fn ws_round_trip_latency_test() -> Result<(), PerfError> {
     }
 
     let metrics = LatencyMetrics::from_durations(&latencies);
-    print_metrics("ws_round_trip_latency", &metrics);
+    print_scenario_table(
+        "ws_round_trip_latency",
+        &[(config.baseline_requests, metrics)],
+    );
 
-    assert!(metrics.count > 0);
+    assert!(latencies.len() > 0);
     Ok(())
 }
 
@@ -66,6 +137,7 @@ async fn board_complexity_object_create_perf_test() -> Result<(), PerfError> {
     let mut client = connect_client(&config).await?;
     let board_id = create_and_join_board(&mut client).await?;
 
+    let mut by_count = Vec::with_capacity(config.complexity_counts.len());
     for &count in &config.complexity_counts {
         let mut latencies = Vec::with_capacity(count);
 
@@ -89,9 +161,10 @@ async fn board_complexity_object_create_perf_test() -> Result<(), PerfError> {
         }
 
         let metrics = LatencyMetrics::from_durations(&latencies);
-        print_metrics(&format!("board_complexity_objects_{count}"), &metrics);
         assert_eq!(metrics.count, count);
+        by_count.push((count, metrics));
     }
+    print_scenario_table("board_complexity_object_create", &by_count);
 
     Ok(())
 }
@@ -151,16 +224,14 @@ async fn mass_user_concurrent_perf_test() -> Result<(), PerfError> {
     }
 
     let metrics = LatencyMetrics::from_durations(&all_latencies);
-    print_metrics(
-        &format!(
-            "mass_user_concurrent_users_{}_requests_{}",
-            config.mass_users, config.mass_requests_per_user
-        ),
-        &metrics,
+    let sample_count = metrics.count;
+    print_scenario_table(
+        "mass_user_concurrent",
+        &[(config.mass_users * config.mass_requests_per_user, metrics)],
     );
 
     assert_eq!(
-        metrics.count,
+        sample_count,
         config.mass_users * config.mass_requests_per_user
     );
     Ok(())
