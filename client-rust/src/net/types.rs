@@ -47,6 +47,21 @@ pub struct BoardObject {
     pub version: i64,
 }
 
+/// Persisted board savepoint with full snapshot for preview/rewind.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Savepoint {
+    pub id: String,
+    pub board_id: String,
+    pub seq: i64,
+    pub ts: i64,
+    pub created_by: Option<String>,
+    pub is_auto: bool,
+    pub reason: String,
+    pub label: Option<String>,
+    #[serde(default)]
+    pub snapshot: Vec<BoardObject>,
+}
+
 /// Presence information for a connected user on a board.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Presence {

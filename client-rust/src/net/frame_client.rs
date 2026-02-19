@@ -236,7 +236,7 @@ fn handle_board_frame(
     boards: leptos::prelude::RwSignal<BoardsState>,
     tx: &futures::channel::mpsc::UnboundedSender<String>,
 ) -> bool {
-    use crate::net::types::{BoardObject, FrameStatus, Presence};
+    use crate::net::types::{BoardObject, FrameStatus, Presence, Savepoint};
 
     match frame.syscall.as_str() {
         "board:join" if frame.status == FrameStatus::Done => {
@@ -255,6 +255,7 @@ fn handle_board_frame(
             if let Some(name) = frame.data.get("name").and_then(|n| n.as_str()) {
                 board.update(|b| b.board_name = Some(name.to_owned()));
             }
+            send_board_savepoint_list_request(tx, board);
             true
         }
         "board:join" => {
@@ -302,6 +303,33 @@ fn handle_board_frame(
                 send_board_list_request(tx);
             } else {
                 boards.update(|s| s.create_pending = false);
+            }
+            true
+        }
+        "board:savepoint:list" if frame.status == FrameStatus::Done => {
+            let savepoints = frame
+                .data
+                .get("savepoints")
+                .cloned()
+                .and_then(|v| serde_json::from_value::<Vec<Savepoint>>(v).ok())
+                .unwrap_or_default();
+            board.update(|b| b.savepoints = savepoints);
+            true
+        }
+        "board:savepoint:create" if frame.status == FrameStatus::Done => {
+            if let Some(value) = frame.data.get("savepoint")
+                && let Ok(created) = serde_json::from_value::<Savepoint>(value.clone())
+            {
+                board.update(|b| {
+                    if let Some(existing) = b.savepoints.iter_mut().find(|s| s.id == created.id) {
+                        *existing = created.clone();
+                    } else {
+                        b.savepoints.insert(0, created.clone());
+                    }
+                    b.savepoints.sort_by(|a, c| c.seq.cmp(&a.seq));
+                });
+            } else {
+                send_board_savepoint_list_request(tx, board);
             }
             true
         }
@@ -680,6 +708,27 @@ fn send_board_list_request(tx: &futures::channel::mpsc::UnboundedSender<String>)
         board_id: None,
         from: None,
         syscall: "board:list".to_owned(),
+        status: crate::net::types::FrameStatus::Request,
+        data: serde_json::json!({}),
+    };
+    let _ = send_frame(tx, &frame);
+}
+
+#[cfg(feature = "hydrate")]
+fn send_board_savepoint_list_request(
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    board: leptos::prelude::RwSignal<BoardState>,
+) {
+    let Some(board_id) = board.get_untracked().board_id else {
+        return;
+    };
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: "board:savepoint:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
         data: serde_json::json!({}),
     };

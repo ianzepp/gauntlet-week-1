@@ -7,6 +7,7 @@ pub mod inspector_panel;
 pub mod left_panel;
 pub mod mission_control;
 pub mod right_panel;
+pub mod rewind_shelf;
 pub mod status_bar;
 pub mod tool_rail;
 pub mod tool_strip;

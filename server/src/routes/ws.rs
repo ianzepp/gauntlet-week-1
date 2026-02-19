@@ -345,6 +345,43 @@ async fn handle_board(
                 Err(e) => Err(req.error_from(&e)),
             }
         }
+        "savepoint:create" => {
+            let board_id = req
+                .board_id
+                .or(*current_board)
+                .or_else(|| req.data.get("board_id").and_then(|v| v.as_str()).and_then(|s| s.parse().ok()));
+            let Some(board_id) = board_id else {
+                return Err(req.error("board_id required"));
+            };
+
+            let label = req.data.get("label").and_then(|v| v.as_str());
+            match services::savepoint::create_savepoint(state, board_id, user_id, label, false, "manual").await {
+                Ok(row) => {
+                    let mut data = Data::new();
+                    data.insert("savepoint".into(), services::savepoint::savepoint_row_to_json(row));
+                    Ok(Outcome::Reply(data))
+                }
+                Err(e) => Err(req.error_from(&e)),
+            }
+        }
+        "savepoint:list" => {
+            let board_id = req
+                .board_id
+                .or(*current_board)
+                .or_else(|| req.data.get("board_id").and_then(|v| v.as_str()).and_then(|s| s.parse().ok()));
+            let Some(board_id) = board_id else {
+                return Err(req.error("board_id required"));
+            };
+
+            match services::savepoint::list_savepoints(state, board_id, user_id).await {
+                Ok(rows) => {
+                    let mut data = Data::new();
+                    data.insert("savepoints".into(), serde_json::json!(services::savepoint::savepoint_rows_to_json(rows)));
+                    Ok(Outcome::Reply(data))
+                }
+                Err(e) => Err(req.error_from(&e)),
+            }
+        }
         _ => Err(req.error(format!("unknown board op: {op}"))),
     }
 }
@@ -471,7 +508,16 @@ async fn handle_object(
             )
             .await
             {
-                Ok(obj) => Ok(Outcome::Broadcast(object_to_data(&obj))),
+                Ok(obj) => {
+                    if state.frame_persist_tx.is_some()
+                        && let Err(e) =
+                            services::savepoint::maybe_create_auto_savepoint(state, board_id, user_id, "object:create")
+                                .await
+                    {
+                        warn!(error = %e, %board_id, object_id = %obj.id, "auto savepoint create failed");
+                    }
+                    Ok(Outcome::Broadcast(object_to_data(&obj)))
+                }
                 Err(e) => Err(req.error_from(&e)),
             }
         }
@@ -508,6 +554,13 @@ async fn handle_object(
 
             match services::object::delete_object(state, board_id, object_id).await {
                 Ok(()) => {
+                    if state.frame_persist_tx.is_some()
+                        && let Err(e) =
+                            services::savepoint::maybe_create_auto_savepoint(state, board_id, user_id, "object:delete")
+                                .await
+                    {
+                        warn!(error = %e, %board_id, %object_id, "auto savepoint create failed");
+                    }
                     let mut data = Data::new();
                     data.insert("id".into(), serde_json::json!(object_id));
                     Ok(Outcome::Broadcast(data))

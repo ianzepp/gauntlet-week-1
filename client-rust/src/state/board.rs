@@ -4,7 +4,7 @@ mod board_test;
 
 use std::collections::{HashMap, HashSet};
 
-use crate::net::types::{BoardObject, Presence};
+use crate::net::types::{BoardObject, Presence, Savepoint};
 
 /// Board-level state: which board is active, connection status, objects, and presence.
 #[derive(Clone, Debug, Default)]
@@ -15,6 +15,7 @@ pub struct BoardState {
     pub presence: HashMap<String, Presence>,
     pub cursor_updated_at: HashMap<String, i64>,
     pub objects: HashMap<String, BoardObject>,
+    pub savepoints: Vec<Savepoint>,
     pub selection: HashSet<String>,
     pub drag_objects: HashMap<String, BoardObject>,
     pub drag_updated_at: HashMap<String, i64>,
