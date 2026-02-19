@@ -128,6 +128,7 @@ pub fn CanvasHost() -> impl IntoView {
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_down(point, button, modifiers);
                     process_actions(actions, engine, _board, _sender);
+                    open_inspector_on_double_click(engine, &ev, _ui);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
                     let _ = engine.render();
                 }
@@ -437,6 +438,19 @@ fn pointer_point(ev: &leptos::ev::PointerEvent) -> CanvasPoint {
 #[cfg(feature = "hydrate")]
 fn wheel_point(ev: &leptos::ev::WheelEvent) -> CanvasPoint {
     CanvasPoint::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
+}
+
+#[cfg(feature = "hydrate")]
+fn open_inspector_on_double_click(engine: &Engine, ev: &leptos::ev::PointerEvent, ui: RwSignal<UiState>) {
+    if ev.detail() < 2 {
+        return;
+    }
+    if engine.selection().is_none() {
+        return;
+    }
+    ui.update(|u| {
+        u.left_panel_expanded = true;
+    });
 }
 
 #[cfg(feature = "hydrate")]
