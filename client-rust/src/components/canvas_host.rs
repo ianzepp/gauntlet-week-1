@@ -148,6 +148,10 @@ pub fn CanvasHost() -> impl IntoView {
                 let point = pointer_point(&ev);
                 if placement_shape(_ui.get().active_tool).is_some() {
                     preview_cursor.set(Some(point));
+                    if let Some(engine) = engine.borrow().as_ref() {
+                        send_cursor_moved(engine, point, _auth, _board, _sender);
+                        sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    }
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
