@@ -547,6 +547,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(apply_compass_drag_snapping(angle, ev.shift_key()));
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -576,6 +586,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(apply_compass_drag_snapping(angle, ev.shift_key()));
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        false,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -589,8 +609,21 @@ pub fn CanvasHost() -> impl IntoView {
     let on_compass_pointer_up = {
         #[cfg(feature = "hydrate")]
         {
+            let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::PointerEvent| {
                 _compass_drag_active.set(false);
+                if let Some(engine) = engine.borrow().as_ref() {
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
+                }
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -612,6 +645,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(0.0);
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -634,6 +677,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(90.0);
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -656,6 +709,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(180.0);
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -678,6 +741,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(270.0);
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                     let _ = engine.render();
                 }
             }
@@ -700,6 +773,16 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(0.0);
                     sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
                     let _ = engine.render();
                 }
             }
