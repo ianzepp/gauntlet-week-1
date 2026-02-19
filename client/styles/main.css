@@ -491,6 +491,8 @@ a:hover {
 /* Board layout */
 .board-page {
     --canvas-overlay-edge-offset: var(--space-md);
+    --canvas-overlay-left-offset: var(--canvas-overlay-edge-offset);
+    --canvas-overlay-right-offset: var(--canvas-overlay-edge-offset);
     display: grid;
     grid-template-areas:
         "toolbar toolbar toolbar"
@@ -672,8 +674,8 @@ a:hover {
 
 .canvas-compass {
     position: absolute;
-    left: var(--canvas-overlay-edge-offset);
-    bottom: calc(var(--space-md) + 24px);
+    left: var(--canvas-overlay-left-offset);
+    bottom: var(--canvas-overlay-edge-offset);
     width: 74px;
     height: 74px;
     border-radius: 999px;
@@ -1955,9 +1957,10 @@ a:hover {
 .board-stamp {
     position: absolute;
     top: var(--space-md);
-    right: var(--canvas-overlay-edge-offset);
+    right: var(--canvas-overlay-right-offset);
     z-index: var(--z-canvas-ui);
-    min-width: 220px;
+    min-width: 0;
+    width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
     padding: var(--space-sm) var(--space-md);
@@ -2203,12 +2206,23 @@ a:hover {
 /* Small-screen layout safety */
 @media (max-width: 980px) {
     .board-page {
+        /* Mobile mode: side panels are fixed over canvas, so overlays must track rail position. */
+        --canvas-overlay-left-offset: calc(var(--space-md) + 52px);
+        --canvas-overlay-right-offset: calc(var(--space-md) + 52px);
         grid-template-areas:
             "toolbar toolbar"
             "canvas canvas"
             "status status";
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 36px minmax(0, 1fr) 24px;
+    }
+
+    .board-page.board-page--left-expanded {
+        --canvas-overlay-left-offset: calc(var(--space-md) + 212px);
+    }
+
+    .board-page.board-page--right-expanded {
+        --canvas-overlay-right-offset: calc(var(--space-md) + 372px);
     }
 
     .board-page__left-panel,
@@ -2241,5 +2255,9 @@ a:hover {
 
     .rewind-shelf {
         height: 100%;
+    }
+
+    .board-stamp {
+        width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
     }
 }
