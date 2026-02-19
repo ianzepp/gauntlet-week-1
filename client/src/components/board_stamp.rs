@@ -30,7 +30,11 @@ pub fn BoardStamp() -> impl IntoView {
             .filter(|p| p.client_id != self_client_id)
             .cloned()
             .collect::<Vec<_>>();
-        rows.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.client_id.cmp(&b.client_id)));
+        rows.sort_by(|a, b| {
+            a.name
+                .cmp(&b.name)
+                .then_with(|| a.client_id.cmp(&b.client_id))
+        });
         rows
     };
 
