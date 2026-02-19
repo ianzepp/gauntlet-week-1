@@ -438,6 +438,7 @@ a:hover {
 
 /* Board layout */
 .board-page {
+    --station-log-right-offset: calc(var(--space-md) + 56px);
     display: grid;
     grid-template-areas:
         "toolbar toolbar toolbar"
@@ -480,6 +481,10 @@ a:hover {
 .board-page__status-bar {
     grid-area: status;
     z-index: var(--z-chrome);
+}
+
+.board-page--right-expanded {
+    --station-log-right-offset: calc(var(--space-md) + 376px);
 }
 
 .canvas-host {
@@ -1772,7 +1777,7 @@ a:hover {
 .board-stamp {
     position: absolute;
     top: var(--space-md);
-    right: calc(var(--space-md) + 56px);
+    right: var(--station-log-right-offset);
     z-index: var(--z-canvas-ui);
     min-width: 220px;
     background: var(--bg-primary);

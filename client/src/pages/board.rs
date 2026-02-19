@@ -32,6 +32,7 @@ use crate::components::toolbar::Toolbar;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
+use crate::state::ui::UiState;
 
 fn build_board_membership_frame(syscall: &str, board_id: String) -> Frame {
     Frame {
@@ -69,6 +70,7 @@ fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<St
 pub fn BoardPage() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
     let sender = expect_context::<RwSignal<FrameSender>>();
     let params = use_params_map();
     let last_join_key = RwSignal::new(None::<(String, String)>);
@@ -159,7 +161,7 @@ pub fn BoardPage() -> impl IntoView {
     });
 
     view! {
-        <div class="board-page">
+        <div class="board-page" class:board-page--right-expanded=move || ui.get().right_panel_expanded>
             <div class="board-page__toolbar">
                 <Toolbar/>
             </div>
