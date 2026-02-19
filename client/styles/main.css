@@ -318,22 +318,27 @@ a:hover {
 }
 
 .dashboard-page__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 36px;
-    padding: 0 var(--space-sm);
-    background: var(--bg-nav);
-    border-bottom: 1px solid var(--border-default);
+    padding: 0;
 }
 
-.dashboard-page__header h1 {
+.toolbar__new-board {
+    width: auto;
+    height: 28px;
+    padding: 0 var(--space-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-nav);
     font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
+    line-height: 1;
+}
+
+.toolbar__new-board:hover {
     color: var(--text-nav-active);
+    background: transparent;
 }
 
 .dashboard-page__grid {
@@ -434,6 +439,14 @@ a:hover {
     display: flex;
     justify-content: flex-end;
     gap: var(--space-sm);
+}
+
+.dialog__danger {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-error);
 }
 
 /* Board layout */
@@ -1801,6 +1814,7 @@ a:hover {
     cursor: pointer;
     transition: border-color 150ms ease;
     color: var(--text-primary);
+    position: relative;
 }
 
 .board-card:hover {
@@ -1828,6 +1842,30 @@ a:hover {
     letter-spacing: 0.08em;
     color: var(--text-tertiary);
     margin-top: 2px;
+}
+
+.board-card__delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+    color: var(--accent-error);
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.board-card:hover .board-card__delete {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.board-card__delete:hover {
+    border-color: var(--accent-error);
 }
 
 .board-card__preview {
@@ -1878,7 +1916,8 @@ a:hover {
 }
 
 .board-card--mini .board-card__id,
-.board-card--mini .board-card__preview {
+.board-card--mini .board-card__preview,
+.board-card--mini .board-card__delete {
     display: none;
 }
 

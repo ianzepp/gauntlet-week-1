@@ -15,6 +15,7 @@ use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::boards::BoardsState;
+use crate::state::ui::UiState;
 
 /// Dashboard page — shows a board list and a create-board button.
 /// Redirects to `/login` if the user is not authenticated.
@@ -23,6 +24,7 @@ pub fn DashboardPage() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
     let boards = expect_context::<RwSignal<BoardsState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
     let sender = expect_context::<RwSignal<FrameSender>>();
     let navigate = use_navigate();
 
@@ -51,6 +53,7 @@ pub fn DashboardPage() -> impl IntoView {
     // Create-board dialog state.
     let show_create = RwSignal::new(false);
     let new_board_name = RwSignal::new(String::new());
+    let delete_board_id = RwSignal::new(None::<String>);
 
     let on_create = move |_| {
         show_create.set(true);
@@ -58,6 +61,8 @@ pub fn DashboardPage() -> impl IntoView {
     };
 
     let on_cancel = Callback::new(move |_| show_create.set(false));
+    let on_delete_cancel = Callback::new(move |_| delete_board_id.set(None));
+    let on_board_delete_request = Callback::new(move |id: String| delete_board_id.set(Some(id)));
 
     let navigate_to_board = navigate.clone();
     Effect::new(move || {
@@ -67,12 +72,58 @@ pub fn DashboardPage() -> impl IntoView {
         }
     });
 
+    let self_identity = move || {
+        auth.get()
+            .user
+            .map(|user| (user.name, "github".to_owned()))
+            .unwrap_or_else(|| ("me".to_owned(), "session".to_owned()))
+    };
+
+    let on_logout = move |_| {
+        #[cfg(feature = "hydrate")]
+        {
+            leptos::task::spawn_local(async move {
+                crate::net::api::logout().await;
+                auth.update(|a| a.user = None);
+                if let Some(w) = web_sys::window() {
+                    let _ = w.location().set_href("/login");
+                }
+            });
+        }
+    };
+
     view! {
         <div class="dashboard-page">
-            <header class="dashboard-page__header">
-                <h1>"Boards"</h1>
-                <button class="btn btn--primary" on:click=on_create>
+            <header class="dashboard-page__header toolbar">
+                <span class="toolbar__board-name">"Boards"</span>
+                <span class="toolbar__divider" aria-hidden="true"></span>
+                <button class="btn toolbar__new-board" on:click=on_create>
                     "+ New Board"
+                </button>
+
+                <span class="toolbar__spacer"></span>
+
+                <button
+                    class="btn toolbar__dark-toggle"
+                    on:click=move |_| {
+                        let current = ui.get().dark_mode;
+                        let next = crate::util::dark_mode::toggle(current);
+                        ui.update(|u| u.dark_mode = next);
+                    }
+                    title="Toggle dark mode"
+                >
+                    {move || if ui.get().dark_mode { "☀" } else { "☾" }}
+                </button>
+
+                <span class="toolbar__self">
+                    {move || self_identity().0}
+                    " ("
+                    <span class="toolbar__self-method">{move || self_identity().1}</span>
+                    ")"
+                </span>
+
+                <button class="btn toolbar__logout" on:click=on_logout title="Logout">
+                    "Logout"
                 </button>
             </header>
 
@@ -87,28 +138,38 @@ pub fn DashboardPage() -> impl IntoView {
                     fallback=move || view! { <p>"Loading boards..."</p> }
                 >
                     <div class="dashboard-page__cards">
-                        <button class="dashboard-page__new-card" on:click=on_create title="Create board">
-                            <svg class="dashboard-page__new-icon" viewBox="0 0 20 20" aria-hidden="true">
-                                <line x1="10" y1="4" x2="10" y2="16"></line>
-                                <line x1="4" y1="10" x2="16" y2="10"></line>
-                            </svg>
-                        </button>
                         {move || {
                             boards
                                 .get()
                                 .items
                                 .into_iter()
-                                .map(|b| view! { <BoardCard id=b.id name=b.name snapshot=b.snapshot/> })
+                                .map(|b| {
+                                    view! {
+                                        <BoardCard
+                                            id=b.id
+                                            name=b.name
+                                            snapshot=b.snapshot
+                                            on_delete=on_board_delete_request
+                                        />
+                                    }
+                                })
                                 .collect::<Vec<_>>()
                         }}
                     </div>
                 </Show>
             </div>
-
             <Show when=move || show_create.get()>
                 <CreateBoardDialog
                     name=new_board_name
                     on_cancel=on_cancel
+                    boards=boards
+                    sender=sender
+                />
+            </Show>
+            <Show when=move || delete_board_id.get().is_some()>
+                <DeleteBoardDialog
+                    board_id=delete_board_id
+                    on_cancel=on_delete_cancel
                     boards=boards
                     sender=sender
                 />
@@ -196,4 +257,54 @@ fn send_board_create(sender: RwSignal<FrameSender>, name: &str) {
         data: serde_json::json!({ "name": name }),
     };
     let _ = sender.get_untracked().send(&frame);
+}
+
+fn send_board_delete(sender: RwSignal<FrameSender>, board_id: &str) {
+    let frame = Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: None,
+        from: None,
+        syscall: "board:delete".to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({ "board_id": board_id }),
+    };
+    let _ = sender.get_untracked().send(&frame);
+}
+
+#[component]
+fn DeleteBoardDialog(
+    board_id: RwSignal<Option<String>>,
+    on_cancel: Callback<()>,
+    boards: RwSignal<BoardsState>,
+    sender: RwSignal<FrameSender>,
+) -> impl IntoView {
+    let submit = Callback::new(move |_| {
+        let Some(id) = board_id.get_untracked() else {
+            return;
+        };
+        boards.update(|s| s.loading = true);
+        send_board_delete(sender, &id);
+        on_cancel.run(());
+    });
+
+    view! {
+        <div class="dialog-backdrop" on:click=move |_| on_cancel.run(())>
+            <div class="dialog" on:click=move |ev| ev.stop_propagation()>
+                <h2>"Delete Board"</h2>
+                <p class="dialog__danger">
+                    "This will permanently delete this board and its objects."
+                </p>
+                <div class="dialog__actions">
+                    <button class="btn" on:click=move |_| on_cancel.run(())>
+                        "Cancel"
+                    </button>
+                    <button class="btn btn--danger" on:click=move |_| submit.run(())>
+                        "Delete"
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 }

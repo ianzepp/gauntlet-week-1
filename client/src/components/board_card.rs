@@ -19,10 +19,20 @@ pub fn BoardCard(
     #[prop(default = Vec::new())] snapshot: Vec<BoardListPreviewObject>,
     #[prop(optional)] active: bool,
     #[prop(optional)] mini: bool,
+    #[prop(optional)] on_delete: Option<Callback<String>>,
 ) -> impl IntoView {
     let href = format!("/board/{id}");
     let preview_ref = NodeRef::<leptos::html::Canvas>::new();
     let snapshot_count = snapshot.len();
+    let on_delete_click = Callback::new({
+        let on_delete = on_delete.clone();
+        let id = id.clone();
+        move |_| {
+            if let Some(on_delete) = on_delete.as_ref() {
+                on_delete.run(id.clone());
+            }
+        }
+    });
 
     #[cfg(feature = "hydrate")]
     {
@@ -45,6 +55,20 @@ pub fn BoardCard(
         >
             <span class="board-card__name">{name}</span>
             <span class="board-card__id">{id}</span>
+            <Show when=move || !mini>
+                <button
+                    class="board-card__delete"
+                    on:click=move |ev: leptos::ev::MouseEvent| {
+                        ev.prevent_default();
+                        ev.stop_propagation();
+                        on_delete_click.run(());
+                    }
+                    title="Delete board"
+                    aria-label="Delete board"
+                >
+                    "✕"
+                </button>
+            </Show>
             <span class="board-card__preview">
                 <canvas class="board-card__preview-canvas" node_ref=preview_ref aria-hidden="true"></canvas>
                 <span class="board-card__preview-meta">{format!("{snapshot_count} items")}</span>

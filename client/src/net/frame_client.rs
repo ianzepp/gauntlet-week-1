@@ -341,6 +341,10 @@ fn handle_board_frame(
             }
             true
         }
+        "board:delete" if frame.status == FrameStatus::Done => {
+            send_board_list_request(tx);
+            true
+        }
         "board:savepoint:list" if frame.status == FrameStatus::Done => {
             let savepoints = frame
                 .data
@@ -805,6 +809,11 @@ fn handle_error_frame(frame: &Frame, boards: leptos::prelude::RwSignal<BoardsSta
     } else if frame.syscall == "board:create" {
         boards.update(|s| {
             s.create_pending = false;
+            s.error = Some(message.clone());
+        });
+    } else if frame.syscall == "board:delete" {
+        boards.update(|s| {
+            s.loading = false;
             s.error = Some(message.clone());
         });
     }
