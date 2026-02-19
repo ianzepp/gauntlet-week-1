@@ -6,6 +6,7 @@
 //! response history from shared AI state.
 
 use leptos::prelude::*;
+use pulldown_cmark::{Event, Options, Parser, html};
 
 use crate::app::FrameSender;
 use crate::net::types::{Frame, FrameStatus};
@@ -144,7 +145,11 @@ pub fn AiPanel() -> impl IntoView {
                                 >
                                     <div class="ai-panel__content" class:ai-panel__markdown=is_assistant>
                                         {if is_assistant {
-                                            view! { <pre class="ai-panel__markdown-pre">{content}</pre> }.into_any()
+                                            let rendered = render_markdown_html(&content);
+                                            view! {
+                                                <div class="ai-panel__markdown-body" inner_html=rendered></div>
+                                            }
+                                                .into_any()
                                         } else {
                                             view! { <span>{content}</span> }.into_any()
                                         }}
@@ -186,4 +191,21 @@ pub fn AiPanel() -> impl IntoView {
             </div>
         </div>
     }
+}
+
+fn render_markdown_html(markdown: &str) -> String {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_TASKLISTS);
+
+    // Safety: drop inline/block raw HTML from model output before rendering.
+    let parser = Parser::new_ext(markdown, options).filter_map(|event| match event {
+        Event::Html(_) | Event::InlineHtml(_) => None,
+        other => Some(other),
+    });
+
+    let mut out = String::new();
+    html::push_html(&mut out, parser);
+    out
 }

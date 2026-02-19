@@ -1639,12 +1639,47 @@ a:hover {
     word-break: break-word;
 }
 
-.ai-panel__markdown-pre {
-    margin: 0;
-    white-space: pre-wrap;
+.ai-panel__content.ai-panel__markdown {
+    display: block;
+    white-space: normal;
+}
+
+.ai-panel__markdown-body {
+    display: block;
+    white-space: normal;
+    line-height: 1.45;
+}
+
+.ai-panel__markdown-body p,
+.ai-panel__markdown-body ul,
+.ai-panel__markdown-body ol,
+.ai-panel__markdown-body pre,
+.ai-panel__markdown-body blockquote {
+    margin: 0.4em 0;
+}
+
+.ai-panel__markdown-body ul,
+.ai-panel__markdown-body ol {
+    padding-left: 1.2em;
+}
+
+.ai-panel__markdown-body code {
     font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.5;
+    font-size: 10px;
+    padding: 0 0.2em;
+    border: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--bg-secondary) 80%, transparent);
+}
+
+.ai-panel__markdown-body pre code {
+    display: block;
+    padding: 0.5em 0.6em;
+    overflow-x: auto;
+}
+
+.ai-panel__markdown-body a {
+    color: var(--accent-green);
+    text-decoration: underline;
 }
 
 .ai-panel__mutations {
