@@ -160,10 +160,13 @@ fn board_object_with_no_optional_fields() {
 #[test]
 fn presence_round_trip_with_cursor() {
     let p = Presence {
+        client_id: "c-1".to_owned(),
         user_id: "u-1".to_owned(),
         name: "Alice".to_owned(),
         color: "#ff0000".to_owned(),
         cursor: Some(Point { x: 100.0, y: 200.0 }),
+        camera_center: Some(Point { x: 300.0, y: 400.0 }),
+        camera_zoom: Some(1.25),
     };
     let json = serde_json::to_string(&p).unwrap();
     let back: Presence = serde_json::from_str(&json).unwrap();
@@ -172,10 +175,31 @@ fn presence_round_trip_with_cursor() {
 
 #[test]
 fn presence_round_trip_without_cursor() {
-    let p = Presence { user_id: "u-2".to_owned(), name: "Bob".to_owned(), color: "#00ff00".to_owned(), cursor: None };
+    let p = Presence {
+        client_id: "c-2".to_owned(),
+        user_id: "u-2".to_owned(),
+        name: "Bob".to_owned(),
+        color: "#00ff00".to_owned(),
+        cursor: None,
+        camera_center: None,
+        camera_zoom: None,
+    };
     let json = serde_json::to_string(&p).unwrap();
     let back: Presence = serde_json::from_str(&json).unwrap();
     assert_eq!(p, back);
+}
+
+#[test]
+fn presence_requires_client_id() {
+    let json = r##"{
+        "user_id": "u-1",
+        "name": "Alice",
+        "color": "#fff",
+        "cursor": null,
+        "camera_center": null,
+        "camera_zoom": null
+    }"##;
+    assert!(serde_json::from_str::<Presence>(json).is_err());
 }
 
 #[test]

@@ -31,6 +31,18 @@ fn object() -> BoardObject {
     }
 }
 
+fn presence(client_id: &str, user_id: &str, name: &str, color: &str) -> crate::net::types::Presence {
+    crate::net::types::Presence {
+        client_id: client_id.to_owned(),
+        user_id: user_id.to_owned(),
+        name: name.to_owned(),
+        color: color.to_owned(),
+        cursor: None,
+        camera_center: None,
+        camera_zoom: None,
+    }
+}
+
 #[test]
 fn frame_error_message_prefers_message_then_error() {
     let f = frame(
@@ -59,9 +71,26 @@ fn parse_chat_message_uses_fallback_fields() {
 }
 
 #[test]
+fn parse_chat_message_rejects_missing_content() {
+    let f = frame("chat:message", FrameStatus::Done, serde_json::json!({}));
+    let data = serde_json::json!({
+        "user_id": "u-9",
+        "timestamp": 123
+    });
+    assert!(parse_chat_message(&f, &data).is_none());
+}
+
+#[test]
 fn parse_ai_message_value_rejects_empty_content() {
     let data = serde_json::json!({"role":"assistant","text":"   "});
     assert!(parse_ai_message_value(&data).is_none());
+}
+
+#[test]
+fn parse_ai_message_value_uses_ts_fallback() {
+    let data = serde_json::json!({"role":"assistant","content":"ok","ts":999});
+    let msg = parse_ai_message_value(&data).expect("ai message");
+    assert_eq!(msg.timestamp, 999.0);
 }
 
 #[test]
@@ -71,6 +100,12 @@ fn parse_ai_prompt_message_uses_error_role_and_ts() {
     assert_eq!(msg.role, "error");
     assert_eq!(msg.content, "failed");
     assert_eq!(msg.timestamp, 123.0);
+}
+
+#[test]
+fn parse_ai_prompt_message_returns_none_when_payload_has_no_text() {
+    let f = frame("ai:prompt", FrameStatus::Done, serde_json::json!({}));
+    assert!(parse_ai_prompt_message(&f).is_none());
 }
 
 #[test]
@@ -148,7 +183,7 @@ fn apply_cursor_moved_supports_server_shape() {
         100,
     );
 
-    let p = board.presence.get("client:c-1").expect("cursor presence");
+    let p = board.presence.get("c-1").expect("cursor presence");
     assert_eq!(p.name, "Alice");
     assert_eq!(p.color, "#22c55e");
     let cursor = p.cursor.as_ref().expect("cursor point");
@@ -159,15 +194,9 @@ fn apply_cursor_moved_supports_server_shape() {
 #[test]
 fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
     let mut board = crate::state::board::BoardState::default();
-    board.presence.insert(
-        "u-1".to_owned(),
-        crate::net::types::Presence {
-            user_id: "u-1".to_owned(),
-            name: "Alice".to_owned(),
-            color: "#22c55e".to_owned(),
-            cursor: None,
-        },
-    );
+    board
+        .presence
+        .insert("u-1".to_owned(), presence("u-1", "u-1", "Alice", "#22c55e"));
 
     apply_cursor_moved(
         &mut board,
@@ -181,8 +210,7 @@ fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
         120,
     );
 
-    assert!(!board.presence.contains_key("client:c-1"));
-    let p = board.presence.get("u-1").expect("existing presence");
+    let p = board.presence.get("c-1").expect("existing presence");
     let cursor = p.cursor.as_ref().expect("cursor point");
     assert_eq!(cursor.x, 50.0);
     assert_eq!(cursor.y, 60.0);
@@ -204,9 +232,9 @@ fn apply_cursor_clear_removes_cursor_for_client_presence() {
     );
 
     apply_cursor_clear(&mut board, &serde_json::json!({ "client_id": "c-9" }));
-    let p = board.presence.get("client:c-9").expect("presence");
+    let p = board.presence.get("c-9").expect("presence");
     assert!(p.cursor.is_none());
-    assert!(!board.cursor_updated_at.contains_key("client:c-9"));
+    assert!(!board.cursor_updated_at.contains_key("c-9"));
 }
 
 #[test]
@@ -225,7 +253,7 @@ fn cleanup_stale_cursors_clears_old_cursor_points() {
     );
 
     cleanup_stale_cursors(&mut board, 5000);
-    let p = board.presence.get("client:c-2").expect("presence");
+    let p = board.presence.get("c-2").expect("presence");
     assert!(p.cursor.is_none());
 }
 
@@ -383,4 +411,87 @@ fn apply_object_frame_drag_fast_updates_use_raw_values() {
     let dragged = board.drag_objects.get("obj-1").expect("drag object");
     assert_eq!(dragged.x, 200.0);
     assert_eq!(dragged.y, 200.0);
+}
+
+#[test]
+fn apply_cursor_moved_ignores_events_without_client_id() {
+    let mut board = crate::state::board::BoardState::default();
+    apply_cursor_moved(
+        &mut board,
+        &serde_json::json!({
+            "x": 50.0,
+            "y": 60.0
+        }),
+        120,
+    );
+    assert!(board.presence.is_empty());
+}
+
+#[test]
+fn apply_cursor_moved_sets_camera_fields_when_present() {
+    let mut board = crate::state::board::BoardState::default();
+    apply_cursor_moved(
+        &mut board,
+        &serde_json::json!({
+            "client_id": "c-3",
+            "x": 1.0,
+            "y": 2.0,
+            "camera_center_x": 10.0,
+            "camera_center_y": 20.0,
+            "camera_zoom": 2.0
+        }),
+        200,
+    );
+
+    let p = board.presence.get("c-3").expect("presence");
+    let center = p.camera_center.as_ref().expect("camera center");
+    assert_eq!(center.x, 10.0);
+    assert_eq!(center.y, 20.0);
+    assert_eq!(p.camera_zoom, Some(2.0));
+}
+
+#[test]
+fn apply_cursor_clear_is_noop_when_client_missing() {
+    let mut board = crate::state::board::BoardState::default();
+    board
+        .presence
+        .insert("c-1".to_owned(), presence("c-1", "u-1", "Alice", "#fff"));
+
+    apply_cursor_clear(&mut board, &serde_json::json!({}));
+
+    assert!(board.presence.contains_key("c-1"));
+}
+
+#[test]
+fn cleanup_helpers_ignore_non_positive_timestamps() {
+    let mut board = crate::state::board::BoardState::default();
+    let obj = object();
+    board.drag_objects.insert(obj.id.clone(), obj);
+    board.drag_updated_at.insert("obj-1".to_owned(), 100);
+    board
+        .presence
+        .insert("c-1".to_owned(), presence("c-1", "u-1", "Alice", "#fff"));
+    board.cursor_updated_at.insert("c-1".to_owned(), 100);
+
+    cleanup_stale_drags(&mut board, 0);
+    cleanup_stale_cursors(&mut board, -1);
+
+    assert!(board.drag_objects.contains_key("obj-1"));
+    assert!(board.cursor_updated_at.contains_key("c-1"));
+}
+
+#[test]
+fn smoothing_thresholds_cover_edges() {
+    assert!(!should_smooth_drag(100, 179));
+    assert!(should_smooth_drag(100, 180));
+    assert_eq!(smoothing_alpha(100, 180), 0.45);
+    assert_eq!(smoothing_alpha(100, 220), 0.55);
+    assert_eq!(smoothing_alpha(100, 320), 0.65);
+}
+
+#[test]
+fn pick_helpers_return_none_for_missing_keys() {
+    let payload = serde_json::json!({"foo":"bar","n":10});
+    assert_eq!(pick_str(&payload, &["missing"]), None);
+    assert_eq!(pick_number(&payload, &["missing"]), None);
 }

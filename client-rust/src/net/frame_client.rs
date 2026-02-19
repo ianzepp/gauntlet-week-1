@@ -618,7 +618,6 @@ fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value
     );
 }
 
-
 #[cfg(feature = "hydrate")]
 fn handle_chat_frame(frame: &Frame, chat: leptos::prelude::RwSignal<ChatState>) -> bool {
     use crate::net::types::FrameStatus;
@@ -818,11 +817,7 @@ fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_js
 
 #[cfg(any(test, feature = "hydrate"))]
 fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMessage> {
-    let content = data
-        .get("content")
-        .and_then(|v| v.as_str())
-        .or_else(|| data.get("message").and_then(|v| v.as_str()))?
-        .to_owned();
+    let content = pick_str(data, &["content", "message"])?.to_owned();
 
     let id = data
         .get("id")
@@ -830,10 +825,7 @@ fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMes
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| frame.id.clone());
 
-    let user_id = data
-        .get("user_id")
-        .and_then(|v| v.as_str())
-        .or_else(|| data.get("from").and_then(|v| v.as_str()))
+    let user_id = pick_str(data, &["user_id", "from"])
         .or(frame.from.as_deref())
         .unwrap_or("unknown")
         .to_owned();
@@ -850,14 +842,7 @@ fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMes
         .unwrap_or("#8a8178")
         .to_owned();
 
-    let timestamp = data
-        .get("timestamp")
-        .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
-        .or_else(|| {
-            data.get("ts")
-                .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
-        })
-        .unwrap_or(frame.ts as f64);
+    let timestamp = pick_number(data, &["timestamp", "ts"]).unwrap_or(frame.ts as f64);
 
     Some(ChatMessage { id, user_id, user_name, user_color, content, timestamp })
 }
@@ -874,23 +859,13 @@ fn parse_ai_message_value(data: &serde_json::Value) -> Option<AiMessage> {
         .and_then(|v| v.as_str())
         .unwrap_or("assistant")
         .to_owned();
-    let content = data
-        .get("content")
-        .and_then(|v| v.as_str())
-        .or_else(|| data.get("text").and_then(|v| v.as_str()))
+    let content = pick_str(data, &["content", "text"])
         .unwrap_or_default()
         .to_owned();
     if content.trim().is_empty() {
         return None;
     }
-    let timestamp = data
-        .get("timestamp")
-        .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
-        .or_else(|| {
-            data.get("ts")
-                .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
-        })
-        .unwrap_or(0.0);
+    let timestamp = pick_number(data, &["timestamp", "ts"]).unwrap_or(0.0);
     let mutations = data.get("mutations").and_then(|v| v.as_i64());
 
     Some(AiMessage { id, role, content, timestamp, mutations })
@@ -908,11 +883,7 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
         return Some(msg);
     }
 
-    let content = frame
-        .data
-        .get("text")
-        .and_then(|v| v.as_str())
-        .or_else(|| frame.data.get("content").and_then(|v| v.as_str()))?;
+    let content = pick_str(&frame.data, &["text", "content"])?;
 
     Some(AiMessage {
         id: frame.id.clone(),
@@ -929,11 +900,35 @@ fn parse_ai_prompt_message(frame: &Frame) -> Option<AiMessage> {
 
 #[cfg(any(test, feature = "hydrate"))]
 fn frame_error_message(frame: &Frame) -> Option<&str> {
-    frame
-        .data
-        .get("message")
-        .and_then(|v| v.as_str())
-        .or_else(|| frame.data.get("error").and_then(|v| v.as_str()))
+    pick_str(&frame.data, &["message", "error"])
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn pick_str<'a>(data: &'a serde_json::Value, keys: &[&str]) -> Option<&'a str> {
+    for key in keys {
+        if let Some(value) = data.get(key).and_then(serde_json::Value::as_str) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn pick_number(data: &serde_json::Value, keys: &[&str]) -> Option<f64> {
+    for key in keys {
+        if let Some(value) = data.get(key) {
+            if let Some(n) = value.as_f64() {
+                return Some(n);
+            }
+            if let Some(n) = value.as_i64() {
+                #[allow(clippy::cast_precision_loss)]
+                {
+                    return Some(n as f64);
+                }
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

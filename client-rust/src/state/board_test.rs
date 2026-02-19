@@ -50,3 +50,20 @@ fn board_state_default_empty_selection() {
     let state = BoardState::default();
     assert!(state.selection.is_empty());
 }
+
+#[test]
+fn board_state_default_follow_and_jump_unset() {
+    let state = BoardState::default();
+    assert!(state.follow_client_id.is_none());
+    assert!(state.jump_to_client_id.is_none());
+    assert!(state.self_client_id.is_none());
+}
+
+#[test]
+fn board_state_default_transient_maps_are_empty() {
+    let state = BoardState::default();
+    assert!(state.cursor_updated_at.is_empty());
+    assert!(state.drag_objects.is_empty());
+    assert!(state.drag_updated_at.is_empty());
+    assert!(state.savepoints.is_empty());
+}

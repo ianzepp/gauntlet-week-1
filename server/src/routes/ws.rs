@@ -332,11 +332,10 @@ async fn handle_board(
 
                     let mut reply = Data::new();
                     reply.insert("objects".into(), serde_json::to_value(&objects).unwrap_or_default());
-                    if let Ok(Some(name)) =
-                        sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
-                            .bind(board_id)
-                            .fetch_optional(&state.pool)
-                            .await
+                    if let Ok(Some(name)) = sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
+                        .bind(board_id)
+                        .fetch_optional(&state.pool)
+                        .await
                     {
                         reply.insert("name".into(), serde_json::json!(name));
                     }
@@ -713,13 +712,25 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
             if let Some(y) = req.data.get("y").and_then(serde_json::Value::as_f64) {
                 data.insert("y".into(), serde_json::json!(y));
             }
-            if let Some(center_x) = req.data.get("camera_center_x").and_then(serde_json::Value::as_f64) {
+            if let Some(center_x) = req
+                .data
+                .get("camera_center_x")
+                .and_then(serde_json::Value::as_f64)
+            {
                 data.insert("camera_center_x".into(), serde_json::json!(center_x));
             }
-            if let Some(center_y) = req.data.get("camera_center_y").and_then(serde_json::Value::as_f64) {
+            if let Some(center_y) = req
+                .data
+                .get("camera_center_y")
+                .and_then(serde_json::Value::as_f64)
+            {
                 data.insert("camera_center_y".into(), serde_json::json!(center_y));
             }
-            if let Some(zoom) = req.data.get("camera_zoom").and_then(serde_json::Value::as_f64) {
+            if let Some(zoom) = req
+                .data
+                .get("camera_zoom")
+                .and_then(serde_json::Value::as_f64)
+            {
                 data.insert("camera_zoom".into(), serde_json::json!(zoom));
             }
 
