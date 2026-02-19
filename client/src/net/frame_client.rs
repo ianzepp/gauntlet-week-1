@@ -255,8 +255,9 @@ fn handle_board_frame(
 ) -> bool {
     use crate::net::types::{FrameStatus, Savepoint};
 
-    match frame.syscall.as_str() {
-        "board:join" if frame.status == FrameStatus::Item => {
+    let op = frame.syscall.strip_prefix("board:");
+    match op {
+        Some("join") if frame.status == FrameStatus::Item => {
             if let Some(obj) = parse_board_object_item(&frame.data) {
                 board.update(|b| {
                     if !b.join_streaming {
@@ -270,7 +271,7 @@ fn handle_board_frame(
             }
             true
         }
-        "board:join" if frame.status == FrameStatus::Done => {
+        Some("join") if frame.status == FrameStatus::Done => {
             board.update(|b| {
                 if let Some(objs) = parse_board_objects(&frame.data) {
                     b.objects.clear();
@@ -294,7 +295,7 @@ fn handle_board_frame(
             send_board_users_list_request(tx, board);
             true
         }
-        "board:join" => {
+        Some("join") => {
             if frame.data.get("client_id").is_some() && frame.data.get("objects").is_none() {
                 board.update(|b| {
                     upsert_presence_from_payload(b, &frame.data);
@@ -302,7 +303,7 @@ fn handle_board_frame(
             }
             true
         }
-        "board:users:list" if frame.status == FrameStatus::Done => {
+        Some("users:list") if frame.status == FrameStatus::Done => {
             if let Some(rows) = frame.data.get("users").and_then(|v| v.as_array()) {
                 board.update(|b| {
                     b.presence.clear();
@@ -314,7 +315,7 @@ fn handle_board_frame(
             }
             true
         }
-        "board:list" if frame.status == FrameStatus::Done => {
+        Some("list") if frame.status == FrameStatus::Done => {
             let list = parse_board_list_items(&frame.data);
             boards.update(|s| {
                 s.items = list;
@@ -323,12 +324,12 @@ fn handle_board_frame(
             });
             true
         }
-        "board:list:refresh" => {
+        Some("list:refresh") => {
             boards.update(|s| s.loading = true);
             send_board_list_request(tx);
             true
         }
-        "board:create" if frame.status == FrameStatus::Done => {
+        Some("create") if frame.status == FrameStatus::Done => {
             if let Ok(created) = serde_json::from_value::<BoardListItem>(frame.data.clone()) {
                 boards.update(|s| {
                     if let Some(existing) = s.items.iter_mut().find(|b| b.id == created.id) {
@@ -346,45 +347,17 @@ fn handle_board_frame(
             }
             true
         }
-        "board:delete" if frame.status == FrameStatus::Done => {
-            if let Some(deleted_board_id) = deleted_board_id(frame)
-                && board.get_untracked().board_id.as_deref() == Some(deleted_board_id.as_str())
-            {
-                board.update(|b| {
-                    b.board_id = None;
-                    b.board_name = None;
-                    b.follow_client_id = None;
-                    b.jump_to_client_id = None;
-                    b.objects.clear();
-                    b.savepoints.clear();
-                    b.drag_objects.clear();
-                    b.drag_updated_at.clear();
-                    b.cursor_updated_at.clear();
-                    b.join_streaming = false;
-                    b.selection.clear();
-                    b.presence.clear();
-                });
-                #[cfg(feature = "hydrate")]
-                if let Some(window) = web_sys::window() {
-                    let _ = window.location().set_href("/");
-                }
-            }
+        Some("delete") if frame.status == FrameStatus::Done => {
+            handle_deleted_board_eject(frame, board);
             send_board_list_request(tx);
             true
         }
-        "board:delete" => {
-            if let Some(deleted_board_id) = deleted_board_id(frame)
-                && board.get_untracked().board_id.as_deref() == Some(deleted_board_id.as_str())
-            {
-                #[cfg(feature = "hydrate")]
-                if let Some(window) = web_sys::window() {
-                    let _ = window.location().set_href("/");
-                }
-            }
+        Some("delete") => {
+            handle_deleted_board_eject(frame, board);
             send_board_list_request(tx);
             true
         }
-        "board:savepoint:list" if frame.status == FrameStatus::Done => {
+        Some("savepoint:list") if frame.status == FrameStatus::Done => {
             let savepoints = frame
                 .data
                 .get("savepoints")
@@ -394,7 +367,7 @@ fn handle_board_frame(
             board.update(|b| b.savepoints = savepoints);
             true
         }
-        "board:savepoint:create" if frame.status == FrameStatus::Done => {
+        Some("savepoint:create") if frame.status == FrameStatus::Done => {
             if let Some(value) = frame.data.get("savepoint")
                 && let Ok(created) = serde_json::from_value::<Savepoint>(value.clone())
             {
@@ -411,7 +384,7 @@ fn handle_board_frame(
             }
             true
         }
-        "board:part" => {
+        Some("part") => {
             if let Some(client_id) = frame.data.get("client_id").and_then(|v| v.as_str()) {
                 board.update(|b| {
                     b.presence.remove(client_id);
@@ -421,6 +394,31 @@ fn handle_board_frame(
             true
         }
         _ => false,
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) {
+    if let Some(deleted_board_id) = deleted_board_id(frame)
+        && board.get_untracked().board_id.as_deref() == Some(deleted_board_id.as_str())
+    {
+        board.update(|b| {
+            b.board_id = None;
+            b.board_name = None;
+            b.follow_client_id = None;
+            b.jump_to_client_id = None;
+            b.objects.clear();
+            b.savepoints.clear();
+            b.drag_objects.clear();
+            b.drag_updated_at.clear();
+            b.cursor_updated_at.clear();
+            b.join_streaming = false;
+            b.selection.clear();
+            b.presence.clear();
+        });
+        if let Some(window) = web_sys::window() {
+            let _ = window.location().set_href("/");
+        }
     }
 }
 
