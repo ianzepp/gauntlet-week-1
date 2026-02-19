@@ -162,7 +162,11 @@ pub fn BoardPage() -> impl IntoView {
     });
 
     view! {
-        <div class="board-page" class:board-page--right-expanded=move || ui.get().right_panel_expanded>
+        <div
+            class="board-page"
+            class:board-page--left-expanded=move || ui.get().left_panel_expanded
+            class:board-page--right-expanded=move || ui.get().right_panel_expanded
+        >
             <div class="board-page__toolbar">
                 <Toolbar/>
             </div>

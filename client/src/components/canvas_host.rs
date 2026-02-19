@@ -853,17 +853,6 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
-    let camera_telemetry = move || {
-        let view = _canvas_view.get();
-        format!(
-            "({}, {}) · {}% · {:.0}deg",
-            view.camera_center_world.x.round() as i64,
-            view.camera_center_world.y.round() as i64,
-            (view.zoom * 100.0).round() as i64,
-            normalize_degrees_360(view.view_rotation_deg)
-        )
-    };
-
     view! {
         <>
             <canvas
@@ -917,7 +906,6 @@ pub fn CanvasHost() -> impl IntoView {
                     </div>
                 </Show>
             </div>
-            <div class="canvas-camera-telemetry">{camera_telemetry}</div>
             <div
                 class="canvas-compass"
                 node_ref=compass_ref
