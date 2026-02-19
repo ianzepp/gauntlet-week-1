@@ -1,3 +1,9 @@
+//! Shared frame model and protobuf codec for realtime WS transport.
+//!
+//! This crate owns the wire representation used by both `server` and `client`.
+//! It intentionally keeps frame payloads flexible (`serde_json::Value`) while
+//! encoding over protobuf for compact binary transport.
+
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -20,6 +26,7 @@ pub enum Status {
 }
 
 impl Status {
+    /// Convert status into wire enum integer value.
     #[must_use]
     pub fn as_i32(self) -> i32 {
         match self {
@@ -30,6 +37,7 @@ impl Status {
         }
     }
 
+    /// Parse a status from wire enum integer value.
     fn from_i32(value: i32) -> Result<Self, CodecError> {
         match WireFrameStatus::try_from(value) {
             Ok(WireFrameStatus::Request) => Ok(Self::Request),
@@ -53,9 +61,29 @@ pub struct Frame {
     pub data: Value,
 }
 
+/// Encode a frame into protobuf bytes.
 #[must_use]
 pub fn encode_frame(frame: &Frame) -> Vec<u8> {
-    let wire = WireFrame {
+    let wire = frame_to_wire(frame);
+
+    let mut out = Vec::with_capacity(wire.encoded_len());
+    wire.encode(&mut out).expect("Vec writes should not fail");
+    out
+}
+
+/// Decode protobuf bytes into a frame.
+///
+/// # Errors
+///
+/// Returns [`CodecError::Decode`] for malformed bytes and
+/// [`CodecError::InvalidStatus`] for out-of-range status values.
+pub fn decode_frame(bytes: &[u8]) -> Result<Frame, CodecError> {
+    let wire = WireFrame::decode(bytes)?;
+    wire_to_frame(wire)
+}
+
+fn frame_to_wire(frame: &Frame) -> WireFrame {
+    WireFrame {
         id: frame.id.clone(),
         parent_id: frame.parent_id.clone(),
         ts: frame.ts,
@@ -64,16 +92,10 @@ pub fn encode_frame(frame: &Frame) -> Vec<u8> {
         syscall: frame.syscall.clone(),
         status: frame.status.as_i32(),
         data: Some(json_to_proto_value(&frame.data)),
-    };
-
-    let mut out = Vec::with_capacity(wire.encoded_len());
-    wire.encode(&mut out).expect("Vec writes should not fail");
-    out
+    }
 }
 
-pub fn decode_frame(bytes: &[u8]) -> Result<Frame, CodecError> {
-    let wire = WireFrame::decode(bytes)?;
-
+fn wire_to_frame(wire: WireFrame) -> Result<Frame, CodecError> {
     Ok(Frame {
         id: wire.id,
         parent_id: wire.parent_id,
@@ -164,24 +186,5 @@ enum WireFrameStatus {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn round_trip() {
-        let frame = Frame {
-            id: "id-1".to_owned(),
-            parent_id: Some("parent".to_owned()),
-            ts: 42,
-            board_id: Some("board".to_owned()),
-            from: Some("user".to_owned()),
-            syscall: "object:update".to_owned(),
-            status: Status::Done,
-            data: serde_json::json!({"x": 1.25, "ok": true, "tags": ["a", "b"]}),
-        };
-
-        let bytes = encode_frame(&frame);
-        let back = decode_frame(&bytes).expect("decode should succeed");
-        assert_eq!(frame, back);
-    }
-}
+#[path = "lib_test.rs"]
+mod tests;
