@@ -120,11 +120,13 @@ The app serves at `http://localhost:3000`. Migrations run automatically on start
 
 ## Testing
 
+681 tests across the workspace:
+
 ```bash
 cargo test -p canvas --lib   # 382 canvas engine tests
-cargo test -p frames         # wire protocol codec tests
-cargo test -p client         # frontend component tests
-cargo test -p server         # server integration tests
+cargo test -p server         # 204 server tests
+cargo test -p client         # 80 frontend component tests
+cargo test -p frames         # 15 wire protocol codec tests
 cargo fmt --all && cargo clippy -p client -p server --all-targets
 ```
 
