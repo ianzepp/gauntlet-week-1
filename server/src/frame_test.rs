@@ -28,6 +28,7 @@ fn done_is_terminal() {
     assert!(Status::Error.is_terminal());
     assert!(Status::Cancel.is_terminal());
     assert!(!Status::Request.is_terminal());
+    assert!(!Status::Item.is_terminal());
 }
 
 #[test]
@@ -285,6 +286,7 @@ fn error_from_retryable_error() {
 fn status_serde_all_variants() {
     for (status, expected) in [
         (Status::Request, "\"request\""),
+        (Status::Item, "\"item\""),
         (Status::Done, "\"done\""),
         (Status::Error, "\"error\""),
         (Status::Cancel, "\"cancel\""),

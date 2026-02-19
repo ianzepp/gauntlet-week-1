@@ -59,6 +59,7 @@ fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<St
     board.drag_objects.clear();
     board.drag_updated_at.clear();
     board.cursor_updated_at.clear();
+    board.join_streaming = false;
     board.selection.clear();
     board.presence.clear();
 }
@@ -138,7 +139,6 @@ pub fn BoardPage() -> impl IntoView {
         board.update(|b| {
             b.board_id = None;
             b.board_name = None;
-            b.self_client_id = None;
             b.follow_client_id = None;
             b.jump_to_client_id = None;
             b.objects.clear();
@@ -146,6 +146,7 @@ pub fn BoardPage() -> impl IntoView {
             b.drag_objects.clear();
             b.drag_updated_at.clear();
             b.cursor_updated_at.clear();
+            b.join_streaming = false;
             b.selection.clear();
             b.presence.clear();
         });

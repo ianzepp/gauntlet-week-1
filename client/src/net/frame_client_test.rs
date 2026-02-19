@@ -177,6 +177,28 @@ fn parse_board_objects_accepts_integral_float_int_fields() {
 }
 
 #[test]
+fn parse_board_object_item_accepts_integral_float_int_fields() {
+    let data = serde_json::json!({
+        "id": "obj-2",
+        "board_id": "b-1",
+        "kind": "rectangle",
+        "x": 1.0,
+        "y": 2.0,
+        "width": 10.0,
+        "height": 20.0,
+        "rotation": 0.0,
+        "z_index": 6.0,
+        "props": {"fill":"#fff"},
+        "created_by": "u-1",
+        "version": 4.0
+    });
+    let obj = parse_board_object_item(&data).expect("board object item");
+    assert_eq!(obj.id, "obj-2");
+    assert_eq!(obj.z_index, 6);
+    assert_eq!(obj.version, 4);
+}
+
+#[test]
 fn apply_object_frame_delete_clears_selected_object() {
     let mut board = crate::state::board::BoardState::default();
     let obj = object();

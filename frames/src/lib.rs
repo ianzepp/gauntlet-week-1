@@ -20,6 +20,7 @@ pub enum CodecError {
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Request,
+    Item,
     Done,
     Error,
     Cancel,
@@ -31,6 +32,7 @@ impl Status {
     pub fn as_i32(self) -> i32 {
         match self {
             Self::Request => WireFrameStatus::Request as i32,
+            Self::Item => WireFrameStatus::Item as i32,
             Self::Done => WireFrameStatus::Done as i32,
             Self::Error => WireFrameStatus::Error as i32,
             Self::Cancel => WireFrameStatus::Cancel as i32,
@@ -41,6 +43,7 @@ impl Status {
     fn from_i32(value: i32) -> Result<Self, CodecError> {
         match WireFrameStatus::try_from(value) {
             Ok(WireFrameStatus::Request) => Ok(Self::Request),
+            Ok(WireFrameStatus::Item) => Ok(Self::Item),
             Ok(WireFrameStatus::Done) => Ok(Self::Done),
             Ok(WireFrameStatus::Error) => Ok(Self::Error),
             Ok(WireFrameStatus::Cancel) => Ok(Self::Cancel),
@@ -183,6 +186,7 @@ enum WireFrameStatus {
     Done = 1,
     Error = 2,
     Cancel = 3,
+    Item = 4,
 }
 
 #[cfg(test)]

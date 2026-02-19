@@ -25,6 +25,7 @@ fn status_numeric_mapping_matches_wire_enum() {
     assert_eq!(Status::Done.as_i32(), 1);
     assert_eq!(Status::Error.as_i32(), 2);
     assert_eq!(Status::Cancel.as_i32(), 3);
+    assert_eq!(Status::Item.as_i32(), 4);
 }
 
 #[test]
@@ -33,6 +34,7 @@ fn status_round_trips_from_wire_values() {
     assert_eq!(Status::from_i32(1).expect("status"), Status::Done);
     assert_eq!(Status::from_i32(2).expect("status"), Status::Error);
     assert_eq!(Status::from_i32(3).expect("status"), Status::Cancel);
+    assert_eq!(Status::from_i32(4).expect("status"), Status::Item);
 }
 
 #[test]
@@ -185,6 +187,10 @@ fn status_serializes_as_lowercase_json() {
     assert_eq!(
         serde_json::to_string(&Status::Request).expect("serialize"),
         "\"request\""
+    );
+    assert_eq!(
+        serde_json::to_string(&Status::Item).expect("serialize"),
+        "\"item\""
     );
     assert_eq!(
         serde_json::to_string(&Status::Cancel).expect("serialize"),

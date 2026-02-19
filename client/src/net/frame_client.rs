@@ -253,20 +253,40 @@ fn handle_board_frame(
     boards: leptos::prelude::RwSignal<BoardsState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) -> bool {
-    use crate::net::types::{BoardObject, FrameStatus, Savepoint};
+    use crate::net::types::{FrameStatus, Savepoint};
 
     match frame.syscall.as_str() {
-        "board:join" if frame.status == FrameStatus::Done => {
-            if let Some(objs) = parse_board_objects(&frame.data) {
+        "board:join" if frame.status == FrameStatus::Item => {
+            if let Some(obj) = parse_board_object_item(&frame.data) {
                 board.update(|b| {
+                    if !b.join_streaming {
+                        b.objects.clear();
+                        b.drag_objects.clear();
+                        b.drag_updated_at.clear();
+                        b.join_streaming = true;
+                    }
+                    b.objects.insert(obj.id.clone(), obj);
+                });
+            }
+            true
+        }
+        "board:join" if frame.status == FrameStatus::Done => {
+            board.update(|b| {
+                if let Some(objs) = parse_board_objects(&frame.data) {
                     b.objects.clear();
                     b.drag_objects.clear();
                     b.drag_updated_at.clear();
                     for obj in objs {
                         b.objects.insert(obj.id.clone(), obj);
                     }
-                });
-            }
+                } else if !b.join_streaming {
+                    // Empty stream: clear stale data from prior board snapshot.
+                    b.objects.clear();
+                    b.drag_objects.clear();
+                    b.drag_updated_at.clear();
+                }
+                b.join_streaming = false;
+            });
             if let Some(name) = frame.data.get("name").and_then(|n| n.as_str()) {
                 board.update(|b| b.board_name = Some(name.to_owned()));
             }
@@ -819,6 +839,11 @@ fn parse_board_objects(data: &serde_json::Value) -> Option<Vec<crate::net::types
     data.get("objects")
         .cloned()
         .and_then(|v| serde_json::from_value::<Vec<crate::net::types::BoardObject>>(v).ok())
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn parse_board_object_item(data: &serde_json::Value) -> Option<crate::net::types::BoardObject> {
+    serde_json::from_value::<crate::net::types::BoardObject>(data.clone()).ok()
 }
 
 #[cfg(any(test, feature = "hydrate"))]

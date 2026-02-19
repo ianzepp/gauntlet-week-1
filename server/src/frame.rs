@@ -45,12 +45,13 @@ pub type Data = HashMap<String, serde_json::Value>;
 
 /// Lifecycle position of a frame in a request/response stream.
 ///
-/// Every exchange is `request → done` or `request → error`.
-/// No special cases, no "ok" shortcut.
+/// Exchanges are typically `request → done` or `request → error`.
+/// Streaming operations may emit `request → item* → done`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Request,
+    Item,
     Done,
     Error,
     Cancel,
@@ -60,6 +61,7 @@ impl From<Status> for frames::Status {
     fn from(value: Status) -> Self {
         match value {
             Status::Request => Self::Request,
+            Status::Item => Self::Item,
             Status::Done => Self::Done,
             Status::Error => Self::Error,
             Status::Cancel => Self::Cancel,
@@ -71,6 +73,7 @@ impl From<frames::Status> for Status {
     fn from(value: frames::Status) -> Self {
         match value {
             frames::Status::Request => Self::Request,
+            frames::Status::Item => Self::Item,
             frames::Status::Done => Self::Done,
             frames::Status::Error => Self::Error,
             frames::Status::Cancel => Self::Cancel,
@@ -181,6 +184,12 @@ impl Frame {
     #[must_use]
     pub fn done_with(&self, data: Data) -> Self {
         self.reply(Status::Done, data)
+    }
+
+    /// Create an item response carrying payload data. Non-terminal.
+    #[must_use]
+    pub fn item_with(&self, data: Data) -> Self {
+        self.reply(Status::Item, data)
     }
 
     /// Create an error response from a plain string. Terminal.

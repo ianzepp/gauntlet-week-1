@@ -54,10 +54,14 @@ enum Outcome {
     BroadcastExcludeSender(Data),
     /// Send done+data to sender only.
     Reply(Data),
+    /// Stream one or more item payloads, then a terminal done payload, to sender.
+    ReplyStream { items: Vec<Data>, done: Data },
     /// Send empty done to sender only.
     Done,
     /// Reply to sender with one payload, broadcast different data to peers.
     ReplyAndBroadcast { reply: Data, broadcast: Data },
+    /// Stream item payloads + terminal done payload to sender, and broadcast to peers.
+    ReplyStreamAndBroadcast { items: Vec<Data>, done: Data, broadcast: Data },
 }
 
 // =============================================================================
@@ -281,6 +285,16 @@ async fn process_inbound_bytes(
             services::persistence::enqueue_frame(state, &sender_frame);
             vec![sender_frame]
         }
+        Ok(Outcome::ReplyStream { items, done }) => {
+            let mut sender_frames = Vec::with_capacity(items.len() + 1);
+            for data in items {
+                sender_frames.push(req.item_with(data));
+            }
+            let done_frame = req.done_with(done);
+            services::persistence::enqueue_frame(state, &done_frame);
+            sender_frames.push(done_frame);
+            sender_frames
+        }
         Ok(Outcome::Done) => {
             let sender_frame = req.done();
             services::persistence::enqueue_frame(state, &sender_frame);
@@ -295,6 +309,23 @@ async fn process_inbound_bytes(
             }
             services::persistence::enqueue_frame(state, &sender_frame);
             vec![sender_frame]
+        }
+        Ok(Outcome::ReplyStreamAndBroadcast { items, done, broadcast }) => {
+            let mut sender_frames = Vec::with_capacity(items.len() + 1);
+            for data in items {
+                sender_frames.push(req.item_with(data));
+            }
+
+            let done_frame = req.done_with(done);
+            services::persistence::enqueue_frame(state, &done_frame);
+            sender_frames.push(done_frame);
+
+            if let Some(bid) = board_id {
+                let notif = Frame::request(&req.syscall, broadcast).with_board_id(bid);
+                services::persistence::enqueue_frame(state, &notif);
+                services::board::broadcast(state, bid, &notif, Some(client_id)).await;
+            }
+            sender_frames
         }
         Err(err_frame) => {
             services::persistence::enqueue_frame(state, &err_frame);
@@ -349,14 +380,16 @@ async fn handle_board(
                 Ok(objects) => {
                     *current_board = Some(board_id);
 
-                    let mut reply = Data::new();
-                    reply.insert("objects".into(), serde_json::to_value(&objects).unwrap_or_default());
+                    let item_payloads = objects.iter().map(object_to_data).collect::<Vec<_>>();
+
+                    let mut done = Data::new();
+                    done.insert("count".into(), serde_json::json!(item_payloads.len()));
                     if let Ok(Some(name)) = sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
                         .bind(board_id)
                         .fetch_optional(&state.pool)
                         .await
                     {
-                        reply.insert("name".into(), serde_json::json!(name));
+                        done.insert("name".into(), serde_json::json!(name));
                     }
 
                     let mut broadcast = Data::new();
@@ -365,7 +398,7 @@ async fn handle_board(
                     broadcast.insert("user_name".into(), serde_json::json!(user_name));
                     broadcast.insert("user_color".into(), serde_json::json!(user_color));
 
-                    Ok(Outcome::ReplyAndBroadcast { reply, broadcast })
+                    Ok(Outcome::ReplyStreamAndBroadcast { items: item_payloads, done, broadcast })
                 }
                 Err(e) => Err(req.error_from(&e)),
             }

@@ -29,6 +29,7 @@ pub struct BoardState {
     pub selection: HashSet<String>,
     pub drag_objects: HashMap<String, BoardObject>,
     pub drag_updated_at: HashMap<String, i64>,
+    pub join_streaming: bool,
 }
 
 /// WebSocket connection status.
