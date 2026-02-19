@@ -3,14 +3,12 @@
 use leptos::prelude::*;
 
 use crate::net::types::Point;
-use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::canvas_view::CanvasViewState;
 
 /// Status bar at the bottom of the board page.
 #[component]
 pub fn StatusBar() -> impl IntoView {
-    let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
 
@@ -30,8 +28,6 @@ pub fn StatusBar() -> impl IntoView {
     let camera_center = move || canvas_view.get().camera_center_world.clone();
     let zoom = move || canvas_view.get().zoom;
 
-    let user = move || auth.get().user;
-
     view! {
         <div class="status-bar">
             <div class="status-bar__section">
@@ -47,7 +43,7 @@ pub fn StatusBar() -> impl IntoView {
 
                 <Show when=camera_locked>
                     <span class="status-bar__divider"></span>
-                    <span class="status-bar__item">"LOCKED CAMERA"</span>
+                    <span class="status-bar__item status-bar__item--locked">"LOCKED"</span>
                 </Show>
             </div>
 
@@ -56,15 +52,6 @@ pub fn StatusBar() -> impl IntoView {
 
                 <span class="status-bar__divider"></span>
                 <span class="status-bar__item">{move || format_point(camera_center())}</span>
-
-                <span class="status-bar__divider"></span>
-                <Show when=move || user().is_some()>
-                    <span class="status-bar__user-chip">
-                        <span class="status-bar__user-dot" style:background=move || user().map_or_else(String::new, |u| u.color)></span>
-                        {move || user().map_or_else(String::new, |u| u.name)}
-                    </span>
-                    <span class="status-bar__divider"></span>
-                </Show>
 
                 <span class="status-bar__item">{move || format_zoom(zoom())}</span>
             </div>

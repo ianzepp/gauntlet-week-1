@@ -1639,6 +1639,11 @@ a:hover {
     gap: var(--space-xs);
 }
 
+.status-bar__item--locked {
+    color: var(--accent-error);
+    font-weight: 700;
+}
+
 .status-bar__dot {
     width: 6px;
     height: 6px;
