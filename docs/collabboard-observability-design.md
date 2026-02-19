@@ -1,5 +1,28 @@
 # CollabBoard Observability View — Design Specification
 
+## Implementation Status (February 19, 2026)
+
+### Completed
+
+- A new standalone workspace crate, `traces`, has been added.
+- `traces` provides UI-agnostic observability primitives for frame streams:
+  - prefix/category display mapping
+  - default and configurable trace filtering
+  - trace session grouping from parent chains
+  - request/done(error/cancel) span pairing for waterfall timing
+  - aggregate metrics derivation (counts, errors, pending)
+  - helper extraction for common sub-label fields
+- Test coverage for `traces` has been expanded to include edge cases and branch behavior.
+- A hygiene ratchet test suite (modeled after `canvas`) has been added to `traces`.
+
+### In Progress / Not Started
+
+- No `client` integration yet (no state plumbing or rendering path using `traces`).
+- No observability UI route/view has been implemented yet.
+- No server history API endpoint has been added yet (`GET /api/boards/:board_id/frames`).
+- No toolbar mode toggle (`◎ TRACE`) has been implemented yet.
+- No playback/live controls or keyboard shortcut bindings have been implemented yet.
+
 ## Overview
 
 A new full-width layout that replaces the center canvas column, providing trace-level observability for AI interactions and system events within CollabBoard. The view retains the top header bar and bottom status bar from the existing app shell.
