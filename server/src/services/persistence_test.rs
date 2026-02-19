@@ -1,5 +1,7 @@
 use super::*;
 use crate::state::test_helpers;
+use crate::state::{BoardObject, BoardState};
+use uuid::Uuid;
 
 // =============================================================================
 // env_parse
@@ -98,4 +100,40 @@ async fn enqueue_frame_closed_channel_drops_frame() {
 
     let frame = Frame::request("test:closed", crate::frame::Data::new());
     enqueue_frame(&state, &frame);
+}
+
+#[tokio::test]
+async fn flush_all_dirty_failure_preserves_dirty_flags() {
+    let state = test_helpers::test_app_state();
+    let board_id = Uuid::new_v4();
+    let object = BoardObject {
+        id: Uuid::new_v4(),
+        board_id,
+        kind: "sticky_note".to_owned(),
+        x: 1.0,
+        y: 2.0,
+        width: None,
+        height: None,
+        rotation: 0.0,
+        z_index: 0,
+        props: serde_json::json!({"text":"persist me"}),
+        created_by: None,
+        version: 1,
+    };
+    let object_id = object.id;
+
+    let mut board_state = BoardState::new();
+    board_state.objects.insert(object_id, object);
+    board_state.dirty.insert(object_id);
+    {
+        let mut boards = state.boards.write().await;
+        boards.insert(board_id, board_state);
+    }
+
+    // Test state uses connect_lazy; flush attempts fail and must not clear dirty flags.
+    flush_all_dirty_for_tests(&state).await;
+
+    let boards = state.boards.read().await;
+    let board_state = boards.get(&board_id).expect("board should remain loaded");
+    assert!(board_state.dirty.contains(&object_id));
 }

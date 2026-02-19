@@ -1,4 +1,22 @@
-//! Board page — the main workspace layout.
+//! Board page — the interactive board workspace shell.
+//!
+//! ARCHITECTURE
+//! ============
+//! This component is the route-level coordinator between URL board identity,
+//! websocket board membership (`board:join`/`board:part`), and local
+//! `BoardState` cache lifecycle.
+//!
+//! SYSTEM CONTEXT
+//! ==============
+//! The frame client owns websocket connection/session identity. `BoardPage`
+//! translates route transitions into board membership transitions without
+//! requiring websocket reconnects.
+//!
+//! TRADE-OFFS
+//! ==========
+//! We preserve `self_client_id` across route changes so membership transitions
+//! stay valid on the same websocket session. This favors continuity/correctness
+//! over aggressive full-state resets.
 
 use leptos::prelude::*;
 use leptos_router::NavigateOptions;
@@ -15,6 +33,35 @@ use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 
+fn build_board_membership_frame(syscall: &str, board_id: String) -> Frame {
+    Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: Some(board_id),
+        from: None,
+        syscall: syscall.to_owned(),
+        status: FrameStatus::Request,
+        data: serde_json::json!({}),
+    }
+}
+
+fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<String>) {
+    board.board_id = next_board_id;
+    board.board_name = None;
+    // WHY: websocket session identity is stable across board route changes.
+    // Clearing this breaks subsequent board:join transitions.
+    board.follow_client_id = None;
+    board.jump_to_client_id = None;
+    board.objects.clear();
+    board.savepoints.clear();
+    board.drag_objects.clear();
+    board.drag_updated_at.clear();
+    board.cursor_updated_at.clear();
+    board.selection.clear();
+    board.presence.clear();
+}
+
 /// Board page — composes toolbar, panels, canvas placeholder, and status bar
 /// in a CSS grid layout. Reads the board ID from the route parameter and
 /// updates `BoardState` on mount.
@@ -25,28 +72,34 @@ pub fn BoardPage() -> impl IntoView {
     let sender = expect_context::<RwSignal<FrameSender>>();
     let params = use_params_map();
     let last_join_key = RwSignal::new(None::<(String, String)>);
+    let last_route_board_id = RwSignal::new(None::<String>);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
 
     // Update board state when the route param changes.
     Effect::new(move || {
-        let id = board_id();
-        board.update(|b| {
-            b.board_id.clone_from(&id);
-            b.board_name = None;
-            b.self_client_id = None;
-            b.follow_client_id = None;
-            b.jump_to_client_id = None;
-            b.objects.clear();
-            b.savepoints.clear();
-            b.drag_objects.clear();
-            b.drag_updated_at.clear();
-            b.cursor_updated_at.clear();
-            b.selection.clear();
-            b.presence.clear();
-        });
+        let next_id = board_id();
+        let prev_id = last_route_board_id.get_untracked();
+        if prev_id == next_id {
+            return;
+        }
+
+        // PHASE: PART PREVIOUS BOARD MEMBERSHIP
+        // WHY: route changes do not unmount this component, so explicit part is
+        // required to prevent stale presence on the previous board.
+        if let Some(previous_board_id) = prev_id.clone() {
+            sender
+                .get()
+                .send(&build_board_membership_frame("board:part", previous_board_id));
+        }
+
+        // PHASE: RESET ROUTE-SCOPED BOARD CACHE
+        // WHY: board data is board-id scoped, but websocket client identity is
+        // connection-scoped and intentionally preserved.
+        board.update(|b| reset_board_for_route_change(b, next_id.clone()));
         last_join_key.set(None);
+        last_route_board_id.set(next_id);
     });
 
     // Send board:join once per (board_id, websocket client_id), including reconnects.
@@ -66,34 +119,18 @@ pub fn BoardPage() -> impl IntoView {
             return;
         }
 
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(board_id),
-            from: None,
-            syscall: "board:join".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({}),
-        };
-        sender.get().send(&frame);
+        sender
+            .get()
+            .send(&build_board_membership_frame("board:join", board_id));
         last_join_key.set(Some(key));
     });
 
     on_cleanup(move || {
         let board_id = board.get().board_id;
         if let Some(board_id) = board_id {
-            let frame = Frame {
-                id: uuid::Uuid::new_v4().to_string(),
-                parent_id: None,
-                ts: 0,
-                board_id: Some(board_id),
-                from: None,
-                syscall: "board:part".to_owned(),
-                status: FrameStatus::Request,
-                data: serde_json::json!({}),
-            };
-            sender.get().send(&frame);
+            sender
+                .get()
+                .send(&build_board_membership_frame("board:part", board_id));
         }
 
         board.update(|b| {
@@ -142,3 +179,7 @@ pub fn BoardPage() -> impl IntoView {
         </div>
     }
 }
+
+#[cfg(test)]
+#[path = "board_test.rs"]
+mod board_test;

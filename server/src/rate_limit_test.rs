@@ -38,7 +38,7 @@ fn token_budget_exceeded() {
     let client = Uuid::new_v4();
     let now = Instant::now();
 
-    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, now);
+    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, 0, now);
 
     assert!(matches!(
         rl.check_token_budget_at(client, now),
@@ -128,7 +128,7 @@ fn token_budget_exact_boundary_rejects_at_limit() {
     let client = Uuid::new_v4();
     let now = Instant::now();
 
-    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, now);
+    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, 0, now);
     let result = rl.check_token_budget_at(client, now);
     assert!(result.is_err());
 }
@@ -172,7 +172,7 @@ fn zero_tokens_recorded_budget_ok() {
     let client = Uuid::new_v4();
     let now = Instant::now();
 
-    rl.record_tokens_at(client, 0, now);
+    rl.record_tokens_at(client, 0, 0, now);
     assert!(rl.check_token_budget_at(client, now).is_ok());
 }
 
@@ -204,12 +204,39 @@ fn token_window_expiry_allows_new_usage() {
     let client = Uuid::new_v4();
     let start = Instant::now();
 
-    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, start);
+    rl.record_tokens_at(client, DEFAULT_TOKEN_BUDGET, 0, start);
     assert!(rl.check_token_budget_at(client, start).is_err());
 
     // After the token window passes, budget should reset.
     let after_window = start + Duration::from_secs(DEFAULT_TOKEN_WINDOW_SECS) + Duration::from_millis(1);
     assert!(rl.check_token_budget_at(client, after_window).is_ok());
+}
+
+#[test]
+fn token_reservation_blocks_concurrent_budget_oversubscription() {
+    let rl = RateLimiter::new();
+    let client = Uuid::new_v4();
+    let now = Instant::now();
+
+    assert!(rl.reserve_token_budget_at(client, 30_000, now).is_ok());
+    assert!(matches!(
+        rl.reserve_token_budget_at(client, 30_000, now),
+        Err(RateLimitError::TokenBudgetExceeded { .. })
+    ));
+}
+
+#[test]
+fn release_reserved_tokens_restores_capacity() {
+    let rl = RateLimiter::new();
+    let client = Uuid::new_v4();
+    let now = Instant::now();
+
+    assert!(rl.reserve_token_budget_at(client, 30_000, now).is_ok());
+    assert!(rl.reserve_token_budget_at(client, 20_000, now).is_ok());
+    assert!(rl.reserve_token_budget_at(client, 1, now).is_err());
+
+    rl.release_reserved_tokens_at(client, 20_000, now);
+    assert!(rl.reserve_token_budget_at(client, 10_000, now).is_ok());
 }
 
 // =============================================================================

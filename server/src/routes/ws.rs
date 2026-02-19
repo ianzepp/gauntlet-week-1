@@ -733,6 +733,12 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
             {
                 data.insert("camera_zoom".into(), serde_json::json!(zoom));
             }
+            if let Some(name) = req.data.get("name").and_then(serde_json::Value::as_str) {
+                data.insert("name".into(), serde_json::json!(name));
+            }
+            if let Some(color) = req.data.get("color").and_then(serde_json::Value::as_str) {
+                data.insert("color".into(), serde_json::json!(color));
+            }
 
             Outcome::BroadcastExcludeSender(data)
         }

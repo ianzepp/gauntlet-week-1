@@ -7,6 +7,12 @@
 //! - Per-client: 10 AI requests/min
 //! - Global: 20 LLM API calls/min
 //! - Token budget: 50k tokens/user/hour
+//!
+//! TRADE-OFFS
+//! ==========
+//! Token budgeting uses reservations to prevent concurrent requests from
+//! oversubscribing quota. This can transiently reserve more than eventual
+//! usage, but we release/settle reservations immediately after each call.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
@@ -92,6 +98,8 @@ struct RateLimiterInner {
     global_requests: VecDeque<Instant>,
     /// Per-client token usage: (timestamp, `token_count`).
     client_tokens: HashMap<Uuid, VecDeque<(Instant, u64)>>,
+    /// Per-client in-flight token reservations: (timestamp, reserved tokens).
+    client_token_reservations: HashMap<Uuid, VecDeque<(Instant, u64)>>,
 }
 
 impl RateLimiter {
@@ -102,6 +110,7 @@ impl RateLimiter {
                 client_requests: HashMap::new(),
                 global_requests: VecDeque::new(),
                 client_tokens: HashMap::new(),
+                client_token_reservations: HashMap::new(),
             })),
             config: RateLimitConfig::from_env(),
         }
@@ -149,30 +158,105 @@ impl RateLimiter {
     }
 
     fn check_token_budget_at(&self, client_id: Uuid, now: Instant) -> Result<(), RateLimitError> {
+        self.reserve_token_budget_at(client_id, 0, now)
+    }
+
+    /// Reserve token budget before issuing an LLM call.
+    ///
+    /// This reservation is atomic with the budget check so concurrent requests
+    /// see each other's in-flight usage.
+    pub fn reserve_token_budget(&self, client_id: Uuid, reserved_tokens: u64) -> Result<(), RateLimitError> {
+        self.reserve_token_budget_at(client_id, reserved_tokens, Instant::now())
+    }
+
+    fn reserve_token_budget_at(
+        &self,
+        client_id: Uuid,
+        reserved_tokens: u64,
+        now: Instant,
+    ) -> Result<(), RateLimitError> {
         let mut inner = self.inner.lock().unwrap();
         let cfg = self.config;
-        let token_deque = inner.client_tokens.entry(client_id).or_default();
-        prune_token_window(token_deque, now, cfg.token_window);
-
-        let total: u64 = token_deque.iter().map(|(_, t)| t).sum();
-        if total >= cfg.token_budget {
+        let used_tokens: u64 = {
+            let token_deque = inner.client_tokens.entry(client_id).or_default();
+            prune_token_window(token_deque, now, cfg.token_window);
+            token_deque.iter().map(|(_, t)| t).sum()
+        };
+        let reserved_total: u64 = {
+            let reservation_deque = inner
+                .client_token_reservations
+                .entry(client_id)
+                .or_default();
+            prune_token_window(reservation_deque, now, cfg.token_window);
+            reservation_deque.iter().map(|(_, t)| t).sum()
+        };
+        let Some(projected_total) = used_tokens
+            .checked_add(reserved_total)
+            .and_then(|n| n.checked_add(reserved_tokens))
+        else {
+            return Err(RateLimitError::TokenBudgetExceeded {
+                budget: cfg.token_budget,
+                window_secs: cfg.token_window.as_secs(),
+            });
+        };
+        let exceeds_budget = if reserved_tokens == 0 {
+            projected_total >= cfg.token_budget
+        } else {
+            projected_total > cfg.token_budget
+        };
+        if exceeds_budget {
             return Err(RateLimitError::TokenBudgetExceeded {
                 budget: cfg.token_budget,
                 window_secs: cfg.token_window.as_secs(),
             });
         }
+        if reserved_tokens > 0 {
+            inner
+                .client_token_reservations
+                .entry(client_id)
+                .or_default()
+                .push_back((now, reserved_tokens));
+        }
         Ok(())
     }
 
     /// Record token usage after an LLM response.
-    pub fn record_tokens(&self, client_id: Uuid, tokens: u64) {
-        self.record_tokens_at(client_id, tokens, Instant::now());
+    pub fn record_tokens(&self, client_id: Uuid, tokens: u64, reserved_tokens: u64) {
+        self.record_tokens_at(client_id, tokens, reserved_tokens, Instant::now());
     }
 
-    fn record_tokens_at(&self, client_id: Uuid, tokens: u64, now: Instant) {
+    fn record_tokens_at(&self, client_id: Uuid, tokens: u64, reserved_tokens: u64, now: Instant) {
         let mut inner = self.inner.lock().unwrap();
-        let token_deque = inner.client_tokens.entry(client_id).or_default();
-        token_deque.push_back((now, tokens));
+        let cfg = self.config;
+        {
+            let reservation_deque = inner
+                .client_token_reservations
+                .entry(client_id)
+                .or_default();
+            prune_token_window(reservation_deque, now, cfg.token_window);
+            consume_reserved_tokens(reservation_deque, reserved_tokens);
+        }
+        {
+            let token_deque = inner.client_tokens.entry(client_id).or_default();
+            prune_token_window(token_deque, now, cfg.token_window);
+            token_deque.push_back((now, tokens));
+        }
+    }
+
+    /// Release reservation for failed or canceled LLM calls.
+    pub fn release_reserved_tokens(&self, client_id: Uuid, reserved_tokens: u64) {
+        self.release_reserved_tokens_at(client_id, reserved_tokens, Instant::now());
+    }
+
+    fn release_reserved_tokens_at(&self, client_id: Uuid, reserved_tokens: u64, now: Instant) {
+        let mut inner = self.inner.lock().unwrap();
+        let cfg = self.config;
+        let reservation_deque = inner
+            .client_token_reservations
+            .entry(client_id)
+            .or_default();
+        prune_token_window(reservation_deque, now, cfg.token_window);
+        consume_reserved_tokens(reservation_deque, reserved_tokens);
     }
 }
 
@@ -201,6 +285,21 @@ fn prune_token_window(deque: &mut VecDeque<(Instant, u64)>, now: Instant, window
         if now.duration_since(front) > window {
             deque.pop_front();
         } else {
+            break;
+        }
+    }
+}
+
+fn consume_reserved_tokens(deque: &mut VecDeque<(Instant, u64)>, mut amount: u64) {
+    while amount > 0 {
+        let Some((_, front_tokens)) = deque.front_mut() else {
+            break;
+        };
+        if *front_tokens <= amount {
+            amount -= *front_tokens;
+            deque.pop_front();
+        } else {
+            *front_tokens -= amount;
             break;
         }
     }

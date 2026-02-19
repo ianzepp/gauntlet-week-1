@@ -5,6 +5,12 @@
 //! A background task flushes dirty objects, then sleeps 100ms before
 //! the next cycle. Frames use a bounded queue + batched async writer so
 //! websocket handling never blocks on Postgres I/O.
+//!
+//! ERROR HANDLING
+//! ==============
+//! Dirty flags are cleared only after successful writes. This prioritizes
+//! durability over duplicate flush attempts: repeated upserts are acceptable,
+//! silent data loss is not.
 
 use std::time::Duration;
 
@@ -15,6 +21,7 @@ use tracing::{error, info, warn};
 
 use crate::frame::Frame;
 use crate::state::{AppState, BoardObject};
+use uuid::Uuid;
 
 const DEFAULT_FRAME_PERSIST_QUEUE_CAPACITY: usize = 8192;
 const DEFAULT_FRAME_PERSIST_BATCH_SIZE: usize = 128;
@@ -132,32 +139,75 @@ pub fn enqueue_frame(state: &AppState, frame: &Frame) {
 }
 
 async fn flush_all_dirty(state: &AppState) {
-    // Collect dirty objects under the lock, then release.
-    let dirty_objects = {
+    // PHASE: SNAPSHOT DIRTY OBJECTS
+    // WHY: collect immutable clones under lock, then perform I/O lock-free.
+    let batches = {
         let mut boards = state.boards.write().await;
-        let mut all_dirty = Vec::new();
+        let mut collected = Vec::new();
 
-        for board_state in boards.values_mut() {
+        for (board_id, board_state) in boards.iter_mut() {
             if board_state.dirty.is_empty() {
                 continue;
             }
 
-            let objects: Vec<BoardObject> = board_state
+            let objects = board_state
                 .dirty
                 .iter()
                 .filter_map(|id| board_state.objects.get(id).cloned())
-                .collect();
-
-            board_state.dirty.clear();
-            all_dirty.extend(objects);
+                .collect::<Vec<_>>();
+            if objects.is_empty() {
+                continue;
+            }
+            let versions = objects
+                .iter()
+                .map(|obj| (obj.id, obj.version))
+                .collect::<Vec<_>>();
+            collected.push(DirtyFlushBatch { board_id: *board_id, objects, flushed_versions: versions });
         }
 
-        all_dirty
+        collected
     };
 
-    if !dirty_objects.is_empty() {
-        if let Err(e) = crate::services::board::flush_objects(&state.pool, &dirty_objects).await {
-            error!(error = %e, count = dirty_objects.len(), "persistence flush failed");
+    // PHASE: FLUSH PER BOARD + ACK DIRTY IDS
+    // WHY: if flush fails we intentionally keep dirty flags for retry.
+    for batch in batches {
+        match crate::services::board::flush_objects(&state.pool, &batch.objects).await {
+            Ok(()) => {
+                clear_flushed_dirty_ids(state, batch.board_id, &batch.flushed_versions).await;
+            }
+            Err(e) => {
+                error!(error = %e, count = batch.objects.len(), board_id = %batch.board_id, "persistence flush failed");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) async fn flush_all_dirty_for_tests(state: &AppState) {
+    flush_all_dirty(state).await;
+}
+
+#[derive(Debug)]
+struct DirtyFlushBatch {
+    board_id: Uuid,
+    objects: Vec<BoardObject>,
+    flushed_versions: Vec<(Uuid, i32)>,
+}
+
+async fn clear_flushed_dirty_ids(state: &AppState, board_id: Uuid, flushed_versions: &[(Uuid, i32)]) {
+    let mut boards = state.boards.write().await;
+    let Some(board_state) = boards.get_mut(&board_id) else {
+        return;
+    };
+
+    for (object_id, flushed_version) in flushed_versions {
+        // EDGE: keep dirty flag if object was updated again after snapshot.
+        let can_clear = match board_state.objects.get(object_id) {
+            Some(current) => current.version == *flushed_version,
+            None => true,
+        };
+        if can_clear {
+            board_state.dirty.remove(object_id);
         }
     }
 }

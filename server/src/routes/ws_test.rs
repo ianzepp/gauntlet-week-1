@@ -76,6 +76,29 @@ async fn assert_no_board_broadcast(rx: &mut mpsc::Receiver<Frame>) {
     );
 }
 
+async fn process_inbound_text(
+    state: &AppState,
+    current_board: &mut Option<Uuid>,
+    client_id: Uuid,
+    user_id: Uuid,
+    client_tx: &mpsc::Sender<Frame>,
+    text: &str,
+) -> Vec<Frame> {
+    let parsed = serde_json::from_str::<Frame>(text).ok();
+    let user_name = parsed
+        .as_ref()
+        .and_then(|f| f.data.get("name"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Test User");
+    let user_color = parsed
+        .as_ref()
+        .and_then(|f| f.data.get("color"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("#8a8178");
+
+    super::process_inbound_text(state, current_board, client_id, user_id, user_name, user_color, client_tx, text).await
+}
+
 #[cfg(feature = "live-db-tests")]
 async fn integration_pool() -> sqlx::PgPool {
     let database_url = std::env::var("TEST_DATABASE_URL")

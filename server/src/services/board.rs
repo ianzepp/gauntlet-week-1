@@ -5,6 +5,12 @@
 //! Boards are created and listed via REST-like operations (dispatched from
 //! WS frames). Board state is hydrated from Postgres on first join and kept
 //! in memory while any client is connected.
+//!
+//! ERROR HANDLING
+//! ==============
+//! On last-client part, dirty objects are flushed before eviction. If that
+//! flush fails, the board is intentionally kept in memory with dirty flags
+//! intact so the persistence worker can retry instead of losing edits.
 
 use std::collections::HashMap;
 
@@ -186,32 +192,69 @@ pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
     info!(%board_id, %client_id, remaining = board_state.clients.len(), "client left board");
 
     if board_state.clients.is_empty() {
-        // Final flush of dirty objects before eviction.
+        // PHASE: HANDLE CLEAN EVICTION FAST PATH
+        // WHY: avoid unnecessary I/O when the board has no pending mutations.
         if board_state.dirty.is_empty() {
             boards.remove(&board_id);
             info!(%board_id, "evicted board from memory");
         } else {
-            let dirty_objects: Vec<BoardObject> = board_state
+            // PHASE: SNAPSHOT DIRTY OBJECTS FOR FINAL FLUSH
+            // WHY: perform DB I/O outside the lock and keep dirty flags until
+            // the write has actually succeeded.
+            let dirty_objects = board_state
                 .dirty
                 .iter()
                 .filter_map(|id| board_state.objects.get(id).cloned())
-                .collect();
-            board_state.dirty.clear();
+                .collect::<Vec<_>>();
+            let dirty_versions = dirty_objects
+                .iter()
+                .map(|obj| (obj.id, obj.version))
+                .collect::<Vec<_>>();
 
             // Release lock before writing to Postgres.
             drop(boards);
-            if let Err(e) = flush_objects(&state.pool, &dirty_objects).await {
-                tracing::error!(error = %e, %board_id, "final flush failed");
+            let flush_result = flush_objects(&state.pool, &dirty_objects).await;
+
+            // PHASE: ACK OR RETAIN DIRTY FLAGS
+            // WHY: clear dirties only when persisted. On error, retain state.
+            let mut boards = state.boards.write().await;
+            let Some(bs) = boards.get_mut(&board_id) else {
+                return;
+            };
+            if !bs.clients.is_empty() {
+                return;
             }
 
-            // Re-acquire and evict.
-            let mut boards = state.boards.write().await;
-            if let Some(bs) = boards.get(&board_id) {
-                if bs.clients.is_empty() {
-                    boards.remove(&board_id);
-                    info!(%board_id, "evicted board from memory");
+            match flush_result {
+                Ok(()) => {
+                    clear_flushed_dirty_ids(bs, &dirty_versions);
+                    if bs.dirty.is_empty() {
+                        boards.remove(&board_id);
+                        info!(%board_id, "evicted board from memory");
+                    } else {
+                        tracing::warn!(
+                            %board_id,
+                            remaining_dirty = bs.dirty.len(),
+                            "retaining board after final flush because newer dirty objects exist"
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, %board_id, "final flush failed; board retained for retry");
                 }
             }
+        }
+    }
+}
+
+fn clear_flushed_dirty_ids(board_state: &mut BoardState, flushed_versions: &[(Uuid, i32)]) {
+    for (object_id, flushed_version) in flushed_versions {
+        let can_clear = match board_state.objects.get(object_id) {
+            Some(current) => current.version == *flushed_version,
+            None => true,
+        };
+        if can_clear {
+            board_state.dirty.remove(object_id);
         }
     }
 }

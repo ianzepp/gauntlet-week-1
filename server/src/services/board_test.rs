@@ -101,7 +101,7 @@ async fn part_board_evicts_clean_board_when_last_client_leaves() {
 }
 
 #[tokio::test]
-async fn part_board_evicts_dirty_board_even_if_flush_fails() {
+async fn part_board_keeps_dirty_board_loaded_if_flush_fails() {
     let state = test_helpers::test_app_state();
     let board_id = Uuid::new_v4();
     let client = Uuid::new_v4();
@@ -133,14 +133,15 @@ async fn part_board_evicts_dirty_board_even_if_flush_fails() {
         boards.insert(board_id, board_state);
     }
 
-    // With connect_lazy test state, DB flush may fail. The board should still be evicted.
+    // With connect_lazy test state, DB flush fails. Dirty state must be retained.
     part_board(&state, board_id, client).await;
 
     let boards = state.boards.read().await;
-    assert!(
-        !boards.contains_key(&board_id),
-        "board should be evicted after last client leaves, even after flush attempt"
-    );
+    let board = boards
+        .get(&board_id)
+        .expect("board should stay loaded when final flush fails");
+    assert!(board.clients.is_empty());
+    assert!(board.dirty.contains(&object_id));
 }
 
 #[cfg(feature = "live-db-tests")]

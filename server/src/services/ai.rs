@@ -117,9 +117,8 @@ pub async fn handle_prompt(
     let max_tool_iterations = ai_max_tool_iterations();
     let max_tokens = ai_max_tokens();
 
-    // Rate-limit check: per-client + global request limits, then token budget.
+    // Rate-limit check: per-client + global request limits.
     state.rate_limiter.check_and_record(client_id)?;
-    state.rate_limiter.check_token_budget(client_id)?;
 
     // Snapshot board objects for context.
     let board_snapshot = {
@@ -140,11 +139,21 @@ pub async fn handle_prompt(
 
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
+    let token_reservation = u64::from(max_tokens);
 
     for iteration in 0..max_tool_iterations {
-        let response = llm
-            .chat(max_tokens, &system, &messages, Some(&tools))
-            .await?;
+        state
+            .rate_limiter
+            .reserve_token_budget(client_id, token_reservation)?;
+        let response = match llm.chat(max_tokens, &system, &messages, Some(&tools)).await {
+            Ok(response) => response,
+            Err(err) => {
+                state
+                    .rate_limiter
+                    .release_reserved_tokens(client_id, token_reservation);
+                return Err(err.into());
+            }
+        };
 
         info!(
             iteration,
@@ -155,9 +164,11 @@ pub async fn handle_prompt(
         );
 
         // Record token usage for budget tracking.
-        state
-            .rate_limiter
-            .record_tokens(client_id, (response.input_tokens + response.output_tokens) as u64);
+        state.rate_limiter.record_tokens(
+            client_id,
+            (response.input_tokens + response.output_tokens) as u64,
+            token_reservation,
+        );
 
         // Collect text blocks.
         let text_parts: Vec<&str> = response
