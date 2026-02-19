@@ -17,6 +17,7 @@ mod ui_test;
 pub struct UiState {
     pub dark_mode: bool,
     pub active_tool: ToolType,
+    pub home_viewport_seq: u64,
     pub left_panel_expanded: bool,
     pub left_tab: LeftTab,
     pub right_panel_expanded: bool,
@@ -28,6 +29,7 @@ impl Default for UiState {
         Self {
             dark_mode: false,
             active_tool: ToolType::Select,
+            home_viewport_seq: 0,
             left_panel_expanded: false,
             left_tab: LeftTab::Tools,
             right_panel_expanded: false,

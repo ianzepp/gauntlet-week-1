@@ -922,7 +922,7 @@ a:hover {
     color: var(--text-nav-active);
 }
 
-.tool-rail__btn--active::after {
+.tool-rail__btn--active::before {
     content: "";
     position: absolute;
     left: 0;
@@ -1255,7 +1255,7 @@ a:hover {
     color: var(--text-nav-active);
 }
 
-.right-panel__rail-button--active::after {
+.right-panel__rail-button--active::before {
     content: "";
     position: absolute;
     right: 0;

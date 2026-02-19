@@ -14,6 +14,7 @@ fn ui_state_default_dark_mode_off() {
 fn ui_state_default_tool_is_select() {
     let state = UiState::default();
     assert_eq!(state.active_tool, ToolType::Select);
+    assert_eq!(state.home_viewport_seq, 0);
 }
 
 #[test]

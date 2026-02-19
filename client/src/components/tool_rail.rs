@@ -7,6 +7,7 @@
 
 use leptos::prelude::*;
 
+use crate::state::board::BoardState;
 use crate::state::ui::{ToolType, UiState};
 
 #[derive(Clone, Copy)]
@@ -38,6 +39,7 @@ const DRAW_TOOLS: &[ToolDef] = &[
 #[component]
 pub fn ToolRail() -> impl IntoView {
     let ui = expect_context::<RwSignal<UiState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
 
     let render_group = move |tools: &'static [ToolDef]| {
         tools
@@ -81,9 +83,22 @@ pub fn ToolRail() -> impl IntoView {
     };
 
     let expanded = move || ui.get().left_panel_expanded;
+    let on_home_click = move |_ev: leptos::ev::MouseEvent| {
+        board.update(|b| {
+            b.follow_client_id = None;
+            b.jump_to_client_id = None;
+        });
+        ui.update(|u| {
+            u.home_viewport_seq = u.home_viewport_seq.saturating_add(1);
+        });
+    };
 
     view! {
         <div class="tool-rail">
+            <button class="tool-rail__btn ui-tooltip" title="Home" attr:data-tooltip="Home" on:click=on_home_click>
+                {render_home_icon()}
+            </button>
+            <div class="tool-rail__separator"></div>
             {render_group(PRIMARY_TOOLS)}
             <div class="tool-rail__separator"></div>
             {render_group(SHAPE_TOOLS)}
@@ -96,6 +111,16 @@ pub fn ToolRail() -> impl IntoView {
                 {move || if expanded() { "◀" } else { "▶" }}
             </button>
         </div>
+    }
+}
+
+fn render_home_icon() -> impl IntoView {
+    view! {
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M3 9.5 L10 3 L17 9.5" />
+            <path d="M5.5 8.5 V16 H14.5 V8.5" />
+            <path d="M8.5 16 V11.5 H11.5 V16" />
+        </svg>
     }
 }
 

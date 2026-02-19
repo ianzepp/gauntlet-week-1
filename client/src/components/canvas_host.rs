@@ -57,6 +57,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_presence_bootstrap_key = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
+    let last_home_viewport_seq = RwSignal::new(0_u64);
+    #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
@@ -166,6 +168,35 @@ pub fn CanvasHost() -> impl IntoView {
                 sync_canvas_view_state(engine, _canvas_view, None);
                 let _ = engine.render();
             }
+        });
+    }
+
+    #[cfg(feature = "hydrate")]
+    {
+        let engine = Rc::clone(&engine);
+        let canvas_ref_home = canvas_ref.clone();
+        Effect::new(move || {
+            let seq = _ui.get().home_viewport_seq;
+            if seq == last_home_viewport_seq.get_untracked() {
+                return;
+            }
+            if let Some(engine) = engine.borrow_mut().as_mut() {
+                sync_viewport(engine, &canvas_ref_home);
+                center_world_origin(engine);
+                sync_canvas_view_state(engine, _canvas_view, None);
+                send_cursor_presence_if_needed(
+                    engine,
+                    _board,
+                    _auth,
+                    _sender,
+                    last_presence_sent_ms,
+                    last_presence_sent,
+                    None,
+                    true,
+                );
+                let _ = engine.render();
+            }
+            last_home_viewport_seq.set(seq);
         });
     }
 
