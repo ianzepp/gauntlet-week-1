@@ -1060,6 +1060,26 @@ a:hover {
     pointer-events: none;
 }
 
+.canvas-object-color {
+    position: absolute;
+    left: var(--canvas-overlay-left-offset);
+    bottom: calc(var(--canvas-overlay-edge-offset) + (74px + var(--space-sm)) * 2);
+    width: 74px;
+    height: 74px;
+    border-radius: 999px;
+    border: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+    z-index: var(--z-canvas-ui);
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+
+.canvas-object-color--disabled {
+    opacity: 0.44;
+    pointer-events: none;
+}
+
 .canvas-compass__snap {
     position: absolute;
     width: 16px;
@@ -1157,6 +1177,81 @@ a:hover {
     background: var(--accent-green);
     border: 1px solid var(--bg-primary);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.canvas-object-color__knob {
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background: color-mix(in oklab, var(--accent-highlight) 60%, var(--accent-green));
+    border: 1px solid var(--bg-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.canvas-color-dial__tick {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--text-secondary) 70%, transparent);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.canvas-color-dial__tick--n  { left: 50%; top: 10px; }
+.canvas-color-dial__tick--ne { left: calc(50% + 19px); top: calc(50% - 19px); }
+.canvas-color-dial__tick--e  { left: calc(100% - 10px); top: 50%; }
+.canvas-color-dial__tick--se { left: calc(50% + 19px); top: calc(50% + 19px); }
+.canvas-color-dial__tick--s  { left: 50%; top: calc(100% - 10px); }
+.canvas-color-dial__tick--sw { left: calc(50% - 19px); top: calc(50% + 19px); }
+.canvas-color-dial__tick--w  { left: 10px; top: 50%; }
+.canvas-color-dial__tick--nw { left: calc(50% - 19px); top: calc(50% - 19px); }
+
+.canvas-color-dial__readout {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 34px;
+    height: 34px;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.04em;
+    pointer-events: auto;
+    overflow: hidden;
+}
+
+.canvas-color-dial__value {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.canvas-color-dial__picker {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.canvas-color-dial__knob-track {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
 }
 
 .canvas-zoom-wheel {

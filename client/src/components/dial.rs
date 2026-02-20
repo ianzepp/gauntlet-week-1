@@ -224,3 +224,77 @@ where
         </div>
     }
 }
+
+/// Shared color dial with center color picker and lightness readout.
+#[component]
+pub fn ColorDial<PD, PM, PU, CPD, CI>(
+    #[prop(into)] class: String,
+    #[prop(into)] disabled_class: String,
+    #[prop(into)] title: String,
+    #[prop(into)] readout_title: String,
+    #[prop(into)] knob_class: String,
+    #[prop(optional)] node_ref: NodeRef<leptos::html::Div>,
+    disabled: Signal<bool>,
+    readout: Signal<String>,
+    knob_style: Signal<String>,
+    color_value: Signal<String>,
+    on_pointer_down: PD,
+    on_pointer_move: PM,
+    on_pointer_up: PU,
+    on_center_pointer_down: CPD,
+    on_color_input: CI,
+) -> impl IntoView
+where
+    PD: Fn(leptos::ev::PointerEvent) + Clone + 'static,
+    PM: Fn(leptos::ev::PointerEvent) + Clone + 'static,
+    PU: Fn(leptos::ev::PointerEvent) + Clone + 'static,
+    CPD: Fn(leptos::ev::PointerEvent) + Clone + 'static,
+    CI: Fn(leptos::ev::Event) + Clone + 'static,
+{
+    let root_class = move || {
+        if disabled.get() {
+            format!("{class} {disabled_class}")
+        } else {
+            class.clone()
+        }
+    };
+
+    view! {
+        <div
+            class=root_class
+            node_ref=node_ref
+            title=title
+            on:pointerdown=on_pointer_down
+            on:pointermove=on_pointer_move
+            on:pointerup=on_pointer_up.clone()
+            on:pointercancel=on_pointer_up.clone()
+            on:pointerleave=on_pointer_up
+        >
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--n"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--ne"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--e"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--se"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--s"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--sw"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--w"></span>
+            <span class="canvas-color-dial__tick canvas-color-dial__tick--nw"></span>
+            <div
+                class="canvas-color-dial__readout"
+                title=readout_title
+                on:pointerdown=on_center_pointer_down
+            >
+                <span class="canvas-color-dial__value">{move || readout.get()}</span>
+                <input
+                    class="canvas-color-dial__picker"
+                    type="color"
+                    prop:value=move || color_value.get()
+                    on:input=on_color_input
+                    disabled=move || disabled.get()
+                />
+            </div>
+            <div class="canvas-color-dial__knob-track" style=move || knob_style.get()>
+                <div class=knob_class></div>
+            </div>
+        </div>
+    }
+}

@@ -8,7 +8,7 @@
 use leptos::prelude::*;
 
 use crate::app::FrameSender;
-use crate::components::dial::{CompassDial, ZoomDial};
+use crate::components::dial::{ColorDial, CompassDial, ZoomDial};
 #[cfg(feature = "hydrate")]
 use crate::net::types::{BoardObject, Frame, FrameStatus, Point as WirePoint};
 use crate::state::auth::AuthState;
@@ -66,6 +66,23 @@ struct SelectionScaleDragState {
     start_group_scale: f64,
 }
 
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionColorSeed {
+    id: String,
+    board_id: String,
+    version: i64,
+    start_fill: String,
+    start_base_fill: String,
+    start_lightness_shift: f64,
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionColorDragState {
+    start_items: Vec<SelectionColorSeed>,
+}
+
 /// Canvas host component.
 ///
 /// On hydration, this mounts `canvas::engine::Engine`, synchronizes board
@@ -86,10 +103,14 @@ pub fn CanvasHost() -> impl IntoView {
     let _object_zoom_drag_active = RwSignal::new(false);
     let object_rotate_ref = NodeRef::<leptos::html::Div>::new();
     let _object_rotate_drag_active = RwSignal::new(false);
+    let object_color_ref = NodeRef::<leptos::html::Div>::new();
+    let _object_color_drag_active = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let object_rotate_drag_state = RwSignal::new(None::<SelectionRotationDragState>);
     #[cfg(feature = "hydrate")]
     let object_zoom_drag_state = RwSignal::new(None::<SelectionScaleDragState>);
+    #[cfg(feature = "hydrate")]
+    let object_color_drag_state = RwSignal::new(None::<SelectionColorDragState>);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -994,6 +1015,103 @@ pub fn CanvasHost() -> impl IntoView {
         ev.stop_propagation();
     };
 
+    let on_object_color_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_color_ref = object_color_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if pointer_event_hits_control(&ev, ".canvas-color-dial__picker, .canvas-color-dial__readout") {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                if !has_selection(_board) {
+                    return;
+                }
+                let Some(dial) = object_color_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                let Some(drag_state) = selection_color_seed(_board) else {
+                    return;
+                };
+                let _ = dial.set_pointer_capture(ev.pointer_id());
+                object_color_drag_state.set(Some(drag_state));
+                _object_color_drag_active.set(true);
+                apply_selection_color_shift(_board, object_color_drag_state, color_shift_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_color_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_color_ref = object_color_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if !_object_color_drag_active.get_untracked() {
+                    return;
+                }
+                let Some(dial) = object_color_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                apply_selection_color_shift(_board, object_color_drag_state, color_shift_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_color_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                _object_color_drag_active.set(false);
+                commit_selection_color_updates(_board, _sender, object_color_drag_state);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_color_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+
+    let on_object_color_input = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |ev: leptos::ev::Event| {
+                use wasm_bindgen::JsCast;
+
+                let Some(input) = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
+                else {
+                    return;
+                };
+                apply_group_base_color_target(_board, _sender, input.value());
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::Event| {}
+        }
+    };
+
     let on_object_zoom_pointer_down = {
         #[cfg(feature = "hydrate")]
         {
@@ -1068,6 +1186,13 @@ pub fn CanvasHost() -> impl IntoView {
     let on_object_zoom_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
         ev.prevent_default();
         ev.stop_propagation();
+    };
+
+    let object_color_base = move || selection_representative_base_color_hex(_board);
+    let object_color_shift = move || selection_representative_lightness_shift(_board);
+    let object_color_knob_style = move || {
+        let angle = dial_angle_from_color_shift(object_color_shift());
+        format!("transform: rotate({angle:.2}deg);")
     };
 
     let object_zoom_scale = move || selection_representative_scale_factor(_board);
@@ -1424,6 +1549,23 @@ pub fn CanvasHost() -> impl IntoView {
                 on_readout_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
                 on_readout_dblclick=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
             />
+            <ColorDial
+                class="canvas-object-color"
+                disabled_class="canvas-object-color--disabled"
+                title="Drag to shift selected color lightness; center picks base color"
+                readout_title="Selected object/group lightness shift"
+                knob_class="canvas-object-color__knob"
+                node_ref=object_color_ref
+                disabled=Signal::derive(move || !has_selected_objects())
+                readout=Signal::derive(move || format!("{:+.0}%", object_color_shift() * 100.0))
+                knob_style=Signal::derive(object_color_knob_style)
+                color_value=Signal::derive(object_color_base)
+                on_pointer_down=on_object_color_pointer_down
+                on_pointer_move=on_object_color_pointer_move
+                on_pointer_up=on_object_color_pointer_up
+                on_center_pointer_down=on_object_color_readout_pointer_down
+                on_color_input=on_object_color_input
+            />
             <CompassDial
                 class="canvas-object-rotate"
                 disabled_class="canvas-object-rotate--disabled"
@@ -1591,6 +1733,21 @@ fn dial_angle_from_zoom(_zoom: f64) -> f64 {
 #[cfg(feature = "hydrate")]
 fn zoom_from_dial_angle(angle: f64) -> f64 {
     (1.0 + (angle / 180.0)).clamp(0.1, 10.0)
+}
+
+#[cfg(feature = "hydrate")]
+fn dial_angle_from_color_shift(shift: f64) -> f64 {
+    (shift.clamp(-1.0, 1.0) * ZOOM_DIAL_MAX_ANGLE_DEG).clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn dial_angle_from_color_shift(_shift: f64) -> f64 {
+    0.0
+}
+
+#[cfg(feature = "hydrate")]
+fn color_shift_from_dial_angle(angle: f64) -> f64 {
+    (angle / ZOOM_DIAL_MAX_ANGLE_DEG).clamp(-1.0, 1.0)
 }
 
 
@@ -2032,6 +2189,270 @@ fn reset_wire_object_scale_baseline(obj: &mut crate::net::types::BoardObject) {
     let width = obj.width.unwrap_or(120.0).max(1.0);
     let height = obj.height.unwrap_or(80.0).max(1.0);
     reset_scale_props_baseline(&mut obj.props, width, height);
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_base_color_hex(board: RwSignal<BoardState>) -> String {
+    let state = board.get();
+    state
+        .selection
+        .iter()
+        .find_map(|id| state.objects.get(id).map(object_base_fill_hex))
+        .unwrap_or_else(|| "#D94B4B".to_owned())
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_base_color_hex(_board: RwSignal<BoardState>) -> String {
+    "#D94B4B".to_owned()
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_lightness_shift(board: RwSignal<BoardState>) -> f64 {
+    let state = board.get();
+    let mut shifts: Vec<f64> = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        shifts.push(object_lightness_shift(obj));
+    }
+    if shifts.is_empty() {
+        return 0.0;
+    }
+    (shifts.iter().sum::<f64>() / shifts.len() as f64).clamp(-1.0, 1.0)
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_lightness_shift(_board: RwSignal<BoardState>) -> f64 {
+    0.0
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_color_seed(board: RwSignal<BoardState>) -> Option<SelectionColorDragState> {
+    let state = board.get_untracked();
+    let mut items = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        items.push(SelectionColorSeed {
+            id: obj.id.clone(),
+            board_id: obj.board_id.clone(),
+            version: obj.version,
+            start_fill: object_fill_hex(obj),
+            start_base_fill: object_base_fill_hex(obj),
+            start_lightness_shift: object_lightness_shift(obj),
+        });
+    }
+    if items.is_empty() {
+        return None;
+    }
+    Some(SelectionColorDragState { start_items: items })
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_selection_color_shift(
+    board: RwSignal<BoardState>,
+    drag_state_signal: RwSignal<Option<SelectionColorDragState>>,
+    target_shift: f64,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let shift = target_shift.clamp(-1.0, 1.0);
+    board.update(|b| {
+        for seed in &drag_state.start_items {
+            let Some(obj) = b.objects.get_mut(&seed.id) else {
+                continue;
+            };
+            upsert_object_color_props(obj, &seed.start_base_fill, shift);
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn commit_selection_color_updates(
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+    drag_state_signal: RwSignal<Option<SelectionColorDragState>>,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let state = board.get_untracked();
+    for seed in &drag_state.start_items {
+        let Some(obj) = state.objects.get(&seed.id) else {
+            continue;
+        };
+        let fill = object_fill_hex(obj);
+        let base_fill = object_base_fill_hex(obj);
+        let shift = object_lightness_shift(obj);
+        let changed = fill != seed.start_fill
+            || base_fill != seed.start_base_fill
+            || (shift - seed.start_lightness_shift).abs() > 0.001;
+        if !changed {
+            continue;
+        }
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(seed.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": seed.id,
+                "version": seed.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+    drag_state_signal.set(None);
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_base_color_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, raw_color: String) {
+    let base_fill = normalize_hex_color(raw_color, "#D94B4B");
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            let shift = object_lightness_shift(obj);
+            upsert_object_color_props(obj, &base_fill, shift);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+#[allow(dead_code)]
+fn apply_group_base_color_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _raw_color: String) {}
+
+#[cfg(feature = "hydrate")]
+fn upsert_object_color_props(obj: &mut crate::net::types::BoardObject, base_fill: &str, lightness_shift: f64) {
+    let base = normalize_hex_color(base_fill.to_owned(), "#D94B4B");
+    let shift = lightness_shift.clamp(-1.0, 1.0);
+    let fill = apply_lightness_shift_to_hex(&base, shift);
+    if !obj.props.is_object() {
+        obj.props = serde_json::json!({});
+    }
+    if let Some(map) = obj.props.as_object_mut() {
+        map.insert("baseFill".to_owned(), serde_json::Value::String(base));
+        map.insert("lightnessShift".to_owned(), serde_json::json!(shift));
+        map.insert("fill".to_owned(), serde_json::Value::String(fill.clone()));
+        map.insert("backgroundColor".to_owned(), serde_json::Value::String(fill));
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn object_fill_hex(obj: &crate::net::types::BoardObject) -> String {
+    obj.props
+        .get("fill")
+        .and_then(|v| v.as_str())
+        .or_else(|| obj.props.get("backgroundColor").and_then(|v| v.as_str()))
+        .or_else(|| obj.props.get("borderColor").and_then(|v| v.as_str()))
+        .map(|s| normalize_hex_color(s.to_owned(), "#D94B4B"))
+        .unwrap_or_else(|| "#D94B4B".to_owned())
+}
+
+#[cfg(feature = "hydrate")]
+fn object_base_fill_hex(obj: &crate::net::types::BoardObject) -> String {
+    obj.props
+        .get("baseFill")
+        .and_then(|v| v.as_str())
+        .map(|s| normalize_hex_color(s.to_owned(), "#D94B4B"))
+        .unwrap_or_else(|| object_fill_hex(obj))
+}
+
+#[cfg(feature = "hydrate")]
+fn object_lightness_shift(obj: &crate::net::types::BoardObject) -> f64 {
+    obj.props
+        .get("lightnessShift")
+        .and_then(value_as_f64)
+        .unwrap_or(0.0)
+        .clamp(-1.0, 1.0)
+}
+
+#[cfg(feature = "hydrate")]
+fn normalize_hex_color(value: String, fallback: &str) -> String {
+    let fallback_rgb = parse_hex_rgb(fallback).unwrap_or((217, 75, 75));
+    let (r, g, b) = parse_hex_rgb(&value).unwrap_or(fallback_rgb);
+    format!("#{r:02X}{g:02X}{b:02X}")
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_hex_rgb(raw: &str) -> Option<(u8, u8, u8)> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with('#') {
+        return None;
+    }
+    let hex = &trimmed[1..];
+    match hex.len() {
+        3 => {
+            let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
+            let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
+            let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
+            Some((r, g, b))
+        }
+        6 => {
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            Some((r, g, b))
+        }
+        _ => None,
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_lightness_shift_to_hex(base_hex: &str, shift: f64) -> String {
+    let (r, g, b) = parse_hex_rgb(base_hex).unwrap_or((217, 75, 75));
+    let shift = shift.clamp(-1.0, 1.0);
+    let scale = |channel: u8| -> u8 {
+        let current = f64::from(channel);
+        let adjusted = if shift >= 0.0 {
+            current + ((255.0 - current) * shift)
+        } else {
+            current * (1.0 + shift)
+        };
+        adjusted.round().clamp(0.0, 255.0) as u8
+    };
+    format!("#{:02X}{:02X}{:02X}", scale(r), scale(g), scale(b))
 }
 
 #[cfg(feature = "hydrate")]
