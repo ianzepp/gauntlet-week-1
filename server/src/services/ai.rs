@@ -12,6 +12,7 @@
 
 use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use futures::future::join_all;
 use serde::Deserialize;
@@ -214,11 +215,20 @@ pub async fn handle_prompt_with_parent(
     let token_reservation = u64::from(max_tokens);
 
     for iteration in 0..max_tool_iterations {
+        let mut llm_req_data = Data::new();
+        llm_req_data.insert("iteration".into(), json!(iteration));
+        let mut llm_req = Frame::request("ai:llm_request", llm_req_data)
+            .with_board_id(board_id)
+            .with_from(user_id.to_string());
+        llm_req.parent_id = parent_frame_id;
+        super::persistence::enqueue_frame(state, &llm_req);
+
         let mut llm_messages = base_messages.clone();
         if let Some((assistant_tools, tool_results)) = latest_tool_exchange.clone() {
             llm_messages.push(assistant_tools);
             llm_messages.push(tool_results);
         }
+        let llm_started_at = Instant::now();
         state
             .rate_limiter
             .reserve_token_budget(client_id, token_reservation)?;
@@ -228,12 +238,30 @@ pub async fn handle_prompt_with_parent(
         {
             Ok(response) => response,
             Err(err) => {
+                let duration_ms = i64::try_from(llm_started_at.elapsed().as_millis()).unwrap_or(i64::MAX);
+                let mut err_frame = llm_req.error_from(&err);
+                err_frame.data.insert("iteration".into(), json!(iteration));
+                err_frame.data.insert("duration_ms".into(), json!(duration_ms));
+                super::persistence::enqueue_frame(state, &err_frame);
                 state
                     .rate_limiter
                     .release_reserved_tokens(client_id, token_reservation);
                 return Err(err.into());
             }
         };
+        let duration_ms = i64::try_from(llm_started_at.elapsed().as_millis()).unwrap_or(i64::MAX);
+        let total_tokens = response.input_tokens + response.output_tokens;
+
+        let mut llm_done_data = Data::new();
+        llm_done_data.insert("iteration".into(), json!(iteration));
+        llm_done_data.insert("model".into(), json!(response.model));
+        llm_done_data.insert("input_tokens".into(), json!(response.input_tokens));
+        llm_done_data.insert("output_tokens".into(), json!(response.output_tokens));
+        llm_done_data.insert("tokens".into(), json!(total_tokens));
+        llm_done_data.insert("stop_reason".into(), json!(response.stop_reason));
+        llm_done_data.insert("duration_ms".into(), json!(duration_ms));
+        let llm_done = llm_req.done_with(llm_done_data);
+        super::persistence::enqueue_frame(state, &llm_done);
 
         info!(
             iteration,
@@ -246,7 +274,7 @@ pub async fn handle_prompt_with_parent(
         // Record token usage for budget tracking.
         state.rate_limiter.record_tokens(
             client_id,
-            (response.input_tokens + response.output_tokens) as u64,
+            total_tokens,
             token_reservation,
         );
 
@@ -290,7 +318,7 @@ pub async fn handle_prompt_with_parent(
                 tool_id,
                 tool_name,
                 input,
-                parent_frame_id,
+                Some(llm_req.id),
                 &mut all_mutations,
             )
             .await;
