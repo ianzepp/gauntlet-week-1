@@ -406,22 +406,137 @@ fn draw_text(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_
     let font_str = format!("{font_size}px sans-serif");
     ctx.set_font(&font_str);
 
-    // Vertical layout: head near top, text at center, foot near bottom.
-    let max_w = obj.width.max(1.0);
+    // Vertical layout: head near top, wrapped body centered, foot near bottom.
+    let max_w = (obj.width - 12.0).max(1.0);
     if !head.is_empty() {
         let y = -hh + font_size;
-        ctx.fill_text_with_max_width(head, 0.0, y, max_w)?;
+        let head_fit = fit_text_with_ellipsis(ctx, head, max_w);
+        ctx.fill_text(&head_fit, 0.0, y)?;
     }
     if !text.is_empty() {
-        ctx.fill_text_with_max_width(text, 0.0, 0.0, max_w)?;
+        let line_height = (font_size * 1.25).max(12.0);
+        let max_lines = ((obj.height / line_height).floor() as usize).max(1);
+        let mut lines = wrap_text_lines(ctx, text, max_w);
+        if lines.len() > max_lines {
+            lines.truncate(max_lines);
+            if let Some(last) = lines.last_mut() {
+                *last = fit_text_with_ellipsis(ctx, last, max_w);
+            }
+        }
+        let total_height = line_height * (lines.len().saturating_sub(1) as f64);
+        let start_y = -total_height * 0.5;
+        for (idx, line) in lines.iter().enumerate() {
+            let y = start_y + (idx as f64 * line_height);
+            ctx.fill_text(line, 0.0, y)?;
+        }
     }
     if !foot.is_empty() {
         let y = hh - font_size;
-        ctx.fill_text_with_max_width(foot, 0.0, y, max_w)?;
+        let foot_fit = fit_text_with_ellipsis(ctx, foot, max_w);
+        ctx.fill_text(&foot_fit, 0.0, y)?;
     }
 
     ctx.restore();
     Ok(())
+}
+
+fn wrap_text_lines(ctx: &CanvasRenderingContext2d, text: &str, max_w: f64) -> Vec<String> {
+    let mut out = Vec::new();
+    for raw_line in text.lines() {
+        let words: Vec<&str> = raw_line.split_whitespace().collect();
+        if words.is_empty() {
+            out.push(String::new());
+            continue;
+        }
+
+        let mut current = String::new();
+        for word in words {
+            if current.is_empty() {
+                if measured_text_width(ctx, word) <= max_w {
+                    current.push_str(word);
+                } else {
+                    let mut chunks = break_long_word(ctx, word, max_w);
+                    if let Some(last) = chunks.pop() {
+                        out.extend(chunks);
+                        current = last;
+                    }
+                }
+                continue;
+            }
+
+            let candidate = format!("{current} {word}");
+            if measured_text_width(ctx, &candidate) <= max_w {
+                current = candidate;
+            } else {
+                out.push(std::mem::take(&mut current));
+                if measured_text_width(ctx, word) <= max_w {
+                    current = word.to_owned();
+                } else {
+                    let mut chunks = break_long_word(ctx, word, max_w);
+                    if let Some(last) = chunks.pop() {
+                        out.extend(chunks);
+                        current = last;
+                    } else {
+                        current.clear();
+                    }
+                }
+            }
+        }
+        if !current.is_empty() {
+            out.push(current);
+        }
+    }
+    if out.is_empty() {
+        out.push(String::new());
+    }
+    out
+}
+
+fn break_long_word(ctx: &CanvasRenderingContext2d, word: &str, max_w: f64) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    for ch in word.chars() {
+        let mut candidate = current.clone();
+        candidate.push(ch);
+        if !current.is_empty() && measured_text_width(ctx, &candidate) > max_w {
+            lines.push(current);
+            current = ch.to_string();
+        } else {
+            current = candidate;
+        }
+    }
+    if !current.is_empty() {
+        lines.push(current);
+    }
+    lines
+}
+
+fn fit_text_with_ellipsis(ctx: &CanvasRenderingContext2d, text: &str, max_w: f64) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if measured_text_width(ctx, trimmed) <= max_w {
+        return trimmed.to_owned();
+    }
+
+    let ellipsis = "...";
+    let mut chars: Vec<char> = trimmed.chars().collect();
+    while !chars.is_empty() {
+        chars.pop();
+        let candidate = format!("{}{}", chars.iter().collect::<String>().trim_end(), ellipsis);
+        if measured_text_width(ctx, &candidate) <= max_w {
+            return candidate;
+        }
+    }
+    ellipsis.to_owned()
+}
+
+fn measured_text_width(ctx: &CanvasRenderingContext2d, text: &str) -> f64 {
+    match ctx.measure_text(text) {
+        Ok(metrics) => metrics.width(),
+        Err(_) => f64::INFINITY,
+    }
 }
 
 // =============================================================

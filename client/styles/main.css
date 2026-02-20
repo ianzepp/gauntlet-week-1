@@ -587,7 +587,7 @@ a:hover {
 .board-page__input-overlay {
     position: absolute;
     left: 50%;
-    bottom: calc(24px + var(--space-md));
+    bottom: var(--space-md);
     transform: translateX(-50%);
     width: clamp(320px, 60%, 920px);
     z-index: var(--z-chrome);
