@@ -38,7 +38,7 @@ use self::frame_client_requests::{
     send_board_list_request, send_board_savepoint_list_request, send_board_users_list_request,
 };
 
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(test)]
 use self::frame_client_objects::{
     apply_cursor_clear, apply_cursor_moved, apply_object_frame, cleanup_stale_cursors, cleanup_stale_drags,
     merge_object_update, should_smooth_drag, smoothing_alpha,
@@ -48,7 +48,7 @@ use self::frame_client_objects::{
 use self::frame_client_parse::{
     deleted_board_id, frame_error_message, parse_ai_message_value, parse_ai_prompt_message,
     parse_ai_prompt_user_message, parse_board_list_items, parse_board_object_item, parse_board_objects,
-    parse_chat_message, pick_number, pick_str,
+    parse_chat_message,
 };
 #[cfg(feature = "hydrate")]
 use crate::net::types::Frame;
@@ -72,6 +72,21 @@ use crate::state::trace::TraceState;
 use leptos::prelude::GetUntracked;
 #[cfg(feature = "hydrate")]
 use leptos::prelude::Update;
+
+#[cfg(test)]
+fn upsert_ai_user_message(ai: &mut AiState, msg: crate::state::ai::AiMessage) {
+    frame_client_ai::upsert_ai_user_message(ai, msg);
+}
+
+#[cfg(test)]
+fn pick_number(payload: &serde_json::Value, keys: &[&str]) -> Option<f64> {
+    frame_client_parse::pick_number(payload, keys)
+}
+
+#[cfg(test)]
+fn pick_str<'a>(payload: &'a serde_json::Value, keys: &[&str]) -> Option<&'a str> {
+    frame_client_parse::pick_str(payload, keys)
+}
 
 /// Send a frame to the server via the shared sender channel.
 ///
@@ -486,11 +501,6 @@ fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<Bo
             let _ = window.location().set_href("/");
         }
     }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn upsert_ai_user_message(ai: &mut AiState, msg: crate::state::ai::AiMessage) {
-    frame_client_ai::upsert_ai_user_message(ai, msg);
 }
 
 #[cfg(test)]

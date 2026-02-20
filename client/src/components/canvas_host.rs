@@ -2775,7 +2775,7 @@ fn commit_selection_color_updates(
 
 #[cfg(feature = "hydrate")]
 fn apply_group_base_color_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, raw_color: String) {
-    let base_fill = normalize_hex_color(raw_color, "#D94B4B");
+    let base_fill = normalize_hex_color(&raw_color, "#D94B4B");
     let state = board.get_untracked();
     let selected: Vec<String> = state
         .selection
@@ -2876,7 +2876,7 @@ fn apply_group_background_defaults_target(_board: RwSignal<BoardState>, _sender:
 
 #[cfg(feature = "hydrate")]
 fn upsert_object_color_props(obj: &mut crate::net::types::BoardObject, base_fill: &str, lightness_shift: f64) {
-    let base = normalize_hex_color(base_fill.to_owned(), "#D94B4B");
+    let base = normalize_hex_color(base_fill, "#D94B4B");
     let shift = lightness_shift.clamp(-1.0, 1.0);
     let fill = apply_lightness_shift_to_hex(&base, shift);
     if !obj.props.is_object() {
@@ -2897,7 +2897,7 @@ fn object_fill_hex(obj: &crate::net::types::BoardObject) -> String {
         .and_then(|v| v.as_str())
         .or_else(|| obj.props.get("backgroundColor").and_then(|v| v.as_str()))
         .or_else(|| obj.props.get("borderColor").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s.to_owned(), "#D94B4B"))
+        .map(|s| normalize_hex_color(s, "#D94B4B"))
         .unwrap_or_else(|| "#D94B4B".to_owned())
 }
 
@@ -2906,7 +2906,7 @@ fn object_base_fill_hex(obj: &crate::net::types::BoardObject) -> String {
     obj.props
         .get("baseFill")
         .and_then(|v| v.as_str())
-        .map(|s| normalize_hex_color(s.to_owned(), "#D94B4B"))
+        .map(|s| normalize_hex_color(s, "#D94B4B"))
         .unwrap_or_else(|| object_fill_hex(obj))
 }
 
@@ -3054,7 +3054,7 @@ fn commit_selection_border_updates(
 
 #[cfg(feature = "hydrate")]
 fn apply_group_border_color_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, raw_color: String) {
-    let border = normalize_hex_color(raw_color, "#1F1A17");
+    let border = normalize_hex_color(&raw_color, "#1F1A17");
     let state = board.get_untracked();
     let selected: Vec<String> = state
         .selection
@@ -3156,7 +3156,7 @@ fn apply_group_border_defaults_target(_board: RwSignal<BoardState>, _sender: RwS
 
 #[cfg(feature = "hydrate")]
 fn upsert_object_border_props(obj: &mut crate::net::types::BoardObject, border_color: &str, border_width: f64) {
-    let color = normalize_hex_color(border_color.to_owned(), "#1F1A17");
+    let color = normalize_hex_color(border_color, "#1F1A17");
     let width = snap_border_width_to_px(border_width);
     if !obj.props.is_object() {
         obj.props = serde_json::json!({});
@@ -3176,7 +3176,7 @@ fn object_border_color_hex(obj: &crate::net::types::BoardObject) -> String {
         .and_then(|v| v.as_str())
         .or_else(|| obj.props.get("stroke").and_then(|v| v.as_str()))
         .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s.to_owned(), "#1F1A17"))
+        .map(|s| normalize_hex_color(s, "#1F1A17"))
         .unwrap_or_else(|| "#1F1A17".to_owned())
 }
 
@@ -3309,7 +3309,7 @@ fn commit_selection_text_style_updates(
 
 #[cfg(feature = "hydrate")]
 fn apply_group_text_color_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, raw_color: String) {
-    let color = normalize_hex_color(raw_color, "#1F1A17");
+    let color = normalize_hex_color(&raw_color, "#1F1A17");
     let state = board.get_untracked();
     let selected: Vec<String> = state
         .selection
@@ -3411,7 +3411,7 @@ fn apply_group_text_style_defaults_target(_board: RwSignal<BoardState>, _sender:
 
 #[cfg(feature = "hydrate")]
 fn upsert_object_text_style_props(obj: &mut crate::net::types::BoardObject, text_color: &str, font_size: f64) {
-    let color = normalize_hex_color(text_color.to_owned(), "#1F1A17");
+    let color = normalize_hex_color(text_color, "#1F1A17");
     let size = snap_font_size_to_px(font_size);
     if !obj.props.is_object() {
         obj.props = serde_json::json!({});
@@ -3429,7 +3429,7 @@ fn object_text_color_hex(obj: &crate::net::types::BoardObject) -> String {
         .and_then(|v| v.as_str())
         .or_else(|| obj.props.get("color").and_then(|v| v.as_str()))
         .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s.to_owned(), "#1F1A17"))
+        .map(|s| normalize_hex_color(s, "#1F1A17"))
         .unwrap_or_else(|| "#1F1A17".to_owned())
 }
 

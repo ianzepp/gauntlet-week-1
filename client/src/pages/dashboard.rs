@@ -6,6 +6,7 @@
 //! websocket once connectivity is ready and coordinates create->navigate flow.
 
 use leptos::prelude::*;
+use leptos::tachys::view::any_view::IntoAny;
 use leptos_router::hooks::use_navigate;
 
 use crate::app::FrameSender;
@@ -99,24 +100,31 @@ pub fn DashboardPage() -> impl IntoView {
     });
 
     view! {
-        <Show when=move || !auth.get().loading && auth.get().user.is_some() fallback=move || view! { <DashboardAuthFallback auth=auth /> }>
-            <div class="dashboard-page">
-                <DashboardHeader ui=ui auth=auth on_create=on_create on_join=on_join on_logout=on_logout />
-                <DashboardGrid boards=boards auth=auth on_board_delete_request=on_board_delete_request />
-                <DashboardDialogs
-                    show_create=show_create
-                    new_board_name=new_board_name
-                    on_cancel=on_cancel
-                    delete_board_id=delete_board_id
-                    on_delete_cancel=on_delete_cancel
-                    show_join=show_join
-                    join_code=join_code
-                    on_join_cancel=on_join_cancel
-                    boards=boards
-                    sender=sender
-                />
-            </div>
-        </Show>
+        {move || {
+            if !auth.get().loading && auth.get().user.is_some() {
+                view! {
+                    <div class="dashboard-page">
+                        <DashboardHeader ui=ui auth=auth on_create=on_create on_join=on_join on_logout=on_logout />
+                        <DashboardGrid boards=boards auth=auth on_board_delete_request=on_board_delete_request />
+                        <DashboardDialogs
+                            show_create=show_create
+                            new_board_name=new_board_name
+                            on_cancel=on_cancel
+                            delete_board_id=delete_board_id
+                            on_delete_cancel=on_delete_cancel
+                            show_join=show_join
+                            join_code=join_code
+                            on_join_cancel=on_join_cancel
+                            boards=boards
+                            sender=sender
+                        />
+                    </div>
+                }
+                    .into_any()
+            } else {
+                view! { <DashboardAuthFallback auth=auth /> }.into_any()
+            }
+        }}
     }
 }
 
@@ -214,12 +222,21 @@ fn DashboardGrid(
 ) -> impl IntoView {
     view! {
         <div class="dashboard-page__grid">
-            <Show when=move || boards.get().error.is_some()>
-                <p class="dashboard-page__error">{move || boards.get().error.unwrap_or_default()}</p>
-            </Show>
-            <Show when=move || !boards.get().loading fallback=move || view! { <p>"Loading boards..."</p> }>
-                <BoardSections boards=boards auth=auth on_board_delete_request=on_board_delete_request />
-            </Show>
+            {move || {
+                boards
+                    .get()
+                    .error
+                    .map(|error| view! { <p class="dashboard-page__error">{error}</p> }.into_any())
+                    .unwrap_or_else(|| view! { <></> }.into_any())
+            }}
+            {move || {
+                if boards.get().loading {
+                    view! { <p>"Loading boards..."</p> }.into_any()
+                } else {
+                    view! { <BoardSections boards=boards auth=auth on_board_delete_request=on_board_delete_request /> }
+                        .into_any()
+                }
+            }}
         </div>
     }
 }
@@ -283,15 +300,29 @@ fn DashboardDialogs(
     sender: RwSignal<FrameSender>,
 ) -> impl IntoView {
     view! {
-        <Show when=move || show_create.get()>
-            <CreateBoardDialog name=new_board_name on_cancel=on_cancel boards=boards sender=sender />
-        </Show>
-        <Show when=move || delete_board_id.get().is_some()>
-            <DeleteBoardDialog board_id=delete_board_id on_cancel=on_delete_cancel boards=boards sender=sender />
-        </Show>
-        <Show when=move || show_join.get()>
-            <JoinBoardDialog code=join_code on_cancel=on_join_cancel sender=sender />
-        </Show>
+        {move || {
+            if show_create.get() {
+                view! { <CreateBoardDialog name=new_board_name on_cancel=on_cancel boards=boards sender=sender /> }
+                    .into_any()
+            } else {
+                view! { <></> }.into_any()
+            }
+        }}
+        {move || {
+            if delete_board_id.get().is_some() {
+                view! { <DeleteBoardDialog board_id=delete_board_id on_cancel=on_delete_cancel boards=boards sender=sender /> }
+                    .into_any()
+            } else {
+                view! { <></> }.into_any()
+            }
+        }}
+        {move || {
+            if show_join.get() {
+                view! { <JoinBoardDialog code=join_code on_cancel=on_join_cancel sender=sender /> }.into_any()
+            } else {
+                view! { <></> }.into_any()
+            }
+        }}
     }
 }
 
