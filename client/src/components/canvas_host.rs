@@ -48,6 +48,8 @@ pub fn CanvasHost() -> impl IntoView {
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
     let compass_ref = NodeRef::<leptos::html::Div>::new();
     let _compass_drag_active = RwSignal::new(false);
+    let zoom_ref = NodeRef::<leptos::html::Div>::new();
+    let _zoom_drag_active = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -833,10 +835,168 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let on_zoom_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let zoom_ref = zoom_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                ev.prevent_default();
+                ev.stop_propagation();
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                let Some(zoom) = zoom_ref.get() else {
+                    return;
+                };
+                let _ = zoom.set_pointer_capture(ev.pointer_id());
+                _zoom_drag_active.set(true);
+                if let Some(angle) = zoom_angle_from_pointer(&ev, &zoom)
+                    && let Some(engine) = engine.borrow_mut().as_mut()
+                {
+                    sync_viewport(engine, &canvas_ref);
+                    zoom_view_preserving_center(engine, zoom_from_dial_angle(angle));
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        false,
+                    );
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_zoom_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let zoom_ref = zoom_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |ev: leptos::ev::PointerEvent| {
+                if !_zoom_drag_active.get_untracked() || _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                let Some(zoom) = zoom_ref.get() else {
+                    return;
+                };
+                if let Some(angle) = zoom_angle_from_pointer(&ev, &zoom)
+                    && let Some(engine) = engine.borrow_mut().as_mut()
+                {
+                    sync_viewport(engine, &canvas_ref);
+                    zoom_view_preserving_center(engine, zoom_from_dial_angle(angle));
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        false,
+                    );
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_zoom_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::PointerEvent| {
+                _zoom_drag_active.set(false);
+                if let Some(engine) = engine.borrow().as_ref() {
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_zoom_reset = {
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_ref = canvas_ref.clone();
+            let engine = Rc::clone(&engine);
+            move |_ev: leptos::ev::MouseEvent| {
+                if _board.get().follow_client_id.is_some() {
+                    return;
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    sync_viewport(engine, &canvas_ref);
+                    zoom_view_preserving_center(engine, 1.0);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
+                    let _ = engine.render();
+                }
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+
+    let on_zoom_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+
     let compass_angle_deg = move || normalize_degrees_360(_canvas_view.get().view_rotation_deg);
     let compass_knob_style = move || {
         let angle = compass_angle_deg();
         format!("transform: rotate({angle:.2}deg);")
+    };
+    let zoom_percent = move || _canvas_view.get().zoom * 100.0;
+    let zoom_knob_style = move || {
+        #[cfg(feature = "hydrate")]
+        {
+            let angle = dial_angle_from_zoom(_canvas_view.get().zoom);
+            return format!("transform: rotate({angle:.2}deg);");
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            "transform: rotate(0deg);".to_owned()
+        }
     };
 
     let canvas_world_overlay_style = move || {
@@ -1058,6 +1218,39 @@ pub fn CanvasHost() -> impl IntoView {
                     <div class="canvas-compass__knob"></div>
                 </div>
             </div>
+            <div
+                class="canvas-zoom-wheel"
+                node_ref=zoom_ref
+                title="Drag around dial to zoom"
+                on:pointerdown=on_zoom_pointer_down
+                on:pointermove=on_zoom_pointer_move
+                on:pointerup=on_zoom_pointer_up.clone()
+                on:pointercancel=on_zoom_pointer_up.clone()
+                on:pointerleave=on_zoom_pointer_up
+            >
+                <button class="canvas-zoom-wheel__marker" title="100%">
+                    "1"
+                </button>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--se"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
+                <button
+                    class="canvas-zoom-wheel__readout"
+                    title="Click to reset zoom to 100%"
+                    on:pointerdown=on_zoom_readout_pointer_down
+                    on:click=on_zoom_reset.clone()
+                    on:dblclick=on_zoom_reset
+                >
+                    {move || format!("{:.0}%", zoom_percent())}
+                </button>
+                <div class="canvas-zoom-wheel__knob-track" style=zoom_knob_style>
+                    <div class="canvas-zoom-wheel__knob"></div>
+                </div>
+            </div>
         </>
     }
 }
@@ -1090,6 +1283,79 @@ fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: f64,
     engine.core.camera.pan_x = (engine.core.viewport_width * 0.5) - (center_x * clamped_zoom);
     engine.core.camera.pan_y = (engine.core.viewport_height * 0.5) - (center_y * clamped_zoom);
 }
+
+#[cfg(feature = "hydrate")]
+fn zoom_view_preserving_center(engine: &mut Engine, zoom: f64) {
+    let center_screen = viewport_center_screen(engine);
+    let center_world = engine.camera().screen_to_world(center_screen, center_screen);
+    let rotation = engine.view_rotation_deg();
+    set_camera_view(engine, center_world.x, center_world.y, zoom, rotation);
+}
+
+#[cfg(feature = "hydrate")]
+const ZOOM_DIAL_MIN_ANGLE_DEG: f64 = -135.0;
+#[cfg(feature = "hydrate")]
+const ZOOM_DIAL_MAX_ANGLE_DEG: f64 = 135.0;
+#[cfg(feature = "hydrate")]
+const ZOOM_DIAL_TICK_TENSION_RANGE_DEG: f64 = 14.0;
+#[cfg(feature = "hydrate")]
+const ZOOM_DIAL_TICK_TENSION_STRENGTH: f64 = 0.42;
+
+#[cfg(feature = "hydrate")]
+fn zoom_angle_from_pointer(ev: &leptos::ev::PointerEvent, element: &web_sys::HtmlDivElement) -> Option<f64> {
+    let rect = element.get_bounding_client_rect();
+    let cx = rect.x() + (rect.width() * 0.5);
+    let cy = rect.y() + (rect.height() * 0.5);
+    let dx = f64::from(ev.client_x()) - cx;
+    let dy = f64::from(ev.client_y()) - cy;
+    if dx.abs() < f64::EPSILON && dy.abs() < f64::EPSILON {
+        return None;
+    }
+
+    let raw_top_based = normalize_degrees_360(dy.atan2(dx).to_degrees() + 90.0);
+    let signed = if raw_top_based > 180.0 {
+        raw_top_based - 360.0
+    } else {
+        raw_top_based
+    };
+    let clamped = signed.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG);
+    Some(apply_zoom_tick_tension(clamped))
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_zoom_tick_tension(angle: f64) -> f64 {
+    let ticks = [
+        ZOOM_DIAL_MIN_ANGLE_DEG,
+        -90.0,
+        -45.0,
+        0.0,
+        45.0,
+        90.0,
+        ZOOM_DIAL_MAX_ANGLE_DEG,
+    ];
+    let mut adjusted = angle;
+    for tick in ticks {
+        let distance = (adjusted - tick).abs();
+        if distance >= ZOOM_DIAL_TICK_TENSION_RANGE_DEG {
+            continue;
+        }
+        let weight = 1.0 - (distance / ZOOM_DIAL_TICK_TENSION_RANGE_DEG);
+        adjusted += (tick - adjusted) * weight * ZOOM_DIAL_TICK_TENSION_STRENGTH;
+    }
+    adjusted.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
+}
+
+#[cfg(feature = "hydrate")]
+fn dial_angle_from_zoom(zoom: f64) -> f64 {
+    ((zoom - 1.0) * 180.0)
+        .clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
+}
+
+#[cfg(feature = "hydrate")]
+fn zoom_from_dial_angle(angle: f64) -> f64 {
+    (1.0 + (angle / 180.0)).clamp(0.1, 10.0)
+}
+
 
 #[cfg(feature = "hydrate")]
 fn send_cursor_presence_if_needed(
