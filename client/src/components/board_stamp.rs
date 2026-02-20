@@ -17,6 +17,14 @@ use crate::state::ui::UiState;
 #[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
 
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct MinimapDragState {
+    pointer_id: i32,
+    objects: Vec<crate::net::types::BoardObject>,
+    view: CanvasViewState,
+}
+
 /// Board minimap overlay.
 #[component]
 pub fn BoardStamp() -> impl IntoView {
@@ -28,6 +36,8 @@ pub fn BoardStamp() -> impl IntoView {
     let ui = expect_context::<RwSignal<UiState>>();
     let minimap_ref = NodeRef::<leptos::html::Canvas>::new();
     let dragging = RwSignal::new(false);
+    #[cfg(feature = "hydrate")]
+    let drag_state = RwSignal::new(None::<MinimapDragState>);
 
     #[cfg(feature = "hydrate")]
     {
@@ -66,6 +76,7 @@ pub fn BoardStamp() -> impl IntoView {
                     u.view_center_override = Some((center_x, center_y));
                     u.view_center_override_seq = u.view_center_override_seq.saturating_add(1);
                 });
+                drag_state.set(Some(MinimapDragState { pointer_id: ev.pointer_id(), objects, view }));
                 dragging.set(true);
                 let _ = canvas.set_pointer_capture(ev.pointer_id());
             }
@@ -86,23 +97,22 @@ pub fn BoardStamp() -> impl IntoView {
                 }
                 ev.prevent_default();
                 ev.stop_propagation();
+                let Some(state) = drag_state.get_untracked() else {
+                    return;
+                };
+                if ev.pointer_id() != state.pointer_id {
+                    return;
+                }
                 let Some(canvas) = minimap_ref.get() else {
                     return;
                 };
-                let objects = board
-                    .get_untracked()
-                    .objects
-                    .values()
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let view = canvas_view.get_untracked();
-                let Some((center_x, center_y)) = minimap_pointer_to_world_center(&canvas, &objects, &view, &ev) else {
+                let Some((center_x, center_y)) =
+                    minimap_pointer_to_world_center(&canvas, &state.objects, &state.view, &ev)
+                else {
                     return;
                 };
-                let damped_x = view.camera_center_world.x + ((center_x - view.camera_center_world.x) * 0.72);
-                let damped_y = view.camera_center_world.y + ((center_y - view.camera_center_world.y) * 0.72);
                 ui.update(|u| {
-                    u.view_center_override = Some((damped_x, damped_y));
+                    u.view_center_override = Some((center_x, center_y));
                     u.view_center_override_seq = u.view_center_override_seq.saturating_add(1);
                 });
             }
@@ -121,6 +131,7 @@ pub fn BoardStamp() -> impl IntoView {
                 if let Some(canvas) = minimap_ref.get() {
                     let _ = canvas.release_pointer_capture(ev.pointer_id());
                 }
+                drag_state.set(None);
                 dragging.set(false);
             }
         }
