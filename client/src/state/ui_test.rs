@@ -23,6 +23,8 @@ fn ui_state_default_tool_is_select() {
     assert_eq!(state.home_viewport_seq, 0);
     assert_eq!(state.zoom_override_seq, 0);
     assert_eq!(state.zoom_override, None);
+    assert_eq!(state.view_center_override_seq, 0);
+    assert_eq!(state.view_center_override, None);
 }
 
 #[test]

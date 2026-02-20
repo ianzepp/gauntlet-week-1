@@ -166,6 +166,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_zoom_override_seq = RwSignal::new(0_u64);
     #[cfg(feature = "hydrate")]
+    let last_center_override_seq = RwSignal::new(0_u64);
+    #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
@@ -342,6 +344,41 @@ pub fn CanvasHost() -> impl IntoView {
                 }
             }
             last_zoom_override_seq.set(seq);
+        });
+    }
+
+    #[cfg(feature = "hydrate")]
+    {
+        let engine = Rc::clone(&engine);
+        let canvas_ref_center = canvas_ref.clone();
+        Effect::new(move || {
+            let ui_state = _ui.get();
+            let seq = ui_state.view_center_override_seq;
+            if seq == 0 || seq == last_center_override_seq.get_untracked() {
+                return;
+            }
+            let target_center = ui_state.view_center_override;
+            if let Some(engine) = engine.borrow_mut().as_mut()
+                && let Some((center_x, center_y)) = target_center
+            {
+                sync_viewport(engine, &canvas_ref_center);
+                let zoom = engine.camera().zoom;
+                let rotation = engine.view_rotation_deg();
+                set_camera_view(engine, center_x, center_y, zoom, rotation);
+                sync_canvas_view_state(engine, _canvas_view, None);
+                send_cursor_presence_if_needed(
+                    engine,
+                    _board,
+                    _auth,
+                    _sender,
+                    last_presence_sent_ms,
+                    last_presence_sent,
+                    None,
+                    true,
+                );
+                let _ = engine.render();
+            }
+            last_center_override_seq.set(seq);
         });
     }
 
