@@ -84,6 +84,8 @@ pub fn BoardStamp() -> impl IntoView {
                 if !dragging.get_untracked() {
                     return;
                 }
+                ev.prevent_default();
+                ev.stop_propagation();
                 let Some(canvas) = minimap_ref.get() else {
                     return;
                 };
@@ -111,8 +113,23 @@ pub fn BoardStamp() -> impl IntoView {
         }
     };
 
-    let on_minimap_pointer_up = move |_ev: leptos::ev::PointerEvent| {
-        dragging.set(false);
+    let on_minimap_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            let minimap_ref = minimap_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if let Some(canvas) = minimap_ref.get() {
+                    let _ = canvas.release_pointer_capture(ev.pointer_id());
+                }
+                dragging.set(false);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                dragging.set(false);
+            }
+        }
     };
 
     view! {
@@ -124,7 +141,6 @@ pub fn BoardStamp() -> impl IntoView {
             on:pointermove=on_minimap_pointer_move
             on:pointerup=on_minimap_pointer_up
             on:pointercancel=on_minimap_pointer_up
-            on:pointerleave=on_minimap_pointer_up
         ></canvas>
     }
 }

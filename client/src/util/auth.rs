@@ -18,6 +18,15 @@ where
     Effect::new(move || {
         let state = auth.get();
         if !state.loading && state.user.is_none() {
+            #[cfg(feature = "hydrate")]
+            if let Some(window) = web_sys::window() {
+                if let Ok(pathname) = window.location().pathname()
+                    && pathname != "/login"
+                {
+                    let _ = window.location().set_href("/login");
+                    return;
+                }
+            }
             navigate("/login", NavigateOptions::default());
         }
     });
