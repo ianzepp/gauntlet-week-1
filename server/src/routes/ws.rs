@@ -271,6 +271,7 @@ async fn process_inbound_bytes(
         "chat" => handle_chat(state, *current_board, client_id, &req).await,
         "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
+        "tool" => Err(req.error("tool syscalls are internal")),
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
     };
 

@@ -19,7 +19,7 @@ use serde_json::json;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::frame::Data;
+use crate::frame::{Data, Frame};
 use crate::llm::LlmChat;
 use crate::llm::tools::gauntlet_week_1_tools;
 use crate::llm::types::{Content, ContentBlock, Message};
@@ -160,7 +160,7 @@ pub async fn handle_prompt(
     llm: &Arc<dyn LlmChat>,
     board_id: Uuid,
     client_id: Uuid,
-    _user_id: Uuid,
+    user_id: Uuid,
     prompt: &str,
     grid_context: Option<&str>,
 ) -> Result<AiResult, AiError> {
@@ -265,8 +265,10 @@ pub async fn handle_prompt(
         // Execute each tool call and collect results.
         let mut tool_results = Vec::new();
         for (tool_id, tool_name, input) in &tool_calls {
-            info!(iteration, tool = %tool_name, "ai: executing tool");
-            let result = execute_tool(state, board_id, tool_name, input, &mut all_mutations).await;
+            info!(iteration, tool = %tool_name, "ai: executing tool via syscall");
+            let result =
+                execute_tool_via_syscall(state, board_id, user_id, iteration, tool_id, tool_name, input, &mut all_mutations)
+                    .await;
             let (content, is_error) = match &result {
                 Ok(msg) => {
                     info!(iteration, tool = %tool_name, "ai: tool ok — {msg}");
@@ -315,6 +317,50 @@ pub async fn handle_prompt(
     }
 
     Ok(AiResult { mutations: all_mutations, text: final_text })
+}
+
+async fn execute_tool_via_syscall(
+    state: &AppState,
+    board_id: Uuid,
+    user_id: Uuid,
+    iteration: usize,
+    tool_use_id: &str,
+    tool_name: &str,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let syscall = format!("tool:{tool_name}");
+    let mut req_data = Data::new();
+    req_data.insert("tool_use_id".into(), json!(tool_use_id));
+    req_data.insert("name".into(), json!(tool_name));
+    req_data.insert("input".into(), input.clone());
+    req_data.insert("ai_turn".into(), json!(iteration));
+
+    let req = Frame::request(syscall, req_data)
+        .with_board_id(board_id)
+        .with_from(user_id.to_string());
+    super::persistence::enqueue_frame(state, &req);
+
+    let result = execute_tool(state, board_id, tool_name, input, mutations).await;
+
+    match &result {
+        Ok(content) => {
+            let mut done_data = Data::new();
+            done_data.insert("tool_use_id".into(), json!(tool_use_id));
+            done_data.insert("name".into(), json!(tool_name));
+            done_data.insert("content".into(), json!(content));
+            let done = req.done_with(done_data);
+            super::persistence::enqueue_frame(state, &done);
+        }
+        Err(err) => {
+            let mut error = req.error_from(err);
+            error.data.insert("tool_use_id".into(), json!(tool_use_id));
+            error.data.insert("name".into(), json!(tool_name));
+            super::persistence::enqueue_frame(state, &error);
+        }
+    }
+
+    result
 }
 
 async fn load_session_messages(state: &AppState, session_key: (Uuid, Uuid)) -> Vec<Message> {
