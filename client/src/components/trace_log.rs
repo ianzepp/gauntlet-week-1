@@ -34,6 +34,40 @@ fn status_label(status: frames::Status) -> (&'static str, &'static str) {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SortColumn {
+    Time,
+    Type,
+    Syscall,
+    Status,
+    From,
+}
+
+#[derive(Clone, Debug)]
+struct TraceRow {
+    id: String,
+    ts_ms: i64,
+    ts: String,
+    letter: &'static str,
+    color: &'static str,
+    syscall: String,
+    sub: Option<String>,
+    status_text: &'static str,
+    status_mod: &'static str,
+    from: String,
+}
+
+fn status_rank(status_mod: &str) -> u8 {
+    match status_mod {
+        "request" => 0,
+        "item" => 1,
+        "done" => 2,
+        "error" => 3,
+        "cancel" => 4,
+        _ => 255,
+    }
+}
+
 /// Computes display depth for the trace log tree.
 ///
 /// When a session root is selected, children directly under that root are
@@ -80,6 +114,17 @@ fn display_depth(
 pub fn TraceLog() -> impl IntoView {
     let trace = expect_context::<RwSignal<TraceState>>();
     let ui = expect_context::<RwSignal<UiState>>();
+    let sort_column = RwSignal::new(SortColumn::Time);
+    let sort_desc = RwSignal::new(false);
+
+    let set_sort = move |column: SortColumn| {
+        if sort_column.get_untracked() == column {
+            sort_desc.update(|v| *v = !*v);
+        } else {
+            sort_column.set(column);
+            sort_desc.set(false);
+        }
+    };
 
     let selected_frame_id = move || trace.get().selected_frame_id.clone();
 
@@ -108,17 +153,18 @@ pub fn TraceLog() -> impl IntoView {
                 } else {
                     format!("{}└─ ", "  ".repeat(visual_depth))
                 };
-                (
-                    f.id.clone(),
-                    format_ts(f.ts),
-                    display.letter,
-                    display.color,
-                    format!("{tree_indent}{}", f.syscall),
+                TraceRow {
+                    id: f.id.clone(),
+                    ts_ms: f.ts,
+                    ts: format_ts(f.ts),
+                    letter: display.letter,
+                    color: display.color,
+                    syscall: format!("{tree_indent}{}", f.syscall),
                     sub,
                     status_text,
                     status_mod,
-                    f.from.clone().unwrap_or_default(),
-                )
+                    from: f.from.clone().unwrap_or_default(),
+                }
             })
             .collect::<Vec<_>>()
     };
@@ -126,15 +172,30 @@ pub fn TraceLog() -> impl IntoView {
     view! {
         <div class="trace-log">
             <div class="trace-log__header">
-                <span class="trace-log__col trace-log__col--ts">"TIME"</span>
-                <span class="trace-log__col trace-log__col--badge">"T"</span>
-                <span class="trace-log__col trace-log__col--syscall">"SYSCALL"</span>
-                <span class="trace-log__col trace-log__col--status">"STATUS"</span>
-                <span class="trace-log__col trace-log__col--from">"FROM"</span>
+                <button class="trace-log__head-btn trace-log__col trace-log__col--ts" on:click=move |_| set_sort(SortColumn::Time)>
+                    "TIME"
+                    {move || if sort_column.get() == SortColumn::Time { if sort_desc.get() { " ↓" } else { " ↑" } } else { "" }}
+                </button>
+                <button class="trace-log__head-btn trace-log__col trace-log__col--badge" on:click=move |_| set_sort(SortColumn::Type)>
+                    "T"
+                    {move || if sort_column.get() == SortColumn::Type { if sort_desc.get() { " ↓" } else { " ↑" } } else { "" }}
+                </button>
+                <button class="trace-log__head-btn trace-log__col trace-log__col--syscall" on:click=move |_| set_sort(SortColumn::Syscall)>
+                    "SYSCALL"
+                    {move || if sort_column.get() == SortColumn::Syscall { if sort_desc.get() { " ↓" } else { " ↑" } } else { "" }}
+                </button>
+                <button class="trace-log__head-btn trace-log__col trace-log__col--status" on:click=move |_| set_sort(SortColumn::Status)>
+                    "STATUS"
+                    {move || if sort_column.get() == SortColumn::Status { if sort_desc.get() { " ↓" } else { " ↑" } } else { "" }}
+                </button>
+                <button class="trace-log__head-btn trace-log__col trace-log__col--from" on:click=move |_| set_sort(SortColumn::From)>
+                    "FROM"
+                    {move || if sort_column.get() == SortColumn::From { if sort_desc.get() { " ↓" } else { " ↑" } } else { "" }}
+                </button>
             </div>
             <div class="trace-log__rows">
                 {move || {
-                    let all_rows = rows();
+                    let mut all_rows = rows();
                     if all_rows.is_empty() {
                         return view! {
                             <div class="trace-log__empty">
@@ -142,10 +203,24 @@ pub fn TraceLog() -> impl IntoView {
                             </div>
                         }.into_any();
                     }
+                    let active_sort = sort_column.get();
+                    let is_desc = sort_desc.get();
+                    all_rows.sort_by(|a, b| {
+                        let cmp = match active_sort {
+                            SortColumn::Time => a.ts_ms.cmp(&b.ts_ms).then_with(|| a.id.cmp(&b.id)),
+                            SortColumn::Type => a.letter.cmp(b.letter).then_with(|| a.ts_ms.cmp(&b.ts_ms)),
+                            SortColumn::Syscall => a.syscall.cmp(&b.syscall).then_with(|| a.ts_ms.cmp(&b.ts_ms)),
+                            SortColumn::Status => status_rank(a.status_mod)
+                                .cmp(&status_rank(b.status_mod))
+                                .then_with(|| a.ts_ms.cmp(&b.ts_ms)),
+                            SortColumn::From => a.from.cmp(&b.from).then_with(|| a.ts_ms.cmp(&b.ts_ms)),
+                        };
+                        if is_desc { cmp.reverse() } else { cmp }
+                    });
                     let sel = selected_frame_id();
-                    all_rows.into_iter().map(|(id, ts, letter, color, syscall, sub, status_text, status_mod, from)| {
-                        let is_active = sel.as_deref() == Some(id.as_str());
-                        let id_clone = id.clone();
+                    all_rows.into_iter().map(|row| {
+                        let is_active = sel.as_deref() == Some(row.id.as_str());
+                        let id_clone = row.id.clone();
                         view! {
                             <button
                                 class="trace-log__row"
@@ -161,26 +236,27 @@ pub fn TraceLog() -> impl IntoView {
                                     });
                                 }
                             >
-                                <span class="trace-log__col trace-log__col--ts trace-log__ts">{ts}</span>
+                                <span class="trace-log__col trace-log__col--ts trace-log__ts">{row.ts}</span>
                                 <span
                                     class="trace-log__col trace-log__col--badge trace-log__badge"
-                                    style=format!("color:{color}")
+                                    style=format!("color:{}", row.color)
                                 >
-                                    {letter}
+                                    {row.letter}
                                 </span>
                                 <span class="trace-log__col trace-log__col--syscall">
-                                    <span class="trace-log__syscall">{syscall}</span>
-                                    {sub.map(|s| view! {
+                                    <span class="trace-log__syscall">{row.syscall}</span>
+                                    {row.sub.map(|s| view! {
                                         <span class="trace-log__sub-label">{s}</span>
                                     })}
                                 </span>
                                 <span class=format!(
-                                    "trace-log__col trace-log__col--status trace-log__status trace-log__status--{status_mod}"
+                                    "trace-log__col trace-log__col--status trace-log__status trace-log__status--{}",
+                                    row.status_mod
                                 )>
-                                    {status_text}
+                                    {row.status_text}
                                 </span>
                                 <span class="trace-log__col trace-log__col--from trace-log__from">
-                                    {from}
+                                    {row.from}
                                 </span>
                             </button>
                         }

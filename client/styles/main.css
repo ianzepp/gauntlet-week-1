@@ -2651,6 +2651,22 @@ a:hover {
     flex-shrink: 0;
 }
 
+.trace-log__head-btn {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    text-align: left;
+    padding: 0;
+}
+
+.trace-log__head-btn:hover {
+    background: transparent;
+    color: var(--text-primary);
+}
+
 .trace-log__rows {
     flex: 1;
     overflow-y: auto;
