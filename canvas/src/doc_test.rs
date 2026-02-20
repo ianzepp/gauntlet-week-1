@@ -618,6 +618,8 @@ fn props_defaults_on_empty_object() {
     assert_eq!(p.fill(), "#D94B4B");
     assert_eq!(p.stroke(), "#1F1A17");
     assert_eq!(p.stroke_width(), 0.0);
+    assert_eq!(p.text_color(), "#1F1A17");
+    assert_eq!(p.font_size(), None);
     assert_eq!(p.head(), "");
     assert_eq!(p.text(), "");
     assert_eq!(p.foot(), "");
@@ -629,6 +631,8 @@ fn props_reads_all_values() {
         "fill": "#AABBCC",
         "stroke": "#112233",
         "stroke_width": 3.0,
+        "textColor": "#334455",
+        "fontSize": 22.0,
         "head": "Title",
         "text": "Body",
         "foot": "Footer"
@@ -637,6 +641,8 @@ fn props_reads_all_values() {
     assert_eq!(p.fill(), "#AABBCC");
     assert_eq!(p.stroke(), "#112233");
     assert_eq!(p.stroke_width(), 3.0);
+    assert_eq!(p.text_color(), "#334455");
+    assert_eq!(p.font_size(), Some(22.0));
     assert_eq!(p.head(), "Title");
     assert_eq!(p.text(), "Body");
     assert_eq!(p.foot(), "Footer");
@@ -649,7 +655,23 @@ fn props_partial_fields_use_defaults() {
     assert_eq!(p.fill(), "#123456");
     assert_eq!(p.stroke(), "#1F1A17"); // default
     assert_eq!(p.stroke_width(), 0.0); // default
+    assert_eq!(p.text_color(), "#F5F0E8");
+    assert_eq!(p.font_size(), None);
     assert_eq!(p.head(), ""); // default
+}
+
+#[test]
+fn props_text_color_contrast_from_light_fill() {
+    let value = json!({"fill": "#F8E7C8"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#1F1A17");
+}
+
+#[test]
+fn props_text_color_prefers_explicit_text_color() {
+    let value = json!({"fill": "#123456", "textColor": "#00FF00"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#00FF00");
 }
 
 #[test]

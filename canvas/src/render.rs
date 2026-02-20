@@ -396,11 +396,14 @@ fn draw_text(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_
 
     let hh = obj.height / 2.0;
 
-    // Font size: clamp between 12 and 24, scaling with shape height.
-    let font_size = (obj.height / 6.0).clamp(12.0, 24.0);
+    // Font size: explicit prop wins; otherwise derive from object height.
+    let font_size = props
+        .font_size()
+        .unwrap_or_else(|| (obj.height / 6.0).clamp(12.0, 24.0))
+        .clamp(8.0, 96.0);
 
     ctx.save();
-    ctx.set_fill_style_str("#1F1A17");
+    ctx.set_fill_style_str(props.text_color());
     ctx.set_text_align("center");
     ctx.set_text_baseline("middle");
     let font_str = format!("{font_size}px sans-serif");

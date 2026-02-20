@@ -142,6 +142,31 @@ impl<'a> Props<'a> {
             .unwrap_or(0.0)
     }
 
+    /// Text color as a CSS color string.
+    ///
+    /// Resolution order:
+    /// 1) Explicit `textColor`
+    /// 2) Contrast-aware fallback from `fill`
+    /// 3) `"#1F1A17"` when no color context is available
+    #[must_use]
+    pub fn text_color(&self) -> &str {
+        if let Some(color) = self.value.get("textColor").and_then(|v| v.as_str()) {
+            return color;
+        }
+        if let Some(fill) = self.value.get("fill").and_then(|v| v.as_str()) {
+            return contrast_text_color(fill);
+        }
+        "#1F1A17"
+    }
+
+    /// Font size in pixels, if explicitly set by props.
+    #[must_use]
+    pub fn font_size(&self) -> Option<f64> {
+        self.value
+            .get("fontSize")
+            .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|n| n as f64)))
+    }
+
     /// Arrowhead style at endpoint A (the "head" of the arrow). Empty string when absent.
     #[must_use]
     pub fn head(&self) -> &str {
@@ -169,6 +194,67 @@ impl<'a> Props<'a> {
             .and_then(|v| v.as_str())
             .unwrap_or("")
     }
+}
+
+fn contrast_text_color(fill: &str) -> &'static str {
+    if let Some((r, g, b)) = parse_css_rgb(fill) {
+        // Relative luminance in linear RGB.
+        let l = relative_luminance(r, g, b);
+        if l < 0.42 {
+            "#F5F0E8"
+        } else {
+            "#1F1A17"
+        }
+    } else {
+        "#1F1A17"
+    }
+}
+
+fn parse_css_rgb(raw: &str) -> Option<(u8, u8, u8)> {
+    let s = raw.trim();
+    if let Some(hex) = s.strip_prefix('#') {
+        return match hex.len() {
+            3 => {
+                let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
+                let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
+                let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
+                Some((r, g, b))
+            }
+            6 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                Some((r, g, b))
+            }
+            _ => None,
+        };
+    }
+
+    let open = s.find('(')?;
+    let close = s.rfind(')')?;
+    let func = s[..open].trim().to_ascii_lowercase();
+    if func != "rgb" && func != "rgba" {
+        return None;
+    }
+    let body = &s[open + 1..close];
+    let mut parts = body.split(',').map(str::trim);
+    let r = parts.next()?.parse::<u8>().ok()?;
+    let g = parts.next()?.parse::<u8>().ok()?;
+    let b = parts.next()?.parse::<u8>().ok()?;
+    Some((r, g, b))
+}
+
+fn srgb_to_linear(v: u8) -> f64 {
+    let c = f64::from(v) / 255.0;
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn relative_luminance(r: u8, g: u8, b: u8) -> f64 {
+    (0.2126 * srgb_to_linear(r)) + (0.7152 * srgb_to_linear(g)) + (0.0722 * srgb_to_linear(b))
 }
 
 /// In-memory store of board objects.

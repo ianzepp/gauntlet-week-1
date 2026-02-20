@@ -99,6 +99,22 @@ struct SelectionBorderDragState {
     start_items: Vec<SelectionBorderSeed>,
 }
 
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionTextStyleSeed {
+    id: String,
+    board_id: String,
+    version: i64,
+    start_text_color: String,
+    start_font_size: f64,
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionTextStyleDragState {
+    start_items: Vec<SelectionTextStyleSeed>,
+}
+
 /// Canvas host component.
 ///
 /// On hydration, this mounts `canvas::engine::Engine`, synchronizes board
@@ -123,6 +139,8 @@ pub fn CanvasHost() -> impl IntoView {
     let _object_color_drag_active = RwSignal::new(false);
     let object_border_ref = NodeRef::<leptos::html::Div>::new();
     let _object_border_drag_active = RwSignal::new(false);
+    let object_text_style_ref = NodeRef::<leptos::html::Div>::new();
+    let _object_text_style_drag_active = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let object_rotate_drag_state = RwSignal::new(None::<SelectionRotationDragState>);
     #[cfg(feature = "hydrate")]
@@ -131,6 +149,8 @@ pub fn CanvasHost() -> impl IntoView {
     let object_color_drag_state = RwSignal::new(None::<SelectionColorDragState>);
     #[cfg(feature = "hydrate")]
     let object_border_drag_state = RwSignal::new(None::<SelectionBorderDragState>);
+    #[cfg(feature = "hydrate")]
+    let object_text_style_drag_state = RwSignal::new(None::<SelectionTextStyleDragState>);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -1268,6 +1288,108 @@ pub fn CanvasHost() -> impl IntoView {
             move |_ev: leptos::ev::MouseEvent| {}
         }
     };
+    let on_object_text_style_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_text_style_ref = object_text_style_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if pointer_event_hits_control(&ev, ".canvas-color-dial__picker, .canvas-color-dial__readout") {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                if !has_selection(_board) {
+                    return;
+                }
+                let Some(dial) = object_text_style_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                let Some(drag_state) = selection_text_style_seed(_board) else {
+                    return;
+                };
+                let _ = dial.set_pointer_capture(ev.pointer_id());
+                object_text_style_drag_state.set(Some(drag_state));
+                _object_text_style_drag_active.set(true);
+                apply_selection_font_size(_board, object_text_style_drag_state, font_size_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+    let on_object_text_style_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_text_style_ref = object_text_style_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if !_object_text_style_drag_active.get_untracked() {
+                    return;
+                }
+                let Some(dial) = object_text_style_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                apply_selection_font_size(_board, object_text_style_drag_state, font_size_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+    let on_object_text_style_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                _object_text_style_drag_active.set(false);
+                commit_selection_text_style_updates(_board, _sender, object_text_style_drag_state);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+    let on_object_text_style_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+    let on_object_text_style_input = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |ev: leptos::ev::Event| {
+                use wasm_bindgen::JsCast;
+
+                let Some(input) = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
+                else {
+                    return;
+                };
+                apply_group_text_color_target(_board, _sender, input.value());
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::Event| {}
+        }
+    };
+    let on_object_text_style_reset = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_text_style_defaults_target(_board, _sender)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
 
     let on_object_zoom_pointer_down = {
         #[cfg(feature = "hydrate")]
@@ -1355,6 +1477,12 @@ pub fn CanvasHost() -> impl IntoView {
     let object_border_width = move || selection_representative_border_width(_board);
     let object_border_knob_style = move || {
         let angle = dial_angle_from_border_width(object_border_width());
+        format!("transform: rotate({angle:.2}deg);")
+    };
+    let object_text_color = move || selection_representative_text_color_hex(_board);
+    let object_text_size = move || selection_representative_font_size(_board);
+    let object_text_knob_style = move || {
+        let angle = dial_angle_from_font_size(object_text_size());
         format!("transform: rotate({angle:.2}deg);")
     };
 
@@ -1810,6 +1938,25 @@ pub fn CanvasHost() -> impl IntoView {
                 on_color_input=on_object_border_input
                 on_reset_click=on_object_border_reset
             />
+            <ColorDial
+                class="canvas-object-text-style"
+                disabled_class="canvas-object-text-style--disabled"
+                title="Drag to set selected text size; center picks text color"
+                swatch_title="Selected text color"
+                reset_title="Reset text style to defaults"
+                center_label=Signal::derive(move || format_text_size_label(object_text_size()))
+                knob_class="canvas-object-text-style__knob"
+                node_ref=object_text_style_ref
+                disabled=Signal::derive(move || !has_selected_objects())
+                knob_style=Signal::derive(object_text_knob_style)
+                color_value=Signal::derive(object_text_color)
+                on_pointer_down=on_object_text_style_pointer_down
+                on_pointer_move=on_object_text_style_pointer_move
+                on_pointer_up=on_object_text_style_pointer_up
+                on_center_pointer_down=on_object_text_style_readout_pointer_down
+                on_color_input=on_object_text_style_input
+                on_reset_click=on_object_text_style_reset
+            />
         </>
     }
 }
@@ -1939,6 +2086,10 @@ fn color_shift_from_dial_angle(angle: f64) -> f64 {
 const BORDER_WIDTH_MIN: f64 = 0.0;
 #[cfg(feature = "hydrate")]
 const BORDER_WIDTH_MAX: f64 = 24.0;
+#[cfg(feature = "hydrate")]
+const TEXT_SIZE_MIN: f64 = 8.0;
+#[cfg(feature = "hydrate")]
+const TEXT_SIZE_MAX: f64 = 96.0;
 
 #[cfg(feature = "hydrate")]
 fn dial_angle_from_border_width(width: f64) -> f64 {
@@ -1964,6 +2115,29 @@ fn border_width_from_dial_angle(angle: f64) -> f64 {
 }
 
 #[cfg(feature = "hydrate")]
+fn dial_angle_from_font_size(size: f64) -> f64 {
+    let clamped = size.clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX);
+    let t = if TEXT_SIZE_MAX <= TEXT_SIZE_MIN {
+        0.0
+    } else {
+        (clamped - TEXT_SIZE_MIN) / (TEXT_SIZE_MAX - TEXT_SIZE_MIN)
+    };
+    ZOOM_DIAL_MIN_ANGLE_DEG + (t * (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG))
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn dial_angle_from_font_size(_size: f64) -> f64 {
+    0.0
+}
+
+#[cfg(feature = "hydrate")]
+fn font_size_from_dial_angle(angle: f64) -> f64 {
+    let clamped_angle = angle.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG);
+    let t = (clamped_angle - ZOOM_DIAL_MIN_ANGLE_DEG) / (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG);
+    snap_font_size_to_px(TEXT_SIZE_MIN + (t * (TEXT_SIZE_MAX - TEXT_SIZE_MIN)))
+}
+
+#[cfg(feature = "hydrate")]
 fn format_border_width_label(width: f64) -> String {
     let rounded = width.round();
     if (width - rounded).abs() < 0.05 {
@@ -1975,12 +2149,27 @@ fn format_border_width_label(width: f64) -> String {
 
 #[cfg(not(feature = "hydrate"))]
 fn format_border_width_label(_width: f64) -> String {
-    "1px".to_owned()
+    "0px".to_owned()
 }
 
 #[cfg(feature = "hydrate")]
 fn snap_border_width_to_px(width: f64) -> f64 {
     width.round().clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
+}
+
+#[cfg(feature = "hydrate")]
+fn format_text_size_label(size: f64) -> String {
+    format!("{}px", snap_font_size_to_px(size) as i64)
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn format_text_size_label(_size: f64) -> String {
+    "24px".to_owned()
+}
+
+#[cfg(feature = "hydrate")]
+fn snap_font_size_to_px(size: f64) -> f64 {
+    size.round().clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
 }
 
 
@@ -2994,6 +3183,258 @@ fn object_border_width(obj: &crate::net::types::BoardObject) -> f64 {
 }
 
 #[cfg(feature = "hydrate")]
+fn selection_representative_text_color_hex(board: RwSignal<BoardState>) -> String {
+    let state = board.get();
+    state
+        .selection
+        .iter()
+        .find_map(|id| state.objects.get(id).map(object_text_color_hex))
+        .unwrap_or_else(|| "#1F1A17".to_owned())
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_text_color_hex(_board: RwSignal<BoardState>) -> String {
+    "#1F1A17".to_owned()
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_font_size(board: RwSignal<BoardState>) -> f64 {
+    let state = board.get();
+    let mut sizes: Vec<f64> = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        sizes.push(object_font_size(obj));
+    }
+    if sizes.is_empty() {
+        return 24.0;
+    }
+    snap_font_size_to_px((sizes.iter().sum::<f64>() / sizes.len() as f64).clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX))
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_font_size(_board: RwSignal<BoardState>) -> f64 {
+    24.0
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_text_style_seed(board: RwSignal<BoardState>) -> Option<SelectionTextStyleDragState> {
+    let state = board.get_untracked();
+    let mut items = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        items.push(SelectionTextStyleSeed {
+            id: obj.id.clone(),
+            board_id: obj.board_id.clone(),
+            version: obj.version,
+            start_text_color: object_text_color_hex(obj),
+            start_font_size: object_font_size(obj),
+        });
+    }
+    if items.is_empty() {
+        return None;
+    }
+    Some(SelectionTextStyleDragState { start_items: items })
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_selection_font_size(
+    board: RwSignal<BoardState>,
+    drag_state_signal: RwSignal<Option<SelectionTextStyleDragState>>,
+    target_size: f64,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let size = snap_font_size_to_px(target_size);
+    board.update(|b| {
+        for seed in &drag_state.start_items {
+            let Some(obj) = b.objects.get_mut(&seed.id) else {
+                continue;
+            };
+            upsert_object_text_style_props(obj, &seed.start_text_color, size);
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn commit_selection_text_style_updates(
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+    drag_state_signal: RwSignal<Option<SelectionTextStyleDragState>>,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let state = board.get_untracked();
+    for seed in &drag_state.start_items {
+        let Some(obj) = state.objects.get(&seed.id) else {
+            continue;
+        };
+        let color = object_text_color_hex(obj);
+        let size = object_font_size(obj);
+        let changed = color != seed.start_text_color || (size - seed.start_font_size).abs() > 0.001;
+        if !changed {
+            continue;
+        }
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(seed.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": seed.id,
+                "version": seed.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+    drag_state_signal.set(None);
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_text_color_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, raw_color: String) {
+    let color = normalize_hex_color(raw_color, "#1F1A17");
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            let size = object_font_size(obj);
+            upsert_object_text_style_props(obj, &color, size);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_text_style_defaults_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+    let color = "#1F1A17".to_owned();
+    let size = 24.0;
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            upsert_object_text_style_props(obj, &color, size);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+#[allow(dead_code)]
+fn apply_group_text_color_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _raw_color: String) {}
+
+#[cfg(not(feature = "hydrate"))]
+#[allow(dead_code)]
+fn apply_group_text_style_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
+
+#[cfg(feature = "hydrate")]
+fn upsert_object_text_style_props(obj: &mut crate::net::types::BoardObject, text_color: &str, font_size: f64) {
+    let color = normalize_hex_color(text_color.to_owned(), "#1F1A17");
+    let size = snap_font_size_to_px(font_size);
+    if !obj.props.is_object() {
+        obj.props = serde_json::json!({});
+    }
+    if let Some(map) = obj.props.as_object_mut() {
+        map.insert("textColor".to_owned(), serde_json::Value::String(color));
+        map.insert("fontSize".to_owned(), serde_json::json!(size));
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn object_text_color_hex(obj: &crate::net::types::BoardObject) -> String {
+    obj.props
+        .get("textColor")
+        .and_then(|v| v.as_str())
+        .or_else(|| obj.props.get("color").and_then(|v| v.as_str()))
+        .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
+        .map(|s| normalize_hex_color(s.to_owned(), "#1F1A17"))
+        .unwrap_or_else(|| "#1F1A17".to_owned())
+}
+
+#[cfg(feature = "hydrate")]
+fn object_font_size(obj: &crate::net::types::BoardObject) -> f64 {
+    obj.props
+        .get("fontSize")
+        .and_then(value_as_f64)
+        .unwrap_or(24.0)
+        .clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
+}
+
+#[cfg(feature = "hydrate")]
 fn selection_representative_rotation_deg(board: RwSignal<BoardState>) -> f64 {
     let state = board.get();
     let mut sum_x = 0.0_f64;
@@ -3557,7 +3998,8 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
             56.0,
             serde_json::json!({
                 "text": "Text",
-                "fontSize": 24
+                "fontSize": 24,
+                "textColor": "#1F1A17"
             }),
         )),
         _ => None,
