@@ -1,112 +1,135 @@
-//! Semi-transparent overlay label displayed on the canvas area.
+//! Top-right canvas minimap overlay.
 //!
 //! SYSTEM CONTEXT
 //! ==============
-//! Provides persistent board identity in the drawing viewport without affecting
-//! interactive canvas hit-testing.
+//! Renders a scaled view of board world objects and highlights current viewport
+//! bounds using camera telemetry from `CanvasViewState`.
 
 use leptos::prelude::*;
 
+#[cfg(feature = "hydrate")]
 use crate::state::board::BoardState;
+#[cfg(feature = "hydrate")]
+use crate::state::canvas_view::CanvasViewState;
 
-/// Board stamp — semi-transparent overlay showing board name and stats.
+#[cfg(feature = "hydrate")]
+use wasm_bindgen::JsCast;
+
+/// Board minimap overlay.
 #[component]
 pub fn BoardStamp() -> impl IntoView {
+    #[cfg(feature = "hydrate")]
     let board = expect_context::<RwSignal<BoardState>>();
+    #[cfg(feature = "hydrate")]
+    let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
+    let minimap_ref = NodeRef::<leptos::html::Canvas>::new();
 
-    let board_name = move || {
-        board
-            .get()
-            .board_name
-            .unwrap_or_else(|| "Untitled".to_owned())
-    };
-    let object_count = move || board.get().objects.len();
-    let users = move || {
-        let state = board.get();
-        let self_client_id = state.self_client_id.unwrap_or_default();
-        let mut rows = state
-            .presence
-            .values()
-            .filter(|p| p.client_id != self_client_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        rows.sort_by(|a, b| {
-            a.name
-                .cmp(&b.name)
-                .then_with(|| a.client_id.cmp(&b.client_id))
+    #[cfg(feature = "hydrate")]
+    {
+        let minimap_ref = minimap_ref.clone();
+        Effect::new(move || {
+            let objects = board.get().objects.values().cloned().collect::<Vec<_>>();
+            let view = canvas_view.get();
+            let Some(canvas) = minimap_ref.get() else {
+                return;
+            };
+            draw_minimap(&canvas, &objects, &view);
         });
-        rows
-    };
+    }
 
     view! {
-        <div class="board-stamp">
-            <span class="board-stamp__name">{board_name}</span>
-            <span class="board-stamp__count">{move || format!("{} objects", object_count())}</span>
-            <div class="board-stamp__users">
-                {move || {
-                    users()
-                        .into_iter()
-                        .map(|p| {
-                            let client_id = p.client_id.clone();
-                            let is_self = board.get().self_client_id.as_deref() == Some(client_id.as_str());
-                            let follow_client_for_class = client_id.clone();
-                            let follow_client_for_title = client_id.clone();
-                            view! {
-                                <div class="board-stamp__user-row">
-                                    <span class="board-stamp__user-color" style:background=p.color.clone()></span>
-                                    <button
-                                        class="board-stamp__user-name"
-                                        title=p.client_id.clone()
-                                        on:click={
-                                            let client_id = client_id.clone();
-                                            move |_| {
-                                                board.update(|b| b.jump_to_client_id = Some(client_id.clone()));
-                                            }
-                                        }
-                                    >
-                                        {p.name}
-                                    </button>
-                                    <span class="board-stamp__user-actions">
-                                        <button
-                                            class="board-stamp__follow-btn"
-                                            class:board-stamp__follow-btn--active=move || board.get().follow_client_id.as_deref() == Some(follow_client_for_class.as_str())
-                                            title=move || if is_self {
-                                                "Cannot follow your own camera"
-                                            } else if board.get().follow_client_id.as_deref() == Some(follow_client_for_title.as_str()) {
-                                                "Disable follow camera"
-                                            } else {
-                                                "Follow camera"
-                                            }
-                                            disabled=is_self
-                                            on:click={
-                                                let client_id = client_id.clone();
-                                                move |_| {
-                                                    board.update(|b| {
-                                                        if b.follow_client_id.as_deref() == Some(client_id.as_str()) {
-                                                            b.follow_client_id = None;
-                                                            if b.jump_to_client_id.as_deref() == Some(client_id.as_str()) {
-                                                                b.jump_to_client_id = None;
-                                                            }
-                                                        } else {
-                                                            b.follow_client_id = Some(client_id.clone());
-                                                            b.jump_to_client_id = Some(client_id.clone());
-                                                        }
-                                                    });
-                                                }
-                                            }
-                                        >
-                                            <svg viewBox="0 0 20 20" aria-hidden="true">
-                                                <circle cx="10" cy="10" r="5.5"></circle>
-                                                <circle cx="10" cy="10" r="1.5"></circle>
-                                            </svg>
-                                        </button>
-                                    </span>
-                                </div>
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                }}
-            </div>
-        </div>
+        <canvas class="board-stamp__minimap" node_ref=minimap_ref aria-label="Board minimap"></canvas>
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn draw_minimap(
+    canvas: &web_sys::HtmlCanvasElement,
+    objects: &[crate::net::types::BoardObject],
+    view: &CanvasViewState,
+) {
+    let width_css = f64::from(canvas.client_width().max(1));
+    let height_css = f64::from(canvas.client_height().max(1));
+    if canvas.width() != width_css.round() as u32 || canvas.height() != height_css.round() as u32 {
+        canvas.set_width(width_css.round() as u32);
+        canvas.set_height(height_css.round() as u32);
+    }
+
+    let Some(ctx_value) = canvas.get_context("2d").ok().flatten() else {
+        return;
+    };
+    let Some(ctx) = ctx_value.dyn_into::<web_sys::CanvasRenderingContext2d>().ok() else {
+        return;
+    };
+
+    ctx.set_fill_style_str("#f6f1e7");
+    ctx.fill_rect(0.0, 0.0, width_css, height_css);
+    ctx.set_stroke_style_str("#cec3b4");
+    ctx.stroke_rect(0.5, 0.5, (width_css - 1.0).max(0.0), (height_css - 1.0).max(0.0));
+
+    let viewport_w_world = (view.viewport_width / view.zoom.max(0.001)).max(10.0);
+    let viewport_h_world = (view.viewport_height / view.zoom.max(0.001)).max(10.0);
+    let viewport_x = view.camera_center_world.x - (viewport_w_world * 0.5);
+    let viewport_y = view.camera_center_world.y - (viewport_h_world * 0.5);
+
+    let mut min_x = viewport_x;
+    let mut min_y = viewport_y;
+    let mut max_x = viewport_x + viewport_w_world;
+    let mut max_y = viewport_y + viewport_h_world;
+
+    for obj in objects {
+        let (x, y, w, h) = object_world_rect(obj);
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x + w);
+        max_y = max_y.max(y + h);
+    }
+
+    let world_w = (max_x - min_x).max(1.0);
+    let world_h = (max_y - min_y).max(1.0);
+    let pad = 8.0;
+    let inner_w = (width_css - (pad * 2.0)).max(1.0);
+    let inner_h = (height_css - (pad * 2.0)).max(1.0);
+    let scale = (inner_w / world_w).min(inner_h / world_h);
+    let offset_x = pad + ((inner_w - (world_w * scale)) * 0.5);
+    let offset_y = pad + ((inner_h - (world_h * scale)) * 0.5);
+    let world_to_canvas = |x: f64, y: f64| -> (f64, f64) {
+        (offset_x + ((x - min_x) * scale), offset_y + ((y - min_y) * scale))
+    };
+
+    for obj in objects {
+        let (x, y, w, h) = object_world_rect(obj);
+        let (cx, cy) = world_to_canvas(x, y);
+        let cw = (w * scale).max(1.0);
+        let ch = (h * scale).max(1.0);
+        let fill = object_fill_color(obj);
+        ctx.set_fill_style_str(fill.as_str());
+        ctx.fill_rect(cx, cy, cw, ch);
+        ctx.set_stroke_style_str("#3d3428");
+        ctx.stroke_rect(cx, cy, cw, ch);
+    }
+
+    let (vx, vy) = world_to_canvas(viewport_x, viewport_y);
+    let vw = (viewport_w_world * scale).max(1.0);
+    let vh = (viewport_h_world * scale).max(1.0);
+    ctx.set_stroke_style_str("#8b4049");
+    ctx.set_line_width(1.5);
+    ctx.stroke_rect(vx, vy, vw, vh);
+}
+
+#[cfg(feature = "hydrate")]
+fn object_world_rect(obj: &crate::net::types::BoardObject) -> (f64, f64, f64, f64) {
+    let w = obj.width.unwrap_or(120.0).max(2.0);
+    let h = obj.height.unwrap_or(80.0).max(2.0);
+    (obj.x, obj.y, w, h)
+}
+
+#[cfg(feature = "hydrate")]
+fn object_fill_color(obj: &crate::net::types::BoardObject) -> String {
+    obj.props
+        .get("backgroundColor")
+        .or_else(|| obj.props.get("fill"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("#b8c5b0")
+        .to_owned()
 }

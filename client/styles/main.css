@@ -2599,119 +2599,21 @@ a:hover {
 
 /* Board stamp */
 .board-stamp {
+    display: contents;
+}
+
+.board-stamp__minimap {
     position: absolute;
     top: var(--space-md);
     right: var(--canvas-overlay-right-offset);
     z-index: var(--z-canvas-ui);
-    min-width: 0;
-    width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
-    padding: var(--space-sm) var(--space-md);
-    opacity: 0.75;
-    pointer-events: auto;
-    display: grid;
-    gap: 4px;
-}
-
-.board-stamp::before {
-    content: "Station Log";
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-secondary);
-    margin-bottom: var(--space-xs);
-}
-
-.board-stamp__name {
-    font-family: var(--font-script);
-    font-size: 24px;
-    line-height: 1.1;
-    color: var(--text-primary);
-}
-
-.board-stamp__count {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-secondary);
-}
-
-.board-stamp__users {
-    display: grid;
-    gap: 4px;
-    margin-top: var(--space-xs);
-}
-
-.board-stamp__user-row {
-    display: grid;
-    grid-template-columns: 10px minmax(0, 1fr) 52px;
-    align-items: center;
-    gap: var(--space-xs);
-    min-height: 16px;
-}
-
-.board-stamp__user-color {
-    width: 10px;
-    height: 10px;
-}
-
-.board-stamp__user-name {
-    border: none;
+    pointer-events: none;
+    opacity: 0.9;
+    width: min(240px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
+    height: 140px;
+    display: block;
+    border: 0;
     background: transparent;
-    padding: 0;
-    text-align: left;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.board-stamp__user-actions {
-    width: 52px;
-    height: 14px;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-.board-stamp__follow-btn {
-    border: 1px solid var(--border-default);
-    background: transparent;
-    color: var(--text-secondary);
-    width: 18px;
-    height: 16px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.board-stamp__follow-btn svg {
-    width: 12px;
-    height: 12px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.7;
-}
-
-.board-stamp__follow-btn:disabled {
-    opacity: 0.25;
-    cursor: not-allowed;
-}
-
-.board-stamp__follow-btn--active {
-    color: var(--accent-green);
-    border-color: var(--accent-green);
 }
 
 
@@ -2903,7 +2805,7 @@ a:hover {
         height: 100%;
     }
 
-    .board-stamp {
+    .board-stamp__minimap {
         width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
     }
 
