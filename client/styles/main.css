@@ -725,30 +725,67 @@ a:hover {
 .board-page__prompt-preview {
     width: 100%;
     margin-bottom: 6px;
-    padding: 0 var(--space-sm);
-    min-height: 16px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 16px;
-    color: color-mix(in oklab, var(--text-primary) 70%, var(--accent-highlight));
-    background: color-mix(in oklab, var(--accent-highlight) 10%, transparent);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .board-page__prompt-preview--empty {
     display: none;
 }
 
-.board-page__prompt-preview--assistant {
-    color: color-mix(in oklab, var(--accent-highlight) 65%, var(--text-primary));
-    background: color-mix(in oklab, var(--accent-highlight) 14%, transparent);
+.board-page__prompt-preview-row {
+    width: 100%;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 16px;
+    color: color-mix(in oklab, var(--text-primary) 74%, var(--text-secondary));
+    background: transparent;
 }
 
-.board-page__prompt-preview--error {
+.board-page__prompt-preview-row--user {
+    color: color-mix(in oklab, var(--text-primary) 72%, var(--text-secondary));
+}
+
+.board-page__prompt-preview-row--assistant {
+    color: color-mix(in oklab, var(--text-primary) 70%, var(--text-secondary));
+}
+
+.board-page__prompt-preview-row--error {
     color: var(--accent-error);
-    background: color-mix(in oklab, var(--accent-error) 14%, transparent);
+}
+
+.board-page__prompt-preview-row--empty {
+    display: none;
+}
+
+.board-page__prompt-preview-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    color: var(--accent-highlight);
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.6;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.board-page__prompt-preview-row--error .board-page__prompt-preview-icon {
+    color: var(--accent-error);
+}
+
+.board-page__prompt-preview-text {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .board-page__input-line {

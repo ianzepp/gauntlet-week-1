@@ -75,14 +75,6 @@ enum PromptBarStatus {
     Error,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-enum PromptPreviewRole {
-    #[default]
-    User,
-    Assistant,
-    Error,
-}
-
 /// Board page — composes toolbar, panels, canvas placeholder, and status bar
 /// in a CSS grid layout. Reads the board ID from the route parameter and
 /// updates `BoardState` on mount.
@@ -99,8 +91,9 @@ pub fn BoardPage() -> impl IntoView {
     let prompt_input = RwSignal::new(String::new());
     let prompt_status = RwSignal::new(PromptBarStatus::Idle);
     let pending_message_start = RwSignal::new(None::<usize>);
-    let prompt_preview = RwSignal::new(String::new());
-    let prompt_preview_role = RwSignal::new(PromptPreviewRole::User);
+    let prompt_preview_user = RwSignal::new(String::new());
+    let prompt_preview_assistant = RwSignal::new(String::new());
+    let prompt_preview_assistant_error = RwSignal::new(false);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
@@ -202,12 +195,8 @@ pub fn BoardPage() -> impl IntoView {
         if let Some(reply) = ai_state.messages.iter().skip(start_idx).rev().find(|msg| {
             msg.role == "assistant" || msg.role == "error"
         }) {
-            prompt_preview.set(reply.content.clone());
-            prompt_preview_role.set(if reply.role == "error" {
-                PromptPreviewRole::Error
-            } else {
-                PromptPreviewRole::Assistant
-            });
+            prompt_preview_assistant.set(reply.content.clone());
+            prompt_preview_assistant_error.set(reply.role == "error");
         }
         prompt_status.set(if has_error {
             PromptBarStatus::Error
@@ -237,8 +226,9 @@ pub fn BoardPage() -> impl IntoView {
         };
 
         prompt_status.set(PromptBarStatus::Loading);
-        prompt_preview.set(prompt.clone());
-        prompt_preview_role.set(PromptPreviewRole::User);
+        prompt_preview_user.set(prompt.clone());
+        prompt_preview_assistant.set(String::new());
+        prompt_preview_assistant_error.set(false);
         if sender.get().send(&frame) {
             let start_idx = ai.get_untracked().messages.len();
             ai.update(|a| {
@@ -264,6 +254,8 @@ pub fn BoardPage() -> impl IntoView {
                 });
                 a.loading = false;
             });
+            prompt_preview_assistant.set("AI request failed: not connected".to_owned());
+            prompt_preview_assistant_error.set(true);
             prompt_status.set(PromptBarStatus::Error);
             pending_message_start.set(None);
         }
@@ -308,11 +300,33 @@ pub fn BoardPage() -> impl IntoView {
                         <div class="board-page__prompt-bar">
                             <div
                                 class="board-page__prompt-preview"
-                                class:board-page__prompt-preview--empty=move || prompt_preview.get().is_empty()
-                                class:board-page__prompt-preview--assistant=move || prompt_preview_role.get() == PromptPreviewRole::Assistant
-                                class:board-page__prompt-preview--error=move || prompt_preview_role.get() == PromptPreviewRole::Error
+                                class:board-page__prompt-preview--empty=move || {
+                                    prompt_preview_user.get().is_empty() && prompt_preview_assistant.get().is_empty()
+                                }
                             >
-                                {move || prompt_preview.get()}
+                                <div
+                                    class="board-page__prompt-preview-row board-page__prompt-preview-row--user"
+                                    class:board-page__prompt-preview-row--empty=move || prompt_preview_user.get().is_empty()
+                                >
+                                    <svg class="board-page__prompt-preview-icon" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path d="M3 10 H14"></path>
+                                        <path d="M14 6 L18 10 L14 14"></path>
+                                        <path d="M18 4 V16"></path>
+                                    </svg>
+                                    <span class="board-page__prompt-preview-text">{move || prompt_preview_user.get()}</span>
+                                </div>
+                                <div
+                                    class="board-page__prompt-preview-row board-page__prompt-preview-row--assistant"
+                                    class:board-page__prompt-preview-row--empty=move || prompt_preview_assistant.get().is_empty()
+                                    class:board-page__prompt-preview-row--error=move || prompt_preview_assistant_error.get()
+                                >
+                                    <svg class="board-page__prompt-preview-icon" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path d="M17 10 H6"></path>
+                                        <path d="M6 6 L2 10 L6 14"></path>
+                                        <path d="M2 4 V16"></path>
+                                    </svg>
+                                    <span class="board-page__prompt-preview-text">{move || prompt_preview_assistant.get()}</span>
+                                </div>
                             </div>
                             <div class="board-page__input-row">
                                 <input
