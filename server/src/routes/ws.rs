@@ -1216,10 +1216,11 @@ async fn handle_ai(
                 grid_context.as_deref(),
                 Some(req.id),
             )
-                .await
+            .await
             {
                 Ok(result) => {
-                    broadcast_ai_mutations(state, board_id, user_id, Some(req.id), Some(req.id), &result.mutations).await;
+                    broadcast_ai_mutations(state, board_id, user_id, Some(req.id), Some(req.id), &result.mutations)
+                        .await;
 
                     let mut data = Data::new();
                     data.insert("prompt".into(), serde_json::json!(prompt));

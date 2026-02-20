@@ -52,7 +52,12 @@ pub fn BoardStamp() -> impl IntoView {
                 let Some(canvas) = minimap_ref.get() else {
                     return;
                 };
-                let objects = board.get_untracked().objects.values().cloned().collect::<Vec<_>>();
+                let objects = board
+                    .get_untracked()
+                    .objects
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let view = canvas_view.get_untracked();
                 let Some((center_x, center_y)) = minimap_pointer_to_world_center(&canvas, &objects, &view, &ev) else {
                     return;
@@ -82,7 +87,12 @@ pub fn BoardStamp() -> impl IntoView {
                 let Some(canvas) = minimap_ref.get() else {
                     return;
                 };
-                let objects = board.get_untracked().objects.values().cloned().collect::<Vec<_>>();
+                let objects = board
+                    .get_untracked()
+                    .objects
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let view = canvas_view.get_untracked();
                 let Some((center_x, center_y)) = minimap_pointer_to_world_center(&canvas, &objects, &view, &ev) else {
                     return;
@@ -135,7 +145,10 @@ fn draw_minimap(
     let Some(ctx_value) = canvas.get_context("2d").ok().flatten() else {
         return;
     };
-    let Some(ctx) = ctx_value.dyn_into::<web_sys::CanvasRenderingContext2d>().ok() else {
+    let Some(ctx) = ctx_value
+        .dyn_into::<web_sys::CanvasRenderingContext2d>()
+        .ok()
+    else {
         return;
     };
 

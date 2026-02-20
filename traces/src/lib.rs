@@ -93,10 +93,12 @@ impl Default for TraceFilter {
 impl TraceFilter {
     #[must_use]
     pub fn include_all() -> Self {
-        let include_prefixes = ["board", "object", "ai", "tool", "chat", "cursor", "save", "other"]
-            .into_iter()
-            .map(str::to_owned)
-            .collect::<BTreeSet<_>>();
+        let include_prefixes = [
+            "board", "object", "ai", "tool", "chat", "cursor", "save", "other",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
         let include_statuses = [
             Status::Request,
             Status::Done,

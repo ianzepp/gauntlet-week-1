@@ -60,7 +60,10 @@ pub fn RightPanel() -> impl IntoView {
         drag_start_width.set(ui.get().right_panel_width);
         #[cfg(feature = "hydrate")]
         {
-            if let Some(target) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) {
+            if let Some(target) = ev
+                .target()
+                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+            {
                 let _ = target.set_pointer_capture(ev.pointer_id());
             }
         }

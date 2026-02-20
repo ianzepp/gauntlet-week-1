@@ -312,11 +312,9 @@ pub async fn handle_prompt_with_parent(
         );
 
         // Record token usage for budget tracking.
-        state.rate_limiter.record_tokens(
-            client_id,
-            total_tokens,
-            token_reservation,
-        );
+        state
+            .rate_limiter
+            .record_tokens(client_id, total_tokens, token_reservation);
 
         // Collect text blocks.
         let text_parts: Vec<&str> = response
@@ -787,8 +785,7 @@ async fn execute_create_shape(
     let h = input.get("height").and_then(serde_json::Value::as_f64);
     let default_w = if kind == "text" { 220.0 } else { 160.0 };
     let default_h = if kind == "text" { 56.0 } else { 100.0 };
-    let mut obj =
-        super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None).await?;
+    let mut obj = super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None).await?;
 
     // Update the in-memory object with dimensions.
     if obj.width.is_some() || obj.height.is_some() || kind == "text" {

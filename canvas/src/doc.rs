@@ -200,11 +200,7 @@ fn contrast_text_color(fill: &str) -> &'static str {
     if let Some((r, g, b)) = parse_css_rgb(fill) {
         // Relative luminance in linear RGB.
         let l = relative_luminance(r, g, b);
-        if l < 0.42 {
-            "#F5F0E8"
-        } else {
-            "#1F1A17"
-        }
+        if l < 0.42 { "#F5F0E8" } else { "#1F1A17" }
     } else {
         "#1F1A17"
     }

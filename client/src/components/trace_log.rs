@@ -73,11 +73,7 @@ fn status_rank(status_mod: &str) -> u8 {
 /// When a session root is selected, children directly under that root are
 /// rendered as top-level rows (depth 0) so the log does not visually indent
 /// every row under the hidden/root frame.
-fn display_depth(
-    frame_id: &str,
-    by_id: &HashMap<String, frames::Frame>,
-    selected_session_id: Option<&str>,
-) -> usize {
+fn display_depth(frame_id: &str, by_id: &HashMap<String, frames::Frame>, selected_session_id: Option<&str>) -> usize {
     let Some(session_root_id) = selected_session_id else {
         return traces::tree_depth(frame_id, by_id);
     };
