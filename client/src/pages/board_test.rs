@@ -1,4 +1,5 @@
 use super::*;
+use crate::net::types::FrameStatus;
 
 #[test]
 fn reset_board_for_route_change_preserves_client_identity() {
