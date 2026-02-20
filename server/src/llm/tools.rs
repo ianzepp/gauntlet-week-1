@@ -9,12 +9,38 @@
 
 use super::types::Tool;
 
+/// Temporary switch: force the model to emit YAML mutation plans only.
+/// Set to `false` to restore the full legacy tool surface.
+const YAML_ONLY_MODE: bool = true;
+
+fn apply_changes_yaml_tool() -> Tool {
+    Tool {
+        name: "applyChangesYaml".into(),
+        description: "Apply a YAML mutation plan with create/update/delete blocks in one call.".into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "yaml": { "type": "string", "description": "YAML document containing a top-level `changes` map" }
+            },
+            "required": ["yaml"]
+        }),
+    }
+}
+
 /// Build the set of tools available to the `CollabBoard` AI agent.
 ///
 /// Returns the standard board tools plus convenience orchestration helpers.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn gauntlet_week_1_tools() -> Vec<Tool> {
+    if YAML_ONLY_MODE {
+        return vec![apply_changes_yaml_tool()];
+    }
+    legacy_tools()
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines)]
+fn legacy_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "batch".into(),
