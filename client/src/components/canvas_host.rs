@@ -42,6 +42,30 @@ struct SelectionRotationDragState {
     start_rotations: Vec<(String, f64)>,
 }
 
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionScaleSeed {
+    id: String,
+    board_id: String,
+    version: i64,
+    base_width: f64,
+    base_height: f64,
+    start_scale: f64,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionScaleDragState {
+    start_items: Vec<SelectionScaleSeed>,
+    group_center_x: f64,
+    group_center_y: f64,
+    start_group_scale: f64,
+}
+
 /// Canvas host component.
 ///
 /// On hydration, this mounts `canvas::engine::Engine`, synchronizes board
@@ -58,10 +82,14 @@ pub fn CanvasHost() -> impl IntoView {
     let _compass_drag_active = RwSignal::new(false);
     let zoom_ref = NodeRef::<leptos::html::Div>::new();
     let _zoom_drag_active = RwSignal::new(false);
+    let object_zoom_ref = NodeRef::<leptos::html::Div>::new();
+    let _object_zoom_drag_active = RwSignal::new(false);
     let object_rotate_ref = NodeRef::<leptos::html::Div>::new();
     let _object_rotate_drag_active = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let object_rotate_drag_state = RwSignal::new(None::<SelectionRotationDragState>);
+    #[cfg(feature = "hydrate")]
+    let object_zoom_drag_state = RwSignal::new(None::<SelectionScaleDragState>);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -1001,6 +1029,88 @@ pub fn CanvasHost() -> impl IntoView {
         ev.stop_propagation();
     };
 
+    let on_object_zoom_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_zoom_ref = object_zoom_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if pointer_event_hits_control(&ev, ".canvas-zoom-wheel__marker, .canvas-zoom-wheel__readout") {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                if !has_selection(_board) {
+                    return;
+                }
+                let Some(dial) = object_zoom_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                let Some(drag_state) = selection_scale_seed(_board) else {
+                    return;
+                };
+                let _ = dial.set_pointer_capture(ev.pointer_id());
+                object_zoom_drag_state.set(Some(drag_state));
+                _object_zoom_drag_active.set(true);
+                apply_selection_scale_drag(_board, object_zoom_drag_state, zoom_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_zoom_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_zoom_ref = object_zoom_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if !_object_zoom_drag_active.get_untracked() {
+                    return;
+                }
+                let Some(dial) = object_zoom_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                apply_selection_scale_drag(_board, object_zoom_drag_state, zoom_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_zoom_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                _object_zoom_drag_active.set(false);
+                commit_selection_scale_updates(_board, _sender, object_zoom_drag_state);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_zoom_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+
+    let object_zoom_scale = move || selection_representative_scale_factor(_board);
+    let object_zoom_knob_style = move || {
+        let angle = dial_angle_from_zoom(object_zoom_scale());
+        format!("transform: rotate({angle:.2}deg);")
+    };
+
     let on_object_rotate_pointer_down = {
         #[cfg(feature = "hydrate")]
         {
@@ -1346,6 +1456,39 @@ pub fn CanvasHost() -> impl IntoView {
                 </Show>
             </div>
             <div
+                class="canvas-object-zoom"
+                class:canvas-object-zoom--disabled=move || !has_selected_objects()
+                node_ref=object_zoom_ref
+                title="Drag to scale selected object(s); top is neutral"
+                on:pointerdown=on_object_zoom_pointer_down
+                on:pointermove=on_object_zoom_pointer_move
+                on:pointerup=on_object_zoom_pointer_up.clone()
+                on:pointercancel=on_object_zoom_pointer_up.clone()
+                on:pointerleave=on_object_zoom_pointer_up
+            >
+                <button class="canvas-zoom-wheel__marker" title="100%">
+                    "1"
+                </button>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--se"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
+                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
+                {dial_center_button(
+                    "canvas-zoom-wheel__readout",
+                    "Click to reset selected object scale to 100%",
+                    on_object_zoom_readout_pointer_down,
+                    move |_ev| apply_group_scale_target(_board, _sender, 1.0),
+                    move |_ev| apply_group_scale_target(_board, _sender, 1.0),
+                    view! { {move || format!("{:.0}%", object_zoom_scale() * 100.0)} },
+                )}
+                <div class="canvas-zoom-wheel__knob-track" style=object_zoom_knob_style>
+                    <div class="canvas-object-zoom__knob"></div>
+                </div>
+            </div>
+            <div
                 class="canvas-object-rotate"
                 class:canvas-object-rotate--disabled=move || !has_selected_objects()
                 node_ref=object_rotate_ref
@@ -1544,6 +1687,11 @@ fn dial_angle_from_zoom(zoom: f64) -> f64 {
         .clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
 }
 
+#[cfg(not(feature = "hydrate"))]
+fn dial_angle_from_zoom(_zoom: f64) -> f64 {
+    0.0
+}
+
 #[cfg(feature = "hydrate")]
 fn zoom_from_dial_angle(angle: f64) -> f64 {
     (1.0 + (angle / 180.0)).clamp(0.1, 10.0)
@@ -1727,6 +1875,11 @@ fn pointer_event_hits_control(ev: &leptos::ev::PointerEvent, selector: &str) -> 
 }
 
 #[cfg(feature = "hydrate")]
+fn has_selection(board: RwSignal<BoardState>) -> bool {
+    !board.get_untracked().selection.is_empty()
+}
+
+#[cfg(feature = "hydrate")]
 fn selected_object_rotations(board: RwSignal<BoardState>) -> Vec<(String, f64)> {
     let state = board.get_untracked();
     state
@@ -1734,6 +1887,255 @@ fn selected_object_rotations(board: RwSignal<BoardState>) -> Vec<(String, f64)> 
         .iter()
         .filter_map(|id| state.objects.get(id).map(|obj| (id.clone(), obj.rotation)))
         .collect()
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_scale_seed(board: RwSignal<BoardState>) -> Option<SelectionScaleDragState> {
+    let state = board.get_untracked();
+    let mut items: Vec<SelectionScaleSeed> = Vec::new();
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        let width = obj.width.unwrap_or(120.0).max(1.0);
+        let height = obj.height.unwrap_or(80.0).max(1.0);
+        let (base_width, base_height, start_scale) = object_scale_components(obj, width, height);
+        let x = obj.x;
+        let y = obj.y;
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x + width);
+        max_y = max_y.max(y + height);
+        items.push(SelectionScaleSeed {
+            id: obj.id.clone(),
+            board_id: obj.board_id.clone(),
+            version: obj.version,
+            base_width,
+            base_height,
+            start_scale,
+            x,
+            y,
+            width,
+            height,
+        });
+    }
+    if items.is_empty() {
+        return None;
+    }
+    let start_group_scale = selection_representative_scale_from_items(&items);
+    Some(SelectionScaleDragState {
+        start_items: items,
+        group_center_x: (min_x + max_x) * 0.5,
+        group_center_y: (min_y + max_y) * 0.5,
+        start_group_scale,
+    })
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_selection_scale_drag(
+    board: RwSignal<BoardState>,
+    drag_state_signal: RwSignal<Option<SelectionScaleDragState>>,
+    target_scale: f64,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let target_scale = target_scale.clamp(0.1, 10.0);
+    let multiplier = if drag_state.start_group_scale.abs() < f64::EPSILON {
+        1.0
+    } else {
+        target_scale / drag_state.start_group_scale
+    };
+    board.update(|b| {
+        for seed in &drag_state.start_items {
+            let Some(obj) = b.objects.get_mut(&seed.id) else {
+                continue;
+            };
+            let start_cx = seed.x + (seed.width * 0.5);
+            let start_cy = seed.y + (seed.height * 0.5);
+            let next_scale = (seed.start_scale * multiplier).clamp(0.1, 10.0);
+            let new_w = (seed.base_width * next_scale).max(1.0);
+            let new_h = (seed.base_height * next_scale).max(1.0);
+            let new_cx = drag_state.group_center_x + ((start_cx - drag_state.group_center_x) * multiplier);
+            let new_cy = drag_state.group_center_y + ((start_cy - drag_state.group_center_y) * multiplier);
+            obj.width = Some(new_w);
+            obj.height = Some(new_h);
+            obj.x = new_cx - (new_w * 0.5);
+            obj.y = new_cy - (new_h * 0.5);
+            upsert_object_scale_props(obj, next_scale, seed.base_width, seed.base_height);
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn commit_selection_scale_updates(
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+    drag_state_signal: RwSignal<Option<SelectionScaleDragState>>,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let state = board.get_untracked();
+    for seed in &drag_state.start_items {
+        let Some(obj) = state.objects.get(&seed.id) else {
+            continue;
+        };
+        let changed = (obj.x - seed.x).abs() > 0.01
+            || (obj.y - seed.y).abs() > 0.01
+            || (obj.width.unwrap_or(seed.width) - seed.width).abs() > 0.01
+            || (obj.height.unwrap_or(seed.height) - seed.height).abs() > 0.01;
+        if !changed {
+            continue;
+        }
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(seed.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": seed.id,
+                "version": seed.version,
+                "x": obj.x,
+                "y": obj.y,
+                "width": obj.width.unwrap_or(seed.width),
+                "height": obj.height.unwrap_or(seed.height),
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+    drag_state_signal.set(None);
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_scale_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, target_scale: f64) {
+    let target_scale = target_scale.clamp(0.1, 10.0);
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            let width = obj.width.unwrap_or(120.0).max(1.0);
+            let height = obj.height.unwrap_or(80.0).max(1.0);
+            let (base_width, base_height, _current_scale) = object_scale_components(obj, width, height);
+            let cx = obj.x + (width * 0.5);
+            let cy = obj.y + (height * 0.5);
+            let new_w = (base_width * target_scale).max(1.0);
+            let new_h = (base_height * target_scale).max(1.0);
+            obj.width = Some(new_w);
+            obj.height = Some(new_h);
+            obj.x = cx - (new_w * 0.5);
+            obj.y = cy - (new_h * 0.5);
+            upsert_object_scale_props(obj, target_scale, base_width, base_height);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "x": obj.x,
+                "y": obj.y,
+                "width": obj.width.unwrap_or(120.0),
+                "height": obj.height.unwrap_or(80.0),
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn apply_group_scale_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _target_scale: f64) {}
+
+#[cfg(feature = "hydrate")]
+fn object_scale_components(obj: &crate::net::types::BoardObject, width: f64, height: f64) -> (f64, f64, f64) {
+    let base_width = obj
+        .props
+        .get("baseWidth")
+        .and_then(value_as_f64)
+        .unwrap_or(width)
+        .max(1.0);
+    let base_height = obj
+        .props
+        .get("baseHeight")
+        .and_then(value_as_f64)
+        .unwrap_or(height)
+        .max(1.0);
+    let scale = obj
+        .props
+        .get("scale")
+        .and_then(value_as_f64)
+        .unwrap_or_else(|| (width / base_width).clamp(0.1, 10.0))
+        .clamp(0.1, 10.0);
+    (base_width, base_height, scale)
+}
+
+#[cfg(feature = "hydrate")]
+fn upsert_object_scale_props(obj: &mut crate::net::types::BoardObject, scale: f64, base_width: f64, base_height: f64) {
+    if !obj.props.is_object() {
+        obj.props = serde_json::json!({});
+    }
+    if let Some(map) = obj.props.as_object_mut() {
+        map.insert("scale".to_owned(), serde_json::json!(scale));
+        map.insert("baseWidth".to_owned(), serde_json::json!(base_width));
+        map.insert("baseHeight".to_owned(), serde_json::json!(base_height));
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn value_as_f64(v: &serde_json::Value) -> Option<f64> {
+    v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))
+}
+
+#[cfg(feature = "hydrate")]
+fn reset_scale_props_baseline(props: &mut serde_json::Value, width: f64, height: f64) {
+    if !props.is_object() {
+        *props = serde_json::json!({});
+    }
+    if let Some(map) = props.as_object_mut() {
+        map.insert("scale".to_owned(), serde_json::Value::Null);
+        map.insert("baseWidth".to_owned(), serde_json::json!(width.max(1.0)));
+        map.insert("baseHeight".to_owned(), serde_json::json!(height.max(1.0)));
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn reset_wire_object_scale_baseline(obj: &mut crate::net::types::BoardObject) {
+    let width = obj.width.unwrap_or(120.0).max(1.0);
+    let height = obj.height.unwrap_or(80.0).max(1.0);
+    reset_scale_props_baseline(&mut obj.props, width, height);
 }
 
 #[cfg(feature = "hydrate")]
@@ -1760,6 +2162,38 @@ fn selection_representative_rotation_deg(board: RwSignal<BoardState>) -> f64 {
 #[cfg(not(feature = "hydrate"))]
 fn selection_representative_rotation_deg(_board: RwSignal<BoardState>) -> f64 {
     0.0
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_scale_factor(board: RwSignal<BoardState>) -> f64 {
+    let state = board.get();
+    let mut scales: Vec<f64> = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        let width = obj.width.unwrap_or(120.0).max(1.0);
+        let height = obj.height.unwrap_or(80.0).max(1.0);
+        let (_base_w, _base_h, scale) = object_scale_components(obj, width, height);
+        scales.push(scale);
+    }
+    if scales.is_empty() {
+        return 1.0;
+    }
+    scales.iter().sum::<f64>() / scales.len() as f64
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_scale_factor(_board: RwSignal<BoardState>) -> f64 {
+    1.0
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_scale_from_items(items: &[SelectionScaleSeed]) -> f64 {
+    if items.is_empty() {
+        return 1.0;
+    }
+    items.iter().map(|s| s.start_scale).sum::<f64>() / items.len() as f64
 }
 
 #[cfg(feature = "hydrate")]
@@ -2496,9 +2930,13 @@ fn process_actions(
                 let Some(board_id) = board.get_untracked().board_id else {
                     continue;
                 };
+                let geometry_changed = fields.width.is_some() || fields.height.is_some();
                 if let Some(obj) = engine.object(&id)
-                    && let Some(local) = to_wire_object(obj, &board_id)
+                    && let Some(mut local) = to_wire_object(obj, &board_id)
                 {
+                    if geometry_changed {
+                        reset_wire_object_scale_baseline(&mut local);
+                    }
                     board.update(|b| {
                         b.objects.insert(local.id.clone(), local);
                     });
@@ -2525,6 +2963,13 @@ fn process_actions(
                     data.insert("z_index".to_owned(), serde_json::json!(z));
                 }
                 if let Some(props) = fields.props {
+                    data.insert("props".to_owned(), props);
+                }
+                if geometry_changed
+                    && let Some(obj) = engine.object(&id)
+                {
+                    let mut props = obj.props.clone();
+                    reset_scale_props_baseline(&mut props, obj.width, obj.height);
                     data.insert("props".to_owned(), props);
                 }
                 if let Some(obj) = engine.object(&id) {
