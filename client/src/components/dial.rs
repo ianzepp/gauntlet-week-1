@@ -151,13 +151,14 @@ where
     }
 }
 
-/// Shared zoom dial with marker, ticks, and center readout.
+/// Shared zoom dial with ticks, center readout, and reset button.
 #[component]
-pub fn ZoomDial<PD, PM, PU, RPD, RC, RD>(
+pub fn ZoomDial<PD, PM, PU, RPD, RC, RD, RS>(
     #[prop(into)] class: String,
     #[prop(into)] disabled_class: String,
     #[prop(into)] title: String,
     #[prop(into)] readout_title: String,
+    #[prop(into)] reset_title: String,
     #[prop(into)] knob_class: String,
     #[prop(optional)] node_ref: NodeRef<leptos::html::Div>,
     disabled: Signal<bool>,
@@ -169,6 +170,7 @@ pub fn ZoomDial<PD, PM, PU, RPD, RC, RD>(
     on_readout_pointer_down: RPD,
     on_readout_click: RC,
     on_readout_dblclick: RD,
+    on_reset_click: RS,
 ) -> impl IntoView
 where
     PD: Fn(leptos::ev::PointerEvent) + Clone + 'static,
@@ -177,6 +179,7 @@ where
     RPD: Fn(leptos::ev::PointerEvent) + Clone + 'static,
     RC: Fn(leptos::ev::MouseEvent) + Clone + 'static,
     RD: Fn(leptos::ev::MouseEvent) + Clone + 'static,
+    RS: Fn(leptos::ev::MouseEvent) + Clone + 'static,
 {
     let root_class = move || {
         if disabled.get() {
@@ -185,7 +188,8 @@ where
             class.clone()
         }
     };
-    let on_marker_pointer_down = move |ev: leptos::ev::PointerEvent| {
+    let on_reset_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
         ev.stop_propagation();
     };
 
@@ -200,9 +204,6 @@ where
             on:pointercancel=on_pointer_up.clone()
             on:pointerleave=on_pointer_up
         >
-            <button class="canvas-zoom-wheel__marker" title="100%" on:pointerdown=on_marker_pointer_down>
-                "1"
-            </button>
             <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
             <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
             <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
@@ -210,6 +211,15 @@ where
             <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
             <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
             <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
+            <button
+                class="canvas-zoom-wheel__reset"
+                title=reset_title
+                on:pointerdown=on_reset_pointer_down
+                on:click=on_reset_click
+                disabled=move || disabled.get()
+            >
+                "↺"
+            </button>
             {dial_center_button(
                 "canvas-zoom-wheel__readout".to_owned(),
                 readout_title.clone(),

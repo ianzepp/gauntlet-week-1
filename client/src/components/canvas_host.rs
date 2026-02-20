@@ -1435,7 +1435,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             let object_zoom_ref = object_zoom_ref.clone();
             move |ev: leptos::ev::PointerEvent| {
-                if pointer_event_hits_control(&ev, ".canvas-zoom-wheel__marker, .canvas-zoom-wheel__readout") {
+                if pointer_event_hits_control(&ev, ".canvas-zoom-wheel__readout, .canvas-zoom-wheel__reset") {
                     return;
                 }
                 ev.prevent_default();
@@ -1868,6 +1868,7 @@ pub fn CanvasHost() -> impl IntoView {
                 disabled_class="canvas-object-zoom--disabled"
                 title="Drag to scale selected object(s); top is neutral"
                 readout_title="Click to reset selected object scale to 100%"
+                reset_title="Reset selected object scale to 100%"
                 knob_class="canvas-object-zoom__knob"
                 node_ref=object_zoom_ref
                 disabled=Signal::derive(move || !has_selected_objects())
@@ -1879,6 +1880,7 @@ pub fn CanvasHost() -> impl IntoView {
                 on_readout_pointer_down=on_object_zoom_readout_pointer_down
                 on_readout_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
                 on_readout_dblclick=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
+                on_reset_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
             />
             <CompassDial
                 class="canvas-object-rotate"
@@ -1927,6 +1929,7 @@ pub fn CanvasHost() -> impl IntoView {
                 disabled_class=""
                 title="Drag around dial to zoom"
                 readout_title="Click to reset zoom to 100%"
+                reset_title="Reset zoom to 100%"
                 knob_class="canvas-zoom-wheel__knob"
                 node_ref=zoom_ref
                 disabled=Signal::derive(|| false)
@@ -1937,7 +1940,8 @@ pub fn CanvasHost() -> impl IntoView {
                 on_pointer_up=on_zoom_pointer_up
                 on_readout_pointer_down=on_zoom_readout_pointer_down
                 on_readout_click=on_zoom_reset.clone()
-                on_readout_dblclick=on_zoom_reset
+                on_readout_dblclick=on_zoom_reset.clone()
+                on_reset_click=on_zoom_reset
             />
             <ColorDial
                 class="canvas-object-color"

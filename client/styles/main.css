@@ -668,9 +668,11 @@ a:hover {
 
 /* Board layout */
 .board-page {
-    --canvas-overlay-edge-offset: var(--space-md);
+    --canvas-overlay-edge-offset: calc(var(--space-md) + 18px);
     --canvas-overlay-left-offset: var(--canvas-overlay-edge-offset);
     --canvas-overlay-right-offset: var(--canvas-overlay-edge-offset);
+    --canvas-dial-size: 74px;
+    --canvas-dial-gap: calc(var(--space-md) + 4px);
     display: grid;
     grid-template-areas:
         "toolbar toolbar toolbar"
@@ -1030,8 +1032,8 @@ a:hover {
     position: absolute;
     right: var(--canvas-overlay-right-offset);
     bottom: var(--canvas-overlay-edge-offset);
-    width: 74px;
-    height: 74px;
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1039,14 +1041,15 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-object-rotate {
     position: absolute;
     left: var(--canvas-overlay-left-offset);
     bottom: var(--canvas-overlay-edge-offset);
-    width: 74px;
-    height: 74px;
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1054,6 +1057,7 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-object-rotate--disabled {
@@ -1064,9 +1068,9 @@ a:hover {
 .canvas-object-zoom {
     position: absolute;
     left: var(--canvas-overlay-left-offset);
-    bottom: calc(var(--canvas-overlay-edge-offset) + 74px + var(--space-sm));
-    width: 74px;
-    height: 74px;
+    bottom: calc(var(--canvas-overlay-edge-offset) + var(--canvas-dial-size) + var(--canvas-dial-gap));
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1074,6 +1078,7 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-object-zoom--disabled {
@@ -1085,8 +1090,8 @@ a:hover {
     position: absolute;
     left: var(--canvas-overlay-left-offset);
     top: var(--canvas-overlay-edge-offset);
-    width: 74px;
-    height: 74px;
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1094,6 +1099,7 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-object-color--disabled {
@@ -1104,9 +1110,9 @@ a:hover {
 .canvas-object-border {
     position: absolute;
     left: var(--canvas-overlay-left-offset);
-    top: calc(var(--canvas-overlay-edge-offset) + 74px + var(--space-sm));
-    width: 74px;
-    height: 74px;
+    top: calc(var(--canvas-overlay-edge-offset) + var(--canvas-dial-size) + var(--canvas-dial-gap));
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1114,6 +1120,7 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-object-border--disabled {
@@ -1124,9 +1131,9 @@ a:hover {
 .canvas-object-text-style {
     position: absolute;
     left: var(--canvas-overlay-left-offset);
-    top: calc(var(--canvas-overlay-edge-offset) + (74px + var(--space-sm)) * 2);
-    width: 74px;
-    height: 74px;
+    top: calc(var(--canvas-overlay-edge-offset) + (var(--canvas-dial-size) + var(--canvas-dial-gap)) * 2);
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1134,6 +1141,7 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-object-text-style--disabled {
@@ -1199,84 +1207,91 @@ a:hover {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    overflow: visible;
 }
 
 .canvas-compass__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: var(--accent-error);
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-object-rotate__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: var(--accent-highlight);
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-object-zoom__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: var(--accent-green);
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-object-color__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: color-mix(in oklab, var(--accent-highlight) 60%, var(--accent-green));
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-object-border__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: var(--accent-error);
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-object-text-style__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: var(--accent-green);
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-color-dial__tick {
@@ -1301,8 +1316,8 @@ a:hover {
     position: absolute;
     left: 50%;
     top: calc(100% - 10px);
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     border: 1px solid var(--border-default);
     background: var(--bg-secondary);
     color: var(--text-secondary);
@@ -1377,9 +1392,9 @@ a:hover {
 .canvas-zoom-wheel {
     position: absolute;
     right: var(--canvas-overlay-right-offset);
-    bottom: calc(var(--canvas-overlay-edge-offset) + 74px + var(--space-sm));
-    width: 74px;
-    height: 74px;
+    bottom: calc(var(--canvas-overlay-edge-offset) + var(--canvas-dial-size) + var(--canvas-dial-gap));
+    width: var(--canvas-dial-size);
+    height: var(--canvas-dial-size);
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
@@ -1387,6 +1402,7 @@ a:hover {
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    overflow: visible;
 }
 
 .canvas-zoom-wheel__tick {
@@ -1407,23 +1423,24 @@ a:hover {
 .canvas-zoom-wheel__tick--w  { left: 10px; top: 50%; }
 .canvas-zoom-wheel__tick--nw { left: calc(50% - 19px); top: calc(50% - 19px); }
 
-.canvas-zoom-wheel__marker {
+.canvas-zoom-wheel__reset {
     position: absolute;
     left: 50%;
-    top: 10px;
-    width: 16px;
-    height: 16px;
+    top: calc(100% - 10px);
+    width: 20px;
+    height: 20px;
     border: 1px solid var(--border-default);
     background: var(--bg-secondary);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 8px;
+    font-size: 9px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transform: translate(-50%, -50%);
-    pointer-events: none;
+    pointer-events: auto;
+    padding: 0;
 }
 
 .canvas-zoom-wheel__readout {
@@ -1447,19 +1464,21 @@ a:hover {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    overflow: visible;
 }
 
 .canvas-zoom-wheel__knob {
     position: absolute;
     left: 50%;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
+    top: -12px;
+    width: 14px;
+    height: 14px;
     transform: translateX(-50%);
     background: var(--accent-green);
-    border: 1px solid var(--bg-primary);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .canvas-placement-ghost {
