@@ -43,4 +43,3 @@ pub(crate) async fn dispatch_tool_frame(
 
     Ok(ToolSyscallResult { content, done_data, mutations })
 }
-

@@ -1089,7 +1089,12 @@ fn allow_external_tool_syscalls() -> bool {
         .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
-async fn broadcast_ai_mutations(state: &AppState, board_id: Uuid, user_id: Uuid, mutations: &[services::ai::AiMutation]) {
+async fn broadcast_ai_mutations(
+    state: &AppState,
+    board_id: Uuid,
+    user_id: Uuid,
+    mutations: &[services::ai::AiMutation],
+) {
     for mutation in mutations {
         let (syscall, data) = match mutation {
             services::ai::AiMutation::Created(obj) => ("object:create", object_to_data(obj)),

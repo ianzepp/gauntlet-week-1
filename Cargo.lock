@@ -325,6 +325,7 @@ dependencies = [
  "pulldown-cmark",
  "serde",
  "serde_json",
+ "traces",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
