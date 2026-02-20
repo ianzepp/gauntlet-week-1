@@ -8,31 +8,36 @@ This is a one-week sprint project for [The Gauntlet](https://www.yourfirstclient
 
 ## What It Does
 
-**Draw together in real time.** Open a board, grab a tool, start sketching. Rectangles, ellipses, diamonds, stars, lines, arrows, sticky notes, frames that group objects — the usual whiteboard toolkit. Other users on the same board see every stroke as it happens.
+**Draw together in real time.** Open a board, grab a tool, start sketching. Rectangles, ellipses, diamonds, stars, lines, arrows, text elements, frames that group objects, and embedded YouTube tiles — the full whiteboard toolkit. Other users on the same board see every stroke as it happens.
 
 **Talk to the AI.** Type a prompt like "arrange these sticky notes in a grid" or "add a red diamond labeled URGENT." The AI reads your board state, decides which tools to call, and mutates objects directly. You watch it happen live.
 
 **Chat, follow, rewind.** Each board has persistent chat. You can follow another user's camera (pan, zoom, rotation sync) or jump to their viewport. Savepoints let you rewind the board to an earlier state.
+
+## Live Demo
+
+Deployed on Railway (as of 2026-02-20, URL may change):
+**https://gauntlet-week-1-production.up.railway.app/**
 
 ## Tech Stack
 
 - **Rust** end to end (edition 2024, compiled to WASM for the browser)
 - **Axum** 0.8 + **SQLx** 0.8 + **PostgreSQL**
 - **Leptos** 0.8 (SSR + WASM hydration — zero JavaScript runtime)
-- **Prost** for protobuf frame encoding
-- **GitHub OAuth** for auth, session cookies + one-time WS tickets
+- **Prost** 0.13 for protobuf frame encoding
+- **GitHub OAuth** + **email access codes** for auth, session cookies + one-time WS tickets
 - **Anthropic** or **OpenAI** for AI features (configurable)
 - **Docker Compose** for local development
 
 ## The Crates
 
-Five Rust crates in a Cargo workspace. Each one has a job.
+Six Rust crates in a Cargo workspace. Each one has a job.
 
 ---
 
 ### `server` — The Backend
 
-Axum HTTP server, WebSocket hub, and persistence layer. 37 source files, roughly half of which are dedicated test modules.
+Axum HTTP server, WebSocket hub, and persistence layer.
 
 **WebSocket dispatch** is the core of the server. Every message is a `Frame` (see the `frames` crate below), and the server routes by syscall prefix — `board:*`, `object:*`, `cursor:*`, `chat:*`, `ai:*`. Handler functions never touch the socket directly. Instead they return an `Outcome` enum — `Broadcast`, `Reply`, `ReplyStream`, `BroadcastExcludeSender`, and a few others — and a single dispatch layer decides who gets what. This keeps handlers pure and testable.
 
@@ -42,15 +47,15 @@ Axum HTTP server, WebSocket hub, and persistence layer. 37 source files, roughly
 
 **AI integration** runs a tool-call loop: snapshot the board, build a system prompt with all current objects inlined, then iterate up to 10 LLM turns. Nine tools — `createStickyNote`, `createShape`, `createFrame`, `createConnector`, `moveObject`, `resizeObject`, `updateText`, `changeColor`, `getBoardState` — let the AI read and mutate the board directly. Each mutation broadcasts to all peers in real time as it happens. Works with Anthropic (Claude) or OpenAI-compatible backends.
 
-**Auth** uses GitHub OAuth with session cookies. WebSocket upgrades require a single-use ticket consumed via `DELETE ... RETURNING` — the ticket row is gone after one use, so replay is impossible by construction.
+**Auth** supports two methods: GitHub OAuth and email access codes (6-character codes delivered via Resend or returned in the response for dev workflows). WebSocket upgrades require a single-use ticket consumed via `DELETE ... RETURNING` — the ticket row is gone after one use, so replay is impossible by construction.
 
 ---
 
 ### `client` — The Frontend
 
-A Leptos 0.8 application that renders on the server (SSR) and hydrates in the browser as a WASM binary. Pure Rust, no TypeScript, no JS framework. 46 source files across pages, components, state, and networking.
+A Leptos 0.8 application that renders on the server (SSR) and hydrates in the browser as a WASM binary. Pure Rust, no TypeScript, no JS framework.
 
-**Pages:** Dashboard (board grid with canvas-rendered preview thumbnails), Board (the workspace), Login (GitHub OAuth).
+**Pages:** Dashboard (board grid with canvas-rendered preview thumbnails), Board (the workspace), Login (GitHub OAuth + email).
 
 **State** flows through eight `RwSignal` contexts — auth, board objects, board list, UI preferences, chat, AI conversation, canvas telemetry, and the frame sender — provided at the app root so every component can subscribe without prop drilling.
 
@@ -64,15 +69,15 @@ A Leptos 0.8 application that renders on the server (SSR) and hydrates in the br
 
 ### `canvas` — The Engine
 
-A from-scratch 2D whiteboard engine. Compiles to native Rust for testing, compiles to WASM for the browser. 382 tests, zero browser dependencies in the core logic.
+A from-scratch 2D whiteboard engine. Compiles to native Rust for testing, compiles to WASM for the browser. Zero browser dependencies in the core logic.
 
-The key design decision: `EngineCore` contains all application logic — document mutations, camera math, gesture state transitions — with no dependency on `web-sys` or `wasm-bindgen`. The WASM `Engine` wrapper just holds an `HtmlCanvasElement`, forwards DOM events to `EngineCore`, and calls `render()`. This is why 382 tests run in a normal `cargo test` without a browser.
+The key design decision: `EngineCore` contains all application logic — document mutations, camera math, gesture state transitions — with no dependency on `web-sys` or `wasm-bindgen`. The WASM `Engine` wrapper just holds an `HtmlCanvasElement`, forwards DOM events to `EngineCore`, and calls `render()`. This is why the full test suite runs in a normal `cargo test` without a browser.
 
-**Document model** (`doc`). A `DocStore` backed by a `HashMap` of `BoardObject` entries with z-ordered iteration. Eight shape kinds: Rect, Ellipse, Diamond, Star, Line, Arrow, Frame (groups children), and Youtube (embedded video tile). `PartialBoardObject` supports sparse field updates with JSON-level prop merging.
+**Document model** (`doc`). A `DocStore` backed by a `HashMap` of `BoardObject` entries with z-ordered iteration. Nine shape kinds: Rect, Ellipse, Diamond, Star, Line, Arrow, Text, Frame (groups children), and Youtube (embedded video tile). `PartialBoardObject` supports sparse field updates with JSON-level prop merging.
 
 **Camera** (`camera`). An infinite canvas with pan, zoom (0.1x–10x), and viewport rotation. `screen_to_world` and `world_to_screen` handle the full rotation + scale + translation pipeline. Zoom-toward-cursor keeps the world point under the pointer fixed.
 
-**Hit testing** (`hit`). 101 dedicated geometry tests. Runs in two passes: selected-object handles first (resize anchors, rotation handle, edge endpoints), then all objects in reverse z-order. Each shape type has its own containment math — unit-circle test for ellipses, taxicab norm for diamonds, 10-vertex ray-cast for stars. All tests operate in local (rotation-cancelled) space.
+**Hit testing** (`hit`). Dedicated geometry tests. Runs in two passes: selected-object handles first (resize anchors, rotation handle, edge endpoints), then all objects in reverse z-order. Each shape type has its own containment math — unit-circle test for ellipses, taxicab norm for diamonds, 10-vertex ray-cast for stars. All tests operate in local (rotation-cancelled) space.
 
 **Input state machine** (`input` + `engine`). Seven gesture states: Idle, Panning, DraggingObject, DrawingShape, ResizingObject, RotatingObject, DraggingEdgeEndpoint. Pointer events drive transitions; the engine returns `Action` values — `ObjectCreated`, `ObjectUpdated`, `ObjectDeleted`, `EditTextRequested`, `SetCursor`, `RenderNeeded` — and the host decides what to do with them.
 
@@ -86,7 +91,15 @@ A small, shared crate that both `server` and `client` depend on. It defines one 
 
 A `Frame` carries an id, optional parent id, timestamp, board id, sender, syscall name, status, and a flexible `serde_json::Value` data payload. The status lifecycle is `Request → Item* → Done | Error | Cancel`, where `Item` enables streaming responses (e.g., `board:join` streams all existing objects as individual items before a final `Done` with the count).
 
-On the wire, frames are binary protobuf via Prost. The `data` field round-trips through a recursive `serde_json::Value ↔ prost_types::Value` conversion. 13 tests cover encoding round-trips, malformed input, edge cases like NaN normalization, and JSON serialization of status variants.
+On the wire, frames are binary protobuf via Prost 0.13. The `data` field round-trips through a recursive `serde_json::Value ↔ prost_types::Value` conversion.
+
+---
+
+### `traces` — Observability Primitives
+
+Shared trace and event primitives for CollabBoard's observability UI. Intentionally avoids UI framework dependencies so it can be used by `client` (Leptos) or any other renderer.
+
+Provides syscall prefix-to-display mapping, default trace filtering policy (hides `cursor:*` and `item` frames by default), frame-to-session grouping by parent chain, request/done span pairing for waterfall timing, aggregate metrics (counts, errors, pending), and sub-label extraction for common syscall payloads.
 
 ---
 
@@ -101,6 +114,8 @@ End-to-end performance tests that hit a live running server over real HTTP and W
 Auth bootstrapping supports three modes: a pre-issued WS ticket, a session token that mints tickets via REST, or a dev bypass endpoint for local testing. Results print as both a human-readable table and a `JSON:` line for CI pipelines.
 
 All tests are `#[ignore]` — run them with `cargo test -p perf -- --ignored --nocapture` against a live server.
+
+---
 
 ## Quick Start
 
@@ -118,20 +133,14 @@ cargo leptos build && cargo run -p server
 
 The app serves at `http://localhost:3000`. Migrations run automatically on startup.
 
-## Live Demo
-
-Deployed on Railway (as of 2026-02-20, URL may change):
-**https://gauntlet-week-1-production.up.railway.app/**
-
 ## Testing
 
-681 tests across the workspace:
-
 ```bash
-cargo test -p canvas --lib   # 382 canvas engine tests
-cargo test -p server         # 204 server tests
-cargo test -p client         # 80 frontend component tests
-cargo test -p frames         # 15 wire protocol codec tests
+cargo test -p canvas --lib   # canvas engine tests (no browser required)
+cargo test -p server         # server tests
+cargo test -p client --lib   # frontend component tests
+cargo test -p frames --lib   # wire protocol codec tests
+cargo test -p traces --lib   # observability primitive tests
 cargo fmt --all && cargo clippy -p client -p server --all-targets
 ```
 
@@ -141,6 +150,8 @@ cargo fmt --all && cargo clippy -p client -p server --all-targets
 
 **For GitHub login:** `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI`
 
+**For email login:** `AUTH_EMAIL_CODE_IN_RESPONSE` (set `false` in production), `RESEND_API_KEY`, `RESEND_FROM`
+
 **For AI features:** `LLM_PROVIDER` (`anthropic` or `openai`), `LLM_MODEL`, and the corresponding `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
 
-See `.env.example` for the full list.
+See `.env.example` for the full list including tuning knobs for WS queue capacity, persistence intervals, AI rate limits, and frame batch sizes.
