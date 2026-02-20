@@ -239,6 +239,23 @@ pub fn BoardPage() -> impl IntoView {
         object_text_dialog_open.set(true);
     });
 
+    Effect::new(move || {
+        if !object_text_dialog_open.get() {
+            return;
+        }
+        let Some(target_id) = object_text_dialog_id.get() else {
+            object_text_dialog_open.set(false);
+            return;
+        };
+        let state = board.get();
+        let still_selected = state.selection.contains(&target_id);
+        let still_exists = state.objects.contains_key(&target_id);
+        if !still_selected || !still_exists {
+            object_text_dialog_open.set(false);
+            object_text_dialog_id.set(None);
+        }
+    });
+
     let send_prompt = move || {
         let text = prompt_input.get();
         if text.trim().is_empty() || ai.get().loading {
@@ -320,6 +337,13 @@ pub fn BoardPage() -> impl IntoView {
     let on_object_text_cancel = move |_| {
         object_text_dialog_open.set(false);
         object_text_dialog_id.set(None);
+    };
+    let on_object_text_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() == "Escape" {
+            ev.prevent_default();
+            object_text_dialog_open.set(false);
+            object_text_dialog_id.set(None);
+        }
     };
 
     let on_object_text_save = move |_| {
@@ -455,13 +479,14 @@ pub fn BoardPage() -> impl IntoView {
             </div>
             <Show when=move || object_text_dialog_open.get()>
                 <div class="dialog-backdrop" on:click=on_object_text_cancel>
-                    <div class="dialog dialog--object-text" on:click=move |ev| ev.stop_propagation()>
+                    <div class="dialog dialog--object-text" on:click=move |ev| ev.stop_propagation() on:keydown=on_object_text_keydown>
                         <label class="dialog__label">
                             "Text"
                             <textarea
                                 class="dialog__textarea"
                                 prop:value=move || object_text_dialog_value.get()
                                 on:input=move |ev| object_text_dialog_value.set(event_target_value(&ev))
+                                on:keydown=on_object_text_keydown
                                 autofocus=true
                             ></textarea>
                         </label>
