@@ -674,3 +674,17 @@ fn props_text_with_newlines() {
     assert_eq!(p.head(), "line1\nline2");
     assert_eq!(p.text(), "a\nb\nc");
 }
+
+#[test]
+fn props_text_falls_back_to_content() {
+    let value = json!({"content": "legacy content"});
+    let p = Props::new(&value);
+    assert_eq!(p.text(), "legacy content");
+}
+
+#[test]
+fn props_text_prefers_text_over_content() {
+    let value = json!({"text": "primary", "content": "fallback"});
+    let p = Props::new(&value);
+    assert_eq!(p.text(), "primary");
+}

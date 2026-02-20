@@ -156,6 +156,7 @@ impl<'a> Props<'a> {
     pub fn text(&self) -> &str {
         self.value
             .get("text")
+            .or_else(|| self.value.get("content"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
     }
