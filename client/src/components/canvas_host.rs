@@ -835,6 +835,11 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let on_compass_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+
     let on_zoom_pointer_down = {
         #[cfg(feature = "hydrate")]
         {
@@ -1211,7 +1216,13 @@ pub fn CanvasHost() -> impl IntoView {
                 <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_compass_snap_w>
                     "W"
                 </button>
-                <button class="canvas-compass__reset" on:dblclick=on_compass_reset title="Double-click to reset view rotation">
+                <button
+                    class="canvas-compass__reset"
+                    title="Click to reset view rotation to 0deg"
+                    on:pointerdown=on_compass_readout_pointer_down
+                    on:click=on_compass_reset.clone()
+                    on:dblclick=on_compass_reset
+                >
                     {move || format!("{:.0}deg", compass_angle_deg())}
                 </button>
                 <div class="canvas-compass__knob-track" style=compass_knob_style>
