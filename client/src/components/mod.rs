@@ -19,4 +19,8 @@ pub mod status_bar;
 pub mod tool_rail;
 pub mod tool_strip;
 pub mod toolbar;
+pub mod trace_inspector;
+pub mod trace_log;
+pub mod trace_summary;
+pub mod trace_view;
 pub mod user_field_report;

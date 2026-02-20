@@ -11,6 +11,12 @@ fn ui_state_default_dark_mode_off() {
 }
 
 #[test]
+fn ui_state_default_view_mode_is_canvas() {
+    let state = UiState::default();
+    assert_eq!(state.view_mode, ViewMode::Canvas);
+}
+
+#[test]
 fn ui_state_default_tool_is_select() {
     let state = UiState::default();
     assert_eq!(state.active_tool, ToolType::Select);
@@ -31,6 +37,20 @@ fn ui_state_default_right_panel_expanded() {
     let state = UiState::default();
     assert!(!state.right_panel_expanded);
     assert_eq!(state.right_tab, RightTab::Chat);
+}
+
+// =============================================================
+// ViewMode
+// =============================================================
+
+#[test]
+fn view_mode_default_is_canvas() {
+    assert_eq!(ViewMode::default(), ViewMode::Canvas);
+}
+
+#[test]
+fn view_mode_variants_are_distinct() {
+    assert_ne!(ViewMode::Canvas, ViewMode::Trace);
 }
 
 // =============================================================

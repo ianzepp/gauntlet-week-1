@@ -9,6 +9,16 @@
 #[path = "ui_test.rs"]
 mod ui_test;
 
+/// Primary view mode for the board workspace.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ViewMode {
+    /// Normal canvas editing mode.
+    #[default]
+    Canvas,
+    /// Observability trace view — replaces the canvas area with the three-column trace UI.
+    Trace,
+}
+
 /// UI state for panels, tabs, dark mode, and active tool.
 ///
 /// In the full Leptos implementation, fields will be `RwSignal` types
@@ -16,6 +26,7 @@ mod ui_test;
 #[derive(Clone, Debug)]
 pub struct UiState {
     pub dark_mode: bool,
+    pub view_mode: ViewMode,
     pub active_tool: ToolType,
     pub home_viewport_seq: u64,
     pub zoom_override_seq: u64,
@@ -30,6 +41,7 @@ impl Default for UiState {
     fn default() -> Self {
         Self {
             dark_mode: false,
+            view_mode: ViewMode::Canvas,
             active_tool: ToolType::Select,
             home_viewport_seq: 0,
             zoom_override_seq: 0,

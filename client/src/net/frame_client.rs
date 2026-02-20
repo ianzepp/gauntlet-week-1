@@ -33,6 +33,8 @@ use crate::state::chat::ChatMessage;
 #[cfg(feature = "hydrate")]
 use crate::state::chat::ChatState;
 #[cfg(feature = "hydrate")]
+use crate::state::trace::TraceState;
+#[cfg(feature = "hydrate")]
 use leptos::prelude::GetUntracked;
 #[cfg(feature = "hydrate")]
 use leptos::prelude::Update;
@@ -56,13 +58,14 @@ pub fn spawn_frame_client(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
+    trace: leptos::prelude::RwSignal<TraceState>,
 ) -> futures::channel::mpsc::UnboundedSender<Vec<u8>> {
     use futures::channel::mpsc;
 
     let (tx, rx) = mpsc::unbounded::<Vec<u8>>();
     let tx_clone = tx.clone();
 
-    leptos::task::spawn_local(frame_client_loop(auth, ai, board, boards, chat, tx_clone, rx));
+    leptos::task::spawn_local(frame_client_loop(auth, ai, board, boards, chat, trace, tx_clone, rx));
 
     tx
 }
@@ -75,6 +78,7 @@ async fn frame_client_loop(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
+    trace: leptos::prelude::RwSignal<TraceState>,
     tx: futures::channel::mpsc::UnboundedSender<Vec<u8>>,
     rx: futures::channel::mpsc::UnboundedReceiver<Vec<u8>>,
 ) {
@@ -109,7 +113,7 @@ async fn frame_client_loop(
             .unwrap_or_else(|| "localhost:3000".to_owned());
         let ws_url = format!("{ws_proto}://{host}/api/ws?ticket={ticket}");
 
-        match connect_and_run(&ws_url, auth, ai, board, boards, chat, &tx, &rx).await {
+        match connect_and_run(&ws_url, auth, ai, board, boards, chat, trace, &tx, &rx).await {
             Ok(()) => {
                 leptos::logging::log!("WS disconnected cleanly");
             }
@@ -135,6 +139,7 @@ async fn connect_and_run(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
+    trace: leptos::prelude::RwSignal<TraceState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
     rx: &std::rc::Rc<std::cell::RefCell<futures::channel::mpsc::UnboundedReceiver<Vec<u8>>>>,
 ) -> Result<(), String> {
@@ -164,7 +169,7 @@ async fn connect_and_run(
             match msg {
                 Ok(Message::Bytes(bytes)) => {
                     if let Ok(frame) = frames::decode_frame(&bytes) {
-                        dispatch_frame(&frame, auth, ai, board, boards, chat, tx);
+                        dispatch_frame(&frame, auth, ai, board, boards, chat, trace, tx);
                     }
                 }
                 Ok(Message::Text(_)) => {}
@@ -193,6 +198,9 @@ async fn connect_and_run(
 }
 
 /// Dispatch an incoming frame to the appropriate state handler.
+///
+/// Every frame is also appended to the trace buffer unconditionally so the
+/// observability view can render the full event stream.
 #[cfg(feature = "hydrate")]
 fn dispatch_frame(
     frame: &Frame,
@@ -201,8 +209,12 @@ fn dispatch_frame(
     board: leptos::prelude::RwSignal<BoardState>,
     boards: leptos::prelude::RwSignal<BoardsState>,
     chat: leptos::prelude::RwSignal<ChatState>,
+    trace: leptos::prelude::RwSignal<TraceState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) {
+    // Buffer every frame for the observability view before domain routing.
+    trace.update(|t| t.push_frame(frame.clone()));
+
     if handle_session_connected_frame(frame, board, boards, tx) {
         return;
     }

@@ -11,4 +11,5 @@ pub mod board;
 pub mod boards;
 pub mod canvas_view;
 pub mod chat;
+pub mod trace;
 pub mod ui;

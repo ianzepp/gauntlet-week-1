@@ -12,7 +12,7 @@ use crate::app::FrameSender;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
-use crate::state::ui::UiState;
+use crate::state::ui::{UiState, ViewMode};
 
 /// Top toolbar for the board page.
 #[component]
@@ -72,6 +72,25 @@ pub fn Toolbar() -> impl IntoView {
             <Show when=move || location.pathname.get().starts_with("/board/")>
                 <button class="btn toolbar__share" on:click=on_share title="Share board">
                     "Share"
+                </button>
+            </Show>
+
+            <Show when=move || location.pathname.get().starts_with("/board/")>
+                <button
+                    class="btn toolbar__trace-toggle"
+                    class:toolbar__trace-toggle--active=move || ui.get().view_mode == ViewMode::Trace
+                    on:click=move |_| {
+                        ui.update(|u| {
+                            u.view_mode = if u.view_mode == ViewMode::Trace {
+                                ViewMode::Canvas
+                            } else {
+                                ViewMode::Trace
+                            };
+                        });
+                    }
+                    title="Toggle observability trace view"
+                >
+                    "◎ TRACE"
                 </button>
             </Show>
 

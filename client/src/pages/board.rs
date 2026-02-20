@@ -29,10 +29,11 @@ use crate::components::left_panel::LeftPanel;
 use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
+use crate::components::trace_view::TraceView;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
-use crate::state::ui::UiState;
+use crate::state::ui::{UiState, ViewMode};
 
 fn build_board_membership_frame(syscall: &str, board_id: String) -> Frame {
     Frame {
@@ -174,8 +175,13 @@ pub fn BoardPage() -> impl IntoView {
                 <LeftPanel/>
             </div>
             <div class="board-page__canvas">
-                <CanvasHost/>
-                <BoardStamp/>
+                <Show
+                    when=move || ui.get().view_mode == ViewMode::Canvas
+                    fallback=|| view! { <TraceView/> }
+                >
+                    <CanvasHost/>
+                    <BoardStamp/>
+                </Show>
             </div>
             <div class="board-page__right-panel">
                 <RightPanel/>
