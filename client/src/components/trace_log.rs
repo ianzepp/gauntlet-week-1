@@ -8,6 +8,7 @@ use leptos::prelude::*;
 use std::collections::HashMap;
 
 use crate::state::trace::TraceState;
+use crate::state::ui::{RightTab, UiState, ViewMode};
 
 /// Formats a millisecond epoch timestamp as `HH:MM:SS.mmm`.
 fn format_ts(ms: i64) -> String {
@@ -37,6 +38,7 @@ fn status_label(status: frames::Status) -> (&'static str, &'static str) {
 #[component]
 pub fn TraceLog() -> impl IntoView {
     let trace = expect_context::<RwSignal<TraceState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
 
     let selected_frame_id = move || trace.get().selected_frame_id.clone();
 
@@ -106,6 +108,12 @@ pub fn TraceLog() -> impl IntoView {
                                 on:click=move |_| {
                                     let frame_id = id_clone.clone();
                                     trace.update(|t| t.selected_frame_id = Some(frame_id));
+                                    ui.update(|u| {
+                                        if u.view_mode == ViewMode::Trace {
+                                            u.right_panel_expanded = true;
+                                            u.right_tab = RightTab::Trace;
+                                        }
+                                    });
                                 }
                             >
                                 <span class="trace-log__col trace-log__col--ts trace-log__ts">{ts}</span>

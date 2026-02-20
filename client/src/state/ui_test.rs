@@ -36,6 +36,7 @@ fn ui_state_default_left_panel_expanded() {
 fn ui_state_default_right_panel_expanded() {
     let state = UiState::default();
     assert!(!state.right_panel_expanded);
+    assert_eq!(state.right_panel_width, 320.0);
     assert_eq!(state.right_tab, RightTab::Chat);
 }
 
@@ -114,9 +115,13 @@ fn right_tab_default_is_chat() {
 #[test]
 fn right_tab_variants_are_distinct() {
     assert_ne!(RightTab::Chat, RightTab::Ai);
+    assert_ne!(RightTab::Chat, RightTab::Trace);
     assert_ne!(RightTab::Chat, RightTab::Boards);
     assert_ne!(RightTab::Chat, RightTab::Records);
+    assert_ne!(RightTab::Ai, RightTab::Trace);
     assert_ne!(RightTab::Ai, RightTab::Boards);
     assert_ne!(RightTab::Ai, RightTab::Records);
+    assert_ne!(RightTab::Trace, RightTab::Boards);
+    assert_ne!(RightTab::Trace, RightTab::Records);
     assert_ne!(RightTab::Boards, RightTab::Records);
 }

@@ -6,12 +6,15 @@
 //! share one rail without overlapping canvas layout logic.
 
 use leptos::prelude::*;
+#[cfg(feature = "hydrate")]
+use wasm_bindgen::JsCast;
 
 use crate::components::ai_panel::AiPanel;
 use crate::components::chat_panel::ChatPanel;
 use crate::components::mission_control::MissionControl;
 use crate::components::rewind_shelf::RewindShelf;
-use crate::state::ui::{RightTab, UiState};
+use crate::components::trace_inspector::TraceInspector;
+use crate::state::ui::{RightTab, UiState, ViewMode};
 
 /// Collapsible right sidebar with icon rail and expandable content panel.
 #[component]
@@ -20,6 +23,11 @@ pub fn RightPanel() -> impl IntoView {
 
     let expanded = move || ui.get().right_panel_expanded;
     let active_tab = move || ui.get().right_tab;
+    let trace_mode = move || ui.get().view_mode == ViewMode::Trace;
+    let dragging = RwSignal::new(false);
+    let drag_start_x = RwSignal::new(0.0_f64);
+    let drag_start_width = RwSignal::new(320.0_f64);
+    let panel_width_style = move || format!("width: {:.0}px;", ui.get().right_panel_width);
 
     let toggle_tab = move |tab: RightTab| {
         ui.update(|u| {
@@ -36,8 +44,36 @@ pub fn RightPanel() -> impl IntoView {
         ui.update(|u| u.right_panel_expanded = !u.right_panel_expanded);
     };
 
+    let on_resize_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        dragging.set(true);
+        drag_start_x.set(f64::from(ev.client_x()));
+        drag_start_width.set(ui.get().right_panel_width);
+        #[cfg(feature = "hydrate")]
+        {
+            if let Some(target) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) {
+                let _ = target.set_pointer_capture(ev.pointer_id());
+            }
+        }
+    };
+
+    let on_resize_pointer_move = move |ev: leptos::ev::PointerEvent| {
+        if !dragging.get() {
+            return;
+        }
+        let delta = drag_start_x.get() - f64::from(ev.client_x());
+        let next = (drag_start_width.get() + delta).clamp(260.0, 1100.0);
+        ui.update(|u| u.right_panel_width = next);
+    };
+
+    let on_resize_pointer_up = move |_ev: leptos::ev::PointerEvent| {
+        dragging.set(false);
+    };
+
     view! {
-        <div class="right-panel">
+        <div class="right-panel" on:pointermove=on_resize_pointer_move on:pointerup=on_resize_pointer_up on:pointercancel=on_resize_pointer_up>
+            <Show when=expanded>
+                <div class="right-panel__resize-handle-rail" on:pointerdown=on_resize_pointer_down></div>
+            </Show>
             <div class="right-panel__rail">
                 <button
                     class="right-panel__rail-button ui-tooltip ui-tooltip--left"
@@ -97,6 +133,23 @@ pub fn RightPanel() -> impl IntoView {
                     </svg>
                 </button>
 
+                <Show when=trace_mode>
+                    <button
+                        class="right-panel__rail-button ui-tooltip ui-tooltip--left"
+                        class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Trace
+                        on:click=move |_| toggle_tab(RightTab::Trace)
+                        title="Trace Detail"
+                        attr:data-tooltip="Trace Detail"
+                    >
+                        <svg viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M3 4 H17" />
+                            <path d="M3 9 H12" />
+                            <path d="M3 14 H10" />
+                            <path d="M14 12 L17 15 L14 18" />
+                        </svg>
+                    </button>
+                </Show>
+
                 <div class="right-panel__rail-spacer"></div>
 
                 <button class="right-panel__toggle ui-tooltip ui-tooltip--left" on:click=toggle_expand title="Toggle panel" attr:data-tooltip="Toggle panel">
@@ -105,12 +158,13 @@ pub fn RightPanel() -> impl IntoView {
             </div>
 
             <Show when=expanded>
-                <div class="right-panel__panel">
+                <div class="right-panel__panel" style=panel_width_style>
                     <div class="right-panel__header">
                         <span class="right-panel__title">
                             {move || match active_tab() {
                                 RightTab::Chat => "Chat",
                                 RightTab::Ai => "Field Notes",
+                                RightTab::Trace => "Trace Detail",
                                 RightTab::Boards => "Boards",
                                 RightTab::Records => "Field Records",
                             }}
@@ -124,6 +178,7 @@ pub fn RightPanel() -> impl IntoView {
                         {move || match active_tab() {
                             RightTab::Chat => view! { <ChatPanel/> }.into_any(),
                             RightTab::Ai => view! { <AiPanel/> }.into_any(),
+                            RightTab::Trace => view! { <TraceInspector/> }.into_any(),
                             RightTab::Boards => view! { <MissionControl/> }.into_any(),
                             RightTab::Records => view! { <RewindShelf/> }.into_any(),
                         }}

@@ -34,6 +34,7 @@ pub struct UiState {
     pub left_panel_expanded: bool,
     pub left_tab: LeftTab,
     pub right_panel_expanded: bool,
+    pub right_panel_width: f64,
     pub right_tab: RightTab,
 }
 
@@ -49,6 +50,7 @@ impl Default for UiState {
             left_panel_expanded: false,
             left_tab: LeftTab::Tools,
             right_panel_expanded: false,
+            right_panel_width: 320.0,
             right_tab: RightTab::Chat,
         }
     }
@@ -85,6 +87,7 @@ pub enum RightTab {
     #[default]
     Chat,
     Ai,
+    Trace,
     Boards,
     Records,
 }
