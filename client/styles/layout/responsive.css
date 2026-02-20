@@ -1,0 +1,65 @@
+/* Small-screen layout safety */
+@media (max-width: 980px) {
+    .board-page {
+        /* Mobile mode: side panels are fixed over canvas, so overlays must track rail position. */
+        --canvas-overlay-left-offset: calc(var(--space-md) + 52px);
+        --canvas-overlay-right-offset: calc(var(--space-md) + 52px);
+        grid-template-areas:
+            "toolbar toolbar"
+            "canvas canvas"
+            "status status";
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 36px minmax(0, 1fr) 24px;
+    }
+
+    .board-page.board-page--left-expanded {
+        --canvas-overlay-left-offset: calc(var(--space-md) + 212px);
+    }
+
+    .board-page.board-page--right-expanded {
+        --canvas-overlay-right-offset: calc(var(--space-md) + 372px);
+    }
+
+    .board-page__left-panel,
+    .board-page__right-panel {
+        position: fixed;
+        top: 36px;
+        bottom: 24px;
+        max-width: calc(100vw - 52px);
+    }
+
+    .board-page__left-panel {
+        left: 0;
+    }
+
+    .board-page__right-panel {
+        right: 0;
+    }
+
+    .toolbar__presence {
+        display: none;
+    }
+
+    .toolbar__user {
+        display: none;
+    }
+
+    .dashboard-page__grid {
+        padding: var(--space-md);
+    }
+
+    .rewind-shelf {
+        height: 100%;
+    }
+
+    .board-stamp {
+        width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
+    }
+
+    .board-page__input-overlay {
+        width: calc(100% - var(--space-md) * 2);
+        max-width: 720px;
+    }
+
+}
+

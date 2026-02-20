@@ -1,8 +1,8 @@
 //! Dark mode initialization and toggle.
 //!
-//! Reads the user's preference from `localStorage` and applies the
-//! `.dark-mode` class to the `<html>` element. Toggle writes back to
-//! `localStorage` and updates the class. Requires a browser environment.
+//! Reads the user's preference from `localStorage` and applies a
+//! `data-theme` attribute to the `<html>` element. Toggle writes back to
+//! `localStorage` and updates that attribute. Requires a browser environment.
 //!
 //! TRADE-OFFS
 //! ==========
@@ -44,18 +44,13 @@ pub fn read_preference() -> bool {
     }
 }
 
-/// Apply or remove the `.dark-mode` class on the `<html>` element.
+/// Apply the `data-theme` attribute on the `<html>` element.
 pub fn apply(enabled: bool) {
     #[cfg(feature = "hydrate")]
     {
         if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
             if let Some(el) = doc.document_element() {
-                let class_list = el.class_list();
-                if enabled {
-                    let _ = class_list.add_1("dark-mode");
-                } else {
-                    let _ = class_list.remove_1("dark-mode");
-                }
+                let _ = el.set_attribute("data-theme", if enabled { "dark" } else { "light" });
             }
         }
     }

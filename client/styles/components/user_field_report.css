@@ -1,0 +1,133 @@
+/* User field report */
+.user-field-report {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+}
+
+.user-field-report__backdrop {
+    position: absolute;
+    inset: 0;
+}
+
+.user-field-report__popover {
+    position: fixed;
+    z-index: var(--z-modal);
+    width: 240px;
+}
+
+.user-field-report__card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-default);
+    padding: var(--space-sm) var(--space-md);
+}
+
+.user-field-report__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-default);
+}
+
+.user-field-report__avatar {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.user-field-report__header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.user-field-report__name {
+    font-family: var(--font-script);
+    font-size: 20px;
+    line-height: 1.1;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-field-report__badge {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+}
+
+.user-field-report__section {
+    margin-bottom: var(--space-sm);
+}
+
+.user-field-report__section-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-xs);
+}
+
+.user-field-report__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 1px 0;
+}
+
+.user-field-report__row-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.user-field-report__row-value {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.user-field-report__syscall-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.user-field-report__syscall-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-secondary);
+    min-width: 80px;
+}
+
+.user-field-report__syscall-count {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.user-field-report__loading {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: var(--space-sm) 0;
+    text-align: center;
+    animation: pulse 1.5s ease infinite;
+}
+

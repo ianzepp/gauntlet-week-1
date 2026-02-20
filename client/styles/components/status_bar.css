@@ -1,0 +1,80 @@
+/* Status bar */
+.status-bar {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    height: 24px;
+    background: var(--bg-status-bar);
+    border-top: 1px solid var(--border-default);
+    padding: 0 var(--space-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    line-height: 1;
+    justify-content: space-between;
+}
+
+.status-bar__section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    line-height: 1;
+}
+
+.status-bar__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.status-bar__item--locked {
+    color: var(--accent-error);
+    font-weight: 700;
+}
+
+.status-bar__dot {
+    width: 6px;
+    height: 6px;
+    background: var(--text-tertiary);
+}
+
+.status-bar__dot--connected {
+    background: var(--accent-green);
+}
+
+.status-bar__dot--connecting {
+    background: var(--obj-gold);
+}
+
+.status-bar__dot--disconnected {
+    background: var(--accent-error);
+}
+
+.status-bar__divider {
+    width: 1px;
+    height: 12px;
+    font-size: 0;
+    background: var(--border-default);
+}
+
+.status-bar__board-name {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.status-bar__user-chip {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.status-bar__user-dot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+}
+

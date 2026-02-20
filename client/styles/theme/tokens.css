@@ -1,0 +1,31 @@
+:root {
+    /* User colors */
+    --user-0: #2c6e49;
+    --user-1: #8b4049;
+    --user-2: #4a6b8a;
+    --user-3: #8b6e4e;
+    --user-4: #6b5b7b;
+    --user-5: #7a8b4a;
+    --user-6: #8b5e3c;
+    --user-7: #4a7b6b;
+
+    /* Typography */
+    --font-mono: "IBM Plex Mono", "Courier Prime", "JetBrains Mono", monospace;
+    --font-script: "Caveat", cursive;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+
+    /* Layering */
+    --z-canvas-ui: 10;
+    --z-chrome: 100;
+    --z-modal: 1000;
+
+    /* Decoration */
+    --radius: 0;
+    --shadow: none;
+}

@@ -1,0 +1,150 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+body {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+    border: 1px solid var(--border-default);
+    background: var(--bg-secondary);
+}
+
+button {
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease;
+}
+
+button:hover {
+    background: var(--bg-primary);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+}
+
+a {
+    color: var(--accent-green);
+    text-decoration: none;
+    transition: color 150ms ease;
+}
+
+a:hover {
+    color: var(--text-primary);
+}
+
+/* Shared button variants */
+.btn {
+    height: 28px;
+    padding: 0 var(--space-sm);
+    background: transparent;
+    border: 1px solid var(--border-default);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+}
+
+.btn--primary {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.btn--primary:hover {
+    background: var(--accent-green);
+    color: var(--bg-primary);
+}
+
+.btn--danger {
+    border-color: var(--accent-error);
+    color: var(--accent-error);
+}
+
+.btn--danger:hover {
+    background: var(--accent-error);
+    color: var(--bg-primary);
+}
+
+/* Shared hover tooltips for icon-only controls */
+.ui-tooltip {
+    position: relative;
+}
+
+.ui-tooltip::after {
+    content: attr(title);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 2px 6px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-nav);
+    color: var(--text-nav-active);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease;
+    z-index: 120;
+}
+
+.ui-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ui-tooltip--left::after {
+    left: auto;
+    right: calc(100% + 8px);
+}
+

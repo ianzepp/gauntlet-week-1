@@ -1,0 +1,97 @@
+/* Login */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: var(--bg-primary);
+}
+
+.login-card {
+    width: min(420px, calc(100vw - 48px));
+    border: 1px solid var(--border-default);
+    background: var(--bg-secondary);
+    padding: var(--space-xl) var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.login-card__subtitle {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-tertiary);
+}
+
+.login-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 var(--space-md);
+    border: 1px solid var(--accent-green);
+    background: transparent;
+    color: var(--accent-green);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.login-button:hover {
+    background: var(--accent-green);
+    color: var(--bg-primary);
+}
+
+.login-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.login-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--border-default);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.login-input:focus {
+    border-color: var(--accent-green);
+}
+
+.login-input--code {
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.login-message {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    text-align: left;
+}
+
+.login-message--code {
+    color: var(--accent-green);
+}
+
+.login-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border-default);
+}
+
