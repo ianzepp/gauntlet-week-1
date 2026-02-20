@@ -61,6 +61,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_home_viewport_seq = RwSignal::new(0_u64);
     #[cfg(feature = "hydrate")]
+    let last_zoom_override_seq = RwSignal::new(0_u64);
+    #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
@@ -199,6 +201,44 @@ pub fn CanvasHost() -> impl IntoView {
                 let _ = engine.render();
             }
             last_home_viewport_seq.set(seq);
+        });
+    }
+
+    #[cfg(feature = "hydrate")]
+    {
+        let engine = Rc::clone(&engine);
+        let canvas_ref_zoom = canvas_ref.clone();
+        Effect::new(move || {
+            let ui_state = _ui.get();
+            let seq = ui_state.zoom_override_seq;
+            if seq == 0 || seq == last_zoom_override_seq.get_untracked() {
+                return;
+            }
+            let target_zoom = ui_state.zoom_override;
+            if let Some(engine) = engine.borrow_mut().as_mut() {
+                if let Some(zoom) = target_zoom {
+                    sync_viewport(engine, &canvas_ref_zoom);
+                    let center_screen = viewport_center_screen(engine);
+                    let center_world = engine
+                        .camera()
+                        .screen_to_world(center_screen, center_screen);
+                    let rotation = engine.view_rotation_deg();
+                    set_camera_view(engine, center_world.x, center_world.y, zoom, rotation);
+                    sync_canvas_view_state(engine, _canvas_view, None);
+                    send_cursor_presence_if_needed(
+                        engine,
+                        _board,
+                        _auth,
+                        _sender,
+                        last_presence_sent_ms,
+                        last_presence_sent,
+                        None,
+                        true,
+                    );
+                    let _ = engine.render();
+                }
+            }
+            last_zoom_override_seq.set(seq);
         });
     }
 
@@ -1393,8 +1433,20 @@ fn sync_canvas_view_state(engine: &Engine, canvas_view: RwSignal<CanvasViewState
     let camera_center_screen = viewport_center_screen(engine);
     let camera_center_world = camera.screen_to_world(camera_center_screen, camera_center_screen);
     let cursor_world = cursor_screen.map(|p| camera.screen_to_world(p, camera_center_screen));
+    let sample_ms = now_ms();
 
     canvas_view.update(|v| {
+        if let Some(prev_sample_ms) = v.fps_last_sample_ms {
+            let dt_ms = sample_ms - prev_sample_ms;
+            if (5.0..2000.0).contains(&dt_ms) {
+                let instantaneous_fps = 1000.0 / dt_ms;
+                let ema_alpha = 0.2;
+                v.fps = Some(v.fps.map_or(instantaneous_fps, |prev| {
+                    (prev * (1.0 - ema_alpha)) + (instantaneous_fps * ema_alpha)
+                }));
+            }
+        }
+        v.fps_last_sample_ms = Some(sample_ms);
         v.cursor_world = cursor_world.map(|p| WirePoint { x: p.x, y: p.y });
         v.camera_center_world = WirePoint { x: camera_center_world.x, y: camera_center_world.y };
         v.zoom = camera.zoom;

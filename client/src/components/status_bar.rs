@@ -1,4 +1,4 @@
-//! Bottom status bar showing connection status, zoom level, and object count.
+//! Bottom status bar showing connection status and canvas telemetry.
 //!
 //! SYSTEM CONTEXT
 //! ==============
@@ -10,12 +10,17 @@ use leptos::prelude::*;
 use crate::net::types::Point;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::canvas_view::CanvasViewState;
+use crate::state::ui::UiState;
+
+const ZOOM_PRESETS: [f64; 11] = [0.10, 0.25, 0.50, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0];
 
 /// Status bar at the bottom of the board page.
 #[component]
 pub fn StatusBar() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
+    let zoom_menu_open = RwSignal::new(false);
 
     let status_class = move || {
         let status = board.get().connection_status;
@@ -32,6 +37,16 @@ pub fn StatusBar() -> impl IntoView {
     let cursor = move || canvas_view.get().cursor_world;
     let camera_center = move || canvas_view.get().camera_center_world.clone();
     let zoom = move || canvas_view.get().zoom;
+    let fps = move || canvas_view.get().fps;
+    let zoom_label = move || format_zoom(zoom());
+
+    let set_zoom = move |target_zoom: f64| {
+        ui.update(|u| {
+            u.zoom_override = Some(target_zoom.clamp(0.1, 4.0));
+            u.zoom_override_seq = u.zoom_override_seq.saturating_add(1);
+        });
+        zoom_menu_open.set(false);
+    };
 
     view! {
         <div class="status-bar">
@@ -58,7 +73,37 @@ pub fn StatusBar() -> impl IntoView {
                 <span class="status-bar__divider"></span>
                 <span class="status-bar__item">{move || format_point(camera_center())}</span>
 
-                <span class="status-bar__item">{move || format_zoom(zoom())}</span>
+                <span class="status-bar__divider"></span>
+                <span class="status-bar__item">{move || format_fps(fps())}</span>
+
+                <div class="status-bar__zoom">
+                    <button
+                        class="status-bar__zoom-button"
+                        on:click=move |_| zoom_menu_open.set(!zoom_menu_open.get())
+                        title="Set zoom"
+                    >
+                        {zoom_label}
+                    </button>
+                    <Show when=move || zoom_menu_open.get()>
+                        <div class="status-bar__zoom-menu">
+                            {ZOOM_PRESETS
+                                .into_iter()
+                                .map(|preset| {
+                                    let is_active = move || (zoom() - preset).abs() < 0.005;
+                                    view! {
+                                        <button
+                                            class="status-bar__zoom-option"
+                                            class:status-bar__zoom-option--active=is_active
+                                            on:click=move |_| set_zoom(preset)
+                                        >
+                                            {format_zoom(preset)}
+                                        </button>
+                                    }
+                                })
+                                .collect::<Vec<_>>()}
+                        </div>
+                    </Show>
+                </div>
             </div>
         </div>
     }
@@ -76,6 +121,13 @@ fn format_point(point: Point) -> String {
 
 fn format_zoom(zoom: f64) -> String {
     format!("{}%", (zoom * 100.0).round() as i64)
+}
+
+fn format_fps(fps: Option<f64>) -> String {
+    match fps {
+        Some(value) => format!("{} fps", value.round() as i64),
+        None => "-- fps".to_owned(),
+    }
 }
 
 fn round_coord(value: f64) -> i64 {

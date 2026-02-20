@@ -15,6 +15,8 @@ fn ui_state_default_tool_is_select() {
     let state = UiState::default();
     assert_eq!(state.active_tool, ToolType::Select);
     assert_eq!(state.home_viewport_seq, 0);
+    assert_eq!(state.zoom_override_seq, 0);
+    assert_eq!(state.zoom_override, None);
 }
 
 #[test]

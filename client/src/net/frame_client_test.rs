@@ -111,7 +111,11 @@ fn parse_ai_prompt_message_returns_none_when_payload_has_no_text() {
 
 #[test]
 fn parse_ai_prompt_user_message_reads_prompt() {
-    let f = frame("ai:prompt", FrameStatus::Done, serde_json::json!({"prompt":"draft release notes"}));
+    let f = frame(
+        "ai:prompt",
+        FrameStatus::Done,
+        serde_json::json!({"prompt":"draft release notes"}),
+    );
     let msg = parse_ai_prompt_user_message(&f).expect("user prompt message");
     assert_eq!(msg.id, "f-1");
     assert_eq!(msg.role, "user");
@@ -121,7 +125,11 @@ fn parse_ai_prompt_user_message_reads_prompt() {
 
 #[test]
 fn parse_ai_prompt_user_message_prefers_parent_id_for_reconciliation() {
-    let mut f = frame("ai:prompt", FrameStatus::Done, serde_json::json!({"prompt":"draft release notes"}));
+    let mut f = frame(
+        "ai:prompt",
+        FrameStatus::Done,
+        serde_json::json!({"prompt":"draft release notes"}),
+    );
     f.id = "reply-id".to_owned();
     f.parent_id = Some("request-id".to_owned());
     let msg = parse_ai_prompt_user_message(&f).expect("user prompt message");
