@@ -1,5 +1,9 @@
 //! Board prompt input and inline preview UI.
 
+#[cfg(test)]
+#[path = "board_prompt_bar_test.rs"]
+mod board_prompt_bar_test;
+
 use leptos::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]

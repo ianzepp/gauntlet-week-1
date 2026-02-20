@@ -1,5 +1,9 @@
 //! Prompt preview parsing helpers for board AI responses.
 
+#[cfg(test)]
+#[path = "board_prompt_test.rs"]
+mod board_prompt_test;
+
 /// Build the inline assistant preview and indicate if there is hidden content.
 pub fn assistant_preview_and_has_more(text: &str) -> (String, bool) {
     let trimmed = text.trim();

@@ -1,5 +1,9 @@
 //! Parsing helpers for `frame_client` payload handling.
 
+#[cfg(test)]
+#[path = "frame_client_parse_test.rs"]
+mod frame_client_parse_test;
+
 #[cfg(any(test, feature = "hydrate"))]
 use crate::net::types::Frame;
 #[cfg(any(test, feature = "hydrate"))]

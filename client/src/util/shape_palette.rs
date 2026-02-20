@@ -1,5 +1,9 @@
 //! Tool placement defaults and preview helpers.
 
+#[cfg(test)]
+#[path = "shape_palette_test.rs"]
+mod shape_palette_test;
+
 use crate::state::ui::ToolType;
 
 pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json::Value)> {

@@ -1,5 +1,9 @@
 //! Shared dial/angle math for canvas controls.
 
+#[cfg(test)]
+#[path = "dial_math_test.rs"]
+mod dial_math_test;
+
 pub const ZOOM_DIAL_MIN_ANGLE_DEG: f64 = -135.0;
 pub const ZOOM_DIAL_MAX_ANGLE_DEG: f64 = 135.0;
 pub const ZOOM_DIAL_TICK_TENSION_RANGE_DEG: f64 = 14.0;
@@ -136,29 +140,4 @@ pub fn format_text_size_label(size: f64) -> String {
 
 pub fn snap_font_size_to_px(size: f64) -> f64 {
     size.round().clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn compass_snap_hits_cardinals() {
-        assert_eq!(apply_compass_drag_snapping(2.0, false), 0.0);
-        assert_eq!(apply_compass_drag_snapping(88.0, false), 90.0);
-    }
-
-    #[test]
-    fn zoom_roundtrip_stays_close() {
-        let zoom = 1.35;
-        let angle = dial_angle_from_zoom(zoom);
-        let back = zoom_from_dial_angle(angle);
-        assert!((zoom - back).abs() < 0.01);
-    }
-
-    #[test]
-    fn border_snap_is_whole_px() {
-        assert_eq!(snap_border_width_to_px(4.49), 4.0);
-        assert_eq!(snap_border_width_to_px(4.5), 5.0);
-    }
 }

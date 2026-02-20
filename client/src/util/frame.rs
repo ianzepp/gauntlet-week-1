@@ -5,6 +5,10 @@
 //! Multiple UI surfaces emit syscall frames over websocket. Centralizing the
 //! base request envelope prevents drift across call sites.
 
+#[cfg(test)]
+#[path = "frame_test.rs"]
+mod frame_test;
+
 use crate::net::types::{Frame, FrameStatus};
 
 /// Build a request frame with standard client metadata.

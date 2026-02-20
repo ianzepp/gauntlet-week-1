@@ -1,5 +1,9 @@
 //! Shared color normalization helpers.
 
+#[cfg(test)]
+#[path = "color_test.rs"]
+mod color_test;
+
 /// Parse `#RGB` or `#RRGGBB` values into RGB channels.
 pub fn parse_hex_rgb(raw: &str) -> Option<(u8, u8, u8)> {
     let trimmed = raw.trim();
@@ -36,21 +40,4 @@ pub fn normalize_hex_color_optional(value: Option<&str>, fallback: &str) -> Stri
     value
         .map(|v| normalize_hex_color(v, fallback))
         .unwrap_or_else(|| normalize_hex_color(fallback, fallback))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn normalize_hex_color_normalizes_valid_inputs() {
-        assert_eq!(normalize_hex_color("#ABC", "#000000"), "#aabbcc");
-        assert_eq!(normalize_hex_color("#A1B2C3", "#000000"), "#a1b2c3");
-    }
-
-    #[test]
-    fn normalize_hex_color_falls_back_for_invalid_inputs() {
-        assert_eq!(normalize_hex_color("blue", "#ff0000"), "#ff0000");
-        assert_eq!(normalize_hex_color_optional(None, "#ff0000"), "#ff0000");
-    }
 }

@@ -1,5 +1,9 @@
 //! Helpers for reading and updating object property maps.
 
+#[cfg(test)]
+#[path = "object_props_test.rs"]
+mod object_props_test;
+
 use crate::net::types::BoardObject;
 use crate::util::color::{normalize_hex_color, parse_hex_rgb};
 use crate::util::dial_math::{BORDER_WIDTH_MAX, BORDER_WIDTH_MIN, TEXT_SIZE_MAX, TEXT_SIZE_MIN};
@@ -177,54 +181,4 @@ pub fn object_font_size(obj: &BoardObject) -> f64 {
         .and_then(value_as_f64)
         .unwrap_or(24.0)
         .clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn upsert_color_props_writes_fill_and_background() {
-        let mut obj = BoardObject {
-            id: "o1".to_owned(),
-            board_id: "b1".to_owned(),
-            kind: "rect".to_owned(),
-            x: 0.0,
-            y: 0.0,
-            width: Some(100.0),
-            height: Some(80.0),
-            rotation: 0.0,
-            z_index: 0,
-            version: 1,
-            props: serde_json::json!({}),
-            created_by: None,
-        };
-        upsert_object_color_props(&mut obj, "#336699", 0.2);
-        assert!(obj.props.get("fill").and_then(|v| v.as_str()).is_some());
-        assert!(
-            obj.props
-                .get("backgroundColor")
-                .and_then(|v| v.as_str())
-                .is_some()
-        );
-    }
-
-    #[test]
-    fn border_width_defaults_to_zero() {
-        let obj = BoardObject {
-            id: "o1".to_owned(),
-            board_id: "b1".to_owned(),
-            kind: "rect".to_owned(),
-            x: 0.0,
-            y: 0.0,
-            width: Some(100.0),
-            height: Some(80.0),
-            rotation: 0.0,
-            z_index: 0,
-            version: 1,
-            props: serde_json::json!({}),
-            created_by: None,
-        };
-        assert_eq!(object_border_width(&obj), 0.0);
-    }
 }

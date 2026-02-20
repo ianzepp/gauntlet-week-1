@@ -1,5 +1,9 @@
 //! Selection aggregate helpers for board objects.
 
+#[cfg(test)]
+#[path = "selection_metrics_test.rs"]
+mod selection_metrics_test;
+
 use crate::state::board::BoardState;
 use crate::util::dial_math::{BORDER_WIDTH_MAX, BORDER_WIDTH_MIN, TEXT_SIZE_MAX, TEXT_SIZE_MIN, normalize_degrees_360};
 use crate::util::object_props::{

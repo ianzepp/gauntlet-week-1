@@ -5,6 +5,10 @@
 //! This is the authenticated landing route. It requests board inventory over
 //! websocket once connectivity is ready and coordinates create->navigate flow.
 
+#[cfg(test)]
+#[path = "dashboard_test.rs"]
+mod dashboard_test;
+
 use leptos::prelude::*;
 use leptos::tachys::view::any_view::IntoAny;
 use leptos_router::hooks::use_navigate;
@@ -380,30 +384,45 @@ fn CreateBoardDialog(
 }
 
 fn send_board_list(sender: RwSignal<FrameSender>, boards: RwSignal<BoardsState>) {
-    let since_rev = boards.get_untracked().list_rev;
-    let frame = request_frame(
+    let frame = build_board_list_frame(boards.get_untracked().list_rev.clone());
+    let _ = sender.get_untracked().send(&frame);
+}
+
+fn send_board_create(sender: RwSignal<FrameSender>, name: &str) {
+    let frame = build_board_create_frame(name);
+    let _ = sender.get_untracked().send(&frame);
+}
+
+fn send_board_delete(sender: RwSignal<FrameSender>, board_id: &str) {
+    let frame = build_board_delete_frame(board_id);
+    let _ = sender.get_untracked().send(&frame);
+}
+
+fn send_access_redeem(sender: RwSignal<FrameSender>, code: &str) {
+    let frame = build_access_redeem_frame(code);
+    let _ = sender.get_untracked().send(&frame);
+}
+
+fn build_board_list_frame(since_rev: Option<String>) -> crate::net::types::Frame {
+    request_frame(
         "board:list",
         None,
         serde_json::json!({
             "since_rev": since_rev
         }),
-    );
-    let _ = sender.get_untracked().send(&frame);
+    )
 }
 
-fn send_board_create(sender: RwSignal<FrameSender>, name: &str) {
-    let frame = request_frame("board:create", None, serde_json::json!({ "name": name }));
-    let _ = sender.get_untracked().send(&frame);
+fn build_board_create_frame(name: &str) -> crate::net::types::Frame {
+    request_frame("board:create", None, serde_json::json!({ "name": name }))
 }
 
-fn send_board_delete(sender: RwSignal<FrameSender>, board_id: &str) {
-    let frame = request_frame("board:delete", None, serde_json::json!({ "board_id": board_id }));
-    let _ = sender.get_untracked().send(&frame);
+fn build_board_delete_frame(board_id: &str) -> crate::net::types::Frame {
+    request_frame("board:delete", None, serde_json::json!({ "board_id": board_id }))
 }
 
-fn send_access_redeem(sender: RwSignal<FrameSender>, code: &str) {
-    let frame = request_frame("board:access:redeem", None, serde_json::json!({ "code": code }));
-    let _ = sender.get_untracked().send(&frame);
+fn build_access_redeem_frame(code: &str) -> crate::net::types::Frame {
+    request_frame("board:access:redeem", None, serde_json::json!({ "code": code }))
 }
 
 #[component]

@@ -6,6 +6,10 @@
 //! snapshots through this struct so other components (status bar, overlays)
 //! can render without direct canvas coupling.
 
+#[cfg(test)]
+#[path = "canvas_view_test.rs"]
+mod canvas_view_test;
+
 use crate::net::types::Point;
 
 /// Live canvas telemetry consumed by chrome (status bar).

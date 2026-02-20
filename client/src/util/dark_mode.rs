@@ -9,6 +9,10 @@
 //! Preference persistence is best-effort browser-only behavior; SSR paths
 //! safely no-op to keep server rendering deterministic.
 
+#[cfg(test)]
+#[path = "dark_mode_test.rs"]
+mod dark_mode_test;
+
 #[cfg(feature = "hydrate")]
 const STORAGE_KEY: &str = "gauntlet_week_1_dark";
 

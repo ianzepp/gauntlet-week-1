@@ -1,5 +1,9 @@
 //! AI frame handlers extracted from `frame_client`.
 
+#[cfg(test)]
+#[path = "frame_client_ai_test.rs"]
+mod frame_client_ai_test;
+
 #[cfg(feature = "hydrate")]
 use crate::net::types::Frame;
 #[cfg(any(test, feature = "hydrate"))]
