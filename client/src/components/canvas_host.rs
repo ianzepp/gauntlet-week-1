@@ -17,8 +17,21 @@ use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
 use crate::state::ui::ToolType;
 use crate::state::ui::UiState;
+#[allow(unused_imports)]
+use crate::util::dial_math::{
+    BORDER_WIDTH_MAX, BORDER_WIDTH_MIN, TEXT_SIZE_MAX, TEXT_SIZE_MIN, ZOOM_DIAL_MAX_ANGLE_DEG, ZOOM_DIAL_MIN_ANGLE_DEG,
+    angular_delta_deg, apply_compass_drag_snapping, apply_zoom_tick_tension, border_width_from_dial_angle,
+    color_shift_from_dial_angle, dial_angle_from_border_width, dial_angle_from_color_shift, dial_angle_from_font_size,
+    dial_angle_from_zoom, font_size_from_dial_angle, format_border_width_label, format_text_size_label,
+    normalize_degrees_360, signed_angle_delta_deg, snap_border_width_to_px, snap_font_size_to_px, zoom_from_dial_angle,
+};
 #[cfg(feature = "hydrate")]
-use crate::util::color::{normalize_hex_color, parse_hex_rgb};
+use crate::util::object_props::{
+    apply_lightness_shift_to_hex, object_base_fill_hex, object_border_color_hex, object_border_width, object_fill_hex,
+    object_font_size, object_lightness_shift, object_scale_components, object_text_color_hex,
+    reset_scale_props_baseline, reset_wire_object_scale_baseline, upsert_object_border_props,
+    upsert_object_color_props, upsert_object_scale_props, upsert_object_text_style_props, value_as_f64,
+};
 
 #[cfg(feature = "hydrate")]
 use std::cell::RefCell;
@@ -2044,15 +2057,6 @@ fn zoom_view_preserving_center(engine: &mut Engine, zoom: f64) {
 }
 
 #[cfg(feature = "hydrate")]
-const ZOOM_DIAL_MIN_ANGLE_DEG: f64 = -135.0;
-#[cfg(feature = "hydrate")]
-const ZOOM_DIAL_MAX_ANGLE_DEG: f64 = 135.0;
-#[cfg(feature = "hydrate")]
-const ZOOM_DIAL_TICK_TENSION_RANGE_DEG: f64 = 14.0;
-#[cfg(feature = "hydrate")]
-const ZOOM_DIAL_TICK_TENSION_STRENGTH: f64 = 0.42;
-
-#[cfg(feature = "hydrate")]
 fn zoom_angle_from_pointer(ev: &leptos::ev::PointerEvent, element: &web_sys::HtmlDivElement) -> Option<f64> {
     let rect = element.get_bounding_client_rect();
     let cx = rect.x() + (rect.width() * 0.5);
@@ -2071,149 +2075,6 @@ fn zoom_angle_from_pointer(ev: &leptos::ev::PointerEvent, element: &web_sys::Htm
     };
     let clamped = signed.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG);
     Some(apply_zoom_tick_tension(clamped))
-}
-
-#[cfg(feature = "hydrate")]
-fn apply_zoom_tick_tension(angle: f64) -> f64 {
-    let ticks = [
-        ZOOM_DIAL_MIN_ANGLE_DEG,
-        -90.0,
-        -45.0,
-        0.0,
-        45.0,
-        90.0,
-        ZOOM_DIAL_MAX_ANGLE_DEG,
-    ];
-    let mut adjusted = angle;
-    for tick in ticks {
-        let distance = (adjusted - tick).abs();
-        if distance >= ZOOM_DIAL_TICK_TENSION_RANGE_DEG {
-            continue;
-        }
-        let weight = 1.0 - (distance / ZOOM_DIAL_TICK_TENSION_RANGE_DEG);
-        adjusted += (tick - adjusted) * weight * ZOOM_DIAL_TICK_TENSION_STRENGTH;
-    }
-    adjusted.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
-}
-
-#[cfg(feature = "hydrate")]
-fn dial_angle_from_zoom(zoom: f64) -> f64 {
-    ((zoom - 1.0) * 180.0).clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn dial_angle_from_zoom(_zoom: f64) -> f64 {
-    0.0
-}
-
-#[cfg(feature = "hydrate")]
-fn zoom_from_dial_angle(angle: f64) -> f64 {
-    (1.0 + (angle / 180.0)).clamp(0.1, 10.0)
-}
-
-#[cfg(feature = "hydrate")]
-fn dial_angle_from_color_shift(shift: f64) -> f64 {
-    (shift.clamp(-1.0, 1.0) * ZOOM_DIAL_MAX_ANGLE_DEG).clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn dial_angle_from_color_shift(_shift: f64) -> f64 {
-    0.0
-}
-
-#[cfg(feature = "hydrate")]
-fn color_shift_from_dial_angle(angle: f64) -> f64 {
-    (angle / ZOOM_DIAL_MAX_ANGLE_DEG).clamp(-1.0, 1.0)
-}
-
-#[cfg(feature = "hydrate")]
-const BORDER_WIDTH_MIN: f64 = 0.0;
-#[cfg(feature = "hydrate")]
-const BORDER_WIDTH_MAX: f64 = 24.0;
-#[cfg(feature = "hydrate")]
-const TEXT_SIZE_MIN: f64 = 8.0;
-#[cfg(feature = "hydrate")]
-const TEXT_SIZE_MAX: f64 = 96.0;
-
-#[cfg(feature = "hydrate")]
-fn dial_angle_from_border_width(width: f64) -> f64 {
-    let clamped = width.clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX);
-    let t = if BORDER_WIDTH_MAX <= BORDER_WIDTH_MIN {
-        0.0
-    } else {
-        (clamped - BORDER_WIDTH_MIN) / (BORDER_WIDTH_MAX - BORDER_WIDTH_MIN)
-    };
-    ZOOM_DIAL_MIN_ANGLE_DEG + (t * (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG))
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn dial_angle_from_border_width(_width: f64) -> f64 {
-    0.0
-}
-
-#[cfg(feature = "hydrate")]
-fn border_width_from_dial_angle(angle: f64) -> f64 {
-    let clamped_angle = angle.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG);
-    let t = (clamped_angle - ZOOM_DIAL_MIN_ANGLE_DEG) / (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG);
-    snap_border_width_to_px(BORDER_WIDTH_MIN + (t * (BORDER_WIDTH_MAX - BORDER_WIDTH_MIN)))
-}
-
-#[cfg(feature = "hydrate")]
-fn dial_angle_from_font_size(size: f64) -> f64 {
-    let clamped = size.clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX);
-    let t = if TEXT_SIZE_MAX <= TEXT_SIZE_MIN {
-        0.0
-    } else {
-        (clamped - TEXT_SIZE_MIN) / (TEXT_SIZE_MAX - TEXT_SIZE_MIN)
-    };
-    ZOOM_DIAL_MIN_ANGLE_DEG + (t * (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG))
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn dial_angle_from_font_size(_size: f64) -> f64 {
-    0.0
-}
-
-#[cfg(feature = "hydrate")]
-fn font_size_from_dial_angle(angle: f64) -> f64 {
-    let clamped_angle = angle.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG);
-    let t = (clamped_angle - ZOOM_DIAL_MIN_ANGLE_DEG) / (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG);
-    snap_font_size_to_px(TEXT_SIZE_MIN + (t * (TEXT_SIZE_MAX - TEXT_SIZE_MIN)))
-}
-
-#[cfg(feature = "hydrate")]
-fn format_border_width_label(width: f64) -> String {
-    let rounded = width.round();
-    if (width - rounded).abs() < 0.05 {
-        format!("{}px", rounded as i64)
-    } else {
-        format!("{width:.1}px")
-    }
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn format_border_width_label(_width: f64) -> String {
-    "0px".to_owned()
-}
-
-#[cfg(feature = "hydrate")]
-fn snap_border_width_to_px(width: f64) -> f64 {
-    width.round().clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
-}
-
-#[cfg(feature = "hydrate")]
-fn format_text_size_label(size: f64) -> String {
-    format!("{}px", snap_font_size_to_px(size) as i64)
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn format_text_size_label(_size: f64) -> String {
-    "24px".to_owned()
-}
-
-#[cfg(feature = "hydrate")]
-fn snap_font_size_to_px(size: f64) -> f64 {
-    size.round().clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
 }
 
 #[cfg(feature = "hydrate")]
@@ -2326,46 +2187,6 @@ fn map_button(button: i16) -> CanvasButton {
 #[cfg(feature = "hydrate")]
 fn viewport_center_screen(engine: &Engine) -> CanvasPoint {
     CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5)
-}
-
-fn normalize_degrees_360(deg: f64) -> f64 {
-    deg.rem_euclid(360.0)
-}
-
-#[cfg(feature = "hydrate")]
-fn signed_angle_delta_deg(current: f64, start: f64) -> f64 {
-    let mut delta = current - start;
-    while delta > 180.0 {
-        delta -= 360.0;
-    }
-    while delta < -180.0 {
-        delta += 360.0;
-    }
-    delta
-}
-
-#[cfg(feature = "hydrate")]
-fn angular_delta_deg(a: f64, b: f64) -> f64 {
-    let delta = (a - b).abs().rem_euclid(360.0);
-    delta.min(360.0 - delta)
-}
-
-#[cfg(feature = "hydrate")]
-fn apply_compass_drag_snapping(raw_deg: f64, shift_snap: bool) -> f64 {
-    const CARDINAL_SNAP_EPS_DEG: f64 = 6.0;
-    const SHIFT_STEP_DEG: f64 = 15.0;
-
-    let mut deg = normalize_degrees_360(raw_deg);
-    for target in [0.0, 90.0, 180.0, 270.0] {
-        if angular_delta_deg(deg, target) <= CARDINAL_SNAP_EPS_DEG {
-            deg = target;
-            break;
-        }
-    }
-    if shift_snap {
-        deg = (deg / SHIFT_STEP_DEG).round() * SHIFT_STEP_DEG;
-    }
-    normalize_degrees_360(deg)
 }
 
 #[cfg(feature = "hydrate")]
@@ -2598,65 +2419,6 @@ fn apply_group_scale_target(board: RwSignal<BoardState>, sender: RwSignal<FrameS
 fn apply_group_scale_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _target_scale: f64) {}
 
 #[cfg(feature = "hydrate")]
-fn object_scale_components(obj: &crate::net::types::BoardObject, width: f64, height: f64) -> (f64, f64, f64) {
-    let base_width = obj
-        .props
-        .get("baseWidth")
-        .and_then(value_as_f64)
-        .unwrap_or(width)
-        .max(1.0);
-    let base_height = obj
-        .props
-        .get("baseHeight")
-        .and_then(value_as_f64)
-        .unwrap_or(height)
-        .max(1.0);
-    let scale = obj
-        .props
-        .get("scale")
-        .and_then(value_as_f64)
-        .unwrap_or_else(|| (width / base_width).clamp(0.1, 10.0))
-        .clamp(0.1, 10.0);
-    (base_width, base_height, scale)
-}
-
-#[cfg(feature = "hydrate")]
-fn upsert_object_scale_props(obj: &mut crate::net::types::BoardObject, scale: f64, base_width: f64, base_height: f64) {
-    if !obj.props.is_object() {
-        obj.props = serde_json::json!({});
-    }
-    if let Some(map) = obj.props.as_object_mut() {
-        map.insert("scale".to_owned(), serde_json::json!(scale));
-        map.insert("baseWidth".to_owned(), serde_json::json!(base_width));
-        map.insert("baseHeight".to_owned(), serde_json::json!(base_height));
-    }
-}
-
-#[cfg(feature = "hydrate")]
-fn value_as_f64(v: &serde_json::Value) -> Option<f64> {
-    v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))
-}
-
-#[cfg(feature = "hydrate")]
-fn reset_scale_props_baseline(props: &mut serde_json::Value, width: f64, height: f64) {
-    if !props.is_object() {
-        *props = serde_json::json!({});
-    }
-    if let Some(map) = props.as_object_mut() {
-        map.insert("scale".to_owned(), serde_json::Value::Null);
-        map.insert("baseWidth".to_owned(), serde_json::json!(width.max(1.0)));
-        map.insert("baseHeight".to_owned(), serde_json::json!(height.max(1.0)));
-    }
-}
-
-#[cfg(feature = "hydrate")]
-fn reset_wire_object_scale_baseline(obj: &mut crate::net::types::BoardObject) {
-    let width = obj.width.unwrap_or(120.0).max(1.0);
-    let height = obj.height.unwrap_or(80.0).max(1.0);
-    reset_scale_props_baseline(&mut obj.props, width, height);
-}
-
-#[cfg(feature = "hydrate")]
 fn selection_representative_base_color_hex(board: RwSignal<BoardState>) -> String {
     let state = board.get();
     state
@@ -2879,67 +2641,6 @@ fn apply_group_base_color_target(_board: RwSignal<BoardState>, _sender: RwSignal
 fn apply_group_background_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
 
 #[cfg(feature = "hydrate")]
-fn upsert_object_color_props(obj: &mut crate::net::types::BoardObject, base_fill: &str, lightness_shift: f64) {
-    let base = normalize_hex_color(base_fill, "#D94B4B");
-    let shift = lightness_shift.clamp(-1.0, 1.0);
-    let fill = apply_lightness_shift_to_hex(&base, shift);
-    if !obj.props.is_object() {
-        obj.props = serde_json::json!({});
-    }
-    if let Some(map) = obj.props.as_object_mut() {
-        map.insert("baseFill".to_owned(), serde_json::Value::String(base));
-        map.insert("lightnessShift".to_owned(), serde_json::json!(shift));
-        map.insert("fill".to_owned(), serde_json::Value::String(fill.clone()));
-        map.insert("backgroundColor".to_owned(), serde_json::Value::String(fill));
-    }
-}
-
-#[cfg(feature = "hydrate")]
-fn object_fill_hex(obj: &crate::net::types::BoardObject) -> String {
-    obj.props
-        .get("fill")
-        .and_then(|v| v.as_str())
-        .or_else(|| obj.props.get("backgroundColor").and_then(|v| v.as_str()))
-        .or_else(|| obj.props.get("borderColor").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s, "#D94B4B"))
-        .unwrap_or_else(|| "#D94B4B".to_owned())
-}
-
-#[cfg(feature = "hydrate")]
-fn object_base_fill_hex(obj: &crate::net::types::BoardObject) -> String {
-    obj.props
-        .get("baseFill")
-        .and_then(|v| v.as_str())
-        .map(|s| normalize_hex_color(s, "#D94B4B"))
-        .unwrap_or_else(|| object_fill_hex(obj))
-}
-
-#[cfg(feature = "hydrate")]
-fn object_lightness_shift(obj: &crate::net::types::BoardObject) -> f64 {
-    obj.props
-        .get("lightnessShift")
-        .and_then(value_as_f64)
-        .unwrap_or(0.0)
-        .clamp(-1.0, 1.0)
-}
-
-#[cfg(feature = "hydrate")]
-fn apply_lightness_shift_to_hex(base_hex: &str, shift: f64) -> String {
-    let (r, g, b) = parse_hex_rgb(base_hex).unwrap_or((217, 75, 75));
-    let shift = shift.clamp(-1.0, 1.0);
-    let scale = |channel: u8| -> u8 {
-        let current = f64::from(channel);
-        let adjusted = if shift >= 0.0 {
-            current + ((255.0 - current) * shift)
-        } else {
-            current * (1.0 + shift)
-        };
-        adjusted.round().clamp(0.0, 255.0) as u8
-    };
-    format!("#{:02X}{:02X}{:02X}", scale(r), scale(g), scale(b))
-}
-
-#[cfg(feature = "hydrate")]
 fn selection_representative_border_color_hex(board: RwSignal<BoardState>) -> String {
     let state = board.get();
     state
@@ -3159,42 +2860,6 @@ fn apply_group_border_color_target(_board: RwSignal<BoardState>, _sender: RwSign
 fn apply_group_border_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
 
 #[cfg(feature = "hydrate")]
-fn upsert_object_border_props(obj: &mut crate::net::types::BoardObject, border_color: &str, border_width: f64) {
-    let color = normalize_hex_color(border_color, "#1F1A17");
-    let width = snap_border_width_to_px(border_width);
-    if !obj.props.is_object() {
-        obj.props = serde_json::json!({});
-    }
-    if let Some(map) = obj.props.as_object_mut() {
-        map.insert("borderColor".to_owned(), serde_json::Value::String(color.clone()));
-        map.insert("stroke".to_owned(), serde_json::Value::String(color));
-        map.insert("borderWidth".to_owned(), serde_json::json!(width));
-        map.insert("stroke_width".to_owned(), serde_json::json!(width));
-    }
-}
-
-#[cfg(feature = "hydrate")]
-fn object_border_color_hex(obj: &crate::net::types::BoardObject) -> String {
-    obj.props
-        .get("borderColor")
-        .and_then(|v| v.as_str())
-        .or_else(|| obj.props.get("stroke").and_then(|v| v.as_str()))
-        .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s, "#1F1A17"))
-        .unwrap_or_else(|| "#1F1A17".to_owned())
-}
-
-#[cfg(feature = "hydrate")]
-fn object_border_width(obj: &crate::net::types::BoardObject) -> f64 {
-    obj.props
-        .get("borderWidth")
-        .and_then(value_as_f64)
-        .or_else(|| obj.props.get("stroke_width").and_then(value_as_f64))
-        .unwrap_or(0.0)
-        .clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
-}
-
-#[cfg(feature = "hydrate")]
 fn selection_representative_text_color_hex(board: RwSignal<BoardState>) -> String {
     let state = board.get();
     state
@@ -3412,39 +3077,6 @@ fn apply_group_text_color_target(_board: RwSignal<BoardState>, _sender: RwSignal
 #[cfg(not(feature = "hydrate"))]
 #[allow(dead_code)]
 fn apply_group_text_style_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
-
-#[cfg(feature = "hydrate")]
-fn upsert_object_text_style_props(obj: &mut crate::net::types::BoardObject, text_color: &str, font_size: f64) {
-    let color = normalize_hex_color(text_color, "#1F1A17");
-    let size = snap_font_size_to_px(font_size);
-    if !obj.props.is_object() {
-        obj.props = serde_json::json!({});
-    }
-    if let Some(map) = obj.props.as_object_mut() {
-        map.insert("textColor".to_owned(), serde_json::Value::String(color));
-        map.insert("fontSize".to_owned(), serde_json::json!(size));
-    }
-}
-
-#[cfg(feature = "hydrate")]
-fn object_text_color_hex(obj: &crate::net::types::BoardObject) -> String {
-    obj.props
-        .get("textColor")
-        .and_then(|v| v.as_str())
-        .or_else(|| obj.props.get("color").and_then(|v| v.as_str()))
-        .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s, "#1F1A17"))
-        .unwrap_or_else(|| "#1F1A17".to_owned())
-}
-
-#[cfg(feature = "hydrate")]
-fn object_font_size(obj: &crate::net::types::BoardObject) -> f64 {
-    obj.props
-        .get("fontSize")
-        .and_then(value_as_f64)
-        .unwrap_or(24.0)
-        .clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
-}
 
 #[cfg(feature = "hydrate")]
 fn selection_representative_rotation_deg(board: RwSignal<BoardState>) -> f64 {
