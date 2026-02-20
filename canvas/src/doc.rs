@@ -27,6 +27,8 @@ pub type ObjectId = Uuid;
 pub enum ObjectKind {
     /// Axis-aligned rectangle.
     Rect,
+    /// Text-only object rendered without a shape fill/stroke.
+    Text,
     /// Frame container shape.
     Frame,
     /// Ellipse inscribed within the bounding box.

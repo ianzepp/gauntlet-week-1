@@ -1184,7 +1184,8 @@ fn map_tool(tool: ToolType) -> CanvasTool {
         ToolType::Sticky | ToolType::Rectangle | ToolType::Frame | ToolType::Youtube => CanvasTool::Select,
         ToolType::Ellipse => CanvasTool::Ellipse,
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
-        ToolType::Text | ToolType::Draw | ToolType::Eraser => CanvasTool::Select,
+        ToolType::Text => CanvasTool::Text,
+        ToolType::Draw | ToolType::Eraser => CanvasTool::Select,
     }
 }
 
@@ -1653,6 +1654,15 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "borderWidth": 2
             }),
         )),
+        ToolType::Text => Some((
+            "text",
+            220.0,
+            56.0,
+            serde_json::json!({
+                "text": "Text",
+                "fontSize": 24
+            }),
+        )),
         _ => None,
     }
 }
@@ -1667,6 +1677,7 @@ fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
         ToolType::Youtube => Some((320.0, 220.0, "rgba(217, 75, 75, 0.45)")),
         ToolType::Line => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
+        ToolType::Text => Some((220.0, 56.0, "rgba(217, 75, 75, 0.22)")),
         _ => None,
     }
 }
@@ -1750,6 +1761,7 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
 
     let kind = match obj.kind.as_str() {
         "rectangle" | "rect" | "sticky_note" => CanvasKind::Rect,
+        "text" => CanvasKind::Text,
         "frame" => CanvasKind::Frame,
         "ellipse" => CanvasKind::Ellipse,
         "diamond" => CanvasKind::Diamond,
@@ -1941,6 +1953,7 @@ fn process_actions(
 fn canvas_kind_to_wire(kind: CanvasKind) -> &'static str {
     match kind {
         CanvasKind::Rect => "rectangle",
+        CanvasKind::Text => "text",
         CanvasKind::Frame => "frame",
         CanvasKind::Ellipse => "ellipse",
         CanvasKind::Diamond => "diamond",

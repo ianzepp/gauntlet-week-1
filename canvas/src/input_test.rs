@@ -18,7 +18,7 @@ fn tool_default_is_select() {
 #[test]
 fn tool_equality() {
     assert_eq!(Tool::Rect, Tool::Rect);
-    assert_ne!(Tool::Rect, Tool::Ellipse);
+    assert_ne!(Tool::Rect, Tool::Text);
 }
 
 #[test]
@@ -41,6 +41,7 @@ fn tool_all_variants_distinct() {
     let variants = [
         Tool::Select,
         Tool::Rect,
+        Tool::Text,
         Tool::Ellipse,
         Tool::Diamond,
         Tool::Star,
@@ -61,6 +62,7 @@ fn tool_all_variants_distinct() {
 #[test]
 fn tool_is_shape() {
     assert!(Tool::Rect.is_shape());
+    assert!(Tool::Text.is_shape());
     assert!(Tool::Ellipse.is_shape());
     assert!(Tool::Diamond.is_shape());
     assert!(Tool::Star.is_shape());

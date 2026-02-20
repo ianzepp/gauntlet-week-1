@@ -87,15 +87,16 @@ fn legacy_tools() -> Vec<Tool> {
         },
         Tool {
             name: "createShape".into(),
-            description: "Create a shape (rectangle or ellipse) on the board.".into(),
+            description: "Create a shape (rectangle, ellipse, or text) on the board.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "type": { "type": "string", "enum": ["rectangle", "ellipse"], "description": "Shape type" },
+                    "type": { "type": "string", "enum": ["rectangle", "ellipse", "text"], "description": "Shape type" },
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
+                    "text": { "type": "string", "description": "Text content (used when type is text)" },
                     "backgroundColor": { "type": "string", "description": "Background color (hex)" },
                     "fill": { "type": "string", "description": "Canvas fill color (hex)" },
                     "borderColor": { "type": "string", "description": "Border color (hex)" },

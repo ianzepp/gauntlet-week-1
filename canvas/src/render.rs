@@ -80,6 +80,7 @@ fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore
 
     match obj.kind {
         ObjectKind::Rect => draw_rect(ctx, obj, &props),
+        ObjectKind::Text => draw_text_object(ctx, obj, &props),
         ObjectKind::Frame => draw_frame(ctx, obj, &props),
         ObjectKind::Ellipse => draw_ellipse(ctx, obj, &props),
         ObjectKind::Diamond => draw_diamond(ctx, obj, &props),
@@ -90,6 +91,14 @@ fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore
             Ok(())
         }
     }
+}
+
+fn draw_text_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
+    ctx.save();
+    translate_and_rotate(ctx, obj)?;
+    draw_text(ctx, obj, props)?;
+    ctx.restore();
+    Ok(())
 }
 
 // =============================================================

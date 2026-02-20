@@ -22,6 +22,8 @@ pub enum Tool {
     Select,
     /// Draw a rectangle.
     Rect,
+    /// Create a text object.
+    Text,
     /// Draw an ellipse.
     Ellipse,
     /// Draw a diamond.
@@ -38,7 +40,7 @@ impl Tool {
     /// Whether this tool creates a node shape (rect, ellipse, diamond, star).
     #[must_use]
     pub fn is_shape(self) -> bool {
-        matches!(self, Self::Rect | Self::Ellipse | Self::Diamond | Self::Star)
+        matches!(self, Self::Rect | Self::Text | Self::Ellipse | Self::Diamond | Self::Star)
     }
 
     /// Whether this tool creates an edge (line, arrow).

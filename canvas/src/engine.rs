@@ -515,6 +515,7 @@ impl EngineCore {
     fn handle_shape_tool_down(&mut self, world_pt: Point, tool: Tool, actions: &mut Vec<Action>) {
         let kind = match tool {
             Tool::Rect => ObjectKind::Rect,
+            Tool::Text => ObjectKind::Text,
             Tool::Diamond => ObjectKind::Diamond,
             Tool::Ellipse => ObjectKind::Ellipse,
             Tool::Star => ObjectKind::Star,
@@ -750,6 +751,15 @@ impl EngineCore {
     }
 
     fn create_default_object(&self, kind: ObjectKind, x: f64, y: f64, width: f64, height: f64) -> BoardObject {
+        let props = if kind == ObjectKind::Text {
+            serde_json::json!({ "text": "Text" })
+        } else {
+            serde_json::json!({
+                "fill": "#D94B4B",
+                "stroke": "#1F1A17",
+                "stroke_width": 1,
+            })
+        };
         BoardObject {
             id: uuid::Uuid::new_v4(),
             board_id: uuid::Uuid::nil(),
@@ -760,11 +770,7 @@ impl EngineCore {
             height,
             rotation: 0.0,
             z_index: self.next_z_index(),
-            props: serde_json::json!({
-                "fill": "#D94B4B",
-                "stroke": "#1F1A17",
-                "stroke_width": 1,
-            }),
+            props,
             created_by: None,
             version: 1,
         }

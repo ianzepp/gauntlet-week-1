@@ -445,7 +445,7 @@ fn hit_test_handles(world_pt: Point, obj: &BoardObject, doc: &DocStore, radius: 
 /// Test the body/interior of a single object.
 fn hit_test_body(world_pt: Point, obj: &BoardObject, doc: &DocStore, edge_radius: f64) -> Option<HitPart> {
     match obj.kind {
-        ObjectKind::Rect => {
+        ObjectKind::Rect | ObjectKind::Text => {
             if point_in_rect(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
                 Some(HitPart::Body)
             } else {

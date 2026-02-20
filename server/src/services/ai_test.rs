@@ -120,6 +120,27 @@ async fn tool_create_shape() {
     }
 }
 
+#[tokio::test]
+async fn tool_create_text_shape() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "type": "text", "x": 40, "y": 60, "text": "Heading" });
+    let result = execute_tool(&state, board_id, "createShape", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created text shape"));
+    assert_eq!(mutations.len(), 1);
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "text");
+        assert_eq!(obj.props.get("text").and_then(|v| v.as_str()), Some("Heading"));
+        assert_eq!(obj.width, Some(220.0));
+        assert_eq!(obj.height, Some(56.0));
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
 // =========================================================================
 // execute_tool — createFrame
 // =========================================================================

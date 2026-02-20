@@ -27,7 +27,7 @@ const SHAPE_TOOLS: &[ToolDef] = &[
     ToolDef { tool: ToolType::Youtube, label: "YouTube", disabled: false },
     ToolDef { tool: ToolType::Line, label: "Line", disabled: false },
     ToolDef { tool: ToolType::Connector, label: "Arrow", disabled: false },
-    ToolDef { tool: ToolType::Text, label: "Text", disabled: true },
+    ToolDef { tool: ToolType::Text, label: "Text", disabled: false },
 ];
 
 const DRAW_TOOLS: &[ToolDef] = &[

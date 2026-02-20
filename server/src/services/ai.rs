@@ -733,10 +733,11 @@ async fn execute_create_shape(
     input: &serde_json::Value,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
-    let kind = input
+    let requested_kind = input
         .get("type")
         .and_then(|v| v.as_str())
         .unwrap_or("rectangle");
+    let kind = canonical_kind(requested_kind);
     let x = input
         .get("x")
         .and_then(serde_json::Value::as_f64)
@@ -767,25 +768,35 @@ async fn execute_create_shape(
         })
         .unwrap_or(1.0);
 
-    let props = json!({
-        "backgroundColor": fill.clone(),
-        "fill": fill,
-        "borderColor": stroke.clone(),
-        "stroke": stroke,
-        "borderWidth": stroke_width,
-        "stroke_width": stroke_width
-    });
+    let props = if kind == "text" {
+        json!({
+            "text": input.get("text").and_then(|v| v.as_str()).unwrap_or("Text"),
+            "fontSize": input.get("fontSize").and_then(serde_json::Value::as_f64).unwrap_or(24.0)
+        })
+    } else {
+        json!({
+            "backgroundColor": fill.clone(),
+            "fill": fill,
+            "borderColor": stroke.clone(),
+            "stroke": stroke,
+            "borderWidth": stroke_width,
+            "stroke_width": stroke_width
+        })
+    };
     let w = input.get("width").and_then(serde_json::Value::as_f64);
     let h = input.get("height").and_then(serde_json::Value::as_f64);
-    let mut obj = super::object::create_object(state, board_id, kind, x, y, w, h, 0.0, props, None).await?;
+    let default_w = if kind == "text" { 220.0 } else { 160.0 };
+    let default_h = if kind == "text" { 56.0 } else { 100.0 };
+    let mut obj =
+        super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None).await?;
 
     // Update the in-memory object with dimensions.
-    if obj.width.is_some() || obj.height.is_some() {
+    if obj.width.is_some() || obj.height.is_some() || kind == "text" {
         let mut data = Data::new();
-        if let Some(w) = obj.width {
+        if let Some(w) = obj.width.or(Some(default_w)) {
             data.insert("width".into(), json!(w));
         }
-        if let Some(h) = obj.height {
+        if let Some(h) = obj.height.or(Some(default_h)) {
             data.insert("height".into(), json!(h));
         }
         obj = super::object::update_object(state, board_id, obj.id, &data, obj.version).await?;
@@ -793,7 +804,7 @@ async fn execute_create_shape(
 
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
-    Ok(format!("created {kind} shape {id}"))
+    Ok(format!("created {} shape {id}", requested_kind))
 }
 
 async fn execute_create_frame(
@@ -1291,6 +1302,7 @@ fn canonical_kind(kind: &str) -> String {
     match kind.trim().to_ascii_lowercase().as_str() {
         "rect" => "rectangle".to_owned(),
         "circle" => "ellipse".to_owned(),
+        "textbox" | "text_box" | "label" => "text".to_owned(),
         "connector" | "arrow" | "line" => "connector".to_owned(),
         other => other.to_owned(),
     }
