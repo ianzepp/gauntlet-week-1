@@ -14,6 +14,7 @@ use crate::components::board_card::BoardCard;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
+use crate::state::boards::BoardListItem;
 use crate::state::boards::BoardsState;
 use crate::state::ui::UiState;
 
@@ -59,19 +60,19 @@ pub fn DashboardPage() -> impl IntoView {
     let show_join = RwSignal::new(false);
     let join_code = RwSignal::new(String::new());
 
-    let on_create = move |_| {
+    let on_create = Callback::new(move |_| {
         show_create.set(true);
         new_board_name.set(String::new());
-    };
+    });
 
     let on_cancel = Callback::new(move |_| show_create.set(false));
     let on_delete_cancel = Callback::new(move |_| delete_board_id.set(None));
     let on_board_delete_request = Callback::new(move |id: String| delete_board_id.set(Some(id)));
 
-    let on_join = move |_| {
+    let on_join = Callback::new(move |_| {
         show_join.set(true);
         join_code.set(String::new());
-    };
+    });
     let on_join_cancel = Callback::new(move |_| show_join.set(false));
 
     let navigate_to_board = navigate.clone();
@@ -91,14 +92,7 @@ pub fn DashboardPage() -> impl IntoView {
         }
     });
 
-    let self_identity = move || {
-        auth.get()
-            .user
-            .map(|user| (user.name, user.auth_method))
-            .unwrap_or_else(|| ("me".to_owned(), "session".to_owned()))
-    };
-
-    let on_logout = move |_| {
+    let on_logout = Callback::new(move |_| {
         #[cfg(feature = "hydrate")]
         {
             leptos::task::spawn_local(async move {
@@ -109,165 +103,201 @@ pub fn DashboardPage() -> impl IntoView {
                 }
             });
         }
+    });
+
+    view! {
+        <Show when=move || !auth.get().loading && auth.get().user.is_some() fallback=move || view! { <DashboardAuthFallback auth=auth /> }>
+            <div class="dashboard-page">
+                <DashboardHeader ui=ui auth=auth on_create=on_create on_join=on_join on_logout=on_logout />
+                <DashboardGrid boards=boards auth=auth on_board_delete_request=on_board_delete_request />
+                <DashboardDialogs
+                    show_create=show_create
+                    new_board_name=new_board_name
+                    on_cancel=on_cancel
+                    delete_board_id=delete_board_id
+                    on_delete_cancel=on_delete_cancel
+                    show_join=show_join
+                    join_code=join_code
+                    on_join_cancel=on_join_cancel
+                    boards=boards
+                    sender=sender
+                />
+            </div>
+        </Show>
+    }
+}
+
+#[component]
+fn DashboardAuthFallback(auth: RwSignal<AuthState>) -> impl IntoView {
+    view! {
+        <div class="dashboard-page">
+            <p>{move || if auth.get().loading { "Loading..." } else { "Redirecting to login..." }}</p>
+        </div>
+    }
+}
+
+#[component]
+fn DashboardHeader(
+    ui: RwSignal<UiState>,
+    auth: RwSignal<AuthState>,
+    on_create: Callback<()>,
+    on_join: Callback<()>,
+    on_logout: Callback<()>,
+) -> impl IntoView {
+    let self_name = move || {
+        auth.get()
+            .user
+            .map(|user| user.name)
+            .unwrap_or_else(|| "me".to_owned())
+    };
+    let self_method = move || {
+        auth.get()
+            .user
+            .map(|user| user.auth_method)
+            .unwrap_or_else(|| "session".to_owned())
     };
 
     view! {
-        <Show
-            when=move || !auth.get().loading && auth.get().user.is_some()
-            fallback=move || {
-                view! {
-                    <div class="dashboard-page">
-                        <p>{move || if auth.get().loading { "Loading..." } else { "Redirecting to login..." }}</p>
-                    </div>
-                }
-            }
-        >
-            <div class="dashboard-page">
-                <header class="dashboard-page__header toolbar">
-                    <span class="toolbar__board-name">"Boards"</span>
+        <header class="dashboard-page__header toolbar">
+            <span class="toolbar__board-name">"Boards"</span>
 
-                    <div class="toolbar__segment" role="group" aria-label="Theme mode">
-                        <button
-                            class="btn toolbar__segment-btn"
-                            class:toolbar__segment-btn--active=move || !ui.get().dark_mode
-                            on:click=move |_| {
-                                if ui.get().dark_mode {
-                                    let next = crate::util::dark_mode::toggle(true);
-                                    ui.update(|u| u.dark_mode = next);
-                                }
-                            }
-                            title="Light mode"
-                        >
-                            "Light"
-                        </button>
-                        <button
-                            class="btn toolbar__segment-btn"
-                            class:toolbar__segment-btn--active=move || ui.get().dark_mode
-                            on:click=move |_| {
-                                if !ui.get().dark_mode {
-                                    let next = crate::util::dark_mode::toggle(false);
-                                    ui.update(|u| u.dark_mode = next);
-                                }
-                            }
-                            title="Dark mode"
-                        >
-                            "Dark"
-                        </button>
-                    </div>
-
-                    <button class="btn toolbar__join-board" on:click=on_create>
-                        "+ New Board"
-                    </button>
-                    <button class="btn toolbar__join-board" on:click=on_join>
-                        "Join Board"
-                    </button>
-
-                    <span class="toolbar__spacer"></span>
-
-                    <span class="toolbar__self">
-                        {move || self_identity().0}
-                        " ("
-                        <span class="toolbar__self-method">{move || self_identity().1}</span>
-                        ")"
-                    </span>
-
-                    <button class="btn toolbar__logout" on:click=on_logout title="Logout">
-                        "Logout"
-                    </button>
-                </header>
-
-                <div class="dashboard-page__grid">
-                    <Show when=move || boards.get().error.is_some()>
-                        <p class="dashboard-page__error">
-                            {move || boards.get().error.unwrap_or_default()}
-                        </p>
-                    </Show>
-                    <Show
-                        when=move || !boards.get().loading
-                        fallback=move || view! { <p>"Loading boards..."</p> }
-                    >
-                        {move || {
-                            let state = boards.get();
-                            let my_user_id = auth.get().user.map(|u| u.id).unwrap_or_default();
-                            let on_delete_my = on_board_delete_request.clone();
-                            let on_delete_shared = on_board_delete_request.clone();
-                            let (my_boards, shared_boards): (Vec<_>, Vec<_>) = state
-                                .items
-                                .into_iter()
-                                .partition(|b| b.owner_id.as_deref() == Some(my_user_id.as_str()));
-
-                            view! {
-                                <section class="dashboard-page__section">
-                                    <header class="dashboard-page__section-header">
-                                        <h2 class="dashboard-page__section-title">"My Boards"</h2>
-                                        <span class="dashboard-page__section-count">{my_boards.len()}</span>
-                                    </header>
-                                    <div class="dashboard-page__cards">
-                                        {my_boards
-                                            .into_iter()
-                                            .map(|b| {
-                                                view! {
-                                                    <BoardCard
-                                                        id=b.id
-                                                        name=b.name
-                                                        snapshot=b.snapshot
-                                                        on_delete=on_delete_my
-                                                    />
-                                                }
-                                            })
-                                            .collect::<Vec<_>>()}
-                                    </div>
-                                </section>
-
-                                <section class="dashboard-page__section">
-                                    <header class="dashboard-page__section-header">
-                                        <h2 class="dashboard-page__section-title">"Shared Boards"</h2>
-                                        <span class="dashboard-page__section-count">{shared_boards.len()}</span>
-                                    </header>
-                                    <div class="dashboard-page__cards">
-                                        {shared_boards
-                                            .into_iter()
-                                            .map(|b| {
-                                                view! {
-                                                    <BoardCard
-                                                        id=b.id
-                                                        name=b.name
-                                                        snapshot=b.snapshot
-                                                        on_delete=on_delete_shared
-                                                    />
-                                                }
-                                            })
-                                            .collect::<Vec<_>>()}
-                                    </div>
-                                </section>
-                            }
-                        }}
-                    </Show>
-                </div>
-                <Show when=move || show_create.get()>
-                    <CreateBoardDialog
-                        name=new_board_name
-                        on_cancel=on_cancel
-                        boards=boards
-                        sender=sender
-                    />
-                </Show>
-                <Show when=move || delete_board_id.get().is_some()>
-                    <DeleteBoardDialog
-                        board_id=delete_board_id
-                        on_cancel=on_delete_cancel
-                        boards=boards
-                        sender=sender
-                    />
-                </Show>
-                <Show when=move || show_join.get()>
-                    <JoinBoardDialog
-                        code=join_code
-                        on_cancel=on_join_cancel
-                        sender=sender
-                    />
-                </Show>
+            <div class="toolbar__segment" role="group" aria-label="Theme mode">
+                <button
+                    class="btn toolbar__segment-btn"
+                    class:toolbar__segment-btn--active=move || !ui.get().dark_mode
+                    on:click=move |_| {
+                        if ui.get().dark_mode {
+                            let next = crate::util::dark_mode::toggle(true);
+                            ui.update(|u| u.dark_mode = next);
+                        }
+                    }
+                    title="Light mode"
+                >
+                    "Light"
+                </button>
+                <button
+                    class="btn toolbar__segment-btn"
+                    class:toolbar__segment-btn--active=move || ui.get().dark_mode
+                    on:click=move |_| {
+                        if !ui.get().dark_mode {
+                            let next = crate::util::dark_mode::toggle(false);
+                            ui.update(|u| u.dark_mode = next);
+                        }
+                    }
+                    title="Dark mode"
+                >
+                    "Dark"
+                </button>
             </div>
+
+            <button class="btn toolbar__join-board" on:click=move |_| on_create.run(())>
+                "+ New Board"
+            </button>
+            <button class="btn toolbar__join-board" on:click=move |_| on_join.run(())>
+                "Join Board"
+            </button>
+
+            <span class="toolbar__spacer"></span>
+
+            <span class="toolbar__self">
+                {self_name}
+                " ("
+                <span class="toolbar__self-method">{self_method}</span>
+                ")"
+            </span>
+
+            <button class="btn toolbar__logout" on:click=move |_| on_logout.run(()) title="Logout">
+                "Logout"
+            </button>
+        </header>
+    }
+}
+
+#[component]
+fn DashboardGrid(
+    boards: RwSignal<BoardsState>,
+    auth: RwSignal<AuthState>,
+    on_board_delete_request: Callback<String>,
+) -> impl IntoView {
+    view! {
+        <div class="dashboard-page__grid">
+            <Show when=move || boards.get().error.is_some()>
+                <p class="dashboard-page__error">{move || boards.get().error.unwrap_or_default()}</p>
+            </Show>
+            <Show when=move || !boards.get().loading fallback=move || view! { <p>"Loading boards..."</p> }>
+                <BoardSections boards=boards auth=auth on_board_delete_request=on_board_delete_request />
+            </Show>
+        </div>
+    }
+}
+
+#[component]
+fn BoardSections(
+    boards: RwSignal<BoardsState>,
+    auth: RwSignal<AuthState>,
+    on_board_delete_request: Callback<String>,
+) -> impl IntoView {
+    view! {
+        {move || {
+            let state = boards.get();
+            let my_user_id = auth.get().user.map(|u| u.id).unwrap_or_default();
+            let (my_boards, shared_boards): (Vec<_>, Vec<_>) = state
+                .items
+                .into_iter()
+                .partition(|b| b.owner_id.as_deref() == Some(my_user_id.as_str()));
+            view! {
+                <BoardSection title="My Boards" items=my_boards on_delete=on_board_delete_request.clone() />
+                <BoardSection title="Shared Boards" items=shared_boards on_delete=on_board_delete_request.clone() />
+            }
+        }}
+    }
+}
+
+#[component]
+fn BoardSection(title: &'static str, items: Vec<BoardListItem>, on_delete: Callback<String>) -> impl IntoView {
+    let count = items.len();
+    view! {
+        <section class="dashboard-page__section">
+            <header class="dashboard-page__section-header">
+                <h2 class="dashboard-page__section-title">{title}</h2>
+                <span class="dashboard-page__section-count">{count}</span>
+            </header>
+            <div class="dashboard-page__cards">
+                {items
+                    .into_iter()
+                    .map(|b| {
+                        view! {
+                            <BoardCard id=b.id name=b.name snapshot=b.snapshot on_delete=on_delete />
+                        }
+                    })
+                    .collect::<Vec<_>>()}
+            </div>
+        </section>
+    }
+}
+
+#[component]
+fn DashboardDialogs(
+    show_create: RwSignal<bool>,
+    new_board_name: RwSignal<String>,
+    on_cancel: Callback<()>,
+    delete_board_id: RwSignal<Option<String>>,
+    on_delete_cancel: Callback<()>,
+    show_join: RwSignal<bool>,
+    join_code: RwSignal<String>,
+    on_join_cancel: Callback<()>,
+    boards: RwSignal<BoardsState>,
+    sender: RwSignal<FrameSender>,
+) -> impl IntoView {
+    view! {
+        <Show when=move || show_create.get()>
+            <CreateBoardDialog name=new_board_name on_cancel=on_cancel boards=boards sender=sender />
+        </Show>
+        <Show when=move || delete_board_id.get().is_some()>
+            <DeleteBoardDialog board_id=delete_board_id on_cancel=on_delete_cancel boards=boards sender=sender />
+        </Show>
+        <Show when=move || show_join.get()>
+            <JoinBoardDialog code=join_code on_cancel=on_join_cancel sender=sender />
         </Show>
     }
 }
