@@ -14,11 +14,15 @@
 
 #[path = "frame_client_ai.rs"]
 mod frame_client_ai;
+#[path = "frame_client_error.rs"]
+mod frame_client_error;
 #[path = "frame_client_parse.rs"]
 mod frame_client_parse;
 
 #[cfg(feature = "hydrate")]
 use self::frame_client_ai::handle_ai_frame;
+#[cfg(feature = "hydrate")]
+use self::frame_client_error::handle_error_frame;
 
 #[cfg(any(test, feature = "hydrate"))]
 use self::frame_client_parse::{
@@ -768,37 +772,6 @@ fn handle_chat_frame(frame: &Frame, chat: leptos::prelude::RwSignal<ChatState>) 
 #[cfg(any(test, feature = "hydrate"))]
 fn upsert_ai_user_message(ai: &mut AiState, msg: crate::state::ai::AiMessage) {
     frame_client_ai::upsert_ai_user_message(ai, msg);
-}
-
-#[cfg(feature = "hydrate")]
-fn handle_error_frame(frame: &Frame, boards: leptos::prelude::RwSignal<BoardsState>) -> bool {
-    use crate::net::types::FrameStatus;
-
-    if frame.status != FrameStatus::Error {
-        return false;
-    }
-
-    let message = frame_error_message(frame)
-        .unwrap_or("request failed")
-        .to_owned();
-    if frame.syscall == "board:list" {
-        boards.update(|s| {
-            s.loading = false;
-            s.error = Some(message.clone());
-        });
-    } else if frame.syscall == "board:create" {
-        boards.update(|s| {
-            s.create_pending = false;
-            s.error = Some(message.clone());
-        });
-    } else if frame.syscall == "board:delete" {
-        boards.update(|s| {
-            s.loading = false;
-            s.error = Some(message.clone());
-        });
-    }
-    leptos::logging::warn!("frame error: syscall={} data={}", frame.syscall, frame.data);
-    true
 }
 
 #[cfg(feature = "hydrate")]
