@@ -6,6 +6,7 @@
 //! logic to improve reuse and testability.
 
 pub mod auth;
+pub mod canvas_viewport;
 pub mod color;
 pub mod dark_mode;
 pub mod dial_math;
