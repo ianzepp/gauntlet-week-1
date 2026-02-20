@@ -14,15 +14,35 @@
 
 #[path = "frame_client_ai.rs"]
 mod frame_client_ai;
+#[path = "frame_client_chat.rs"]
+mod frame_client_chat;
 #[path = "frame_client_error.rs"]
 mod frame_client_error;
+#[path = "frame_client_objects.rs"]
+mod frame_client_objects;
 #[path = "frame_client_parse.rs"]
 mod frame_client_parse;
+#[path = "frame_client_requests.rs"]
+mod frame_client_requests;
 
 #[cfg(feature = "hydrate")]
 use self::frame_client_ai::handle_ai_frame;
 #[cfg(feature = "hydrate")]
+use self::frame_client_chat::handle_chat_frame;
+#[cfg(feature = "hydrate")]
 use self::frame_client_error::handle_error_frame;
+#[cfg(feature = "hydrate")]
+use self::frame_client_objects::handle_object_frame;
+#[cfg(feature = "hydrate")]
+use self::frame_client_requests::{
+    send_board_list_request, send_board_savepoint_list_request, send_board_users_list_request,
+};
+
+#[cfg(any(test, feature = "hydrate"))]
+use self::frame_client_objects::{
+    apply_cursor_clear, apply_cursor_moved, apply_object_frame, cleanup_stale_cursors, cleanup_stale_drags,
+    merge_object_update, should_smooth_drag, smoothing_alpha,
+};
 
 #[cfg(any(test, feature = "hydrate"))]
 use self::frame_client_parse::{
@@ -30,13 +50,13 @@ use self::frame_client_parse::{
     parse_ai_prompt_user_message, parse_board_list_items, parse_board_object_item, parse_board_objects,
     parse_chat_message, pick_number, pick_str,
 };
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(feature = "hydrate")]
 use crate::net::types::Frame;
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::ai::AiState;
 #[cfg(feature = "hydrate")]
 use crate::state::auth::AuthState;
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(feature = "hydrate")]
 use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::board::ConnectionStatus;
@@ -320,7 +340,7 @@ fn handle_board_frame(
         Some("join") => {
             if frame.data.get("client_id").is_some() && frame.data.get("objects").is_none() {
                 board.update(|b| {
-                    upsert_presence_from_payload(b, &frame.data);
+                    frame_client_objects::upsert_presence_from_payload(b, &frame.data);
                 });
             }
             true
@@ -331,7 +351,7 @@ fn handle_board_frame(
                     b.presence.clear();
                     b.cursor_updated_at.clear();
                     for row in rows {
-                        upsert_presence_from_payload(b, row);
+                        frame_client_objects::upsert_presence_from_payload(b, row);
                     }
                 });
             }
@@ -468,421 +488,9 @@ fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<Bo
     }
 }
 
-#[cfg(feature = "hydrate")]
-fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) -> bool {
-    board.update(|b| {
-        apply_object_frame(frame, b);
-    });
-    matches!(
-        frame.syscall.as_str(),
-        "object:create"
-            | "object:update"
-            | "object:delete"
-            | "object:drag"
-            | "object:drag:end"
-            | "cursor:moved"
-            | "cursor:clear"
-    )
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
-    use crate::net::types::{BoardObject, FrameStatus};
-    cleanup_stale_drags(board, frame.ts);
-    cleanup_stale_cursors(board, frame.ts);
-
-    match frame.syscall.as_str() {
-        "object:create" if frame.status == FrameStatus::Done => {
-            if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
-                board.objects.insert(obj.id.clone(), obj);
-            }
-        }
-        "object:update" if frame.status == FrameStatus::Done => {
-            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
-                if let Some(existing) = board.objects.get_mut(id) {
-                    merge_object_update(existing, &frame.data);
-                    board.drag_objects.remove(id);
-                    board.drag_updated_at.remove(id);
-                } else {
-                    // Defensive: don't keep stale selection for unknown objects.
-                    board.selection.remove(id);
-                }
-            }
-        }
-        "object:delete" if frame.status == FrameStatus::Done => {
-            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
-                board.objects.remove(id);
-                board.selection.remove(id);
-                board.drag_objects.remove(id);
-                board.drag_updated_at.remove(id);
-            }
-        }
-        "object:drag" => {
-            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str())
-                && let Some(existing) = board.objects.get(id)
-            {
-                // Conflict guard: don't apply peer drag jitter onto local selected object.
-                if board.selection.contains(id) {
-                    return;
-                }
-                let mut dragged = existing.clone();
-                merge_object_update(&mut dragged, &frame.data);
-                if let Some(prev) = board.drag_objects.get(id) {
-                    let prev_ts = board.drag_updated_at.get(id).copied().unwrap_or(frame.ts);
-                    if should_smooth_drag(prev_ts, frame.ts) {
-                        smooth_drag_object(prev, &mut dragged, &frame.data, smoothing_alpha(prev_ts, frame.ts));
-                    }
-                }
-                board.drag_objects.insert(id.to_owned(), dragged);
-                board.drag_updated_at.insert(id.to_owned(), frame.ts);
-            }
-        }
-        "object:drag:end" => {
-            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
-                board.drag_objects.remove(id);
-                board.drag_updated_at.remove(id);
-            }
-        }
-        "cursor:moved" => apply_cursor_moved(board, &frame.data, frame.ts),
-        "cursor:clear" => apply_cursor_clear(board, &frame.data),
-        _ => {}
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn smooth_drag_object(
-    previous: &crate::net::types::BoardObject,
-    next: &mut crate::net::types::BoardObject,
-    patch: &serde_json::Value,
-    alpha: f64,
-) {
-    if patch.get("x").is_some() {
-        next.x = lerp(previous.x, next.x, alpha);
-    }
-    if patch.get("y").is_some() {
-        next.y = lerp(previous.y, next.y, alpha);
-    }
-    if patch.get("width").is_some()
-        && let (Some(prev), Some(curr)) = (previous.width, next.width)
-    {
-        next.width = Some(lerp(prev, curr, alpha));
-    }
-    if patch.get("height").is_some()
-        && let (Some(prev), Some(curr)) = (previous.height, next.height)
-    {
-        next.height = Some(lerp(prev, curr, alpha));
-    }
-    if patch.get("rotation").is_some() {
-        next.rotation = lerp(previous.rotation, next.rotation, alpha);
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn lerp(a: f64, b: f64, t: f64) -> f64 {
-    a + (b - a) * t
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn should_smooth_drag(prev_ts: i64, next_ts: i64) -> bool {
-    // Keep fast streams crisp; smooth only slower arrivals.
-    next_ts.saturating_sub(prev_ts) >= 80
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn smoothing_alpha(prev_ts: i64, next_ts: i64) -> f64 {
-    let dt = next_ts.saturating_sub(prev_ts);
-    if dt >= 200 {
-        0.65
-    } else if dt >= 120 {
-        0.55
-    } else {
-        0.45
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn cleanup_stale_drags(board: &mut BoardState, now_ts: i64) {
-    const DRAG_STALE_MS: i64 = 1500;
-    if now_ts <= 0 {
-        return;
-    }
-    let stale = board
-        .drag_updated_at
-        .iter()
-        .filter_map(|(id, ts)| (now_ts - *ts > DRAG_STALE_MS).then_some(id.clone()))
-        .collect::<Vec<_>>();
-    for id in stale {
-        board.drag_updated_at.remove(&id);
-        board.drag_objects.remove(&id);
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn cleanup_stale_cursors(board: &mut BoardState, now_ts: i64) {
-    const CURSOR_STALE_MS: i64 = 3000;
-    if now_ts <= 0 {
-        return;
-    }
-    let stale = board
-        .cursor_updated_at
-        .iter()
-        .filter_map(|(id, ts)| (now_ts - *ts > CURSOR_STALE_MS).then_some(id.clone()))
-        .collect::<Vec<_>>();
-    for id in stale {
-        board.cursor_updated_at.remove(&id);
-        if let Some(p) = board.presence.get_mut(&id) {
-            p.cursor = None;
-        }
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn apply_cursor_moved(board: &mut BoardState, data: &serde_json::Value, ts: i64) {
-    use crate::net::types::Point;
-
-    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
-        return;
-    };
-    let x = data.get("x").and_then(|v| v.as_f64());
-    let y = data.get("y").and_then(|v| v.as_f64());
-    let camera_center_x = data.get("camera_center_x").and_then(|v| v.as_f64());
-    let camera_center_y = data.get("camera_center_y").and_then(|v| v.as_f64());
-    let camera_zoom = data.get("camera_zoom").and_then(|v| v.as_f64());
-    let camera_rotation = data.get("camera_rotation").and_then(|v| v.as_f64());
-
-    if !board.presence.contains_key(client_id) {
-        upsert_presence_from_payload(board, data);
-    }
-    if let Some(p) = board.presence.get_mut(client_id) {
-        if let (Some(x), Some(y)) = (x, y) {
-            board.cursor_updated_at.insert(client_id.to_owned(), ts);
-            p.cursor = Some(Point { x, y });
-        }
-        if let (Some(cx), Some(cy)) = (camera_center_x, camera_center_y) {
-            p.camera_center = Some(Point { x: cx, y: cy });
-        }
-        if let Some(zoom) = camera_zoom {
-            p.camera_zoom = Some(zoom);
-        }
-        if let Some(rotation) = camera_rotation {
-            p.camera_rotation = Some(rotation);
-        }
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn apply_cursor_clear(board: &mut BoardState, data: &serde_json::Value) {
-    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
-        return;
-    };
-    board.cursor_updated_at.remove(client_id);
-    if let Some(p) = board.presence.get_mut(client_id) {
-        p.cursor = None;
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_json::Value) {
-    use crate::net::types::Presence;
-
-    let Some(client_id) = data.get("client_id").and_then(|v| v.as_str()) else {
-        return;
-    };
-    let user_id = data
-        .get("user_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or(client_id);
-    let user_name = data
-        .get("user_name")
-        .or_else(|| data.get("name"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("Agent");
-    let user_color = data
-        .get("user_color")
-        .or_else(|| data.get("color"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("#8a8178");
-
-    let existing_cursor = board.presence.get(client_id).and_then(|p| p.cursor.clone());
-    let existing_camera_center = board
-        .presence
-        .get(client_id)
-        .and_then(|p| p.camera_center.clone());
-    let existing_camera_zoom = board.presence.get(client_id).and_then(|p| p.camera_zoom);
-    let existing_camera_rotation = board
-        .presence
-        .get(client_id)
-        .and_then(|p| p.camera_rotation);
-    let payload_camera_center = data
-        .get("camera_center")
-        .and_then(|v| serde_json::from_value::<crate::net::types::Point>(v.clone()).ok())
-        .or_else(|| {
-            Some(crate::net::types::Point {
-                x: data.get("camera_center_x")?.as_f64()?,
-                y: data.get("camera_center_y")?.as_f64()?,
-            })
-        });
-    let payload_camera_zoom = data.get("camera_zoom").and_then(|v| v.as_f64());
-    let payload_camera_rotation = data.get("camera_rotation").and_then(|v| v.as_f64());
-    board.presence.insert(
-        client_id.to_owned(),
-        Presence {
-            client_id: client_id.to_owned(),
-            user_id: user_id.to_owned(),
-            name: user_name.to_owned(),
-            color: user_color.to_owned(),
-            cursor: existing_cursor,
-            camera_center: payload_camera_center.or(existing_camera_center),
-            camera_zoom: payload_camera_zoom.or(existing_camera_zoom),
-            camera_rotation: payload_camera_rotation.or(existing_camera_rotation),
-        },
-    );
-}
-
-#[cfg(feature = "hydrate")]
-fn handle_chat_frame(frame: &Frame, chat: leptos::prelude::RwSignal<ChatState>) -> bool {
-    use crate::net::types::FrameStatus;
-
-    match frame.syscall.as_str() {
-        "chat:message" if frame.status == FrameStatus::Done => {
-            if let Some(msg) = parse_chat_message(frame, &frame.data) {
-                chat.update(|c| c.messages.push(msg));
-            }
-            true
-        }
-        "chat:history" if frame.status == FrameStatus::Done => {
-            if let Some(messages) = frame.data.get("messages") {
-                let list = messages
-                    .as_array()
-                    .map(|items| {
-                        items
-                            .iter()
-                            .filter_map(|item| parse_chat_message(frame, item))
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default();
-                chat.update(|c| c.messages = list);
-            }
-            true
-        }
-        _ => false,
-    }
-}
-
 #[cfg(any(test, feature = "hydrate"))]
 fn upsert_ai_user_message(ai: &mut AiState, msg: crate::state::ai::AiMessage) {
     frame_client_ai::upsert_ai_user_message(ai, msg);
-}
-
-#[cfg(feature = "hydrate")]
-fn send_board_list_request(
-    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
-    boards: leptos::prelude::RwSignal<BoardsState>,
-) {
-    let since_rev = boards.get_untracked().list_rev;
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: None,
-        from: None,
-        syscall: "board:list".to_owned(),
-        status: crate::net::types::FrameStatus::Request,
-        data: serde_json::json!({
-            "since_rev": since_rev
-        }),
-    };
-    let _ = send_frame(tx, &frame);
-}
-
-#[cfg(feature = "hydrate")]
-fn send_board_savepoint_list_request(
-    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
-    board: leptos::prelude::RwSignal<BoardState>,
-) {
-    let Some(board_id) = board.get_untracked().board_id else {
-        return;
-    };
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: "board:savepoint:list".to_owned(),
-        status: crate::net::types::FrameStatus::Request,
-        data: serde_json::json!({}),
-    };
-    let _ = send_frame(tx, &frame);
-}
-
-#[cfg(feature = "hydrate")]
-fn send_board_users_list_request(
-    tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
-    board: leptos::prelude::RwSignal<BoardState>,
-) {
-    let Some(board_id) = board.get_untracked().board_id else {
-        return;
-    };
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: "board:users:list".to_owned(),
-        status: crate::net::types::FrameStatus::Request,
-        data: serde_json::json!({}),
-    };
-    let _ = send_frame(tx, &frame);
-}
-
-/// Merge partial object updates into an existing `BoardObject`.
-#[cfg(any(test, feature = "hydrate"))]
-fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_json::Value) {
-    if let Some(x) = data.get("x").and_then(|v| v.as_f64()) {
-        obj.x = x;
-    }
-    if let Some(y) = data.get("y").and_then(|v| v.as_f64()) {
-        obj.y = y;
-    }
-    if let Some(w) = data.get("width").and_then(|v| v.as_f64()) {
-        obj.width = Some(w);
-    }
-    if let Some(h) = data.get("height").and_then(|v| v.as_f64()) {
-        obj.height = Some(h);
-    }
-    if let Some(r) = data.get("rotation").and_then(|v| v.as_f64()) {
-        obj.rotation = r;
-    }
-    if let Some(z) = data.get("z_index").and_then(number_as_i64) {
-        #[allow(clippy::cast_possible_truncation)]
-        {
-            obj.z_index = z as i32;
-        }
-    }
-    if let Some(props) = data.get("props") {
-        obj.props = props.clone();
-    }
-    if let Some(v) = data.get("version").and_then(number_as_i64) {
-        obj.version = v;
-    }
-}
-
-#[cfg(any(test, feature = "hydrate"))]
-fn number_as_i64(value: &serde_json::Value) -> Option<i64> {
-    value.as_i64().or_else(|| {
-        value
-            .as_f64()
-            .filter(|v| v.is_finite() && v.fract() == 0.0)
-            .and_then(|v| {
-                if (i64::MIN as f64..=i64::MAX as f64).contains(&v) {
-                    Some(v as i64)
-                } else {
-                    None
-                }
-            })
-    })
 }
 
 #[cfg(test)]
