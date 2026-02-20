@@ -575,6 +575,10 @@ a:hover {
     gap: var(--space-md);
 }
 
+.dialog--object-text {
+    width: min(520px, calc(100vw - 24px));
+}
+
 .dialog h2 {
     font-family: var(--font-mono);
     font-size: 9px;
@@ -608,6 +612,23 @@ a:hover {
 }
 
 .dialog__input:focus {
+    border-color: var(--accent-green);
+}
+
+.dialog__textarea {
+    width: 100%;
+    min-height: 160px;
+    border: 1px solid var(--border-default);
+    background: transparent;
+    padding: var(--space-sm);
+    resize: vertical;
+    font-family: var(--font-script);
+    font-size: 22px;
+    color: var(--text-primary);
+    line-height: 1.25;
+}
+
+.dialog__textarea:focus {
     border-color: var(--accent-green);
 }
 

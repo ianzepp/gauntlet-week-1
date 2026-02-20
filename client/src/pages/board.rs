@@ -95,6 +95,10 @@ pub fn BoardPage() -> impl IntoView {
     let prompt_preview_assistant = RwSignal::new(String::new());
     let prompt_preview_assistant_has_more = RwSignal::new(false);
     let prompt_preview_assistant_error = RwSignal::new(false);
+    let object_text_dialog_open = RwSignal::new(false);
+    let object_text_dialog_id = RwSignal::new(None::<String>);
+    let object_text_dialog_value = RwSignal::new(String::new());
+    let last_object_text_dialog_seq = RwSignal::new(0_u64);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
@@ -209,6 +213,32 @@ pub fn BoardPage() -> impl IntoView {
         pending_message_start.set(None);
     });
 
+    Effect::new(move || {
+        let seq = ui.get().object_text_dialog_seq;
+        if seq == last_object_text_dialog_seq.get_untracked() {
+            return;
+        }
+        last_object_text_dialog_seq.set(seq);
+
+        let state = board.get();
+        let Some(id) = state.selection.iter().next().cloned() else {
+            return;
+        };
+        let Some(obj) = state.objects.get(&id) else {
+            return;
+        };
+        let text = obj
+            .props
+            .get("text")
+            .or_else(|| obj.props.get("content"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_owned();
+        object_text_dialog_id.set(Some(id));
+        object_text_dialog_value.set(text);
+        object_text_dialog_open.set(true);
+    });
+
     let send_prompt = move || {
         let text = prompt_input.get();
         if text.trim().is_empty() || ai.get().loading {
@@ -285,6 +315,53 @@ pub fn BoardPage() -> impl IntoView {
             u.right_tab = RightTab::Ai;
             u.ai_focus_seq = u.ai_focus_seq.saturating_add(1);
         });
+    };
+
+    let on_object_text_cancel = move |_| {
+        object_text_dialog_open.set(false);
+        object_text_dialog_id.set(None);
+    };
+
+    let on_object_text_save = move |_| {
+        let Some(id) = object_text_dialog_id.get() else {
+            object_text_dialog_open.set(false);
+            return;
+        };
+        let value = object_text_dialog_value.get();
+        let Some(obj) = board.get().objects.get(&id).cloned() else {
+            object_text_dialog_open.set(false);
+            object_text_dialog_id.set(None);
+            return;
+        };
+
+        let mut props = obj.props.as_object().cloned().unwrap_or_default();
+        props.insert("text".to_owned(), serde_json::json!(value.clone()));
+        props.insert("content".to_owned(), serde_json::json!(value));
+        let next_props = serde_json::Value::Object(props);
+
+        board.update(|b| {
+            if let Some(existing) = b.objects.get_mut(&id) {
+                existing.props = next_props.clone();
+            }
+        });
+
+        sender.get().send(&Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": next_props,
+            }),
+        });
+
+        object_text_dialog_open.set(false);
+        object_text_dialog_id.set(None);
     };
 
     view! {
@@ -376,6 +453,29 @@ pub fn BoardPage() -> impl IntoView {
             <div class="board-page__status-bar">
                 <StatusBar/>
             </div>
+            <Show when=move || object_text_dialog_open.get()>
+                <div class="dialog-backdrop" on:click=on_object_text_cancel>
+                    <div class="dialog dialog--object-text" on:click=move |ev| ev.stop_propagation()>
+                        <label class="dialog__label">
+                            "Text"
+                            <textarea
+                                class="dialog__textarea"
+                                prop:value=move || object_text_dialog_value.get()
+                                on:input=move |ev| object_text_dialog_value.set(event_target_value(&ev))
+                                autofocus=true
+                            ></textarea>
+                        </label>
+                        <div class="dialog__actions">
+                            <button class="btn" on:click=on_object_text_cancel>
+                                "Cancel"
+                            </button>
+                            <button class="btn btn--primary" on:click=on_object_text_save>
+                                "Save"
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Show>
         </div>
     }
 }

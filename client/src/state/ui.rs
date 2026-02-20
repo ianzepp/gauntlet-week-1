@@ -38,6 +38,7 @@ pub struct UiState {
     pub right_panel_width: f64,
     pub right_tab: RightTab,
     pub ai_focus_seq: u64,
+    pub object_text_dialog_seq: u64,
 }
 
 impl Default for UiState {
@@ -56,6 +57,7 @@ impl Default for UiState {
             right_panel_width: 320.0,
             right_tab: RightTab::Chat,
             ai_focus_seq: 0,
+            object_text_dialog_seq: 0,
         }
     }
 }

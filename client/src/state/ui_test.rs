@@ -40,6 +40,7 @@ fn ui_state_default_right_panel_expanded() {
     assert_eq!(state.right_panel_width, 320.0);
     assert_eq!(state.right_tab, RightTab::Chat);
     assert_eq!(state.ai_focus_seq, 0);
+    assert_eq!(state.object_text_dialog_seq, 0);
 }
 
 // =============================================================

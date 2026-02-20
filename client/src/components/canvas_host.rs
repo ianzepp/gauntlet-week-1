@@ -389,7 +389,6 @@ pub fn CanvasHost() -> impl IntoView {
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_down(point, button, modifiers);
                     process_actions(actions, engine, _board, _sender);
-                    open_inspector_on_double_click(engine, &ev, _ui);
                     update_youtube_overlay_from_click(engine, point, &ev, active_youtube);
                     sync_canvas_view_state(engine, _canvas_view, Some(point));
                     send_cursor_presence_if_needed(
@@ -409,6 +408,27 @@ pub fn CanvasHost() -> impl IntoView {
         #[cfg(not(feature = "hydrate"))]
         {
             move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_double_click = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |ev: leptos::ev::MouseEvent| {
+                if ev.button() != 0 {
+                    return;
+                }
+                if _board.get().selection.is_empty() {
+                    return;
+                }
+                _ui.update(|u| {
+                    u.object_text_dialog_seq = u.object_text_dialog_seq.saturating_add(1);
+                });
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
         }
     };
 
@@ -1632,6 +1652,7 @@ pub fn CanvasHost() -> impl IntoView {
                 on:pointermove=on_pointer_move
                 on:pointerup=on_pointer_up
                 on:pointerleave=on_pointer_leave
+                on:dblclick=on_double_click
                 on:wheel=on_wheel
                 on:keydown=on_key_down
             >
@@ -3152,19 +3173,6 @@ fn pointer_point(ev: &leptos::ev::PointerEvent) -> CanvasPoint {
 #[cfg(feature = "hydrate")]
 fn wheel_point(ev: &leptos::ev::WheelEvent) -> CanvasPoint {
     CanvasPoint::new(f64::from(ev.offset_x()), f64::from(ev.offset_y()))
-}
-
-#[cfg(feature = "hydrate")]
-fn open_inspector_on_double_click(engine: &Engine, ev: &leptos::ev::PointerEvent, ui: RwSignal<UiState>) {
-    if ev.detail() < 2 {
-        return;
-    }
-    if engine.selection().is_none() {
-        return;
-    }
-    ui.update(|u| {
-        u.left_panel_expanded = true;
-    });
 }
 
 #[cfg(feature = "hydrate")]
