@@ -167,6 +167,19 @@ pub async fn handle_prompt(
     prompt: &str,
     grid_context: Option<&str>,
 ) -> Result<AiResult, AiError> {
+    handle_prompt_with_parent(state, llm, board_id, client_id, user_id, prompt, grid_context, None).await
+}
+
+pub async fn handle_prompt_with_parent(
+    state: &AppState,
+    llm: &Arc<dyn LlmChat>,
+    board_id: Uuid,
+    client_id: Uuid,
+    user_id: Uuid,
+    prompt: &str,
+    grid_context: Option<&str>,
+    parent_frame_id: Option<Uuid>,
+) -> Result<AiResult, AiError> {
     info!(%board_id, %client_id, prompt_len = prompt.len(), "ai: prompt received");
     let max_tool_iterations = ai_max_tool_iterations();
     let max_tokens = ai_max_tokens();
@@ -277,6 +290,7 @@ pub async fn handle_prompt(
                 tool_id,
                 tool_name,
                 input,
+                parent_frame_id,
                 &mut all_mutations,
             )
             .await;
@@ -338,6 +352,7 @@ async fn execute_tool_via_syscall(
     tool_use_id: &str,
     tool_name: &str,
     input: &serde_json::Value,
+    parent_frame_id: Option<Uuid>,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
     let syscall = format!("tool:{tool_name}");
@@ -347,9 +362,10 @@ async fn execute_tool_via_syscall(
     req_data.insert("input".into(), input.clone());
     req_data.insert("ai_turn".into(), json!(iteration));
 
-    let req = Frame::request(syscall, req_data)
+    let mut req = Frame::request(syscall, req_data)
         .with_board_id(board_id)
         .with_from(user_id.to_string());
+    req.parent_id = parent_frame_id;
     super::persistence::enqueue_frame(state, &req);
 
     match super::tool_syscall::dispatch_tool_frame(state, board_id, &req).await {

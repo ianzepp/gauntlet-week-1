@@ -1093,6 +1093,7 @@ async fn broadcast_ai_mutations(
     state: &AppState,
     board_id: Uuid,
     user_id: Uuid,
+    parent_id: Option<Uuid>,
     mutations: &[services::ai::AiMutation],
 ) {
     for mutation in mutations {
@@ -1108,6 +1109,7 @@ async fn broadcast_ai_mutations(
         let mut frame = Frame::request(syscall, data)
             .with_board_id(board_id)
             .with_from(user_id.to_string());
+        frame.parent_id = parent_id;
         frame.status = crate::frame::Status::Done;
         services::persistence::enqueue_frame(state, &frame);
         services::board::broadcast(state, board_id, &frame, None).await;
@@ -1136,7 +1138,7 @@ async fn handle_tool(
 
     match services::tool_syscall::dispatch_tool_frame(state, board_id, req).await {
         Ok(outcome) => {
-            broadcast_ai_mutations(state, board_id, user_id, &outcome.mutations).await;
+            broadcast_ai_mutations(state, board_id, user_id, Some(req.id), &outcome.mutations).await;
             Ok(Outcome::Reply(outcome.done_data))
         }
         Err(err) => Err(req.error_from(&err)),
@@ -1183,11 +1185,20 @@ async fn handle_ai(
                 return Err(req.error("prompt required"));
             }
 
-            match services::ai::handle_prompt(state, llm, board_id, client_id, user_id, prompt, grid_context.as_deref())
+            match services::ai::handle_prompt_with_parent(
+                state,
+                llm,
+                board_id,
+                client_id,
+                user_id,
+                prompt,
+                grid_context.as_deref(),
+                Some(req.id),
+            )
                 .await
             {
                 Ok(result) => {
-                    broadcast_ai_mutations(state, board_id, user_id, &result.mutations).await;
+                    broadcast_ai_mutations(state, board_id, user_id, Some(req.id), &result.mutations).await;
 
                     let mut data = Data::new();
                     data.insert("prompt".into(), serde_json::json!(prompt));
