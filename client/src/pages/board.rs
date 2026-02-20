@@ -31,6 +31,7 @@ use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
 use crate::components::trace_view::TraceView;
 use crate::pages::board_prompt::assistant_preview_and_has_more;
+use crate::pages::board_prompt_bar::{BoardPromptBar, PromptBarStatus};
 use crate::state::ai::{AiMessage, AiState};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
@@ -57,15 +58,6 @@ fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<St
     board.join_streaming = false;
     board.selection.clear();
     board.presence.clear();
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-enum PromptBarStatus {
-    #[default]
-    Idle,
-    Loading,
-    Success,
-    Error,
 }
 
 /// Board page — composes toolbar, panels, canvas placeholder, and status bar
@@ -299,26 +291,15 @@ pub fn BoardPage() -> impl IntoView {
         }
     };
 
-    let on_prompt_focus = move |_| {
-        if prompt_status.get_untracked() != PromptBarStatus::Loading {
-            prompt_status.set(PromptBarStatus::Idle);
-        }
-    };
+    let on_prompt_submit = Callback::new(move |_| send_prompt());
 
-    let on_prompt_keydown = move |ev: leptos::ev::KeyboardEvent| {
-        if ev.key() == "Enter" && !ev.shift_key() {
-            ev.prevent_default();
-            send_prompt();
-        }
-    };
-
-    let on_prompt_read_more = move |_| {
+    let on_prompt_read_more = Callback::new(move |_| {
         ui.update(|u| {
             u.right_panel_expanded = true;
             u.right_tab = RightTab::Ai;
             u.ai_focus_seq = u.ai_focus_seq.saturating_add(1);
         });
-    };
+    });
 
     let on_object_text_cancel = Callback::new(move |_| {
         object_text_dialog_open.set(false);
@@ -392,63 +373,16 @@ pub fn BoardPage() -> impl IntoView {
                     <CanvasHost/>
                     <BoardStamp/>
                     <div class="board-page__input-overlay">
-                        <div class="board-page__prompt-bar">
-                            <div
-                                class="board-page__prompt-preview"
-                                class:board-page__prompt-preview--empty=move || {
-                                    prompt_preview_user.get().is_empty() && prompt_preview_assistant.get().is_empty()
-                                }
-                            >
-                                <div
-                                    class="board-page__prompt-preview-row board-page__prompt-preview-row--user"
-                                    class:board-page__prompt-preview-row--empty=move || prompt_preview_user.get().is_empty()
-                                >
-                                    <span class="board-page__prompt-preview-text">{move || prompt_preview_user.get()}</span>
-                                </div>
-                                <div
-                                    class="board-page__prompt-preview-row board-page__prompt-preview-row--assistant"
-                                    class:board-page__prompt-preview-row--empty=move || prompt_preview_assistant.get().is_empty()
-                                    class:board-page__prompt-preview-row--error=move || prompt_preview_assistant_error.get()
-                                >
-                                    <span class="board-page__prompt-preview-text">
-                                        {move || prompt_preview_assistant.get()}
-                                        <Show when=move || prompt_preview_assistant_has_more.get() && !prompt_preview_assistant_error.get()>
-                                            <button class="board-page__prompt-preview-more" on:click=on_prompt_read_more>
-                                                "[more]"
-                                            </button>
-                                        </Show>
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="board-page__input-row">
-                                <input
-                                    class="board-page__input-line"
-                                    type="text"
-                                    placeholder="Ask the AI..."
-                                    prop:value=move || prompt_input.get()
-                                    on:input=move |ev| prompt_input.set(event_target_value(&ev))
-                                    on:focus=on_prompt_focus
-                                    on:keydown=on_prompt_keydown
-                                />
-                                <div class="board-page__prompt-status" aria-live="polite">
-                                    {move || match prompt_status.get() {
-                                        PromptBarStatus::Idle => view! { <span class="board-page__prompt-icon-spacer"></span> }.into_any(),
-                                        PromptBarStatus::Loading => view! { <span class="board-page__prompt-spinner"></span> }.into_any(),
-                                        PromptBarStatus::Success => view! {
-                                            <svg class="board-page__prompt-icon board-page__prompt-icon--success" viewBox="0 0 20 20" aria-hidden="true">
-                                                <path d="M4 10.5 8 14.5 16 6.5"></path>
-                                            </svg>
-                                        }.into_any(),
-                                        PromptBarStatus::Error => view! {
-                                            <svg class="board-page__prompt-icon board-page__prompt-icon--error" viewBox="0 0 20 20" aria-hidden="true">
-                                                <path d="M5.5 5.5 14.5 14.5"></path>
-                                                <path d="M14.5 5.5 5.5 14.5"></path>
-                                            </svg>
-                                        }.into_any(),
-                                    }}
-                                </div>
-                            </div>
-                        </div>
+                        <BoardPromptBar
+                            prompt_input=prompt_input
+                            prompt_status=prompt_status
+                            prompt_preview_user=prompt_preview_user
+                            prompt_preview_assistant=prompt_preview_assistant
+                            prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
+                            prompt_preview_assistant_error=prompt_preview_assistant_error
+                            on_submit=on_prompt_submit
+                            on_read_more=on_prompt_read_more
+                        />
                     </div>
                 </Show>
             </div>

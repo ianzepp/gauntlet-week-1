@@ -7,5 +7,6 @@
 
 pub mod board;
 pub(crate) mod board_prompt;
+pub(crate) mod board_prompt_bar;
 pub mod dashboard;
 pub mod login;
