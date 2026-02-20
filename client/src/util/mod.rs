@@ -10,4 +10,5 @@ pub mod color;
 pub mod dark_mode;
 pub mod dial_math;
 pub mod frame;
+pub mod frame_emit;
 pub mod object_props;

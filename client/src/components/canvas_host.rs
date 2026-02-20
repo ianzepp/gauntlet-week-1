@@ -17,6 +17,8 @@ use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
 use crate::state::ui::ToolType;
 use crate::state::ui::UiState;
+#[cfg(feature = "hydrate")]
+use crate::util::color::normalize_hex_color;
 #[allow(unused_imports)]
 use crate::util::dial_math::{
     BORDER_WIDTH_MAX, BORDER_WIDTH_MIN, TEXT_SIZE_MAX, TEXT_SIZE_MIN, ZOOM_DIAL_MAX_ANGLE_DEG, ZOOM_DIAL_MIN_ANGLE_DEG,
@@ -26,11 +28,13 @@ use crate::util::dial_math::{
     normalize_degrees_360, signed_angle_delta_deg, snap_border_width_to_px, snap_font_size_to_px, zoom_from_dial_angle,
 };
 #[cfg(feature = "hydrate")]
+use crate::util::frame_emit::{send_object_update_geometry, send_object_update_props, send_object_update_rotation};
+#[cfg(feature = "hydrate")]
 use crate::util::object_props::{
-    apply_lightness_shift_to_hex, object_base_fill_hex, object_border_color_hex, object_border_width, object_fill_hex,
-    object_font_size, object_lightness_shift, object_scale_components, object_text_color_hex,
-    reset_scale_props_baseline, reset_wire_object_scale_baseline, upsert_object_border_props,
-    upsert_object_color_props, upsert_object_scale_props, upsert_object_text_style_props, value_as_f64,
+    object_base_fill_hex, object_border_color_hex, object_border_width, object_fill_hex, object_font_size,
+    object_lightness_shift, object_scale_components, object_text_color_hex, reset_scale_props_baseline,
+    reset_wire_object_scale_baseline, upsert_object_border_props, upsert_object_color_props, upsert_object_scale_props,
+    upsert_object_text_style_props,
 };
 
 #[cfg(feature = "hydrate")]
@@ -2332,25 +2336,17 @@ fn commit_selection_scale_updates(
         if !changed {
             continue;
         }
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(seed.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": seed.id,
-                "version": seed.version,
-                "x": obj.x,
-                "y": obj.y,
-                "width": obj.width.unwrap_or(seed.width),
-                "height": obj.height.unwrap_or(seed.height),
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_geometry(
+            sender,
+            &seed.board_id,
+            &seed.id,
+            seed.version,
+            obj.x,
+            obj.y,
+            obj.width.unwrap_or(seed.width),
+            obj.height.unwrap_or(seed.height),
+            &obj.props,
+        );
     }
     drag_state_signal.set(None);
 }
@@ -2393,25 +2389,17 @@ fn apply_group_scale_target(board: RwSignal<BoardState>, sender: RwSignal<FrameS
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "x": obj.x,
-                "y": obj.y,
-                "width": obj.width.unwrap_or(120.0),
-                "height": obj.height.unwrap_or(80.0),
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_geometry(
+            sender,
+            &obj.board_id,
+            &obj.id,
+            obj.version,
+            obj.x,
+            obj.y,
+            obj.width.unwrap_or(120.0),
+            obj.height.unwrap_or(80.0),
+            &obj.props,
+        );
     }
 }
 
@@ -2520,21 +2508,7 @@ fn commit_selection_color_updates(
         if !changed {
             continue;
         }
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(seed.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": seed.id,
-                "version": seed.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &seed.board_id, &seed.id, seed.version, &obj.props);
     }
     drag_state_signal.set(None);
 }
@@ -2568,21 +2542,7 @@ fn apply_group_base_color_target(board: RwSignal<BoardState>, sender: RwSignal<F
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &obj.board_id, &obj.id, obj.version, &obj.props);
     }
 }
 
@@ -2614,21 +2574,7 @@ fn apply_group_background_defaults_target(board: RwSignal<BoardState>, sender: R
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &obj.board_id, &obj.id, obj.version, &obj.props);
     }
 }
 
@@ -2738,21 +2684,7 @@ fn commit_selection_border_updates(
         if !changed {
             continue;
         }
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(seed.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": seed.id,
-                "version": seed.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &seed.board_id, &seed.id, seed.version, &obj.props);
     }
     drag_state_signal.set(None);
 }
@@ -2786,21 +2718,7 @@ fn apply_group_border_color_target(board: RwSignal<BoardState>, sender: RwSignal
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &obj.board_id, &obj.id, obj.version, &obj.props);
     }
 }
 
@@ -2833,21 +2751,7 @@ fn apply_group_border_defaults_target(board: RwSignal<BoardState>, sender: RwSig
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &obj.board_id, &obj.id, obj.version, &obj.props);
     }
 }
 
@@ -2957,21 +2861,7 @@ fn commit_selection_text_style_updates(
         if !changed {
             continue;
         }
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(seed.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": seed.id,
-                "version": seed.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &seed.board_id, &seed.id, seed.version, &obj.props);
     }
     drag_state_signal.set(None);
 }
@@ -3005,21 +2895,7 @@ fn apply_group_text_color_target(board: RwSignal<BoardState>, sender: RwSignal<F
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &obj.board_id, &obj.id, obj.version, &obj.props);
     }
 }
 
@@ -3052,21 +2928,7 @@ fn apply_group_text_style_defaults_target(board: RwSignal<BoardState>, sender: R
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "props": obj.props,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_props(sender, &obj.board_id, &obj.id, obj.version, &obj.props);
     }
 }
 
@@ -3174,21 +3036,7 @@ fn commit_selection_rotation_updates(
         if angular_delta_deg(obj.rotation, *start_rotation) < 0.01 {
             continue;
         }
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "rotation": obj.rotation,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_rotation(sender, &obj.board_id, &obj.id, obj.version, obj.rotation);
     }
     drag_state_signal.set(None);
 }
@@ -3222,21 +3070,7 @@ fn apply_group_rotation_target(board: RwSignal<BoardState>, sender: RwSignal<Fra
         let Some(obj) = post.objects.get(&id) else {
             continue;
         };
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
-                "id": obj.id,
-                "version": obj.version,
-                "rotation": obj.rotation,
-            }),
-        };
-        let _ = sender.get_untracked().send(&frame);
+        send_object_update_rotation(sender, &obj.board_id, &obj.id, obj.version, obj.rotation);
     }
 }
 
