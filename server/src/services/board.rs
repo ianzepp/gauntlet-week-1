@@ -117,6 +117,22 @@ pub struct BoardPreviewObject {
     pub z_index: i32,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct BoardExportObject {
+    pub id: Uuid,
+    pub board_id: Uuid,
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+    pub props: serde_json::Value,
+    pub created_by: Option<Uuid>,
+    pub version: i32,
+}
+
 // =============================================================================
 // CRUD
 // =============================================================================
@@ -490,6 +506,68 @@ pub async fn list_board_preview_objects(
             .push(BoardPreviewObject { kind, x, y, width, height, rotation, z_index });
     }
     Ok(out)
+}
+
+/// Load full board objects for JSONL export.
+///
+/// # Errors
+///
+/// Returns `Forbidden`/`NotFound` when access is invalid or a database error
+/// if the query fails.
+pub async fn list_board_export_objects(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<BoardExportObject>, BoardError> {
+    ensure_board_permission(pool, board_id, user_id, BoardPermission::View).await?;
+
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            String,
+            f64,
+            f64,
+            Option<f64>,
+            Option<f64>,
+            f64,
+            i32,
+            serde_json::Value,
+            Option<Uuid>,
+            i32,
+        ),
+    >(
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version
+         FROM board_objects
+         WHERE board_id = $1
+         ORDER BY z_index ASC, id ASC",
+    )
+    .bind(board_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(
+            |(id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version)| {
+                BoardExportObject {
+                    id,
+                    board_id,
+                    kind,
+                    x,
+                    y,
+                    width,
+                    height,
+                    rotation,
+                    z_index,
+                    props,
+                    created_by,
+                    version,
+                }
+            },
+        )
+        .collect())
 }
 
 /// Delete a board by ID.

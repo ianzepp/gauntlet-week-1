@@ -2,7 +2,8 @@
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::response::Json;
+use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
+use axum::response::{IntoResponse, Json, Response};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -119,4 +120,71 @@ fn board_error_to_status(err: board::BoardError) -> StatusCode {
         board::BoardError::Forbidden(_) => StatusCode::FORBIDDEN,
         board::BoardError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
+}
+
+#[derive(Serialize)]
+struct BoardExportMetaLine {
+    #[serde(rename = "type")]
+    line_type: &'static str,
+    version: u8,
+    board_id: Uuid,
+    exported_at_ms: u128,
+    object_count: usize,
+}
+
+#[derive(Serialize)]
+struct BoardExportObjectLine {
+    #[serde(rename = "type")]
+    line_type: &'static str,
+    #[serde(flatten)]
+    object: board::BoardExportObject,
+}
+
+/// `GET /api/boards/:id/export.jsonl` — download board snapshot as NDJSON/JSONL.
+pub async fn export_jsonl(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+) -> Result<Response, StatusCode> {
+    let objects = board::list_board_export_objects(&state.pool, board_id, auth.user.id)
+        .await
+        .map_err(board_error_to_status)?;
+
+    let exported_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_millis());
+
+    let mut lines = Vec::with_capacity(objects.len() + 1);
+    let meta = BoardExportMetaLine {
+        line_type: "board_export_meta",
+        version: 1,
+        board_id,
+        exported_at_ms,
+        object_count: objects.len(),
+    };
+    let meta_line = serde_json::to_string(&meta).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    lines.push(format!("{meta_line}\n"));
+
+    for object in objects {
+        let line = BoardExportObjectLine { line_type: "object", object };
+        let serialized = serde_json::to_string(&line).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        lines.push(format!("{serialized}\n"));
+    }
+
+    let stream = futures::stream::iter(
+        lines
+            .into_iter()
+            .map(|line| Ok::<axum::body::Bytes, std::convert::Infallible>(axum::body::Bytes::from(line))),
+    );
+    let body = axum::body::Body::from_stream(stream);
+    let filename = format!("board-{board_id}.jsonl");
+
+    Ok((
+        [
+            (CONTENT_TYPE, "application/x-ndjson; charset=utf-8"),
+            (CONTENT_DISPOSITION, &format!("attachment; filename=\"{filename}\"")),
+        ],
+        body,
+    )
+        .into_response())
 }

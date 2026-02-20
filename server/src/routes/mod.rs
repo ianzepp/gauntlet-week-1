@@ -39,6 +39,7 @@ fn api_routes(state: AppState) -> Router {
             "/api/boards/{id}/members",
             get(boards::list_members).post(boards::upsert_member),
         )
+        .route("/api/boards/{id}/export.jsonl", get(boards::export_jsonl))
         .route(
             "/api/boards/{id}/members/{user_id}",
             patch(boards::update_member).delete(boards::delete_member),

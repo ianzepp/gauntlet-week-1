@@ -31,6 +31,13 @@ pub fn Toolbar() -> impl IntoView {
             .board_name
             .unwrap_or_else(|| "Untitled".to_owned())
     };
+    let export_href = move || {
+        board
+            .get()
+            .board_id
+            .map(|id| format!("/api/boards/{id}/export.jsonl"))
+            .unwrap_or_else(|| "#".to_owned())
+    };
 
     let self_identity = move || {
         auth.get()
@@ -127,6 +134,11 @@ pub fn Toolbar() -> impl IntoView {
                 <button class="btn toolbar__share" on:click=on_share title="Share board">
                     "Share"
                 </button>
+            </Show>
+            <Show when=move || location.pathname.get().starts_with("/board/") && board.get().board_id.is_some()>
+                <a class="btn toolbar__share" href=export_href title="Export board as JSONL snapshot">
+                    "Export"
+                </a>
             </Show>
 
             <span class="toolbar__spacer"></span>
