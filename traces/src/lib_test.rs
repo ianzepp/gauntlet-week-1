@@ -321,6 +321,16 @@ fn sub_labels_extract_known_fields() {
 }
 
 #[test]
+fn sub_label_prefers_trace_label_when_present() {
+    let mut tool = frame("1", None, 1, "tool:applyChangesYaml", Status::Done);
+    tool.data = json!({
+        "trace": { "label": "yaml_apply" },
+        "name": "applyChangesYaml"
+    });
+    assert_eq!(sub_label(&tool).as_deref(), Some("yaml_apply"));
+}
+
+#[test]
 fn sub_labels_for_object_and_llm_variants() {
     let mut obj = frame("3", None, 3, "object:update", Status::Done);
     obj.data = json!({"id": "rect:b3e1"});

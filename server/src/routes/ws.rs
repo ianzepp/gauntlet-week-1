@@ -1118,7 +1118,8 @@ async fn broadcast_ai_mutations(
                     "trace_id": trace_id,
                     "span_id": frame.id,
                     "parent_span_id": parent_id,
-                    "kind": "object.mutation"
+                    "kind": "object.mutation",
+                    "label": syscall
                 }),
             );
         }

@@ -56,13 +56,22 @@ fn trace_id_for_prompt(parent_frame_id: Option<Uuid>) -> Uuid {
     parent_frame_id.unwrap_or_else(Uuid::new_v4)
 }
 
-fn trace_meta(trace_id: Uuid, span_id: Uuid, parent_span_id: Option<Uuid>, kind: &str) -> serde_json::Value {
-    json!({
-        "trace_id": trace_id,
-        "span_id": span_id,
-        "parent_span_id": parent_span_id,
-        "kind": kind,
-    })
+fn trace_meta(
+    trace_id: Uuid,
+    span_id: Uuid,
+    parent_span_id: Option<Uuid>,
+    kind: &str,
+    label: Option<&str>,
+) -> serde_json::Value {
+    let mut trace = serde_json::Map::new();
+    trace.insert("trace_id".into(), json!(trace_id));
+    trace.insert("span_id".into(), json!(span_id));
+    trace.insert("parent_span_id".into(), json!(parent_span_id));
+    trace.insert("kind".into(), json!(kind));
+    if let Some(label) = label {
+        trace.insert("label".into(), json!(label));
+    }
+    serde_json::Value::Object(trace)
 }
 
 // =============================================================================
@@ -237,7 +246,7 @@ pub async fn handle_prompt_with_parent(
         llm_req.parent_id = parent_frame_id;
         llm_req
             .data
-            .insert("trace".into(), trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request"));
+            .insert("trace".into(), trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request", Some("llm")));
         super::persistence::enqueue_frame(state, &llm_req);
 
         let mut llm_messages = base_messages.clone();
@@ -261,7 +270,7 @@ pub async fn handle_prompt_with_parent(
                 err_frame.data.insert("duration_ms".into(), json!(duration_ms));
                 err_frame.data.insert(
                     "trace".into(),
-                    trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request"),
+                    trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request", Some("llm")),
                 );
                 super::persistence::enqueue_frame(state, &err_frame);
                 state
@@ -281,10 +290,16 @@ pub async fn handle_prompt_with_parent(
         llm_done_data.insert("tokens".into(), json!(total_tokens));
         llm_done_data.insert("stop_reason".into(), json!(response.stop_reason));
         llm_done_data.insert("duration_ms".into(), json!(duration_ms));
-        llm_done_data.insert(
-            "trace".into(),
-            trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request"),
-        );
+        let mut llm_trace = trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request", Some(&response.model))
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+        llm_trace.insert("input_tokens".into(), json!(response.input_tokens));
+        llm_trace.insert("output_tokens".into(), json!(response.output_tokens));
+        llm_trace.insert("tokens".into(), json!(total_tokens));
+        llm_trace.insert("duration_ms".into(), json!(duration_ms));
+        llm_trace.insert("stop_reason".into(), json!(response.stop_reason.clone()));
+        llm_done_data.insert("trace".into(), serde_json::Value::Object(llm_trace));
         let llm_done = llm_req.done_with(llm_done_data);
         super::persistence::enqueue_frame(state, &llm_done);
 
@@ -423,7 +438,7 @@ async fn execute_tool_via_syscall(
     req.parent_id = parent_frame_id;
     req.data.insert(
         "trace".into(),
-        trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call"),
+        trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call", Some(tool_name)),
     );
     super::persistence::enqueue_frame(state, &req);
 
@@ -433,7 +448,7 @@ async fn execute_tool_via_syscall(
             let mut done_data = outcome.done_data;
             done_data.insert(
                 "trace".into(),
-                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call"),
+                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call", Some(tool_name)),
             );
             let done = req.done_with(done_data);
             super::persistence::enqueue_frame(state, &done);
@@ -445,7 +460,7 @@ async fn execute_tool_via_syscall(
             error.data.insert("name".into(), json!(tool_name));
             error.data.insert(
                 "trace".into(),
-                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call"),
+                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call", Some(tool_name)),
             );
             super::persistence::enqueue_frame(state, &error);
             Err(err)
