@@ -118,6 +118,11 @@ cargo leptos build && cargo run -p server
 
 The app serves at `http://localhost:3000`. Migrations run automatically on startup.
 
+## Live Demo
+
+Deployed on Railway (as of 2026-02-20, URL may change):
+**https://gauntlet-week-1-production.up.railway.app/**
+
 ## Testing
 
 681 tests across the workspace:
