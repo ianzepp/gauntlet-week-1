@@ -1681,7 +1681,7 @@ a:hover {
 }
 
 .toolbar__share {
-    margin-left: 3em;
+    margin-left: 0;
 }
 
 .toolbar__self-method {
