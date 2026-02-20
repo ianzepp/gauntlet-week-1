@@ -1094,6 +1094,7 @@ async fn broadcast_ai_mutations(
     board_id: Uuid,
     user_id: Uuid,
     parent_id: Option<Uuid>,
+    trace_id: Option<Uuid>,
     mutations: &[services::ai::AiMutation],
 ) {
     for mutation in mutations {
@@ -1110,6 +1111,17 @@ async fn broadcast_ai_mutations(
             .with_board_id(board_id)
             .with_from(user_id.to_string());
         frame.parent_id = parent_id;
+        if let Some(trace_id) = trace_id {
+            frame.data.insert(
+                "trace".into(),
+                serde_json::json!({
+                    "trace_id": trace_id,
+                    "span_id": frame.id,
+                    "parent_span_id": parent_id,
+                    "kind": "object.mutation"
+                }),
+            );
+        }
         frame.status = crate::frame::Status::Done;
         services::persistence::enqueue_frame(state, &frame);
         services::board::broadcast(state, board_id, &frame, None).await;
@@ -1138,7 +1150,14 @@ async fn handle_tool(
 
     match services::tool_syscall::dispatch_tool_frame(state, board_id, req).await {
         Ok(outcome) => {
-            broadcast_ai_mutations(state, board_id, user_id, Some(req.id), &outcome.mutations).await;
+            let trace_id = req
+                .data
+                .get("trace")
+                .and_then(serde_json::Value::as_object)
+                .and_then(|trace| trace.get("trace_id"))
+                .and_then(serde_json::Value::as_str)
+                .and_then(|id| id.parse::<Uuid>().ok());
+            broadcast_ai_mutations(state, board_id, user_id, Some(req.id), trace_id, &outcome.mutations).await;
             Ok(Outcome::Reply(outcome.done_data))
         }
         Err(err) => Err(req.error_from(&err)),
@@ -1198,7 +1217,7 @@ async fn handle_ai(
                 .await
             {
                 Ok(result) => {
-                    broadcast_ai_mutations(state, board_id, user_id, Some(req.id), &result.mutations).await;
+                    broadcast_ai_mutations(state, board_id, user_id, Some(req.id), Some(req.id), &result.mutations).await;
 
                     let mut data = Data::new();
                     data.insert("prompt".into(), serde_json::json!(prompt));

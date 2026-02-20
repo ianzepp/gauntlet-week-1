@@ -52,6 +52,19 @@ fn ai_max_tokens() -> u32 {
     *VALUE.get_or_init(|| env_parse("AI_MAX_TOKENS", DEFAULT_AI_MAX_TOKENS))
 }
 
+fn trace_id_for_prompt(parent_frame_id: Option<Uuid>) -> Uuid {
+    parent_frame_id.unwrap_or_else(Uuid::new_v4)
+}
+
+fn trace_meta(trace_id: Uuid, span_id: Uuid, parent_span_id: Option<Uuid>, kind: &str) -> serde_json::Value {
+    json!({
+        "trace_id": trace_id,
+        "span_id": span_id,
+        "parent_span_id": parent_span_id,
+        "kind": kind,
+    })
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -213,6 +226,7 @@ pub async fn handle_prompt_with_parent(
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
     let token_reservation = u64::from(max_tokens);
+    let trace_id = trace_id_for_prompt(parent_frame_id);
 
     for iteration in 0..max_tool_iterations {
         let mut llm_req_data = Data::new();
@@ -221,6 +235,9 @@ pub async fn handle_prompt_with_parent(
             .with_board_id(board_id)
             .with_from(user_id.to_string());
         llm_req.parent_id = parent_frame_id;
+        llm_req
+            .data
+            .insert("trace".into(), trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request"));
         super::persistence::enqueue_frame(state, &llm_req);
 
         let mut llm_messages = base_messages.clone();
@@ -242,6 +259,10 @@ pub async fn handle_prompt_with_parent(
                 let mut err_frame = llm_req.error_from(&err);
                 err_frame.data.insert("iteration".into(), json!(iteration));
                 err_frame.data.insert("duration_ms".into(), json!(duration_ms));
+                err_frame.data.insert(
+                    "trace".into(),
+                    trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request"),
+                );
                 super::persistence::enqueue_frame(state, &err_frame);
                 state
                     .rate_limiter
@@ -260,6 +281,10 @@ pub async fn handle_prompt_with_parent(
         llm_done_data.insert("tokens".into(), json!(total_tokens));
         llm_done_data.insert("stop_reason".into(), json!(response.stop_reason));
         llm_done_data.insert("duration_ms".into(), json!(duration_ms));
+        llm_done_data.insert(
+            "trace".into(),
+            trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request"),
+        );
         let llm_done = llm_req.done_with(llm_done_data);
         super::persistence::enqueue_frame(state, &llm_done);
 
@@ -318,6 +343,7 @@ pub async fn handle_prompt_with_parent(
                 tool_id,
                 tool_name,
                 input,
+                trace_id,
                 Some(llm_req.id),
                 &mut all_mutations,
             )
@@ -380,6 +406,7 @@ async fn execute_tool_via_syscall(
     tool_use_id: &str,
     tool_name: &str,
     input: &serde_json::Value,
+    trace_id: Uuid,
     parent_frame_id: Option<Uuid>,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
@@ -394,12 +421,21 @@ async fn execute_tool_via_syscall(
         .with_board_id(board_id)
         .with_from(user_id.to_string());
     req.parent_id = parent_frame_id;
+    req.data.insert(
+        "trace".into(),
+        trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call"),
+    );
     super::persistence::enqueue_frame(state, &req);
 
     match super::tool_syscall::dispatch_tool_frame(state, board_id, &req).await {
         Ok(outcome) => {
             mutations.extend(outcome.mutations);
-            let done = req.done_with(outcome.done_data);
+            let mut done_data = outcome.done_data;
+            done_data.insert(
+                "trace".into(),
+                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call"),
+            );
+            let done = req.done_with(done_data);
             super::persistence::enqueue_frame(state, &done);
             Ok(outcome.content)
         }
@@ -407,6 +443,10 @@ async fn execute_tool_via_syscall(
             let mut error = req.error_from(&err);
             error.data.insert("tool_use_id".into(), json!(tool_use_id));
             error.data.insert("name".into(), json!(tool_name));
+            error.data.insert(
+                "trace".into(),
+                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call"),
+            );
             super::persistence::enqueue_frame(state, &error);
             Err(err)
         }
