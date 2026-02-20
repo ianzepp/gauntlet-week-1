@@ -33,6 +33,11 @@ pub fn prefix_display(syscall: &str) -> PrefixDisplay {
             label: "AI",
             color: "#4ad981",
         },
+        "tool" => PrefixDisplay {
+            letter: "T",
+            label: "TOOL",
+            color: "#2ec4b6",
+        },
         "chat" => PrefixDisplay {
             letter: "C",
             label: "CHAT",
@@ -69,7 +74,7 @@ pub struct TraceFilter {
 
 impl Default for TraceFilter {
     fn default() -> Self {
-        let include_prefixes = ["board", "object", "ai", "chat", "save"]
+        let include_prefixes = ["board", "object", "ai", "tool", "chat", "save"]
             .into_iter()
             .map(str::to_owned)
             .collect::<BTreeSet<_>>();
@@ -88,7 +93,7 @@ impl Default for TraceFilter {
 impl TraceFilter {
     #[must_use]
     pub fn include_all() -> Self {
-        let include_prefixes = ["board", "object", "ai", "chat", "cursor", "save", "other"]
+        let include_prefixes = ["board", "object", "ai", "tool", "chat", "cursor", "save", "other"]
             .into_iter()
             .map(str::to_owned)
             .collect::<BTreeSet<_>>();
@@ -389,6 +394,13 @@ pub fn sub_label(frame: &Frame) -> Option<String> {
             .get("tool")
             .and_then(serde_json::Value::as_str)
             .map(str::to_owned),
+        _ if frame.syscall.starts_with("tool:") => frame
+            .data
+            .get("tool")
+            .or_else(|| frame.data.get("name"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| frame.syscall.split_once(':').map(|(_, op)| op.to_owned())),
         "object:create" | "object:update" | "object:delete" => frame
             .data
             .get("id")

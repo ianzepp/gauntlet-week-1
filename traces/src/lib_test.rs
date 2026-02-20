@@ -63,6 +63,13 @@ fn syscall_prefix_handles_empty_and_no_separator() {
 fn default_filter_hides_cursor_and_item() {
     let filter = TraceFilter::default();
     assert!(filter.allows(&frame("1", None, 1, "ai:prompt", Status::Request)));
+    assert!(filter.allows(&frame(
+        "t1",
+        Some("1"),
+        2,
+        "tool:applyChangesYaml",
+        Status::Done
+    )));
     assert!(!filter.allows(&frame("2", None, 2, "cursor:move", Status::Done)));
     assert!(!filter.allows(&frame("3", None, 3, "chat:message", Status::Item)));
 }
@@ -322,6 +329,10 @@ fn sub_labels_for_object_and_llm_variants() {
     let mut llm = frame("4", None, 4, "ai:llm_request", Status::Done);
     llm.data = json!({"model": "claude-sonnet"});
     assert_eq!(sub_label(&llm).as_deref(), Some("claude-sonnet"));
+
+    let mut tool = frame("5", None, 5, "tool:applyChangesYaml", Status::Done);
+    tool.data = json!({"name": "applyChangesYaml"});
+    assert_eq!(sub_label(&tool).as_deref(), Some("applyChangesYaml"));
 }
 
 #[test]

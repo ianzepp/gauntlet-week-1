@@ -5,6 +5,7 @@
 //! selects that frame and opens the detail inspector in Column 3.
 
 use leptos::prelude::*;
+use std::collections::HashMap;
 
 use crate::state::trace::TraceState;
 
@@ -43,6 +44,10 @@ pub fn TraceLog() -> impl IntoView {
     let rows = move || {
         let state = trace.get();
         let session_frames = state.session_frames();
+        let by_id: HashMap<String, frames::Frame> = session_frames
+            .iter()
+            .map(|f| (f.id.clone(), (*f).clone()))
+            .collect();
         session_frames
             .into_iter()
             .filter(|f| state.filter.allows(f))
@@ -50,12 +55,18 @@ pub fn TraceLog() -> impl IntoView {
                 let display = traces::prefix_display(&f.syscall);
                 let sub = traces::sub_label(f);
                 let (status_text, status_mod) = status_label(f.status);
+                let depth = traces::tree_depth(&f.id, &by_id);
+                let tree_indent = if depth == 0 {
+                    String::new()
+                } else {
+                    format!("{}└─ ", "  ".repeat(depth))
+                };
                 (
                     f.id.clone(),
                     format_ts(f.ts),
                     display.letter,
                     display.color,
-                    f.syscall.clone(),
+                    format!("{tree_indent}{}", f.syscall),
                     sub,
                     status_text,
                     status_mod,
