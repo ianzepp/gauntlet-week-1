@@ -12,6 +12,7 @@ use crate::app::FrameSender;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::ai::AiState;
 use crate::state::board::BoardState;
+use crate::state::ui::{RightTab, UiState};
 
 /// AI panel showing conversation history and a prompt input.
 #[component]
@@ -19,9 +20,11 @@ pub fn AiPanel() -> impl IntoView {
     let ai = expect_context::<RwSignal<AiState>>();
     let board = expect_context::<RwSignal<BoardState>>();
     let sender = expect_context::<RwSignal<FrameSender>>();
+    let ui = expect_context::<RwSignal<UiState>>();
 
     let input = RwSignal::new(String::new());
     let messages_ref = NodeRef::<leptos::html::Div>::new();
+    let input_ref = NodeRef::<leptos::html::Input>::new();
 
     Effect::new(move || {
         let state = ai.get();
@@ -33,6 +36,21 @@ pub fn AiPanel() -> impl IntoView {
             if let Some(el) = messages_ref.get() {
                 let scroll_height = el.scroll_height();
                 el.set_scroll_top(scroll_height);
+            }
+        }
+    });
+
+    Effect::new(move || {
+        let seq = ui.get().ai_focus_seq;
+        let ui_state = ui.get();
+        let _ = seq;
+        if !ui_state.right_panel_expanded || ui_state.right_tab != RightTab::Ai {
+            return;
+        }
+        #[cfg(feature = "hydrate")]
+        {
+            if let Some(input_el) = input_ref.get() {
+                let _ = input_el.focus();
             }
         }
     });
@@ -156,6 +174,7 @@ pub fn AiPanel() -> impl IntoView {
                     class="ai-panel__input"
                     type="text"
                     placeholder="Ask the AI..."
+                    node_ref=input_ref
                     disabled=move || ai.get().loading
                     prop:value=move || input.get()
                     on:input=move |ev| input.set(event_target_value(&ev))

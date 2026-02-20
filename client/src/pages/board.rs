@@ -34,7 +34,7 @@ use crate::net::types::{Frame, FrameStatus};
 use crate::state::ai::{AiMessage, AiState};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
-use crate::state::ui::{UiState, ViewMode};
+use crate::state::ui::{RightTab, UiState, ViewMode};
 
 fn build_board_membership_frame(syscall: &str, board_id: String) -> Frame {
     Frame {
@@ -93,6 +93,7 @@ pub fn BoardPage() -> impl IntoView {
     let pending_message_start = RwSignal::new(None::<usize>);
     let prompt_preview_user = RwSignal::new(String::new());
     let prompt_preview_assistant = RwSignal::new(String::new());
+    let prompt_preview_assistant_has_more = RwSignal::new(false);
     let prompt_preview_assistant_error = RwSignal::new(false);
 
     // Extract board ID from route.
@@ -195,7 +196,9 @@ pub fn BoardPage() -> impl IntoView {
         if let Some(reply) = ai_state.messages.iter().skip(start_idx).rev().find(|msg| {
             msg.role == "assistant" || msg.role == "error"
         }) {
-            prompt_preview_assistant.set(reply.content.clone());
+            let (preview, has_more) = assistant_preview_and_has_more(&reply.content);
+            prompt_preview_assistant.set(preview);
+            prompt_preview_assistant_has_more.set(has_more);
             prompt_preview_assistant_error.set(reply.role == "error");
         }
         prompt_status.set(if has_error {
@@ -228,6 +231,7 @@ pub fn BoardPage() -> impl IntoView {
         prompt_status.set(PromptBarStatus::Loading);
         prompt_preview_user.set(prompt.clone());
         prompt_preview_assistant.set(String::new());
+        prompt_preview_assistant_has_more.set(false);
         prompt_preview_assistant_error.set(false);
         if sender.get().send(&frame) {
             let start_idx = ai.get_untracked().messages.len();
@@ -255,6 +259,7 @@ pub fn BoardPage() -> impl IntoView {
                 a.loading = false;
             });
             prompt_preview_assistant.set("AI request failed: not connected".to_owned());
+            prompt_preview_assistant_has_more.set(false);
             prompt_preview_assistant_error.set(true);
             prompt_status.set(PromptBarStatus::Error);
             pending_message_start.set(None);
@@ -272,6 +277,14 @@ pub fn BoardPage() -> impl IntoView {
             ev.prevent_default();
             send_prompt();
         }
+    };
+
+    let on_prompt_read_more = move |_| {
+        ui.update(|u| {
+            u.right_panel_expanded = true;
+            u.right_tab = RightTab::Ai;
+            u.ai_focus_seq = u.ai_focus_seq.saturating_add(1);
+        });
     };
 
     view! {
@@ -308,11 +321,6 @@ pub fn BoardPage() -> impl IntoView {
                                     class="board-page__prompt-preview-row board-page__prompt-preview-row--user"
                                     class:board-page__prompt-preview-row--empty=move || prompt_preview_user.get().is_empty()
                                 >
-                                    <svg class="board-page__prompt-preview-icon" viewBox="0 0 20 20" aria-hidden="true">
-                                        <path d="M3 10 H14"></path>
-                                        <path d="M14 6 L18 10 L14 14"></path>
-                                        <path d="M18 4 V16"></path>
-                                    </svg>
                                     <span class="board-page__prompt-preview-text">{move || prompt_preview_user.get()}</span>
                                 </div>
                                 <div
@@ -320,12 +328,14 @@ pub fn BoardPage() -> impl IntoView {
                                     class:board-page__prompt-preview-row--empty=move || prompt_preview_assistant.get().is_empty()
                                     class:board-page__prompt-preview-row--error=move || prompt_preview_assistant_error.get()
                                 >
-                                    <svg class="board-page__prompt-preview-icon" viewBox="0 0 20 20" aria-hidden="true">
-                                        <path d="M17 10 H6"></path>
-                                        <path d="M6 6 L2 10 L6 14"></path>
-                                        <path d="M2 4 V16"></path>
-                                    </svg>
-                                    <span class="board-page__prompt-preview-text">{move || prompt_preview_assistant.get()}</span>
+                                    <span class="board-page__prompt-preview-text">
+                                        {move || prompt_preview_assistant.get()}
+                                        <Show when=move || prompt_preview_assistant_has_more.get() && !prompt_preview_assistant_error.get()>
+                                            <button class="board-page__prompt-preview-more" on:click=on_prompt_read_more>
+                                                "[more]"
+                                            </button>
+                                        </Show>
+                                    </span>
                                 </div>
                             </div>
                             <div class="board-page__input-row">
@@ -368,6 +378,106 @@ pub fn BoardPage() -> impl IntoView {
             </div>
         </div>
     }
+}
+
+fn assistant_preview_and_has_more(text: &str) -> (String, bool) {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return (String::new(), false);
+    }
+
+    let paragraphs = split_paragraphs(trimmed);
+    let mut preview: Vec<String> = Vec::new();
+    let mut has_more = false;
+
+    for para in paragraphs.iter() {
+        if paragraph_is_structured(para) {
+            if para.trim_end().ends_with(':') && preview.len() < 3 {
+                preview.push(para.clone());
+            }
+            has_more = true;
+            break;
+        }
+
+        if preview.len() < 3 {
+            preview.push(para.clone());
+        } else {
+            has_more = true;
+            break;
+        }
+    }
+
+    if preview.is_empty() {
+        if let Some(first) = paragraphs.first() {
+            preview.push(first.clone());
+        }
+    }
+
+    if !has_more && paragraphs.len() > preview.len() {
+        has_more = true;
+    }
+
+    (preview.join("\n\n"), has_more)
+}
+
+fn split_paragraphs(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut current: Vec<&str> = Vec::new();
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            if !current.is_empty() {
+                out.push(current.join("\n").trim().to_owned());
+                current.clear();
+            }
+            continue;
+        }
+        current.push(line.trim_end());
+    }
+    if !current.is_empty() {
+        out.push(current.join("\n").trim().to_owned());
+    }
+    out.into_iter().filter(|p| !p.is_empty()).collect()
+}
+
+fn paragraph_is_structured(para: &str) -> bool {
+    let trimmed = para.trim();
+    if trimmed.ends_with(':') {
+        return true;
+    }
+    para.lines().any(line_is_structured)
+}
+
+fn line_is_structured(line: &str) -> bool {
+    let t = line.trim_start();
+    if t.starts_with("- ") || t.starts_with("* ") || t.starts_with("+ ") {
+        return true;
+    }
+    if starts_with_markdown_numbered_list(t) {
+        return true;
+    }
+    if t.starts_with('|') {
+        return true;
+    }
+    t.contains('|') && (t.contains("---") || t.contains(":---") || t.contains("---:"))
+}
+
+fn starts_with_markdown_numbered_list(text: &str) -> bool {
+    let mut saw_digit = false;
+    for ch in text.chars() {
+        if ch.is_ascii_digit() {
+            saw_digit = true;
+            continue;
+        }
+        if (ch == '.' || ch == ')') && saw_digit {
+            return text
+                .chars()
+                .skip_while(|c| c.is_ascii_digit())
+                .nth(1)
+                .is_some_and(char::is_whitespace);
+        }
+        break;
+    }
+    false
 }
 
 #[cfg(test)]

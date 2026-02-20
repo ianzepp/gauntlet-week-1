@@ -29,3 +29,35 @@ fn build_board_membership_frame_sets_protocol_fields() {
     assert_eq!(frame.board_id.as_deref(), Some("b-1"));
     assert_eq!(frame.data, serde_json::json!({}));
 }
+
+#[test]
+fn assistant_preview_shows_up_to_three_plain_paragraphs_without_more() {
+    let text = "Para one.\n\nPara two.\n\nPara three.";
+    let (preview, has_more) = assistant_preview_and_has_more(text);
+    assert_eq!(preview, text);
+    assert!(!has_more);
+}
+
+#[test]
+fn assistant_preview_flags_more_for_plain_fourth_paragraph() {
+    let text = "Para one.\n\nPara two.\n\nPara three.\n\nPara four.";
+    let (preview, has_more) = assistant_preview_and_has_more(text);
+    assert_eq!(preview, "Para one.\n\nPara two.\n\nPara three.");
+    assert!(has_more);
+}
+
+#[test]
+fn assistant_preview_flags_more_when_intro_paragraph_ends_with_colon() {
+    let text = "Here is the plan:\n\n- first\n- second";
+    let (preview, has_more) = assistant_preview_and_has_more(text);
+    assert_eq!(preview, "Here is the plan:");
+    assert!(has_more);
+}
+
+#[test]
+fn assistant_preview_flags_more_when_list_starts() {
+    let text = "Summary paragraph.\n\n1. First item\n2. Second item";
+    let (preview, has_more) = assistant_preview_and_has_more(text);
+    assert_eq!(preview, "Summary paragraph.");
+    assert!(has_more);
+}
