@@ -76,21 +76,6 @@ pub fn TraceSummary() -> impl IntoView {
     // Per-prefix breakdown from compute_metrics.
     let metrics = move || traces::compute_metrics(&trace.get().frames);
 
-    let board_name = move || {
-        board
-            .get()
-            .board_name
-            .clone()
-            .unwrap_or_else(|| "—".to_owned())
-    };
-    let board_id = move || {
-        board
-            .get()
-            .board_id
-            .clone()
-            .unwrap_or_else(|| "—".to_owned())
-    };
-
     let connection_label = move || match board.get().connection_status {
         ConnectionStatus::Connected => "● WEBSOCKET OPEN",
         ConnectionStatus::Connecting => "○ CONNECTING",
@@ -160,20 +145,12 @@ pub fn TraceSummary() -> impl IntoView {
                     <span class="trace-summary__kv-key">"FRAMES:"</span>
                     <span class="trace-summary__kv-value">{total_frames}</span>
                 </div>
-                <div class="trace-summary__kv">
-                    <span class="trace-summary__kv-key">"BOARD:"</span>
-                    <span class="trace-summary__kv-value">{board_id}</span>
-                </div>
             </section>
 
             // ── ACTIVE_TRACE_CONTEXT ─────────────────────────────────────────
             <section class="trace-summary__section">
                 <div class="trace-summary__context-card">
                     <div class="trace-summary__section-label">"ACTIVE_TRACE_CONTEXT"</div>
-                    <div class="trace-summary__kv">
-                        <span class="trace-summary__kv-key">"BOARD:"</span>
-                        <span class="trace-summary__kv-value">{board_name}</span>
-                    </div>
                     {move || {
                         let sel = selected_session_id();
                         let root = sel.as_deref()
@@ -222,7 +199,11 @@ pub fn TraceSummary() -> impl IntoView {
                                     on:click=move |_| {
                                         let session_id = id_clone.clone();
                                         trace.update(|t| {
-                                            t.selected_session_id = Some(session_id);
+                                            if t.selected_session_id.as_deref() == Some(session_id.as_str()) {
+                                                t.selected_session_id = None;
+                                            } else {
+                                                t.selected_session_id = Some(session_id);
+                                            }
                                             t.selected_frame_id = None;
                                         });
                                     }
