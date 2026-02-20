@@ -13,6 +13,8 @@ use crate::components::inspector_panel::InspectorPanel;
 use crate::components::tool_rail::ToolRail;
 use crate::state::ui::UiState;
 
+const INSPECTOR_ENABLED: bool = false;
+
 /// Left sidebar with a fixed tool rail and expandable inspector panel.
 #[component]
 pub fn LeftPanel() -> impl IntoView {
@@ -55,7 +57,7 @@ pub fn LeftPanel() -> impl IntoView {
 
     view! {
         <div class="left-panel" on:pointermove=on_resize_pointer_move on:pointerup=on_resize_pointer_up on:pointercancel=on_resize_pointer_up>
-            <Show when=expanded>
+            <Show when=move || INSPECTOR_ENABLED && expanded()>
                 <div class="left-panel__panel" style=panel_width_style>
                     <div class="left-panel__header">
                         <span class="left-panel__title">"Inspector"</span>
@@ -68,7 +70,7 @@ pub fn LeftPanel() -> impl IntoView {
                     </div>
                 </div>
             </Show>
-            <Show when=expanded>
+            <Show when=move || INSPECTOR_ENABLED && expanded()>
                 <div class="left-panel__resize-handle-rail" on:pointerdown=on_resize_pointer_down></div>
             </Show>
 

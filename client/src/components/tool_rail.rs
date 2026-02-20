@@ -10,6 +10,8 @@ use leptos::prelude::*;
 use crate::state::board::BoardState;
 use crate::state::ui::{ToolType, UiState};
 
+const INSPECTOR_ENABLED: bool = false;
+
 #[derive(Clone, Copy)]
 struct ToolDef {
     tool: ToolType,
@@ -79,10 +81,13 @@ pub fn ToolRail() -> impl IntoView {
     };
 
     let toggle_expand = move |_| {
+        if !INSPECTOR_ENABLED {
+            return;
+        }
         ui.update(|u| u.left_panel_expanded = !u.left_panel_expanded);
     };
 
-    let expanded = move || ui.get().left_panel_expanded;
+    let expanded = move || INSPECTOR_ENABLED && ui.get().left_panel_expanded;
     let on_home_click = move |_ev: leptos::ev::MouseEvent| {
         board.update(|b| {
             b.follow_client_id = None;
@@ -107,9 +112,11 @@ pub fn ToolRail() -> impl IntoView {
 
             <div class="tool-rail__spacer"></div>
 
-            <button class="tool-rail__toggle ui-tooltip" on:click=toggle_expand title="Toggle inspector" attr:data-tooltip="Toggle inspector">
-                {move || if expanded() { "◀" } else { "▶" }}
-            </button>
+            <Show when=move || INSPECTOR_ENABLED>
+                <button class="tool-rail__toggle ui-tooltip" on:click=toggle_expand title="Toggle inspector" attr:data-tooltip="Toggle inspector">
+                    {move || if expanded() { "◀" } else { "▶" }}
+                </button>
+            </Show>
         </div>
     }
 }
