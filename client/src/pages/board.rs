@@ -186,6 +186,15 @@ pub fn BoardPage() -> impl IntoView {
                     <BoardStamp/>
                 </Show>
             </div>
+            <Show when=move || ui.get().view_mode == ViewMode::Canvas>
+                <div class="board-page__input-overlay">
+                    <input
+                        class="board-page__input-line"
+                        type="text"
+                        placeholder="Type a command..."
+                    />
+                </div>
+            </Show>
             <div class="board-page__right-panel">
                 <RightPanel/>
             </div>

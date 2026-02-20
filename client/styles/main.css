@@ -362,30 +362,47 @@ a:hover {
     padding: 0;
 }
 
-.toolbar__new-board {
-    width: auto;
-    height: 28px;
-    padding: 0 var(--space-sm);
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--text-nav);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    line-height: 1;
-}
-
-.toolbar__new-board:hover {
-    color: var(--text-nav-active);
-    background: transparent;
+.toolbar__join-board {
+    margin-left: 3em;
 }
 
 .dashboard-page__grid {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.dashboard-page__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.dashboard-page__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-default);
+    padding-bottom: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.dashboard-page__section-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+}
+
+.dashboard-page__section-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
 }
 
 .dashboard-page__cards {
@@ -525,6 +542,7 @@ a:hover {
     height: 100dvh;
     background: var(--bg-primary);
     overflow: hidden;
+    position: relative;
 }
 
 .board-page.board-page--trace {
@@ -564,6 +582,30 @@ a:hover {
 .board-page__status-bar {
     grid-area: status;
     z-index: var(--z-chrome);
+}
+
+.board-page__input-overlay {
+    position: absolute;
+    left: 50%;
+    bottom: calc(24px + var(--space-md));
+    transform: translateX(-50%);
+    width: clamp(320px, 60%, 920px);
+    z-index: var(--z-chrome);
+}
+
+.board-page__input-line {
+    width: 100%;
+    height: 34px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 0 var(--space-sm);
+}
+
+.board-page__input-line::placeholder {
+    color: var(--text-tertiary);
 }
 
 .canvas-host {
@@ -2445,6 +2487,11 @@ a:hover {
 
     .board-stamp {
         width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
+    }
+
+    .board-page__input-overlay {
+        width: calc(100% - var(--space-md) * 2);
+        max-width: 720px;
     }
 
 }

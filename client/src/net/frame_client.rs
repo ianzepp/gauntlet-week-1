@@ -464,6 +464,10 @@ fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListItem> {
         .filter_map(|row| {
             let id = row.get("id")?.as_str()?.to_owned();
             let name = row.get("name")?.as_str()?.to_owned();
+            let owner_id = row
+                .get("owner_id")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned);
             let snapshot = row
                 .get("snapshot")
                 .and_then(serde_json::Value::as_array)
@@ -474,7 +478,12 @@ fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListItem> {
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
-            Some(BoardListItem { id, name, snapshot })
+            Some(BoardListItem {
+                id,
+                name,
+                owner_id,
+                snapshot,
+            })
         })
         .collect()
 }

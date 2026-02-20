@@ -15,6 +15,8 @@ pub struct BoardListItem {
     pub id: String,
     pub name: String,
     #[serde(default)]
+    pub owner_id: Option<String>,
+    #[serde(default)]
     pub snapshot: Vec<BoardListPreviewObject>,
 }
 

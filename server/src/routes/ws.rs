@@ -612,6 +612,7 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
                     serde_json::json!({
                         "id": b.id,
                         "name": b.name,
+                        "owner_id": b.owner_id,
                         "snapshot": previews.remove(&b.id).unwrap_or_default(),
                     })
                 })

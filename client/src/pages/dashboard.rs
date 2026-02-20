@@ -125,8 +125,37 @@ pub fn DashboardPage() -> impl IntoView {
             <div class="dashboard-page">
                 <header class="dashboard-page__header toolbar">
                     <span class="toolbar__board-name">"Boards"</span>
-                    <span class="toolbar__divider" aria-hidden="true"></span>
-                    <button class="btn toolbar__new-board" on:click=on_create>
+
+                    <div class="toolbar__segment" role="group" aria-label="Theme mode">
+                        <button
+                            class="btn toolbar__segment-btn"
+                            class:toolbar__segment-btn--active=move || !ui.get().dark_mode
+                            on:click=move |_| {
+                                if ui.get().dark_mode {
+                                    let next = crate::util::dark_mode::toggle(true);
+                                    ui.update(|u| u.dark_mode = next);
+                                }
+                            }
+                            title="Light mode"
+                        >
+                            "Light"
+                        </button>
+                        <button
+                            class="btn toolbar__segment-btn"
+                            class:toolbar__segment-btn--active=move || ui.get().dark_mode
+                            on:click=move |_| {
+                                if !ui.get().dark_mode {
+                                    let next = crate::util::dark_mode::toggle(false);
+                                    ui.update(|u| u.dark_mode = next);
+                                }
+                            }
+                            title="Dark mode"
+                        >
+                            "Dark"
+                        </button>
+                    </div>
+
+                    <button class="btn toolbar__join-board" on:click=on_create>
                         "+ New Board"
                     </button>
                     <button class="btn toolbar__join-board" on:click=on_join>
@@ -134,18 +163,6 @@ pub fn DashboardPage() -> impl IntoView {
                     </button>
 
                     <span class="toolbar__spacer"></span>
-
-                    <button
-                        class="btn toolbar__dark-toggle"
-                        on:click=move |_| {
-                            let current = ui.get().dark_mode;
-                            let next = crate::util::dark_mode::toggle(current);
-                            ui.update(|u| u.dark_mode = next);
-                        }
-                        title="Toggle dark mode"
-                    >
-                        {move || if ui.get().dark_mode { "☀" } else { "☾" }}
-                    </button>
 
                     <span class="toolbar__self">
                         {move || self_identity().0}
@@ -169,25 +186,62 @@ pub fn DashboardPage() -> impl IntoView {
                         when=move || !boards.get().loading
                         fallback=move || view! { <p>"Loading boards..."</p> }
                     >
-                        <div class="dashboard-page__cards">
-                            {move || {
-                                boards
-                                    .get()
-                                    .items
-                                    .into_iter()
-                                    .map(|b| {
-                                        view! {
-                                            <BoardCard
-                                                id=b.id
-                                                name=b.name
-                                                snapshot=b.snapshot
-                                                on_delete=on_board_delete_request
-                                            />
-                                        }
-                                    })
-                                    .collect::<Vec<_>>()
-                            }}
-                        </div>
+                        {move || {
+                            let state = boards.get();
+                            let my_user_id = auth.get().user.map(|u| u.id).unwrap_or_default();
+                            let on_delete_my = on_board_delete_request.clone();
+                            let on_delete_shared = on_board_delete_request.clone();
+                            let (my_boards, shared_boards): (Vec<_>, Vec<_>) = state
+                                .items
+                                .into_iter()
+                                .partition(|b| b.owner_id.as_deref() == Some(my_user_id.as_str()));
+
+                            view! {
+                                <section class="dashboard-page__section">
+                                    <header class="dashboard-page__section-header">
+                                        <h2 class="dashboard-page__section-title">"My Boards"</h2>
+                                        <span class="dashboard-page__section-count">{my_boards.len()}</span>
+                                    </header>
+                                    <div class="dashboard-page__cards">
+                                        {my_boards
+                                            .into_iter()
+                                            .map(|b| {
+                                                view! {
+                                                    <BoardCard
+                                                        id=b.id
+                                                        name=b.name
+                                                        snapshot=b.snapshot
+                                                        on_delete=on_delete_my
+                                                    />
+                                                }
+                                            })
+                                            .collect::<Vec<_>>()}
+                                    </div>
+                                </section>
+
+                                <section class="dashboard-page__section">
+                                    <header class="dashboard-page__section-header">
+                                        <h2 class="dashboard-page__section-title">"Shared Boards"</h2>
+                                        <span class="dashboard-page__section-count">{shared_boards.len()}</span>
+                                    </header>
+                                    <div class="dashboard-page__cards">
+                                        {shared_boards
+                                            .into_iter()
+                                            .map(|b| {
+                                                view! {
+                                                    <BoardCard
+                                                        id=b.id
+                                                        name=b.name
+                                                        snapshot=b.snapshot
+                                                        on_delete=on_delete_shared
+                                                    />
+                                                }
+                                            })
+                                            .collect::<Vec<_>>()}
+                                    </div>
+                                </section>
+                            }
+                        }}
                     </Show>
                 </div>
                 <Show when=move || show_create.get()>
@@ -242,10 +296,10 @@ fn CreateBoardDialog(
             <div class="dialog" on:click=move |ev| ev.stop_propagation()>
                 <h2>"Create Board"</h2>
                 <label class="dialog__label">
-                    "Board Name"
                     <input
                         class="dialog__input"
                         type="text"
+                        autofocus=true
                         prop:value=move || name.get()
                         on:input=move |ev| {
                             name.set(event_target_value(&ev));
