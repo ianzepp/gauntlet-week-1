@@ -67,46 +67,65 @@ pub fn Toolbar() -> impl IntoView {
             </Show>
 
             <span class="toolbar__board-name">{board_name}</span>
-            <span class="toolbar__divider"></span>
+            <Show when=move || location.pathname.get().starts_with("/board/")>
+                <div class="toolbar__segment" role="group" aria-label="Theme mode">
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || !ui.get().dark_mode
+                        on:click=move |_| {
+                            if ui.get().dark_mode {
+                                let next = crate::util::dark_mode::toggle(true);
+                                ui.update(|u| u.dark_mode = next);
+                            }
+                        }
+                        title="Light mode"
+                    >
+                        "Light"
+                    </button>
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || ui.get().dark_mode
+                        on:click=move |_| {
+                            if !ui.get().dark_mode {
+                                let next = crate::util::dark_mode::toggle(false);
+                                ui.update(|u| u.dark_mode = next);
+                            }
+                        }
+                        title="Dark mode"
+                    >
+                        "Dark"
+                    </button>
+                </div>
+            </Show>
+
+            <Show when=move || location.pathname.get().starts_with("/board/")>
+                <div class="toolbar__segment" role="group" aria-label="Board view mode">
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || ui.get().view_mode == ViewMode::Canvas
+                        on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Canvas)
+                        title="Board canvas view"
+                    >
+                        "Board"
+                    </button>
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || ui.get().view_mode == ViewMode::Trace
+                        on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Trace)
+                        title="Trace view"
+                    >
+                        "Traces"
+                    </button>
+                </div>
+            </Show>
+
+            <span class="toolbar__spacer"></span>
 
             <Show when=move || location.pathname.get().starts_with("/board/")>
                 <button class="btn toolbar__share" on:click=on_share title="Share board">
                     "Share"
                 </button>
             </Show>
-
-            <Show when=move || location.pathname.get().starts_with("/board/")>
-                <button
-                    class="btn toolbar__trace-toggle"
-                    class:toolbar__trace-toggle--active=move || ui.get().view_mode == ViewMode::Trace
-                    on:click=move |_| {
-                        ui.update(|u| {
-                            u.view_mode = if u.view_mode == ViewMode::Trace {
-                                ViewMode::Canvas
-                            } else {
-                                ViewMode::Trace
-                            };
-                        });
-                    }
-                    title="Toggle observability trace view"
-                >
-                    "◎ TRACE"
-                </button>
-            </Show>
-
-            <span class="toolbar__spacer"></span>
-
-            <button
-                class="btn toolbar__dark-toggle"
-                on:click=move |_| {
-                    let current = ui.get().dark_mode;
-                    let next = crate::util::dark_mode::toggle(current);
-                    ui.update(|u| u.dark_mode = next);
-                }
-                title="Toggle dark mode"
-            >
-                {move || if ui.get().dark_mode { "☀" } else { "☾" }}
-            </button>
 
             <span class="toolbar__self">
                 {move || self_identity().0}

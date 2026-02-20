@@ -933,6 +933,39 @@ a:hover {
     line-height: 1;
 }
 
+.toolbar__segment {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.toolbar__segment-btn {
+    height: 24px;
+    min-width: 54px;
+    padding: 0 8px;
+    border: 0;
+    border-right: 1px solid var(--border-default);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.toolbar__segment-btn:last-child {
+    border-right: 0;
+}
+
+.toolbar__segment-btn--active {
+    background: var(--bg-tertiary);
+    color: var(--text-nav-active);
+}
+
 .toolbar__self {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -2370,22 +2403,6 @@ a:hover {
 /* ============================================================
    TRACE VIEW — observability three-column layout
    ============================================================ */
-
-/* Toolbar TRACE toggle */
-.toolbar__trace-toggle {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    padding: 3px 8px;
-    color: var(--text-secondary);
-    background: transparent;
-    border: 1px solid var(--border-default);
-}
-
-.toolbar__trace-toggle--active {
-    color: #ff69b4;
-    border-color: #ff69b4;
-}
 
 /* Three-column shell */
 .trace-view {
