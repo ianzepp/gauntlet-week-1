@@ -2444,6 +2444,7 @@ a:hover {
     .board-stamp {
         width: min(220px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
     }
+
 }
 
 /* ============================================================
