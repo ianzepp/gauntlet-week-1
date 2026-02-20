@@ -10,6 +10,7 @@ use leptos::prelude::*;
 use crate::app::FrameSender;
 use crate::net::types::BoardObject;
 use crate::state::board::BoardState;
+use crate::util::color::normalize_hex_color_optional;
 use crate::util::frame::request_frame;
 
 #[cfg(test)]
@@ -54,10 +55,12 @@ pub fn InspectorPanel() -> impl IntoView {
             draft_font_size.set(read_prop_int(&obj, "fontSize", 13).to_string());
 
             let bg = normalize_hex_color(
-                read_prop_str(&obj, "backgroundColor").or_else(|| read_prop_str(&obj, "color")),
+                read_prop_str(&obj, "backgroundColor")
+                    .or_else(|| read_prop_str(&obj, "color"))
+                    .as_deref(),
                 "#d94b4b",
             );
-            let border = normalize_hex_color(read_prop_str(&obj, "borderColor"), &bg);
+            let border = normalize_hex_color(read_prop_str(&obj, "borderColor").as_deref(), &bg);
             draft_background.set(bg.clone());
             draft_border.set(border);
             draft_border_width.set(read_prop_int(&obj, "borderWidth", 0).to_string());
@@ -185,7 +188,7 @@ pub fn InspectorPanel() -> impl IntoView {
     };
 
     let commit_background = move |value: String| {
-        let next = normalize_hex_color(Some(value), "#d94b4b");
+        let next = normalize_hex_color(Some(value.as_str()), "#d94b4b");
         draft_background.set(next.clone());
 
         let mut patch = serde_json::Map::new();
@@ -195,7 +198,7 @@ pub fn InspectorPanel() -> impl IntoView {
     };
 
     let commit_border = move |value: String| {
-        let next = normalize_hex_color(Some(value), &draft_background.get());
+        let next = normalize_hex_color(Some(value.as_str()), &draft_background.get());
         draft_border.set(next.clone());
 
         let mut patch = serde_json::Map::new();
@@ -445,22 +448,6 @@ fn read_prop_int(obj: &BoardObject, key: &str, fallback: i64) -> i64 {
         .unwrap_or(fallback)
 }
 
-fn normalize_hex_color(value: Option<String>, fallback: &str) -> String {
-    let Some(raw) = value else {
-        return fallback.to_owned();
-    };
-
-    let trimmed = raw.trim();
-    if trimmed.len() == 4 && trimmed.starts_with('#') {
-        let chars: Vec<char> = trimmed[1..].chars().collect();
-        if chars.len() == 3 && chars.iter().all(|c| c.is_ascii_hexdigit()) {
-            return format!("#{}{}{}{}{}{}", chars[0], chars[0], chars[1], chars[1], chars[2], chars[2]).to_lowercase();
-        }
-    }
-
-    if trimmed.len() == 7 && trimmed.starts_with('#') && trimmed[1..].chars().all(|c| c.is_ascii_hexdigit()) {
-        return trimmed.to_lowercase();
-    }
-
-    fallback.to_owned()
+fn normalize_hex_color(value: Option<&str>, fallback: &str) -> String {
+    normalize_hex_color_optional(value, fallback)
 }

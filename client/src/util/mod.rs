@@ -6,5 +6,6 @@
 //! logic to improve reuse and testability.
 
 pub mod auth;
+pub mod color;
 pub mod dark_mode;
 pub mod frame;

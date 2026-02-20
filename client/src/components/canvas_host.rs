@@ -17,6 +17,8 @@ use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
 use crate::state::ui::ToolType;
 use crate::state::ui::UiState;
+#[cfg(feature = "hydrate")]
+use crate::util::color::{normalize_hex_color, parse_hex_rgb};
 
 #[cfg(feature = "hydrate")]
 use std::cell::RefCell;
@@ -2030,7 +2032,9 @@ fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: f64,
 #[cfg(feature = "hydrate")]
 fn zoom_view_preserving_center(engine: &mut Engine, zoom: f64) {
     let center_screen = viewport_center_screen(engine);
-    let center_world = engine.camera().screen_to_world(center_screen, center_screen);
+    let center_world = engine
+        .camera()
+        .screen_to_world(center_screen, center_screen);
     let rotation = engine.view_rotation_deg();
     set_camera_view(engine, center_world.x, center_world.y, zoom, rotation);
 }
@@ -2090,8 +2094,7 @@ fn apply_zoom_tick_tension(angle: f64) -> f64 {
 
 #[cfg(feature = "hydrate")]
 fn dial_angle_from_zoom(zoom: f64) -> f64 {
-    ((zoom - 1.0) * 180.0)
-        .clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
+    ((zoom - 1.0) * 180.0).clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
 }
 
 #[cfg(not(feature = "hydrate"))]
@@ -2208,7 +2211,6 @@ fn format_text_size_label(_size: f64) -> String {
 fn snap_font_size_to_px(size: f64) -> f64 {
     size.round().clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)
 }
-
 
 #[cfg(feature = "hydrate")]
 fn send_cursor_presence_if_needed(
@@ -2915,37 +2917,6 @@ fn object_lightness_shift(obj: &crate::net::types::BoardObject) -> f64 {
         .and_then(value_as_f64)
         .unwrap_or(0.0)
         .clamp(-1.0, 1.0)
-}
-
-#[cfg(feature = "hydrate")]
-fn normalize_hex_color(value: String, fallback: &str) -> String {
-    let fallback_rgb = parse_hex_rgb(fallback).unwrap_or((217, 75, 75));
-    let (r, g, b) = parse_hex_rgb(&value).unwrap_or(fallback_rgb);
-    format!("#{r:02X}{g:02X}{b:02X}")
-}
-
-#[cfg(feature = "hydrate")]
-fn parse_hex_rgb(raw: &str) -> Option<(u8, u8, u8)> {
-    let trimmed = raw.trim();
-    if !trimmed.starts_with('#') {
-        return None;
-    }
-    let hex = &trimmed[1..];
-    match hex.len() {
-        3 => {
-            let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
-            let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
-            let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
-            Some((r, g, b))
-        }
-        6 => {
-            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-            Some((r, g, b))
-        }
-        _ => None,
-    }
 }
 
 #[cfg(feature = "hydrate")]
@@ -4284,9 +4255,7 @@ fn process_actions(
                 if let Some(props) = fields.props {
                     data.insert("props".to_owned(), props);
                 }
-                if geometry_changed
-                    && let Some(obj) = engine.object(&id)
-                {
+                if geometry_changed && let Some(obj) = engine.object(&id) {
                     let mut props = obj.props.clone();
                     reset_scale_props_baseline(&mut props, obj.width, obj.height);
                     data.insert("props".to_owned(), props);
