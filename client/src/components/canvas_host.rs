@@ -8,6 +8,7 @@
 use leptos::prelude::*;
 
 use crate::app::FrameSender;
+use crate::components::dial::{dial_center_button, dial_shell};
 #[cfg(feature = "hydrate")]
 use crate::net::types::{BoardObject, Frame, FrameStatus, Point as WirePoint};
 use crate::state::auth::AuthState;
@@ -1194,74 +1195,70 @@ pub fn CanvasHost() -> impl IntoView {
                     </div>
                 </Show>
             </div>
-            <div
-                class="canvas-compass"
-                node_ref=compass_ref
-                title="Drag to rotate view; hold Shift to snap by 15deg"
-                on:pointerdown=on_compass_pointer_down
-                on:pointermove=on_compass_pointer_move
-                on:pointerup=on_compass_pointer_up.clone()
-                on:pointercancel=on_compass_pointer_up.clone()
-                on:pointerleave=on_compass_pointer_up
-            >
-                <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_compass_snap_n>
-                    "N"
-                </button>
-                <button class="canvas-compass__snap canvas-compass__snap--e" on:click=on_compass_snap_e>
-                    "E"
-                </button>
-                <button class="canvas-compass__snap canvas-compass__snap--s" on:click=on_compass_snap_s>
-                    "S"
-                </button>
-                <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_compass_snap_w>
-                    "W"
-                </button>
-                <button
-                    class="canvas-compass__reset"
-                    title="Click to reset view rotation to 0deg"
-                    on:pointerdown=on_compass_readout_pointer_down
-                    on:click=on_compass_reset.clone()
-                    on:dblclick=on_compass_reset
-                >
-                    {move || format!("{:.0}deg", compass_angle_deg())}
-                </button>
-                <div class="canvas-compass__knob-track" style=compass_knob_style>
-                    <div class="canvas-compass__knob"></div>
-                </div>
-            </div>
-            <div
-                class="canvas-zoom-wheel"
-                node_ref=zoom_ref
-                title="Drag around dial to zoom"
-                on:pointerdown=on_zoom_pointer_down
-                on:pointermove=on_zoom_pointer_move
-                on:pointerup=on_zoom_pointer_up.clone()
-                on:pointercancel=on_zoom_pointer_up.clone()
-                on:pointerleave=on_zoom_pointer_up
-            >
-                <button class="canvas-zoom-wheel__marker" title="100%">
-                    "1"
-                </button>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--se"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
-                <button
-                    class="canvas-zoom-wheel__readout"
-                    title="Click to reset zoom to 100%"
-                    on:pointerdown=on_zoom_readout_pointer_down
-                    on:click=on_zoom_reset.clone()
-                    on:dblclick=on_zoom_reset
-                >
-                    {move || format!("{:.0}%", zoom_percent())}
-                </button>
-                <div class="canvas-zoom-wheel__knob-track" style=zoom_knob_style>
-                    <div class="canvas-zoom-wheel__knob"></div>
-                </div>
-            </div>
+            {dial_shell(
+                "canvas-compass",
+                "Drag to rotate view; hold Shift to snap by 15deg",
+                compass_ref,
+                on_compass_pointer_down,
+                on_compass_pointer_move,
+                on_compass_pointer_up,
+                view! {
+                    <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_compass_snap_n>
+                        "N"
+                    </button>
+                    <button class="canvas-compass__snap canvas-compass__snap--e" on:click=on_compass_snap_e>
+                        "E"
+                    </button>
+                    <button class="canvas-compass__snap canvas-compass__snap--s" on:click=on_compass_snap_s>
+                        "S"
+                    </button>
+                    <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_compass_snap_w>
+                        "W"
+                    </button>
+                    {dial_center_button(
+                        "canvas-compass__reset",
+                        "Click to reset view rotation to 0deg",
+                        on_compass_readout_pointer_down,
+                        on_compass_reset.clone(),
+                        on_compass_reset,
+                        view! { {move || format!("{:.0}deg", compass_angle_deg())} },
+                    )}
+                    <div class="canvas-compass__knob-track" style=compass_knob_style>
+                        <div class="canvas-compass__knob"></div>
+                    </div>
+                },
+            )}
+            {dial_shell(
+                "canvas-zoom-wheel",
+                "Drag around dial to zoom",
+                zoom_ref,
+                on_zoom_pointer_down,
+                on_zoom_pointer_move,
+                on_zoom_pointer_up,
+                view! {
+                    <button class="canvas-zoom-wheel__marker" title="100%">
+                        "1"
+                    </button>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--se"></span>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
+                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
+                    {dial_center_button(
+                        "canvas-zoom-wheel__readout",
+                        "Click to reset zoom to 100%",
+                        on_zoom_readout_pointer_down,
+                        on_zoom_reset.clone(),
+                        on_zoom_reset,
+                        view! { {move || format!("{:.0}%", zoom_percent())} },
+                    )}
+                    <div class="canvas-zoom-wheel__knob-track" style=zoom_knob_style>
+                        <div class="canvas-zoom-wheel__knob"></div>
+                    </div>
+                },
+            )}
         </>
     }
 }

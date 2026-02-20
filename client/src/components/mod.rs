@@ -10,6 +10,7 @@ pub mod board_card;
 pub mod board_stamp;
 pub mod canvas_host;
 pub mod chat_panel;
+pub mod dial;
 pub mod inspector_panel;
 pub mod left_panel;
 pub mod mission_control;
