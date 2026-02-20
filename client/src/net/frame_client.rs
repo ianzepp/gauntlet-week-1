@@ -181,18 +181,11 @@ async fn connect_and_run(
         }
     };
 
-    let heartbeat_task = async {
-        loop {
-            gloo_timers::future::sleep(std::time::Duration::from_secs(20)).await;
-            send_board_users_list_request(tx, board);
-        }
-    };
-
-    // Run heartbeat alongside IO; when send/recv finishes, connection is done.
+    // Run send/recv loops; when either finishes, the connection is done.
     let io_task = async {
         futures::future::select(Box::pin(send_task), Box::pin(recv_task)).await;
     };
-    futures::future::select(Box::pin(io_task), Box::pin(heartbeat_task)).await;
+    io_task.await;
 
     Ok(())
 }

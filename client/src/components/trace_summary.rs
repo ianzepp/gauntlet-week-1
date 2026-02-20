@@ -104,7 +104,14 @@ pub fn TraceSummary() -> impl IntoView {
     };
 
     // Build the trace session index from the buffered frames.
-    let sessions = move || traces::build_trace_sessions(&trace.get().frames);
+    let sessions = move || {
+        let state = trace.get();
+        let filter = state.filter.clone();
+        traces::build_trace_sessions(&state.frames)
+            .into_iter()
+            .filter(|session| session.frames.iter().any(|frame| filter.allows(frame)))
+            .collect::<Vec<_>>()
+    };
 
     let selected_session_id = move || trace.get().selected_session_id.clone();
 
