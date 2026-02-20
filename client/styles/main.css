@@ -598,6 +598,40 @@ a:hover {
     width: 100%;
 }
 
+.board-page__input-row {
+    position: relative;
+    width: 100%;
+}
+
+.board-page__prompt-preview {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 0 var(--space-sm);
+    min-height: 16px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 16px;
+    color: color-mix(in oklab, var(--text-primary) 70%, var(--accent-highlight));
+    background: color-mix(in oklab, var(--accent-highlight) 10%, transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.board-page__prompt-preview--empty {
+    display: none;
+}
+
+.board-page__prompt-preview--assistant {
+    color: color-mix(in oklab, var(--accent-highlight) 65%, var(--text-primary));
+    background: color-mix(in oklab, var(--accent-highlight) 14%, transparent);
+}
+
+.board-page__prompt-preview--error {
+    color: var(--accent-error);
+    background: color-mix(in oklab, var(--accent-error) 14%, transparent);
+}
+
 .board-page__input-line {
     width: 100%;
     height: 34px;

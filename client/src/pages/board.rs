@@ -75,6 +75,14 @@ enum PromptBarStatus {
     Error,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+enum PromptPreviewRole {
+    #[default]
+    User,
+    Assistant,
+    Error,
+}
+
 /// Board page — composes toolbar, panels, canvas placeholder, and status bar
 /// in a CSS grid layout. Reads the board ID from the route parameter and
 /// updates `BoardState` on mount.
@@ -91,6 +99,8 @@ pub fn BoardPage() -> impl IntoView {
     let prompt_input = RwSignal::new(String::new());
     let prompt_status = RwSignal::new(PromptBarStatus::Idle);
     let pending_message_start = RwSignal::new(None::<usize>);
+    let prompt_preview = RwSignal::new(String::new());
+    let prompt_preview_role = RwSignal::new(PromptPreviewRole::User);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
@@ -189,6 +199,16 @@ pub fn BoardPage() -> impl IntoView {
             .iter()
             .skip(start_idx)
             .any(|msg| msg.role == "error");
+        if let Some(reply) = ai_state.messages.iter().skip(start_idx).rev().find(|msg| {
+            msg.role == "assistant" || msg.role == "error"
+        }) {
+            prompt_preview.set(reply.content.clone());
+            prompt_preview_role.set(if reply.role == "error" {
+                PromptPreviewRole::Error
+            } else {
+                PromptPreviewRole::Assistant
+            });
+        }
         prompt_status.set(if has_error {
             PromptBarStatus::Error
         } else {
@@ -217,6 +237,8 @@ pub fn BoardPage() -> impl IntoView {
         };
 
         prompt_status.set(PromptBarStatus::Loading);
+        prompt_preview.set(prompt.clone());
+        prompt_preview_role.set(PromptPreviewRole::User);
         if sender.get().send(&frame) {
             let start_idx = ai.get_untracked().messages.len();
             ai.update(|a| {
@@ -287,31 +309,41 @@ pub fn BoardPage() -> impl IntoView {
             <Show when=move || ui.get().view_mode == ViewMode::Canvas>
                 <div class="board-page__input-overlay">
                     <div class="board-page__prompt-bar">
-                        <input
-                            class="board-page__input-line"
-                            type="text"
-                            placeholder="Ask the AI..."
-                            prop:value=move || prompt_input.get()
-                            on:input=move |ev| prompt_input.set(event_target_value(&ev))
-                            on:focus=on_prompt_focus
-                            on:keydown=on_prompt_keydown
-                        />
-                        <div class="board-page__prompt-status" aria-live="polite">
-                            {move || match prompt_status.get() {
-                                PromptBarStatus::Idle => view! { <span class="board-page__prompt-icon-spacer"></span> }.into_any(),
-                                PromptBarStatus::Loading => view! { <span class="board-page__prompt-spinner"></span> }.into_any(),
-                                PromptBarStatus::Success => view! {
-                                    <svg class="board-page__prompt-icon board-page__prompt-icon--success" viewBox="0 0 20 20" aria-hidden="true">
-                                        <path d="M4 10.5 8 14.5 16 6.5"></path>
-                                    </svg>
-                                }.into_any(),
-                                PromptBarStatus::Error => view! {
-                                    <svg class="board-page__prompt-icon board-page__prompt-icon--error" viewBox="0 0 20 20" aria-hidden="true">
-                                        <path d="M5.5 5.5 14.5 14.5"></path>
-                                        <path d="M14.5 5.5 5.5 14.5"></path>
-                                    </svg>
-                                }.into_any(),
-                            }}
+                        <div
+                            class="board-page__prompt-preview"
+                            class:board-page__prompt-preview--empty=move || prompt_preview.get().is_empty()
+                            class:board-page__prompt-preview--assistant=move || prompt_preview_role.get() == PromptPreviewRole::Assistant
+                            class:board-page__prompt-preview--error=move || prompt_preview_role.get() == PromptPreviewRole::Error
+                        >
+                            {move || prompt_preview.get()}
+                        </div>
+                        <div class="board-page__input-row">
+                            <input
+                                class="board-page__input-line"
+                                type="text"
+                                placeholder="Ask the AI..."
+                                prop:value=move || prompt_input.get()
+                                on:input=move |ev| prompt_input.set(event_target_value(&ev))
+                                on:focus=on_prompt_focus
+                                on:keydown=on_prompt_keydown
+                            />
+                            <div class="board-page__prompt-status" aria-live="polite">
+                                {move || match prompt_status.get() {
+                                    PromptBarStatus::Idle => view! { <span class="board-page__prompt-icon-spacer"></span> }.into_any(),
+                                    PromptBarStatus::Loading => view! { <span class="board-page__prompt-spinner"></span> }.into_any(),
+                                    PromptBarStatus::Success => view! {
+                                        <svg class="board-page__prompt-icon board-page__prompt-icon--success" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path d="M4 10.5 8 14.5 16 6.5"></path>
+                                        </svg>
+                                    }.into_any(),
+                                    PromptBarStatus::Error => view! {
+                                        <svg class="board-page__prompt-icon board-page__prompt-icon--error" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path d="M5.5 5.5 14.5 14.5"></path>
+                                            <path d="M14.5 5.5 5.5 14.5"></path>
+                                        </svg>
+                                    }.into_any(),
+                                }}
+                            </div>
                         </div>
                     </div>
                 </div>
