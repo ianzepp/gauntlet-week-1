@@ -22,6 +22,7 @@
     /* Accents */
     --accent-green: #2c6e49;
     --accent-error: #8b4049;
+    --accent-highlight: #8b6e4e;
 
     /* Borders */
     --border-default: #d4cfc6;
@@ -86,6 +87,7 @@
 
     --accent-green: #3d9463;
     --accent-error: #b85a63;
+    --accent-highlight: #ff69b4;
 
     --border-default: #3a3632;
     --border-subtle: #2a2724;
@@ -947,7 +949,7 @@ a:hover {
     align-items: center;
     border-radius: 0;
     overflow: hidden;
-    background: color-mix(in oklab, #ff69b4 8%, var(--bg-secondary));
+    background: color-mix(in oklab, var(--accent-highlight) 8%, var(--bg-secondary));
 }
 
 .toolbar__segment-btn {
@@ -970,9 +972,9 @@ a:hover {
 }
 
 .toolbar__segment-btn--active {
-    background: color-mix(in oklab, #ff69b4 24%, var(--bg-tertiary));
-    color: color-mix(in oklab, #ff69b4 70%, var(--text-nav-active));
-    box-shadow: inset 0 -2px 0 #ff69b4;
+    background: color-mix(in oklab, var(--accent-highlight) 24%, var(--bg-tertiary));
+    color: color-mix(in oklab, var(--accent-highlight) 70%, var(--text-nav-active));
+    box-shadow: inset 0 -2px 0 var(--accent-highlight);
 }
 
 .toolbar__self {
@@ -1520,11 +1522,11 @@ a:hover {
     width: 2px;
     height: 100%;
     transform: translateX(-50%);
-    background: color-mix(in oklab, #ff69b4 24%, var(--border-default));
+    background: color-mix(in oklab, var(--accent-highlight) 24%, var(--border-default));
 }
 
 .right-panel__resize-handle-rail:hover::before {
-    background: color-mix(in oklab, #ff69b4 65%, var(--border-default));
+    background: color-mix(in oklab, var(--accent-highlight) 65%, var(--border-default));
 }
 
 .right-panel__header {
@@ -2608,11 +2610,11 @@ a:hover {
 }
 
 .trace-summary__index-row--active {
-    border-left-color: #ff69b4;
+    border-left-color: var(--accent-highlight);
     background: var(--bg-secondary);
 }
 
-.trace-summary__index-dot   { color: #ff69b4; }
+.trace-summary__index-dot   { color: var(--accent-highlight); }
 .trace-summary__index-main  { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .trace-summary__index-id    { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; }
 .trace-summary__index-count { color: var(--text-secondary); }
@@ -2683,7 +2685,7 @@ a:hover {
 }
 
 .trace-log__row--active {
-    border-left-color: #ff69b4;
+    border-left-color: var(--accent-highlight);
     background: var(--bg-secondary);
 }
 
@@ -2703,7 +2705,7 @@ a:hover {
 .trace-log__status--request      { color: #e6a23c; }
 .trace-log__status--item         { color: var(--text-secondary); }
 .trace-log__status--done         { color: #4ad981; }
-.trace-log__status--error        { color: #ff69b4; }
+.trace-log__status--error        { color: var(--accent-highlight); }
 .trace-log__status--cancel       { color: var(--text-secondary); }
 
 /* ── TRACE INSPECTOR (Col 3) ────────────────────────────────── */
@@ -2841,7 +2843,7 @@ a:hover {
 .trace-inspector__status--request      { color: #e6a23c; }
 .trace-inspector__status--item         { color: var(--text-secondary); }
 .trace-inspector__status--done         { color: #4ad981; }
-.trace-inspector__status--error        { color: #ff69b4; }
+.trace-inspector__status--error        { color: var(--accent-highlight); }
 .trace-inspector__status--cancel       { color: var(--text-secondary); }
 
 .trace-inspector__json {
