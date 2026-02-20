@@ -19,6 +19,7 @@
 //! over aggressive full-state resets.
 
 use leptos::prelude::*;
+use leptos::tachys::view::any_view::IntoAny;
 use leptos_router::hooks::use_params_map;
 
 use crate::app::FrameSender;
@@ -360,31 +361,42 @@ pub fn BoardPage() -> impl IntoView {
             <div class="board-page__toolbar">
                 <Toolbar/>
             </div>
-            <Show when=move || ui.get().view_mode == ViewMode::Canvas>
-                <div class="board-page__left-panel">
-                    <LeftPanel/>
-                </div>
-            </Show>
+            {move || {
+                if ui.get().view_mode == ViewMode::Canvas {
+                    view! {
+                        <div class="board-page__left-panel">
+                            <LeftPanel/>
+                        </div>
+                    }
+                        .into_any()
+                } else {
+                    view! { <></> }.into_any()
+                }
+            }}
             <div class="board-page__canvas">
-                <Show
-                    when=move || ui.get().view_mode == ViewMode::Canvas
-                    fallback=|| view! { <TraceView/> }
-                >
-                    <CanvasHost/>
-                    <BoardStamp/>
-                    <div class="board-page__input-overlay">
-                        <BoardPromptBar
-                            prompt_input=prompt_input
-                            prompt_status=prompt_status
-                            prompt_preview_user=prompt_preview_user
-                            prompt_preview_assistant=prompt_preview_assistant
-                            prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
-                            prompt_preview_assistant_error=prompt_preview_assistant_error
-                            on_submit=on_prompt_submit
-                            on_read_more=on_prompt_read_more
-                        />
-                    </div>
-                </Show>
+                {move || {
+                    if ui.get().view_mode == ViewMode::Canvas {
+                        view! {
+                            <CanvasHost/>
+                            <BoardStamp/>
+                            <div class="board-page__input-overlay">
+                                <BoardPromptBar
+                                    prompt_input=prompt_input
+                                    prompt_status=prompt_status
+                                    prompt_preview_user=prompt_preview_user
+                                    prompt_preview_assistant=prompt_preview_assistant
+                                    prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
+                                    prompt_preview_assistant_error=prompt_preview_assistant_error
+                                    on_submit=on_prompt_submit
+                                    on_read_more=on_prompt_read_more
+                                />
+                            </div>
+                        }
+                            .into_any()
+                    } else {
+                        view! { <TraceView/> }.into_any()
+                    }
+                }}
             </div>
             <div class="board-page__right-panel">
                 <RightPanel/>
@@ -392,14 +404,21 @@ pub fn BoardPage() -> impl IntoView {
             <div class="board-page__status-bar">
                 <StatusBar/>
             </div>
-            <Show when=move || object_text_dialog_open.get()>
-                <ObjectTextDialog
-                    value=object_text_dialog_value
-                    on_cancel=on_object_text_cancel
-                    on_save=on_object_text_save
-                    on_keydown=on_object_text_keydown
-                />
-            </Show>
+            {move || {
+                if object_text_dialog_open.get() {
+                    view! {
+                        <ObjectTextDialog
+                            value=object_text_dialog_value
+                            on_cancel=on_object_text_cancel
+                            on_save=on_object_text_save
+                            on_keydown=on_object_text_keydown
+                        />
+                    }
+                        .into_any()
+                } else {
+                    view! { <></> }.into_any()
+                }
+            }}
         </div>
     }
 }
