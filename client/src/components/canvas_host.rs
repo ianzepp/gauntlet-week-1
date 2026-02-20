@@ -36,6 +36,11 @@ use crate::util::object_props::{
     reset_wire_object_scale_baseline, upsert_object_border_props, upsert_object_color_props, upsert_object_scale_props,
     upsert_object_text_style_props,
 };
+use crate::util::selection_metrics::{
+    representative_base_color_hex, representative_border_color_hex, representative_border_width,
+    representative_font_size, representative_lightness_shift, representative_rotation_deg, representative_scale_factor,
+    representative_text_color_hex,
+};
 
 #[cfg(feature = "hydrate")]
 use std::cell::RefCell;
@@ -1523,26 +1528,26 @@ pub fn CanvasHost() -> impl IntoView {
         ev.stop_propagation();
     };
 
-    let object_color_base = move || selection_representative_base_color_hex(_board);
-    let object_color_shift = move || selection_representative_lightness_shift(_board);
+    let object_color_base = move || representative_base_color_hex(&_board.get());
+    let object_color_shift = move || representative_lightness_shift(&_board.get());
     let object_color_knob_style = move || {
         let angle = dial_angle_from_color_shift(object_color_shift());
         format!("transform: rotate({angle:.2}deg);")
     };
-    let object_border_color = move || selection_representative_border_color_hex(_board);
-    let object_border_width = move || selection_representative_border_width(_board);
+    let object_border_color = move || representative_border_color_hex(&_board.get());
+    let object_border_width = move || representative_border_width(&_board.get());
     let object_border_knob_style = move || {
         let angle = dial_angle_from_border_width(object_border_width());
         format!("transform: rotate({angle:.2}deg);")
     };
-    let object_text_color = move || selection_representative_text_color_hex(_board);
-    let object_text_size = move || selection_representative_font_size(_board);
+    let object_text_color = move || representative_text_color_hex(&_board.get());
+    let object_text_size = move || representative_font_size(&_board.get());
     let object_text_knob_style = move || {
         let angle = dial_angle_from_font_size(object_text_size());
         format!("transform: rotate({angle:.2}deg);")
     };
 
-    let object_zoom_scale = move || selection_representative_scale_factor(_board);
+    let object_zoom_scale = move || representative_scale_factor(&_board.get());
     let object_zoom_knob_style = move || {
         let angle = dial_angle_from_zoom(object_zoom_scale());
         format!("transform: rotate({angle:.2}deg);")
@@ -1664,7 +1669,7 @@ pub fn CanvasHost() -> impl IntoView {
     };
     let on_object_rotate_center_click = move |_ev: leptos::ev::MouseEvent| {};
 
-    let object_rotation_angle_deg = move || selection_representative_rotation_deg(_board);
+    let object_rotation_angle_deg = move || representative_rotation_deg(&_board.get());
     let object_rotation_knob_style = move || {
         let angle = object_rotation_angle_deg();
         format!("transform: rotate({angle:.2}deg);")
@@ -2407,42 +2412,6 @@ fn apply_group_scale_target(board: RwSignal<BoardState>, sender: RwSignal<FrameS
 fn apply_group_scale_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _target_scale: f64) {}
 
 #[cfg(feature = "hydrate")]
-fn selection_representative_base_color_hex(board: RwSignal<BoardState>) -> String {
-    let state = board.get();
-    state
-        .selection
-        .iter()
-        .find_map(|id| state.objects.get(id).map(object_base_fill_hex))
-        .unwrap_or_else(|| "#D94B4B".to_owned())
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_base_color_hex(_board: RwSignal<BoardState>) -> String {
-    "#D94B4B".to_owned()
-}
-
-#[cfg(feature = "hydrate")]
-fn selection_representative_lightness_shift(board: RwSignal<BoardState>) -> f64 {
-    let state = board.get();
-    let mut shifts: Vec<f64> = Vec::new();
-    for id in &state.selection {
-        let Some(obj) = state.objects.get(id) else {
-            continue;
-        };
-        shifts.push(object_lightness_shift(obj));
-    }
-    if shifts.is_empty() {
-        return 0.0;
-    }
-    (shifts.iter().sum::<f64>() / shifts.len() as f64).clamp(-1.0, 1.0)
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_lightness_shift(_board: RwSignal<BoardState>) -> f64 {
-    0.0
-}
-
-#[cfg(feature = "hydrate")]
 fn selection_color_seed(board: RwSignal<BoardState>) -> Option<SelectionColorDragState> {
     let state = board.get_untracked();
     let mut items = Vec::new();
@@ -2587,42 +2556,6 @@ fn apply_group_base_color_target(_board: RwSignal<BoardState>, _sender: RwSignal
 fn apply_group_background_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
 
 #[cfg(feature = "hydrate")]
-fn selection_representative_border_color_hex(board: RwSignal<BoardState>) -> String {
-    let state = board.get();
-    state
-        .selection
-        .iter()
-        .find_map(|id| state.objects.get(id).map(object_border_color_hex))
-        .unwrap_or_else(|| "#1F1A17".to_owned())
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_border_color_hex(_board: RwSignal<BoardState>) -> String {
-    "#1F1A17".to_owned()
-}
-
-#[cfg(feature = "hydrate")]
-fn selection_representative_border_width(board: RwSignal<BoardState>) -> f64 {
-    let state = board.get();
-    let mut widths: Vec<f64> = Vec::new();
-    for id in &state.selection {
-        let Some(obj) = state.objects.get(id) else {
-            continue;
-        };
-        widths.push(object_border_width(obj));
-    }
-    if widths.is_empty() {
-        return 1.0;
-    }
-    (widths.iter().sum::<f64>() / widths.len() as f64).clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_border_width(_board: RwSignal<BoardState>) -> f64 {
-    1.0
-}
-
-#[cfg(feature = "hydrate")]
 fn selection_border_seed(board: RwSignal<BoardState>) -> Option<SelectionBorderDragState> {
     let state = board.get_untracked();
     let mut items = Vec::new();
@@ -2762,42 +2695,6 @@ fn apply_group_border_color_target(_board: RwSignal<BoardState>, _sender: RwSign
 #[cfg(not(feature = "hydrate"))]
 #[allow(dead_code)]
 fn apply_group_border_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
-
-#[cfg(feature = "hydrate")]
-fn selection_representative_text_color_hex(board: RwSignal<BoardState>) -> String {
-    let state = board.get();
-    state
-        .selection
-        .iter()
-        .find_map(|id| state.objects.get(id).map(object_text_color_hex))
-        .unwrap_or_else(|| "#1F1A17".to_owned())
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_text_color_hex(_board: RwSignal<BoardState>) -> String {
-    "#1F1A17".to_owned()
-}
-
-#[cfg(feature = "hydrate")]
-fn selection_representative_font_size(board: RwSignal<BoardState>) -> f64 {
-    let state = board.get();
-    let mut sizes: Vec<f64> = Vec::new();
-    for id in &state.selection {
-        let Some(obj) = state.objects.get(id) else {
-            continue;
-        };
-        sizes.push(object_font_size(obj));
-    }
-    if sizes.is_empty() {
-        return 24.0;
-    }
-    snap_font_size_to_px((sizes.iter().sum::<f64>() / sizes.len() as f64).clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX))
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_font_size(_board: RwSignal<BoardState>) -> f64 {
-    24.0
-}
 
 #[cfg(feature = "hydrate")]
 fn selection_text_style_seed(board: RwSignal<BoardState>) -> Option<SelectionTextStyleDragState> {
@@ -2941,56 +2838,6 @@ fn apply_group_text_color_target(_board: RwSignal<BoardState>, _sender: RwSignal
 fn apply_group_text_style_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
 
 #[cfg(feature = "hydrate")]
-fn selection_representative_rotation_deg(board: RwSignal<BoardState>) -> f64 {
-    let state = board.get();
-    let mut sum_x = 0.0_f64;
-    let mut sum_y = 0.0_f64;
-    let mut count = 0_usize;
-    for id in &state.selection {
-        let Some(obj) = state.objects.get(id) else {
-            continue;
-        };
-        let r = obj.rotation.to_radians();
-        sum_x += r.cos();
-        sum_y += r.sin();
-        count += 1;
-    }
-    if count == 0 {
-        return 0.0;
-    }
-    normalize_degrees_360(sum_y.atan2(sum_x).to_degrees())
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_rotation_deg(_board: RwSignal<BoardState>) -> f64 {
-    0.0
-}
-
-#[cfg(feature = "hydrate")]
-fn selection_representative_scale_factor(board: RwSignal<BoardState>) -> f64 {
-    let state = board.get();
-    let mut scales: Vec<f64> = Vec::new();
-    for id in &state.selection {
-        let Some(obj) = state.objects.get(id) else {
-            continue;
-        };
-        let width = obj.width.unwrap_or(120.0).max(1.0);
-        let height = obj.height.unwrap_or(80.0).max(1.0);
-        let (_base_w, _base_h, scale) = object_scale_components(obj, width, height);
-        scales.push(scale);
-    }
-    if scales.is_empty() {
-        return 1.0;
-    }
-    scales.iter().sum::<f64>() / scales.len() as f64
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn selection_representative_scale_factor(_board: RwSignal<BoardState>) -> f64 {
-    1.0
-}
-
-#[cfg(feature = "hydrate")]
 fn selection_representative_scale_from_items(items: &[SelectionScaleSeed]) -> f64 {
     if items.is_empty() {
         return 1.0;
@@ -3054,7 +2901,7 @@ fn apply_group_rotation_target(board: RwSignal<BoardState>, sender: RwSignal<Fra
         return;
     }
 
-    let current = selection_representative_rotation_deg(board);
+    let current = representative_rotation_deg(&board.get_untracked());
     let delta = signed_angle_delta_deg(target_deg, current);
 
     board.update(|b| {
