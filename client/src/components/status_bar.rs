@@ -31,7 +31,6 @@ pub fn StatusBar() -> impl IntoView {
     };
 
     let object_count = move || board.get().objects.len();
-    let board_name = move || board.get().board_name.unwrap_or_default();
     let camera_locked = move || board.get().follow_client_id.is_some();
     let cursor = move || canvas_view.get().cursor_world;
     let camera_center = move || canvas_view.get().camera_center_world.clone();
@@ -55,14 +54,11 @@ pub fn StatusBar() -> impl IntoView {
 
     view! {
         <div class="status-bar">
-            // Left section: always show connection dot + board name
+            // Left section: connection + mode-specific board telemetry
             <div class="status-bar__section">
                 <span class="status-bar__item">
                     <span class=status_class></span>
                 </span>
-
-                <span class="status-bar__divider"></span>
-                <span class="status-bar__board-name">{board_name}</span>
 
                 <Show
                     when=is_trace_mode
