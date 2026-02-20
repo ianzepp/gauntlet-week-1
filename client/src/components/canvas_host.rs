@@ -35,6 +35,13 @@ use canvas::input::{
     Tool as CanvasTool, WheelDelta,
 };
 
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionRotationDragState {
+    start_pointer_angle_deg: f64,
+    start_rotations: Vec<(String, f64)>,
+}
+
 /// Canvas host component.
 ///
 /// On hydration, this mounts `canvas::engine::Engine`, synchronizes board
@@ -51,6 +58,10 @@ pub fn CanvasHost() -> impl IntoView {
     let _compass_drag_active = RwSignal::new(false);
     let zoom_ref = NodeRef::<leptos::html::Div>::new();
     let _zoom_drag_active = RwSignal::new(false);
+    let object_rotate_ref = NodeRef::<leptos::html::Div>::new();
+    let _object_rotate_drag_active = RwSignal::new(false);
+    #[cfg(feature = "hydrate")]
+    let object_rotate_drag_state = RwSignal::new(None::<SelectionRotationDragState>);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -573,6 +584,9 @@ pub fn CanvasHost() -> impl IntoView {
             let compass_ref = compass_ref.clone();
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
+                if pointer_event_hits_control(&ev, ".canvas-compass__snap, .canvas-compass__reset") {
+                    return;
+                }
                 ev.prevent_default();
                 ev.stop_propagation();
                 if _board.get().follow_client_id.is_some() {
@@ -987,6 +1001,142 @@ pub fn CanvasHost() -> impl IntoView {
         ev.stop_propagation();
     };
 
+    let on_object_rotate_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_rotate_ref = object_rotate_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if pointer_event_hits_control(&ev, ".canvas-compass__snap, .canvas-compass__reset") {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                let Some(dial) = object_rotate_ref.get() else {
+                    return;
+                };
+                let Some(angle) = compass_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+
+                let start_rotations = selected_object_rotations(_board);
+                if start_rotations.is_empty() {
+                    return;
+                }
+                let _ = dial.set_pointer_capture(ev.pointer_id());
+
+                object_rotate_drag_state.set(Some(SelectionRotationDragState {
+                    start_pointer_angle_deg: angle,
+                    start_rotations,
+                }));
+                _object_rotate_drag_active.set(true);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_rotate_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_rotate_ref = object_rotate_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if !_object_rotate_drag_active.get_untracked() {
+                    return;
+                }
+                let Some(dial) = object_rotate_ref.get() else {
+                    return;
+                };
+                let Some(angle) = compass_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                apply_selection_rotation_drag(_board, object_rotate_drag_state, angle, ev.shift_key());
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_rotate_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                _object_rotate_drag_active.set(false);
+                commit_selection_rotation_updates(_board, _sender, object_rotate_drag_state);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_rotate_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+
+    let on_object_rotate_snap_n = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_rotation_target(_board, _sender, 0.0)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_object_rotate_snap_e = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_rotation_target(_board, _sender, 90.0)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_object_rotate_snap_s = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_rotation_target(_board, _sender, 180.0)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_object_rotate_snap_w = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_rotation_target(_board, _sender, 270.0)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_object_rotate_reset = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_rotation_target(_board, _sender, 0.0)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+
+    let object_rotation_angle_deg = move || selection_representative_rotation_deg(_board);
+    let object_rotation_knob_style = move || {
+        let angle = object_rotation_angle_deg();
+        format!("transform: rotate({angle:.2}deg);")
+    };
+    let has_selected_objects = move || !_board.get().selection.is_empty();
+
     let compass_angle_deg = move || normalize_degrees_360(_canvas_view.get().view_rotation_deg);
     let compass_knob_style = move || {
         let angle = compass_angle_deg();
@@ -1194,6 +1344,41 @@ pub fn CanvasHost() -> impl IntoView {
                         ></iframe>
                     </div>
                 </Show>
+            </div>
+            <div
+                class="canvas-object-rotate"
+                class:canvas-object-rotate--disabled=move || !has_selected_objects()
+                node_ref=object_rotate_ref
+                title="Drag to rotate selected object(s); hold Shift to snap by 15deg"
+                on:pointerdown=on_object_rotate_pointer_down
+                on:pointermove=on_object_rotate_pointer_move
+                on:pointerup=on_object_rotate_pointer_up.clone()
+                on:pointercancel=on_object_rotate_pointer_up.clone()
+                on:pointerleave=on_object_rotate_pointer_up
+            >
+                <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_object_rotate_snap_n disabled=move || !has_selected_objects()>
+                    "N"
+                </button>
+                <button class="canvas-compass__snap canvas-compass__snap--e" on:click=on_object_rotate_snap_e disabled=move || !has_selected_objects()>
+                    "E"
+                </button>
+                <button class="canvas-compass__snap canvas-compass__snap--s" on:click=on_object_rotate_snap_s disabled=move || !has_selected_objects()>
+                    "S"
+                </button>
+                <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_object_rotate_snap_w disabled=move || !has_selected_objects()>
+                    "W"
+                </button>
+                {dial_center_button(
+                    "canvas-compass__reset",
+                    "Click to reset selected object rotation to 0deg",
+                    on_object_rotate_readout_pointer_down,
+                    on_object_rotate_reset.clone(),
+                    on_object_rotate_reset,
+                    view! { {move || format!("{:.0}deg", object_rotation_angle_deg())} },
+                )}
+                <div class="canvas-compass__knob-track" style=object_rotation_knob_style>
+                    <div class="canvas-object-rotate__knob"></div>
+                </div>
             </div>
             {dial_shell(
                 "canvas-compass",
@@ -1482,6 +1667,18 @@ fn normalize_degrees_360(deg: f64) -> f64 {
 }
 
 #[cfg(feature = "hydrate")]
+fn signed_angle_delta_deg(current: f64, start: f64) -> f64 {
+    let mut delta = current - start;
+    while delta > 180.0 {
+        delta -= 360.0;
+    }
+    while delta < -180.0 {
+        delta += 360.0;
+    }
+    delta
+}
+
+#[cfg(feature = "hydrate")]
 fn angular_delta_deg(a: f64, b: f64) -> f64 {
     let delta = (a - b).abs().rem_euclid(360.0);
     delta.min(360.0 - delta)
@@ -1517,6 +1714,158 @@ fn compass_angle_from_pointer(ev: &leptos::ev::PointerEvent, element: &web_sys::
     }
 
     Some(normalize_degrees_360(dy.atan2(dx).to_degrees() + 90.0))
+}
+
+#[cfg(feature = "hydrate")]
+fn pointer_event_hits_control(ev: &leptos::ev::PointerEvent, selector: &str) -> bool {
+    use wasm_bindgen::JsCast;
+
+    ev.target()
+        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+        .and_then(|el| el.closest(selector).ok().flatten())
+        .is_some()
+}
+
+#[cfg(feature = "hydrate")]
+fn selected_object_rotations(board: RwSignal<BoardState>) -> Vec<(String, f64)> {
+    let state = board.get_untracked();
+    state
+        .selection
+        .iter()
+        .filter_map(|id| state.objects.get(id).map(|obj| (id.clone(), obj.rotation)))
+        .collect()
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_rotation_deg(board: RwSignal<BoardState>) -> f64 {
+    let state = board.get();
+    let mut sum_x = 0.0_f64;
+    let mut sum_y = 0.0_f64;
+    let mut count = 0_usize;
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        let r = obj.rotation.to_radians();
+        sum_x += r.cos();
+        sum_y += r.sin();
+        count += 1;
+    }
+    if count == 0 {
+        return 0.0;
+    }
+    normalize_degrees_360(sum_y.atan2(sum_x).to_degrees())
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_rotation_deg(_board: RwSignal<BoardState>) -> f64 {
+    0.0
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_selection_rotation_drag(
+    board: RwSignal<BoardState>,
+    drag_state_signal: RwSignal<Option<SelectionRotationDragState>>,
+    pointer_angle_deg: f64,
+    shift_snap: bool,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let mut delta = signed_angle_delta_deg(pointer_angle_deg, drag_state.start_pointer_angle_deg);
+    if shift_snap {
+        delta = (delta / 15.0).round() * 15.0;
+    }
+    board.update(|b| {
+        for (id, start_rotation) in &drag_state.start_rotations {
+            if let Some(obj) = b.objects.get_mut(id) {
+                obj.rotation = normalize_degrees_360(*start_rotation + delta);
+            }
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn commit_selection_rotation_updates(
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+    drag_state_signal: RwSignal<Option<SelectionRotationDragState>>,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let state = board.get_untracked();
+    for (id, start_rotation) in &drag_state.start_rotations {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        if angular_delta_deg(obj.rotation, *start_rotation) < 0.01 {
+            continue;
+        }
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "rotation": obj.rotation,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+    drag_state_signal.set(None);
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_rotation_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, target_deg: f64) {
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    let current = selection_representative_rotation_deg(board);
+    let delta = signed_angle_delta_deg(target_deg, current);
+
+    board.update(|b| {
+        for id in &selected {
+            if let Some(obj) = b.objects.get_mut(id) {
+                obj.rotation = normalize_degrees_360(obj.rotation + delta);
+            }
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "rotation": obj.rotation,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
 }
 
 #[cfg(feature = "hydrate")]

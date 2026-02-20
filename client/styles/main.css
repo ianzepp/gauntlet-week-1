@@ -1020,6 +1020,26 @@ a:hover {
     user-select: none;
 }
 
+.canvas-object-rotate {
+    position: absolute;
+    left: var(--canvas-overlay-left-offset);
+    bottom: var(--canvas-overlay-edge-offset);
+    width: 74px;
+    height: 74px;
+    border-radius: 999px;
+    border: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+    z-index: var(--z-canvas-ui);
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+
+.canvas-object-rotate--disabled {
+    opacity: 0.44;
+    pointer-events: none;
+}
+
 .canvas-compass__snap {
     position: absolute;
     width: 16px;
@@ -1089,6 +1109,19 @@ a:hover {
     border-radius: 999px;
     transform: translateX(-50%);
     background: var(--accent-error);
+    border: 1px solid var(--bg-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.canvas-object-rotate__knob {
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background: var(--accent-highlight);
     border: 1px solid var(--bg-primary);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
