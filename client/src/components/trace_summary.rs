@@ -4,9 +4,63 @@
 //! status, and a scrollable TRACE_INDEX list of available trace sessions.
 
 use leptos::prelude::*;
+use std::collections::BTreeMap;
 
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::trace::TraceState;
+
+fn session_activity_summary(session: &traces::TraceSession) -> String {
+    let mut by_prefix = BTreeMap::<String, usize>::new();
+    for frame in &session.frames {
+        let prefix = traces::syscall_prefix(&frame.syscall);
+        let key = if prefix.is_empty() {
+            "other".to_owned()
+        } else {
+            prefix.to_owned()
+        };
+        *by_prefix.entry(key).or_insert(0) += 1;
+    }
+
+    let mut ops = by_prefix.into_iter().collect::<Vec<_>>();
+    ops.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    let top_ops = ops
+        .into_iter()
+        .take(3)
+        .map(|(prefix, count)| {
+            let short = match prefix.as_str() {
+                "object" => "obj",
+                "tool" => "tool",
+                "ai" => "ai",
+                "board" => "board",
+                "chat" => "chat",
+                "save" => "save",
+                "cursor" => "cursor",
+                _ => "other",
+            };
+            format!("{short}:{count}")
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+
+    let mut summary = if top_ops.is_empty() {
+        "ops:0".to_owned()
+    } else {
+        top_ops
+    };
+
+    let errors = session.error_count();
+    if errors > 0 {
+        summary.push_str(&format!(" · err:{errors}"));
+    }
+
+    let tokens = session.total_tokens();
+    if tokens > 0 {
+        summary.push_str(&format!(" · tok:{tokens}"));
+    }
+
+    summary
+}
 
 /// Left summary panel showing aggregate metrics, prefix breakdown, and
 /// the selectable trace session index.
@@ -152,6 +206,7 @@ pub fn TraceSummary() -> impl IntoView {
                                     format!("{:.1}s", ms as f64 / 1000.0)
                                 })
                                 .unwrap_or_else(|| "live".to_owned());
+                            let summary = session_activity_summary(&session);
                             let id_clone = id.clone();
                             view! {
                                 <button
@@ -165,14 +220,17 @@ pub fn TraceSummary() -> impl IntoView {
                                         });
                                     }
                                 >
-                                    <span class="trace-summary__index-dot">
-                                        {if is_active { "●" } else { "○" }}
-                                    </span>
-                                    <span class="trace-summary__index-id">{id_short}</span>
-                                    <span class="trace-summary__index-count">
-                                        {format!("{frame_count}f")}
-                                    </span>
-                                    <span class="trace-summary__index-duration">{duration_label}</span>
+                                    <div class="trace-summary__index-main">
+                                        <span class="trace-summary__index-dot">
+                                            {if is_active { "●" } else { "○" }}
+                                        </span>
+                                        <span class="trace-summary__index-id">{id_short}</span>
+                                        <span class="trace-summary__index-count">
+                                            {format!("{frame_count}f")}
+                                        </span>
+                                        <span class="trace-summary__index-duration">{duration_label}</span>
+                                    </div>
+                                    <div class="trace-summary__index-meta">{summary}</div>
                                 </button>
                             }
                         }).collect_view().into_any()

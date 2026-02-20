@@ -34,6 +34,47 @@ fn status_label(status: frames::Status) -> (&'static str, &'static str) {
     }
 }
 
+/// Computes display depth for the trace log tree.
+///
+/// When a session root is selected, children directly under that root are
+/// rendered as top-level rows (depth 0) so the log does not visually indent
+/// every row under the hidden/root frame.
+fn display_depth(
+    frame_id: &str,
+    by_id: &HashMap<String, frames::Frame>,
+    selected_session_id: Option<&str>,
+) -> usize {
+    let Some(session_root_id) = selected_session_id else {
+        return traces::tree_depth(frame_id, by_id);
+    };
+    if frame_id == session_root_id {
+        return 0;
+    }
+
+    let mut depth = 0usize;
+    let mut current = frame_id;
+    let mut seen = std::collections::HashSet::<String>::new();
+
+    while let Some(frame) = by_id.get(current) {
+        let Some(parent) = frame.parent_id.as_deref() else {
+            break;
+        };
+        if parent == session_root_id {
+            break;
+        }
+        if !seen.insert(parent.to_owned()) {
+            break;
+        }
+        if !by_id.contains_key(parent) {
+            break;
+        }
+        depth += 1;
+        current = parent;
+    }
+
+    depth
+}
+
 /// Center column flat event log.
 #[component]
 pub fn TraceLog() -> impl IntoView {
@@ -46,22 +87,26 @@ pub fn TraceLog() -> impl IntoView {
     let rows = move || {
         let state = trace.get();
         let session_frames = state.session_frames();
-        let by_id: HashMap<String, frames::Frame> = session_frames
+        let visible_frames = session_frames
+            .into_iter()
+            .filter(|f| state.filter.allows(f))
+            .collect::<Vec<_>>();
+        let by_id: HashMap<String, frames::Frame> = visible_frames
             .iter()
             .map(|f| (f.id.clone(), (*f).clone()))
             .collect();
-        session_frames
+        visible_frames
             .into_iter()
-            .filter(|f| state.filter.allows(f))
             .map(|f| {
                 let display = traces::prefix_display(&f.syscall);
                 let sub = traces::sub_label(f);
                 let (status_text, status_mod) = status_label(f.status);
-                let depth = traces::tree_depth(&f.id, &by_id);
-                let tree_indent = if depth == 0 {
+                let depth = display_depth(&f.id, &by_id, state.selected_session_id.as_deref());
+                let visual_depth = depth.saturating_sub(1);
+                let tree_indent = if visual_depth == 0 {
                     String::new()
                 } else {
-                    format!("{}└─ ", "  ".repeat(depth))
+                    format!("{}└─ ", "  ".repeat(visual_depth))
                 };
                 (
                     f.id.clone(),

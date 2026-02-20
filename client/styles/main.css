@@ -2574,9 +2574,10 @@ a:hover {
 
 .trace-summary__index-row {
     display: flex;
-    gap: 6px;
-    align-items: center;
-    padding: 3px var(--space-xs);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 4px var(--space-xs);
     font-family: var(--font-mono);
     font-size: 11px;
     background: transparent;
@@ -2598,9 +2599,18 @@ a:hover {
 }
 
 .trace-summary__index-dot   { color: #ff69b4; }
+.trace-summary__index-main  { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .trace-summary__index-id    { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; }
 .trace-summary__index-count { color: var(--text-secondary); }
 .trace-summary__index-duration { color: var(--text-secondary); }
+.trace-summary__index-meta  {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 14px;
+}
 
 /* ── TRACE LOG (Col 2) ──────────────────────────────────────── */
 
