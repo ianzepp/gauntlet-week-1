@@ -877,6 +877,7 @@ a:hover {
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text-nav-active);
+    margin-right: 3em;
 }
 
 .toolbar__divider {
@@ -982,6 +983,10 @@ a:hover {
     letter-spacing: 0.08em;
     color: var(--text-secondary);
     padding: 0 var(--space-xs);
+}
+
+.toolbar__share {
+    margin-left: 3em;
 }
 
 .toolbar__self-method {

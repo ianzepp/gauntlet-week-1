@@ -119,13 +119,13 @@ pub fn Toolbar() -> impl IntoView {
                 </div>
             </Show>
 
-            <span class="toolbar__spacer"></span>
-
             <Show when=move || location.pathname.get().starts_with("/board/")>
                 <button class="btn toolbar__share" on:click=on_share title="Share board">
                     "Share"
                 </button>
             </Show>
+
+            <span class="toolbar__spacer"></span>
 
             <span class="toolbar__self">
                 {move || self_identity().0}
