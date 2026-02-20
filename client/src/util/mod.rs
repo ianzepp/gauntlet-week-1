@@ -13,3 +13,4 @@ pub mod frame;
 pub mod frame_emit;
 pub mod object_props;
 pub mod selection_metrics;
+pub mod shape_palette;
