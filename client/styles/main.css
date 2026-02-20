@@ -593,6 +593,11 @@ a:hover {
     z-index: var(--z-chrome);
 }
 
+.board-page__prompt-bar {
+    position: relative;
+    width: 100%;
+}
+
 .board-page__input-line {
     width: 100%;
     height: 34px;
@@ -601,11 +606,59 @@ a:hover {
     color: var(--text-primary);
     font-family: var(--font-mono);
     font-size: 12px;
-    padding: 0 var(--space-sm);
+    padding: 0 calc(var(--space-md) + 18px) 0 var(--space-sm);
 }
 
 .board-page__input-line::placeholder {
     color: var(--text-tertiary);
+}
+
+.board-page__prompt-status {
+    position: absolute;
+    top: 50%;
+    right: var(--space-sm);
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+}
+
+.board-page__prompt-icon-spacer {
+    width: 14px;
+    height: 14px;
+}
+
+.board-page__prompt-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid color-mix(in oklab, var(--text-tertiary) 50%, transparent);
+    border-top-color: var(--text-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.board-page__prompt-icon {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.board-page__prompt-icon path {
+    stroke: currentColor;
+}
+
+.board-page__prompt-icon--success {
+    color: var(--accent-green);
+}
+
+.board-page__prompt-icon--error {
+    color: var(--accent-error);
 }
 
 .canvas-host {
@@ -1894,6 +1947,15 @@ a:hover {
     }
     50% {
         opacity: 1;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
     }
 }
 
