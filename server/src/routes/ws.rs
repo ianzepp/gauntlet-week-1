@@ -271,7 +271,7 @@ async fn process_inbound_bytes(
         "chat" => handle_chat(state, *current_board, client_id, &req).await,
         "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
-        "tool" => Err(req.error("tool syscalls are internal")),
+        "tool" => handle_tool(state, *current_board, client_id, &req).await,
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
     };
 
@@ -1082,6 +1082,62 @@ async fn fetch_user_identity(state: &AppState, user_id: Uuid) -> Result<(String,
 // AI HANDLER (exception: broadcasts mutations directly)
 // =============================================================================
 
+fn allow_external_tool_syscalls() -> bool {
+    std::env::var("ALLOW_EXTERNAL_TOOL_SYSCALLS")
+        .ok()
+        .as_deref()
+        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+}
+
+async fn broadcast_ai_mutations(state: &AppState, board_id: Uuid, user_id: Uuid, mutations: &[services::ai::AiMutation]) {
+    for mutation in mutations {
+        let (syscall, data) = match mutation {
+            services::ai::AiMutation::Created(obj) => ("object:create", object_to_data(obj)),
+            services::ai::AiMutation::Updated(obj) => ("object:update", object_to_data(obj)),
+            services::ai::AiMutation::Deleted(id) => {
+                let mut d = Data::new();
+                d.insert("id".into(), serde_json::json!(id));
+                ("object:delete", d)
+            }
+        };
+        let mut frame = Frame::request(syscall, data)
+            .with_board_id(board_id)
+            .with_from(user_id.to_string());
+        frame.status = crate::frame::Status::Done;
+        services::persistence::enqueue_frame(state, &frame);
+        services::board::broadcast(state, board_id, &frame, None).await;
+    }
+}
+
+async fn handle_tool(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    client_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = current_board else {
+        return Err(req.error("must join a board first"));
+    };
+    if !services::board::client_has_permission(state, board_id, client_id, services::board::BoardPermission::Edit).await
+    {
+        return Err(req.error("forbidden"));
+    }
+    if !allow_external_tool_syscalls() {
+        return Err(req.error("tool syscalls are internal"));
+    }
+    let Some(user_id) = req.from.as_deref().and_then(|s| s.parse::<Uuid>().ok()) else {
+        return Err(req.error("missing authenticated user id"));
+    };
+
+    match services::tool_syscall::dispatch_tool_frame(state, board_id, req).await {
+        Ok(outcome) => {
+            broadcast_ai_mutations(state, board_id, user_id, &outcome.mutations).await;
+            Ok(Outcome::Reply(outcome.done_data))
+        }
+        Err(err) => Err(req.error_from(&err)),
+    }
+}
+
 async fn handle_ai(
     state: &AppState,
     current_board: Option<Uuid>,
@@ -1126,24 +1182,7 @@ async fn handle_ai(
                 .await
             {
                 Ok(result) => {
-                    // AI is the one exception: broadcast mutations directly.
-                    for mutation in &result.mutations {
-                        let (syscall, data) = match mutation {
-                            services::ai::AiMutation::Created(obj) => ("object:create", object_to_data(obj)),
-                            services::ai::AiMutation::Updated(obj) => ("object:update", object_to_data(obj)),
-                            services::ai::AiMutation::Deleted(id) => {
-                                let mut d = Data::new();
-                                d.insert("id".into(), serde_json::json!(id));
-                                ("object:delete", d)
-                            }
-                        };
-                        let mut frame = Frame::request(syscall, data)
-                            .with_board_id(board_id)
-                            .with_from(user_id.to_string());
-                        frame.status = crate::frame::Status::Done;
-                        services::persistence::enqueue_frame(state, &frame);
-                        services::board::broadcast(state, board_id, &frame, None).await;
-                    }
+                    broadcast_ai_mutations(state, board_id, user_id, &result.mutations).await;
 
                     let mut data = Data::new();
                     data.insert("prompt".into(), serde_json::json!(prompt));

@@ -67,6 +67,8 @@ pub enum AiError {
     ObjectError(#[from] super::object::ObjectError),
     #[error("rate limited: {0}")]
     RateLimited(String),
+    #[error("invalid tool syscall: {0}")]
+    InvalidToolSyscall(String),
 }
 
 impl crate::frame::ErrorCode for AiError {
@@ -77,6 +79,7 @@ impl crate::frame::ErrorCode for AiError {
             Self::LlmError(_) => "E_LLM_ERROR",
             Self::ObjectError(_) => "E_OBJECT_ERROR",
             Self::RateLimited(_) => "E_RATE_LIMITED",
+            Self::InvalidToolSyscall(_) => "E_INVALID_TOOL_SYSCALL",
         }
     }
 
@@ -266,9 +269,17 @@ pub async fn handle_prompt(
         let mut tool_results = Vec::new();
         for (tool_id, tool_name, input) in &tool_calls {
             info!(iteration, tool = %tool_name, "ai: executing tool via syscall");
-            let result =
-                execute_tool_via_syscall(state, board_id, user_id, iteration, tool_id, tool_name, input, &mut all_mutations)
-                    .await;
+            let result = execute_tool_via_syscall(
+                state,
+                board_id,
+                user_id,
+                iteration,
+                tool_id,
+                tool_name,
+                input,
+                &mut all_mutations,
+            )
+            .await;
             let (content, is_error) = match &result {
                 Ok(msg) => {
                     info!(iteration, tool = %tool_name, "ai: tool ok — {msg}");
@@ -341,26 +352,21 @@ async fn execute_tool_via_syscall(
         .with_from(user_id.to_string());
     super::persistence::enqueue_frame(state, &req);
 
-    let result = execute_tool(state, board_id, tool_name, input, mutations).await;
-
-    match &result {
-        Ok(content) => {
-            let mut done_data = Data::new();
-            done_data.insert("tool_use_id".into(), json!(tool_use_id));
-            done_data.insert("name".into(), json!(tool_name));
-            done_data.insert("content".into(), json!(content));
-            let done = req.done_with(done_data);
+    match super::tool_syscall::dispatch_tool_frame(state, board_id, &req).await {
+        Ok(outcome) => {
+            mutations.extend(outcome.mutations);
+            let done = req.done_with(outcome.done_data);
             super::persistence::enqueue_frame(state, &done);
+            Ok(outcome.content)
         }
         Err(err) => {
-            let mut error = req.error_from(err);
+            let mut error = req.error_from(&err);
             error.data.insert("tool_use_id".into(), json!(tool_use_id));
             error.data.insert("name".into(), json!(tool_name));
             super::persistence::enqueue_frame(state, &error);
+            Err(err)
         }
     }
-
-    result
 }
 
 async fn load_session_messages(state: &AppState, session_key: (Uuid, Uuid)) -> Vec<Message> {
