@@ -1226,11 +1226,31 @@ async fn handle_ai(
                         data.insert("text".into(), serde_json::json!(text));
                     }
                     data.insert("mutations".into(), serde_json::json!(result.mutations.len()));
+                    data.insert(
+                        "trace".into(),
+                        serde_json::json!({
+                            "trace_id": req.id,
+                            "span_id": req.id,
+                            "parent_span_id": serde_json::Value::Null,
+                            "kind": "ai.prompt",
+                            "label": "prompt"
+                        }),
+                    );
                     Ok(Outcome::Reply(data))
                 }
                 Err(e) => {
                     let mut err = req.error_from(&e);
                     err.data.insert("prompt".into(), serde_json::json!(prompt));
+                    err.data.insert(
+                        "trace".into(),
+                        serde_json::json!({
+                            "trace_id": req.id,
+                            "span_id": req.id,
+                            "parent_span_id": serde_json::Value::Null,
+                            "kind": "ai.prompt",
+                            "label": "prompt"
+                        }),
+                    );
                     Err(err)
                 }
             }

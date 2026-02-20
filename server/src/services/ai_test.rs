@@ -795,6 +795,82 @@ async fn handle_prompt_tool_context_keeps_only_latest_round() {
 }
 
 #[tokio::test]
+async fn handle_prompt_persists_trace_envelope_for_llm_and_tool_spans() {
+    let llm: Arc<dyn LlmChat> = Arc::new(MockLlm::new(vec![
+        ChatResponse {
+            content: vec![ContentBlock::ToolUse {
+                id: "tool_1".into(),
+                name: "createStickyNote".into(),
+                input: json!({ "text": "hello", "x": 10, "y": 20 }),
+            }],
+            model: "mock-model".into(),
+            stop_reason: "tool_use".into(),
+            input_tokens: 11,
+            output_tokens: 17,
+        },
+        ChatResponse {
+            content: vec![ContentBlock::Text { text: "done".into() }],
+            model: "mock-model".into(),
+            stop_reason: "end_turn".into(),
+            input_tokens: 5,
+            output_tokens: 6,
+        },
+    ]));
+    let mut state = test_helpers::test_app_state();
+    let (persist_tx, mut persist_rx) = tokio::sync::mpsc::channel::<crate::frame::Frame>(128);
+    state.frame_persist_tx = Some(persist_tx);
+    let board_id = test_helpers::seed_board(&state).await;
+    let root = Uuid::new_v4();
+
+    let result = handle_prompt_with_parent(
+        &state,
+        &llm,
+        board_id,
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+        "create a sticky",
+        None,
+        Some(root),
+    )
+    .await
+    .expect("prompt should succeed");
+    assert!(!result.mutations.is_empty());
+
+    let mut persisted = Vec::new();
+    while let Ok(frame) = persist_rx.try_recv() {
+        persisted.push(frame);
+    }
+    assert!(!persisted.is_empty());
+    let root_str = root.to_string();
+
+    let has_llm_with_trace = persisted.iter().any(|f| {
+        f.syscall == "ai:llm_request"
+            && f.data
+                .get("trace")
+                .and_then(serde_json::Value::as_object)
+                .is_some_and(|trace| {
+                    trace.get("trace_id").and_then(serde_json::Value::as_str) == Some(root_str.as_str())
+                        && trace.get("span_id").is_some()
+                        && trace.get("kind").and_then(serde_json::Value::as_str) == Some("ai.llm_request")
+                })
+    });
+    assert!(has_llm_with_trace, "expected ai:llm_request frames with trace envelope");
+
+    let has_tool_with_trace = persisted.iter().any(|f| {
+        f.syscall.starts_with("tool:")
+            && f.data
+                .get("trace")
+                .and_then(serde_json::Value::as_object)
+                .is_some_and(|trace| {
+                    trace.get("trace_id").and_then(serde_json::Value::as_str) == Some(root_str.as_str())
+                        && trace.get("span_id").is_some()
+                        && trace.get("kind").and_then(serde_json::Value::as_str) == Some("ai.tool_call")
+                })
+    });
+    assert!(has_tool_with_trace, "expected tool:* frames with trace envelope");
+}
+
+#[tokio::test]
 async fn handle_prompt_reuses_session_history_within_same_client_session() {
     use std::sync::Mutex as StdMutex;
 
