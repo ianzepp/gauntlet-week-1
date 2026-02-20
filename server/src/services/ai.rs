@@ -710,7 +710,7 @@ async fn execute_create_sticky_note(
                 .get("stroke_width")
                 .and_then(serde_json::Value::as_f64)
         })
-        .unwrap_or(1.0);
+        .unwrap_or(0.0);
 
     let props = json!({
         "text": text,
@@ -766,7 +766,7 @@ async fn execute_create_shape(
                 .get("stroke_width")
                 .and_then(serde_json::Value::as_f64)
         })
-        .unwrap_or(1.0);
+        .unwrap_or(0.0);
 
     let props = if kind == "text" {
         json!({

@@ -757,7 +757,7 @@ impl EngineCore {
             serde_json::json!({
                 "fill": "#D94B4B",
                 "stroke": "#1F1A17",
-                "stroke_width": 1,
+                "stroke_width": 0,
             })
         };
         BoardObject {

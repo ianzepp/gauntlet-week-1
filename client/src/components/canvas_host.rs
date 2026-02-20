@@ -83,6 +83,22 @@ struct SelectionColorDragState {
     start_items: Vec<SelectionColorSeed>,
 }
 
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionBorderSeed {
+    id: String,
+    board_id: String,
+    version: i64,
+    start_border_color: String,
+    start_border_width: f64,
+}
+
+#[cfg(feature = "hydrate")]
+#[derive(Clone)]
+struct SelectionBorderDragState {
+    start_items: Vec<SelectionBorderSeed>,
+}
+
 /// Canvas host component.
 ///
 /// On hydration, this mounts `canvas::engine::Engine`, synchronizes board
@@ -105,12 +121,16 @@ pub fn CanvasHost() -> impl IntoView {
     let _object_rotate_drag_active = RwSignal::new(false);
     let object_color_ref = NodeRef::<leptos::html::Div>::new();
     let _object_color_drag_active = RwSignal::new(false);
+    let object_border_ref = NodeRef::<leptos::html::Div>::new();
+    let _object_border_drag_active = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let object_rotate_drag_state = RwSignal::new(None::<SelectionRotationDragState>);
     #[cfg(feature = "hydrate")]
     let object_zoom_drag_state = RwSignal::new(None::<SelectionScaleDragState>);
     #[cfg(feature = "hydrate")]
     let object_color_drag_state = RwSignal::new(None::<SelectionColorDragState>);
+    #[cfg(feature = "hydrate")]
+    let object_border_drag_state = RwSignal::new(None::<SelectionBorderDragState>);
     #[cfg(feature = "hydrate")]
     let last_centered_board = RwSignal::new(None::<String>);
     #[cfg(feature = "hydrate")]
@@ -1112,6 +1132,123 @@ pub fn CanvasHost() -> impl IntoView {
         }
     };
 
+    let on_object_border_pointer_down = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_border_ref = object_border_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if pointer_event_hits_control(&ev, ".canvas-color-dial__picker, .canvas-color-dial__readout") {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                if !has_selection(_board) {
+                    return;
+                }
+                let Some(dial) = object_border_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                let Some(drag_state) = selection_border_seed(_board) else {
+                    return;
+                };
+                let _ = dial.set_pointer_capture(ev.pointer_id());
+                object_border_drag_state.set(Some(drag_state));
+                _object_border_drag_active.set(true);
+                apply_selection_border_width(_board, object_border_drag_state, border_width_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_border_pointer_move = {
+        #[cfg(feature = "hydrate")]
+        {
+            let object_border_ref = object_border_ref.clone();
+            move |ev: leptos::ev::PointerEvent| {
+                if !_object_border_drag_active.get_untracked() {
+                    return;
+                }
+                let Some(dial) = object_border_ref.get() else {
+                    return;
+                };
+                let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
+                    return;
+                };
+                apply_selection_border_width(_board, object_border_drag_state, border_width_from_dial_angle(angle));
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_border_pointer_up = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::PointerEvent| {
+                _object_border_drag_active.set(false);
+                commit_selection_border_updates(_board, _sender, object_border_drag_state);
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::PointerEvent| {}
+        }
+    };
+
+    let on_object_border_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
+        ev.prevent_default();
+        ev.stop_propagation();
+    };
+
+    let on_object_border_input = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |ev: leptos::ev::Event| {
+                use wasm_bindgen::JsCast;
+
+                let Some(input) = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
+                else {
+                    return;
+                };
+                apply_group_border_color_target(_board, _sender, input.value());
+            }
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::Event| {}
+        }
+    };
+    let on_object_color_reset = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_background_defaults_target(_board, _sender)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+    let on_object_border_reset = {
+        #[cfg(feature = "hydrate")]
+        {
+            move |_ev: leptos::ev::MouseEvent| apply_group_border_defaults_target(_board, _sender)
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            move |_ev: leptos::ev::MouseEvent| {}
+        }
+    };
+
     let on_object_zoom_pointer_down = {
         #[cfg(feature = "hydrate")]
         {
@@ -1192,6 +1329,12 @@ pub fn CanvasHost() -> impl IntoView {
     let object_color_shift = move || selection_representative_lightness_shift(_board);
     let object_color_knob_style = move || {
         let angle = dial_angle_from_color_shift(object_color_shift());
+        format!("transform: rotate({angle:.2}deg);")
+    };
+    let object_border_color = move || selection_representative_border_color_hex(_board);
+    let object_border_width = move || selection_representative_border_width(_board);
+    let object_border_knob_style = move || {
+        let angle = dial_angle_from_border_width(object_border_width());
         format!("transform: rotate({angle:.2}deg);")
     };
 
@@ -1549,23 +1692,6 @@ pub fn CanvasHost() -> impl IntoView {
                 on_readout_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
                 on_readout_dblclick=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
             />
-            <ColorDial
-                class="canvas-object-color"
-                disabled_class="canvas-object-color--disabled"
-                title="Drag to shift selected color lightness; center picks base color"
-                readout_title="Selected object/group lightness shift"
-                knob_class="canvas-object-color__knob"
-                node_ref=object_color_ref
-                disabled=Signal::derive(move || !has_selected_objects())
-                readout=Signal::derive(move || format!("{:+.0}%", object_color_shift() * 100.0))
-                knob_style=Signal::derive(object_color_knob_style)
-                color_value=Signal::derive(object_color_base)
-                on_pointer_down=on_object_color_pointer_down
-                on_pointer_move=on_object_color_pointer_move
-                on_pointer_up=on_object_color_pointer_up
-                on_center_pointer_down=on_object_color_readout_pointer_down
-                on_color_input=on_object_color_input
-            />
             <CompassDial
                 class="canvas-object-rotate"
                 disabled_class="canvas-object-rotate--disabled"
@@ -1624,6 +1750,44 @@ pub fn CanvasHost() -> impl IntoView {
                 on_readout_pointer_down=on_zoom_readout_pointer_down
                 on_readout_click=on_zoom_reset.clone()
                 on_readout_dblclick=on_zoom_reset
+            />
+            <ColorDial
+                class="canvas-object-color"
+                disabled_class="canvas-object-color--disabled"
+                title="Drag to shift selected color lightness; center picks base color"
+                swatch_title="Selected base color"
+                reset_title="Reset background to defaults"
+                center_label=Signal::derive(move || format!("{:+.0}", object_color_shift() * 100.0))
+                knob_class="canvas-object-color__knob"
+                node_ref=object_color_ref
+                disabled=Signal::derive(move || !has_selected_objects())
+                knob_style=Signal::derive(object_color_knob_style)
+                color_value=Signal::derive(object_color_base)
+                on_pointer_down=on_object_color_pointer_down
+                on_pointer_move=on_object_color_pointer_move
+                on_pointer_up=on_object_color_pointer_up
+                on_center_pointer_down=on_object_color_readout_pointer_down
+                on_color_input=on_object_color_input
+                on_reset_click=on_object_color_reset
+            />
+            <ColorDial
+                class="canvas-object-border"
+                disabled_class="canvas-object-border--disabled"
+                title="Drag to set selected border thickness; center picks border color"
+                swatch_title="Selected border color"
+                reset_title="Reset border to defaults"
+                center_label=Signal::derive(move || format_border_width_label(object_border_width()))
+                knob_class="canvas-object-border__knob"
+                node_ref=object_border_ref
+                disabled=Signal::derive(move || !has_selected_objects())
+                knob_style=Signal::derive(object_border_knob_style)
+                color_value=Signal::derive(object_border_color)
+                on_pointer_down=on_object_border_pointer_down
+                on_pointer_move=on_object_border_pointer_move
+                on_pointer_up=on_object_border_pointer_up
+                on_center_pointer_down=on_object_border_readout_pointer_down
+                on_color_input=on_object_border_input
+                on_reset_click=on_object_border_reset
             />
         </>
     }
@@ -1748,6 +1912,54 @@ fn dial_angle_from_color_shift(_shift: f64) -> f64 {
 #[cfg(feature = "hydrate")]
 fn color_shift_from_dial_angle(angle: f64) -> f64 {
     (angle / ZOOM_DIAL_MAX_ANGLE_DEG).clamp(-1.0, 1.0)
+}
+
+#[cfg(feature = "hydrate")]
+const BORDER_WIDTH_MIN: f64 = 0.0;
+#[cfg(feature = "hydrate")]
+const BORDER_WIDTH_MAX: f64 = 24.0;
+
+#[cfg(feature = "hydrate")]
+fn dial_angle_from_border_width(width: f64) -> f64 {
+    let clamped = width.clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX);
+    let t = if BORDER_WIDTH_MAX <= BORDER_WIDTH_MIN {
+        0.0
+    } else {
+        (clamped - BORDER_WIDTH_MIN) / (BORDER_WIDTH_MAX - BORDER_WIDTH_MIN)
+    };
+    ZOOM_DIAL_MIN_ANGLE_DEG + (t * (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG))
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn dial_angle_from_border_width(_width: f64) -> f64 {
+    0.0
+}
+
+#[cfg(feature = "hydrate")]
+fn border_width_from_dial_angle(angle: f64) -> f64 {
+    let clamped_angle = angle.clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG);
+    let t = (clamped_angle - ZOOM_DIAL_MIN_ANGLE_DEG) / (ZOOM_DIAL_MAX_ANGLE_DEG - ZOOM_DIAL_MIN_ANGLE_DEG);
+    snap_border_width_to_px(BORDER_WIDTH_MIN + (t * (BORDER_WIDTH_MAX - BORDER_WIDTH_MIN)))
+}
+
+#[cfg(feature = "hydrate")]
+fn format_border_width_label(width: f64) -> String {
+    let rounded = width.round();
+    if (width - rounded).abs() < 0.05 {
+        format!("{}px", rounded as i64)
+    } else {
+        format!("{width:.1}px")
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn format_border_width_label(_width: f64) -> String {
+    "1px".to_owned()
+}
+
+#[cfg(feature = "hydrate")]
+fn snap_border_width_to_px(width: f64) -> f64 {
+    width.round().clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
 }
 
 
@@ -2359,9 +2571,59 @@ fn apply_group_base_color_target(board: RwSignal<BoardState>, sender: RwSignal<F
     }
 }
 
+#[cfg(feature = "hydrate")]
+fn apply_group_background_defaults_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+    let base_fill = "#D94B4B".to_owned();
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            upsert_object_color_props(obj, &base_fill, 0.0);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
 #[cfg(not(feature = "hydrate"))]
 #[allow(dead_code)]
 fn apply_group_base_color_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _raw_color: String) {}
+
+#[cfg(not(feature = "hydrate"))]
+#[allow(dead_code)]
+fn apply_group_background_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
 
 #[cfg(feature = "hydrate")]
 fn upsert_object_color_props(obj: &mut crate::net::types::BoardObject, base_fill: &str, lightness_shift: f64) {
@@ -2453,6 +2715,261 @@ fn apply_lightness_shift_to_hex(base_hex: &str, shift: f64) -> String {
         adjusted.round().clamp(0.0, 255.0) as u8
     };
     format!("#{:02X}{:02X}{:02X}", scale(r), scale(g), scale(b))
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_border_color_hex(board: RwSignal<BoardState>) -> String {
+    let state = board.get();
+    state
+        .selection
+        .iter()
+        .find_map(|id| state.objects.get(id).map(object_border_color_hex))
+        .unwrap_or_else(|| "#1F1A17".to_owned())
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_border_color_hex(_board: RwSignal<BoardState>) -> String {
+    "#1F1A17".to_owned()
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_representative_border_width(board: RwSignal<BoardState>) -> f64 {
+    let state = board.get();
+    let mut widths: Vec<f64> = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        widths.push(object_border_width(obj));
+    }
+    if widths.is_empty() {
+        return 1.0;
+    }
+    (widths.iter().sum::<f64>() / widths.len() as f64).clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn selection_representative_border_width(_board: RwSignal<BoardState>) -> f64 {
+    1.0
+}
+
+#[cfg(feature = "hydrate")]
+fn selection_border_seed(board: RwSignal<BoardState>) -> Option<SelectionBorderDragState> {
+    let state = board.get_untracked();
+    let mut items = Vec::new();
+    for id in &state.selection {
+        let Some(obj) = state.objects.get(id) else {
+            continue;
+        };
+        items.push(SelectionBorderSeed {
+            id: obj.id.clone(),
+            board_id: obj.board_id.clone(),
+            version: obj.version,
+            start_border_color: object_border_color_hex(obj),
+            start_border_width: object_border_width(obj),
+        });
+    }
+    if items.is_empty() {
+        return None;
+    }
+    Some(SelectionBorderDragState { start_items: items })
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_selection_border_width(
+    board: RwSignal<BoardState>,
+    drag_state_signal: RwSignal<Option<SelectionBorderDragState>>,
+    target_width: f64,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let width = target_width.clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX);
+    board.update(|b| {
+        for seed in &drag_state.start_items {
+            let Some(obj) = b.objects.get_mut(&seed.id) else {
+                continue;
+            };
+            upsert_object_border_props(obj, &seed.start_border_color, width);
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn commit_selection_border_updates(
+    board: RwSignal<BoardState>,
+    sender: RwSignal<FrameSender>,
+    drag_state_signal: RwSignal<Option<SelectionBorderDragState>>,
+) {
+    let Some(drag_state) = drag_state_signal.get_untracked() else {
+        return;
+    };
+    let state = board.get_untracked();
+    for seed in &drag_state.start_items {
+        let Some(obj) = state.objects.get(&seed.id) else {
+            continue;
+        };
+        let color = object_border_color_hex(obj);
+        let width = object_border_width(obj);
+        let changed = color != seed.start_border_color || (width - seed.start_border_width).abs() > 0.001;
+        if !changed {
+            continue;
+        }
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(seed.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": seed.id,
+                "version": seed.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+    drag_state_signal.set(None);
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_border_color_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>, raw_color: String) {
+    let border = normalize_hex_color(raw_color, "#1F1A17");
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            let width = object_border_width(obj);
+            upsert_object_border_props(obj, &border, width);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn apply_group_border_defaults_target(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+    let border = "#1F1A17".to_owned();
+    let width = 0.0;
+    let state = board.get_untracked();
+    let selected: Vec<String> = state
+        .selection
+        .iter()
+        .filter(|id| state.objects.contains_key(*id))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for id in &selected {
+            let Some(obj) = b.objects.get_mut(id) else {
+                continue;
+            };
+            upsert_object_border_props(obj, &border, width);
+        }
+    });
+
+    let post = board.get_untracked();
+    for id in selected {
+        let Some(obj) = post.objects.get(&id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(obj.board_id.clone()),
+            from: None,
+            syscall: "object:update".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id,
+                "version": obj.version,
+                "props": obj.props,
+            }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+#[allow(dead_code)]
+fn apply_group_border_color_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>, _raw_color: String) {}
+
+#[cfg(not(feature = "hydrate"))]
+#[allow(dead_code)]
+fn apply_group_border_defaults_target(_board: RwSignal<BoardState>, _sender: RwSignal<FrameSender>) {}
+
+#[cfg(feature = "hydrate")]
+fn upsert_object_border_props(obj: &mut crate::net::types::BoardObject, border_color: &str, border_width: f64) {
+    let color = normalize_hex_color(border_color.to_owned(), "#1F1A17");
+    let width = snap_border_width_to_px(border_width);
+    if !obj.props.is_object() {
+        obj.props = serde_json::json!({});
+    }
+    if let Some(map) = obj.props.as_object_mut() {
+        map.insert("borderColor".to_owned(), serde_json::Value::String(color.clone()));
+        map.insert("stroke".to_owned(), serde_json::Value::String(color));
+        map.insert("borderWidth".to_owned(), serde_json::json!(width));
+        map.insert("stroke_width".to_owned(), serde_json::json!(width));
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn object_border_color_hex(obj: &crate::net::types::BoardObject) -> String {
+    obj.props
+        .get("borderColor")
+        .and_then(|v| v.as_str())
+        .or_else(|| obj.props.get("stroke").and_then(|v| v.as_str()))
+        .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
+        .map(|s| normalize_hex_color(s.to_owned(), "#1F1A17"))
+        .unwrap_or_else(|| "#1F1A17".to_owned())
+}
+
+#[cfg(feature = "hydrate")]
+fn object_border_width(obj: &crate::net::types::BoardObject) -> f64 {
+    obj.props
+        .get("borderWidth")
+        .and_then(value_as_f64)
+        .or_else(|| obj.props.get("stroke_width").and_then(value_as_f64))
+        .unwrap_or(0.0)
+        .clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)
 }
 
 #[cfg(feature = "hydrate")]
@@ -2954,7 +3471,7 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "color": "#D94B4B",
                 "backgroundColor": "#D94B4B",
                 "borderColor": "#D94B4B",
-                "borderWidth": 1
+                "borderWidth": 0
             }),
         )),
         ToolType::Rectangle => Some((
@@ -2965,7 +3482,7 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "color": "#D94B4B",
                 "backgroundColor": "#D94B4B",
                 "borderColor": "#D94B4B",
-                "borderWidth": 1
+                "borderWidth": 0
             }),
         )),
         ToolType::Frame => Some((
@@ -2977,9 +3494,9 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "color": "#9AA3AD",
                 "backgroundColor": "rgba(154,163,173,0.08)",
                 "borderColor": "#1F1A17",
-                "borderWidth": 2,
+                "borderWidth": 0,
                 "stroke": "#1F1A17",
-                "stroke_width": 2
+                "stroke_width": 0
             }),
         )),
         ToolType::Ellipse => Some((
@@ -2990,7 +3507,7 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "color": "#D94B4B",
                 "backgroundColor": "#D94B4B",
                 "borderColor": "#D94B4B",
-                "borderWidth": 1
+                "borderWidth": 0
             }),
         )),
         ToolType::Youtube => Some((
@@ -3012,7 +3529,7 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "color": "#D94B4B",
                 "backgroundColor": "#D94B4B",
                 "borderColor": "#D94B4B",
-                "borderWidth": 2
+                "borderWidth": 0
             }),
         )),
         ToolType::Connector => Some((
@@ -3023,7 +3540,7 @@ fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json
                 "color": "#D94B4B",
                 "backgroundColor": "#D94B4B",
                 "borderColor": "#D94B4B",
-                "borderWidth": 2
+                "borderWidth": 0
             }),
         )),
         ToolType::Text => Some((

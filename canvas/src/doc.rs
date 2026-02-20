@@ -133,13 +133,13 @@ impl<'a> Props<'a> {
             .unwrap_or("#1F1A17")
     }
 
-    /// Stroke width in world units. Defaults to `1.0` when absent.
+    /// Stroke width in world units. Defaults to `0.0` when absent.
     #[must_use]
     pub fn stroke_width(&self) -> f64 {
         self.value
             .get("stroke_width")
             .and_then(serde_json::Value::as_f64)
-            .unwrap_or(1.0)
+            .unwrap_or(0.0)
     }
 
     /// Arrowhead style at endpoint A (the "head" of the arrow). Empty string when absent.

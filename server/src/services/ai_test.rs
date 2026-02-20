@@ -114,7 +114,7 @@ async fn tool_create_shape() {
         assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#2196F3"));
         assert_eq!(obj.props.get("borderColor").and_then(|v| v.as_str()), Some("#2196F3"));
         assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#2196F3"));
-        assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(1.0));
+        assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(0.0));
     } else {
         panic!("expected Created mutation");
     }

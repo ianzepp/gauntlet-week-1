@@ -617,7 +617,7 @@ fn props_defaults_on_empty_object() {
     let p = Props::new(&value);
     assert_eq!(p.fill(), "#D94B4B");
     assert_eq!(p.stroke(), "#1F1A17");
-    assert_eq!(p.stroke_width(), 1.0);
+    assert_eq!(p.stroke_width(), 0.0);
     assert_eq!(p.head(), "");
     assert_eq!(p.text(), "");
     assert_eq!(p.foot(), "");
@@ -648,7 +648,7 @@ fn props_partial_fields_use_defaults() {
     let p = Props::new(&value);
     assert_eq!(p.fill(), "#123456");
     assert_eq!(p.stroke(), "#1F1A17"); // default
-    assert_eq!(p.stroke_width(), 1.0); // default
+    assert_eq!(p.stroke_width(), 0.0); // default
     assert_eq!(p.head(), ""); // default
 }
 
@@ -664,7 +664,7 @@ fn props_wrong_type_uses_default() {
     let value = json!({"fill": 42, "stroke_width": "thick"});
     let p = Props::new(&value);
     assert_eq!(p.fill(), "#D94B4B"); // 42 is not a string
-    assert_eq!(p.stroke_width(), 1.0); // "thick" is not a number
+    assert_eq!(p.stroke_width(), 0.0); // "thick" is not a number
 }
 
 #[test]

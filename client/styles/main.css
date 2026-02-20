@@ -1063,7 +1063,7 @@ a:hover {
 .canvas-object-color {
     position: absolute;
     left: var(--canvas-overlay-left-offset);
-    bottom: calc(var(--canvas-overlay-edge-offset) + (74px + var(--space-sm)) * 2);
+    top: var(--canvas-overlay-edge-offset);
     width: 74px;
     height: 74px;
     border-radius: 999px;
@@ -1076,6 +1076,26 @@ a:hover {
 }
 
 .canvas-object-color--disabled {
+    opacity: 0.44;
+    pointer-events: none;
+}
+
+.canvas-object-border {
+    position: absolute;
+    left: var(--canvas-overlay-left-offset);
+    top: calc(var(--canvas-overlay-edge-offset) + 74px + var(--space-sm));
+    width: 74px;
+    height: 74px;
+    border-radius: 999px;
+    border: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+    z-index: var(--z-canvas-ui);
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+
+.canvas-object-border--disabled {
     opacity: 0.44;
     pointer-events: none;
 }
@@ -1192,6 +1212,19 @@ a:hover {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
+.canvas-object-border__knob {
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background: var(--accent-error);
+    border: 1px solid var(--bg-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
 .canvas-color-dial__tick {
     position: absolute;
     width: 4px;
@@ -1206,10 +1239,29 @@ a:hover {
 .canvas-color-dial__tick--ne { left: calc(50% + 19px); top: calc(50% - 19px); }
 .canvas-color-dial__tick--e  { left: calc(100% - 10px); top: 50%; }
 .canvas-color-dial__tick--se { left: calc(50% + 19px); top: calc(50% + 19px); }
-.canvas-color-dial__tick--s  { left: 50%; top: calc(100% - 10px); }
 .canvas-color-dial__tick--sw { left: calc(50% - 19px); top: calc(50% + 19px); }
 .canvas-color-dial__tick--w  { left: 10px; top: 50%; }
 .canvas-color-dial__tick--nw { left: calc(50% - 19px); top: calc(50% - 19px); }
+
+.canvas-color-dial__reset {
+    position: absolute;
+    left: 50%;
+    top: calc(100% - 10px);
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    padding: 0;
+}
 
 .canvas-color-dial__readout {
     position: absolute;
@@ -1229,11 +1281,25 @@ a:hover {
     overflow: hidden;
 }
 
-.canvas-color-dial__value {
+.canvas-color-dial__swatch {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    border: 1px solid var(--border-default);
+    pointer-events: none;
+}
+
+.canvas-color-dial__label {
     position: absolute;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.75);
     pointer-events: none;
 }
 

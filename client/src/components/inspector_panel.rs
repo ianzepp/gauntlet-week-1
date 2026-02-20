@@ -42,7 +42,7 @@ pub fn InspectorPanel() -> impl IntoView {
     let draft_font_size = RwSignal::new("13".to_owned());
     let draft_background = RwSignal::new("#d94b4b".to_owned());
     let draft_border = RwSignal::new("#d94b4b".to_owned());
-    let draft_border_width = RwSignal::new("1".to_owned());
+    let draft_border_width = RwSignal::new("0".to_owned());
 
     Effect::new(move || {
         if let Some(obj) = selected_object() {
@@ -59,7 +59,7 @@ pub fn InspectorPanel() -> impl IntoView {
             let border = normalize_hex_color(read_prop_str(&obj, "borderColor"), &bg);
             draft_background.set(bg.clone());
             draft_border.set(border);
-            draft_border_width.set(read_prop_int(&obj, "borderWidth", 1).to_string());
+            draft_border_width.set(read_prop_int(&obj, "borderWidth", 0).to_string());
         }
     });
 
@@ -216,7 +216,7 @@ pub fn InspectorPanel() -> impl IntoView {
             return;
         };
 
-        let current = read_prop_int(&obj, "borderWidth", 1).max(0);
+        let current = read_prop_int(&obj, "borderWidth", 0).max(0);
         let next = parse_integer_input(&value).unwrap_or(current).max(0);
         draft_border_width.set(next.to_string());
 

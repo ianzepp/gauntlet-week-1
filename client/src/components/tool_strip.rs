@@ -53,13 +53,13 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
                 "color": color,
                 "backgroundColor": color,
                 "borderColor": color,
-                "borderWidth": 1
+                "borderWidth": 0
             }),
             _ => serde_json::json!({
                 "color": color,
                 "backgroundColor": color,
                 "borderColor": color,
-                "borderWidth": 1
+                "borderWidth": 0
             }),
         };
 
