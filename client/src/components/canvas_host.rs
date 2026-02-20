@@ -8,7 +8,7 @@
 use leptos::prelude::*;
 
 use crate::app::FrameSender;
-use crate::components::dial::{dial_center_button, dial_shell};
+use crate::components::dial::{CompassDial, ZoomDial};
 #[cfg(feature = "hydrate")]
 use crate::net::types::{BoardObject, Frame, FrameStatus, Point as WirePoint};
 use crate::state::auth::AuthState;
@@ -612,9 +612,6 @@ pub fn CanvasHost() -> impl IntoView {
             let compass_ref = compass_ref.clone();
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
-                if pointer_event_hits_control(&ev, ".canvas-compass__snap, .canvas-compass__reset") {
-                    return;
-                }
                 ev.prevent_default();
                 ev.stop_propagation();
                 if _board.get().follow_client_id.is_some() {
@@ -845,42 +842,10 @@ pub fn CanvasHost() -> impl IntoView {
             move |_ev: leptos::ev::MouseEvent| {}
         }
     };
-    let on_compass_reset = {
-        #[cfg(feature = "hydrate")]
-        {
-            let canvas_ref = canvas_ref.clone();
-            let engine = Rc::clone(&engine);
-            move |_ev: leptos::ev::MouseEvent| {
-                if _board.get().follow_client_id.is_some() {
-                    return;
-                }
-                if let Some(engine) = engine.borrow_mut().as_mut() {
-                    sync_viewport(engine, &canvas_ref);
-                    engine.set_view_rotation_deg(0.0);
-                    sync_canvas_view_state(engine, _canvas_view, None);
-                    send_cursor_presence_if_needed(
-                        engine,
-                        _board,
-                        _auth,
-                        _sender,
-                        last_presence_sent_ms,
-                        last_presence_sent,
-                        None,
-                        true,
-                    );
-                    let _ = engine.render();
-                }
-            }
-        }
-        #[cfg(not(feature = "hydrate"))]
-        {
-            move |_ev: leptos::ev::MouseEvent| {}
-        }
-    };
+    let on_compass_center_click = move |_ev: leptos::ev::MouseEvent| {};
 
     let on_compass_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
         ev.prevent_default();
-        ev.stop_propagation();
     };
 
     let on_zoom_pointer_down = {
@@ -1116,9 +1081,6 @@ pub fn CanvasHost() -> impl IntoView {
         {
             let object_rotate_ref = object_rotate_ref.clone();
             move |ev: leptos::ev::PointerEvent| {
-                if pointer_event_hits_control(&ev, ".canvas-compass__snap, .canvas-compass__reset") {
-                    return;
-                }
                 ev.prevent_default();
                 ev.stop_propagation();
                 let Some(dial) = object_rotate_ref.get() else {
@@ -1186,7 +1148,6 @@ pub fn CanvasHost() -> impl IntoView {
 
     let on_object_rotate_readout_pointer_down = move |ev: leptos::ev::PointerEvent| {
         ev.prevent_default();
-        ev.stop_propagation();
     };
 
     let on_object_rotate_snap_n = {
@@ -1229,16 +1190,7 @@ pub fn CanvasHost() -> impl IntoView {
             move |_ev: leptos::ev::MouseEvent| {}
         }
     };
-    let on_object_rotate_reset = {
-        #[cfg(feature = "hydrate")]
-        {
-            move |_ev: leptos::ev::MouseEvent| apply_group_rotation_target(_board, _sender, 0.0)
-        }
-        #[cfg(not(feature = "hydrate"))]
-        {
-            move |_ev: leptos::ev::MouseEvent| {}
-        }
-    };
+    let on_object_rotate_center_click = move |_ev: leptos::ev::MouseEvent| {};
 
     let object_rotation_angle_deg = move || selection_representative_rotation_deg(_board);
     let object_rotation_knob_style = move || {
@@ -1455,138 +1407,82 @@ pub fn CanvasHost() -> impl IntoView {
                     </div>
                 </Show>
             </div>
-            <div
+            <ZoomDial
                 class="canvas-object-zoom"
-                class:canvas-object-zoom--disabled=move || !has_selected_objects()
-                node_ref=object_zoom_ref
+                disabled_class="canvas-object-zoom--disabled"
                 title="Drag to scale selected object(s); top is neutral"
-                on:pointerdown=on_object_zoom_pointer_down
-                on:pointermove=on_object_zoom_pointer_move
-                on:pointerup=on_object_zoom_pointer_up.clone()
-                on:pointercancel=on_object_zoom_pointer_up.clone()
-                on:pointerleave=on_object_zoom_pointer_up
-            >
-                <button class="canvas-zoom-wheel__marker" title="100%">
-                    "1"
-                </button>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--se"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
-                <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
-                {dial_center_button(
-                    "canvas-zoom-wheel__readout",
-                    "Click to reset selected object scale to 100%",
-                    on_object_zoom_readout_pointer_down,
-                    move |_ev| apply_group_scale_target(_board, _sender, 1.0),
-                    move |_ev| apply_group_scale_target(_board, _sender, 1.0),
-                    view! { {move || format!("{:.0}%", object_zoom_scale() * 100.0)} },
-                )}
-                <div class="canvas-zoom-wheel__knob-track" style=object_zoom_knob_style>
-                    <div class="canvas-object-zoom__knob"></div>
-                </div>
-            </div>
-            <div
+                readout_title="Click to reset selected object scale to 100%"
+                knob_class="canvas-object-zoom__knob"
+                node_ref=object_zoom_ref
+                disabled=Signal::derive(move || !has_selected_objects())
+                readout=Signal::derive(move || format!("{:.0}%", object_zoom_scale() * 100.0))
+                knob_style=Signal::derive(object_zoom_knob_style)
+                on_pointer_down=on_object_zoom_pointer_down
+                on_pointer_move=on_object_zoom_pointer_move
+                on_pointer_up=on_object_zoom_pointer_up
+                on_readout_pointer_down=on_object_zoom_readout_pointer_down
+                on_readout_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
+                on_readout_dblclick=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
+            />
+            <CompassDial
                 class="canvas-object-rotate"
-                class:canvas-object-rotate--disabled=move || !has_selected_objects()
-                node_ref=object_rotate_ref
+                disabled_class="canvas-object-rotate--disabled"
                 title="Drag to rotate selected object(s); hold Shift to snap by 15deg"
-                on:pointerdown=on_object_rotate_pointer_down
-                on:pointermove=on_object_rotate_pointer_move
-                on:pointerup=on_object_rotate_pointer_up.clone()
-                on:pointercancel=on_object_rotate_pointer_up.clone()
-                on:pointerleave=on_object_rotate_pointer_up
-            >
-                <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_object_rotate_snap_n disabled=move || !has_selected_objects()>
-                    "N"
-                </button>
-                <button class="canvas-compass__snap canvas-compass__snap--e" on:click=on_object_rotate_snap_e disabled=move || !has_selected_objects()>
-                    "E"
-                </button>
-                <button class="canvas-compass__snap canvas-compass__snap--s" on:click=on_object_rotate_snap_s disabled=move || !has_selected_objects()>
-                    "S"
-                </button>
-                <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_object_rotate_snap_w disabled=move || !has_selected_objects()>
-                    "W"
-                </button>
-                {dial_center_button(
-                    "canvas-compass__reset",
-                    "Click to reset selected object rotation to 0deg",
-                    on_object_rotate_readout_pointer_down,
-                    on_object_rotate_reset.clone(),
-                    on_object_rotate_reset,
-                    view! { {move || format!("{:.0}deg", object_rotation_angle_deg())} },
-                )}
-                <div class="canvas-compass__knob-track" style=object_rotation_knob_style>
-                    <div class="canvas-object-rotate__knob"></div>
-                </div>
-            </div>
-            {dial_shell(
-                "canvas-compass",
-                "Drag to rotate view; hold Shift to snap by 15deg",
-                compass_ref,
-                on_compass_pointer_down,
-                on_compass_pointer_move,
-                on_compass_pointer_up,
-                view! {
-                    <button class="canvas-compass__snap canvas-compass__snap--n" on:click=on_compass_snap_n>
-                        "N"
-                    </button>
-                    <button class="canvas-compass__snap canvas-compass__snap--e" on:click=on_compass_snap_e>
-                        "E"
-                    </button>
-                    <button class="canvas-compass__snap canvas-compass__snap--s" on:click=on_compass_snap_s>
-                        "S"
-                    </button>
-                    <button class="canvas-compass__snap canvas-compass__snap--w" on:click=on_compass_snap_w>
-                        "W"
-                    </button>
-                    {dial_center_button(
-                        "canvas-compass__reset",
-                        "Click to reset view rotation to 0deg",
-                        on_compass_readout_pointer_down,
-                        on_compass_reset.clone(),
-                        on_compass_reset,
-                        view! { {move || format!("{:.0}deg", compass_angle_deg())} },
-                    )}
-                    <div class="canvas-compass__knob-track" style=compass_knob_style>
-                        <div class="canvas-compass__knob"></div>
-                    </div>
-                },
-            )}
-            {dial_shell(
-                "canvas-zoom-wheel",
-                "Drag around dial to zoom",
-                zoom_ref,
-                on_zoom_pointer_down,
-                on_zoom_pointer_move,
-                on_zoom_pointer_up,
-                view! {
-                    <button class="canvas-zoom-wheel__marker" title="100%">
-                        "1"
-                    </button>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--n"></span>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--ne"></span>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--e"></span>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--se"></span>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--sw"></span>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--w"></span>
-                    <span class="canvas-zoom-wheel__tick canvas-zoom-wheel__tick--nw"></span>
-                    {dial_center_button(
-                        "canvas-zoom-wheel__readout",
-                        "Click to reset zoom to 100%",
-                        on_zoom_readout_pointer_down,
-                        on_zoom_reset.clone(),
-                        on_zoom_reset,
-                        view! { {move || format!("{:.0}%", zoom_percent())} },
-                    )}
-                    <div class="canvas-zoom-wheel__knob-track" style=zoom_knob_style>
-                        <div class="canvas-zoom-wheel__knob"></div>
-                    </div>
-                },
-            )}
+                readout_title="Selected object/group rotation"
+                knob_class="canvas-object-rotate__knob"
+                node_ref=object_rotate_ref
+                disabled=Signal::derive(move || !has_selected_objects())
+                readout=Signal::derive(move || format!("{:.0}deg", object_rotation_angle_deg()))
+                knob_style=Signal::derive(object_rotation_knob_style)
+                on_pointer_down=on_object_rotate_pointer_down
+                on_pointer_move=on_object_rotate_pointer_move
+                on_pointer_up=on_object_rotate_pointer_up
+                on_snap_n=on_object_rotate_snap_n
+                on_snap_e=on_object_rotate_snap_e
+                on_snap_s=on_object_rotate_snap_s
+                on_snap_w=on_object_rotate_snap_w
+                on_readout_pointer_down=on_object_rotate_readout_pointer_down
+                on_readout_click=on_object_rotate_center_click
+                on_readout_dblclick=on_object_rotate_center_click
+            />
+            <CompassDial
+                class="canvas-compass"
+                disabled_class=""
+                title="Drag to rotate view; hold Shift to snap by 15deg"
+                readout_title="Board rotation"
+                knob_class="canvas-compass__knob"
+                node_ref=compass_ref
+                disabled=Signal::derive(|| false)
+                readout=Signal::derive(move || format!("{:.0}deg", compass_angle_deg()))
+                knob_style=Signal::derive(compass_knob_style)
+                on_pointer_down=on_compass_pointer_down
+                on_pointer_move=on_compass_pointer_move
+                on_pointer_up=on_compass_pointer_up
+                on_snap_n=on_compass_snap_n
+                on_snap_e=on_compass_snap_e
+                on_snap_s=on_compass_snap_s
+                on_snap_w=on_compass_snap_w
+                on_readout_pointer_down=on_compass_readout_pointer_down
+                on_readout_click=on_compass_center_click
+                on_readout_dblclick=on_compass_center_click
+            />
+            <ZoomDial
+                class="canvas-zoom-wheel"
+                disabled_class=""
+                title="Drag around dial to zoom"
+                readout_title="Click to reset zoom to 100%"
+                knob_class="canvas-zoom-wheel__knob"
+                node_ref=zoom_ref
+                disabled=Signal::derive(|| false)
+                readout=Signal::derive(move || format!("{:.0}%", zoom_percent()))
+                knob_style=Signal::derive(zoom_knob_style)
+                on_pointer_down=on_zoom_pointer_down
+                on_pointer_move=on_zoom_pointer_move
+                on_pointer_up=on_zoom_pointer_up
+                on_readout_pointer_down=on_zoom_readout_pointer_down
+                on_readout_click=on_zoom_reset.clone()
+                on_readout_dblclick=on_zoom_reset
+            />
         </>
     }
 }
@@ -2206,10 +2102,8 @@ fn apply_selection_rotation_drag(
     let Some(drag_state) = drag_state_signal.get_untracked() else {
         return;
     };
-    let mut delta = signed_angle_delta_deg(pointer_angle_deg, drag_state.start_pointer_angle_deg);
-    if shift_snap {
-        delta = (delta / 15.0).round() * 15.0;
-    }
+    let snapped_pointer = apply_compass_drag_snapping(pointer_angle_deg, shift_snap);
+    let delta = signed_angle_delta_deg(snapped_pointer, drag_state.start_pointer_angle_deg);
     board.update(|b| {
         for (id, start_rotation) in &drag_state.start_rotations {
             if let Some(obj) = b.objects.get_mut(id) {
