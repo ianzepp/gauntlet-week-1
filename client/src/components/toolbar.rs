@@ -6,7 +6,7 @@
 //! controls that remain visible during board workflows.
 
 use leptos::prelude::*;
-use leptos_router::hooks::use_location;
+use leptos_router::hooks::{use_location, use_navigate};
 
 use crate::app::FrameSender;
 use crate::net::types::{Frame, FrameStatus};
@@ -21,6 +21,7 @@ pub fn Toolbar() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     let ui = expect_context::<RwSignal<UiState>>();
     let location = use_location();
+    let navigate = use_navigate();
 
     let show_share = RwSignal::new(false);
 
@@ -57,13 +58,16 @@ pub fn Toolbar() -> impl IntoView {
     };
 
     let on_share_cancel = Callback::new(move |_| show_share.set(false));
+    let on_back = Callback::new(move |_| {
+        navigate("/", leptos_router::NavigateOptions::default());
+    });
 
     view! {
         <div class="toolbar">
             <Show when=move || location.pathname.get().starts_with("/board/")>
-                <a href="/" class="toolbar__back" title="Back to dashboard">
+                <button class="toolbar__back" title="Back to dashboard" on:click=move |_| on_back.run(())>
                     "←"
-                </a>
+                </button>
             </Show>
 
             <span class="toolbar__board-name">{board_name}</span>
