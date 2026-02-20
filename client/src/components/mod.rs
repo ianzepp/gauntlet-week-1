@@ -14,6 +14,7 @@ pub mod dial;
 pub mod inspector_panel;
 pub mod left_panel;
 pub mod mission_control;
+pub mod object_text_dialog;
 pub mod rewind_shelf;
 pub mod right_panel;
 pub mod status_bar;

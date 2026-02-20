@@ -25,10 +25,12 @@ use crate::app::FrameSender;
 use crate::components::board_stamp::BoardStamp;
 use crate::components::canvas_host::CanvasHost;
 use crate::components::left_panel::LeftPanel;
+use crate::components::object_text_dialog::ObjectTextDialog;
 use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
 use crate::components::trace_view::TraceView;
+use crate::pages::board_prompt::assistant_preview_and_has_more;
 use crate::state::ai::{AiMessage, AiState};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
@@ -318,19 +320,19 @@ pub fn BoardPage() -> impl IntoView {
         });
     };
 
-    let on_object_text_cancel = move |_| {
+    let on_object_text_cancel = Callback::new(move |_| {
         object_text_dialog_open.set(false);
         object_text_dialog_id.set(None);
-    };
-    let on_object_text_keydown = move |ev: leptos::ev::KeyboardEvent| {
+    });
+    let on_object_text_keydown = Callback::new(move |ev: leptos::ev::KeyboardEvent| {
         if ev.key() == "Escape" {
             ev.prevent_default();
             object_text_dialog_open.set(false);
             object_text_dialog_id.set(None);
         }
-    };
+    });
 
-    let on_object_text_save = move |_| {
+    let on_object_text_save = Callback::new(move |_| {
         let Some(id) = object_text_dialog_id.get() else {
             object_text_dialog_open.set(false);
             return;
@@ -365,7 +367,7 @@ pub fn BoardPage() -> impl IntoView {
 
         object_text_dialog_open.set(false);
         object_text_dialog_id.set(None);
-    };
+    });
 
     view! {
         <div
@@ -457,131 +459,15 @@ pub fn BoardPage() -> impl IntoView {
                 <StatusBar/>
             </div>
             <Show when=move || object_text_dialog_open.get()>
-                <div class="dialog-backdrop" on:click=on_object_text_cancel>
-                    <div class="dialog dialog--object-text" on:click=move |ev| ev.stop_propagation() on:keydown=on_object_text_keydown>
-                        <label class="dialog__label">
-                            "Text"
-                            <textarea
-                                class="dialog__textarea"
-                                prop:value=move || object_text_dialog_value.get()
-                                on:input=move |ev| object_text_dialog_value.set(event_target_value(&ev))
-                                on:keydown=on_object_text_keydown
-                                autofocus=true
-                            ></textarea>
-                        </label>
-                        <div class="dialog__actions">
-                            <button class="btn" on:click=on_object_text_cancel>
-                                "Cancel"
-                            </button>
-                            <button class="btn btn--primary" on:click=on_object_text_save>
-                                "Save"
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ObjectTextDialog
+                    value=object_text_dialog_value
+                    on_cancel=on_object_text_cancel
+                    on_save=on_object_text_save
+                    on_keydown=on_object_text_keydown
+                />
             </Show>
         </div>
     }
-}
-
-fn assistant_preview_and_has_more(text: &str) -> (String, bool) {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return (String::new(), false);
-    }
-
-    let paragraphs = split_paragraphs(trimmed);
-    let mut preview: Vec<String> = Vec::new();
-    let mut has_more = false;
-
-    for para in paragraphs.iter() {
-        if paragraph_is_structured(para) {
-            if para.trim_end().ends_with(':') && preview.len() < 3 {
-                preview.push(para.clone());
-            }
-            has_more = true;
-            break;
-        }
-
-        if preview.len() < 3 {
-            preview.push(para.clone());
-        } else {
-            has_more = true;
-            break;
-        }
-    }
-
-    if preview.is_empty() {
-        if let Some(first) = paragraphs.first() {
-            preview.push(first.clone());
-        }
-    }
-
-    if !has_more && paragraphs.len() > preview.len() {
-        has_more = true;
-    }
-
-    (preview.join("\n\n"), has_more)
-}
-
-fn split_paragraphs(text: &str) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    let mut current: Vec<&str> = Vec::new();
-    for line in text.lines() {
-        if line.trim().is_empty() {
-            if !current.is_empty() {
-                out.push(current.join("\n").trim().to_owned());
-                current.clear();
-            }
-            continue;
-        }
-        current.push(line.trim_end());
-    }
-    if !current.is_empty() {
-        out.push(current.join("\n").trim().to_owned());
-    }
-    out.into_iter().filter(|p| !p.is_empty()).collect()
-}
-
-fn paragraph_is_structured(para: &str) -> bool {
-    let trimmed = para.trim();
-    if trimmed.ends_with(':') {
-        return true;
-    }
-    para.lines().any(line_is_structured)
-}
-
-fn line_is_structured(line: &str) -> bool {
-    let t = line.trim_start();
-    if t.starts_with("- ") || t.starts_with("* ") || t.starts_with("+ ") {
-        return true;
-    }
-    if starts_with_markdown_numbered_list(t) {
-        return true;
-    }
-    if t.starts_with('|') {
-        return true;
-    }
-    t.contains('|') && (t.contains("---") || t.contains(":---") || t.contains("---:"))
-}
-
-fn starts_with_markdown_numbered_list(text: &str) -> bool {
-    let mut saw_digit = false;
-    for ch in text.chars() {
-        if ch.is_ascii_digit() {
-            saw_digit = true;
-            continue;
-        }
-        if (ch == '.' || ch == ')') && saw_digit {
-            return text
-                .chars()
-                .skip_while(|c| c.is_ascii_digit())
-                .nth(1)
-                .is_some_and(char::is_whitespace);
-        }
-        break;
-    }
-    false
 }
 
 #[cfg(test)]

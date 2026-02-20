@@ -6,5 +6,6 @@
 //! to `components`.
 
 pub mod board;
+pub(crate) mod board_prompt;
 pub mod dashboard;
 pub mod login;

@@ -1,5 +1,6 @@
 use super::*;
 use crate::net::types::FrameStatus;
+use crate::pages::board_prompt::assistant_preview_and_has_more;
 
 #[test]
 fn reset_board_for_route_change_preserves_client_identity() {
