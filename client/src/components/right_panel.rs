@@ -29,6 +29,16 @@ pub fn RightPanel() -> impl IntoView {
     let drag_start_width = RwSignal::new(320.0_f64);
     let panel_width_style = move || format!("width: {:.0}px;", ui.get().right_panel_width);
 
+    Effect::new(move || {
+        let state = ui.get();
+        if state.view_mode != ViewMode::Trace && state.right_tab == RightTab::Trace {
+            ui.update(|u| {
+                u.right_panel_expanded = false;
+                u.right_tab = RightTab::Chat;
+            });
+        }
+    });
+
     let toggle_tab = move |tab: RightTab| {
         ui.update(|u| {
             if u.right_panel_expanded && u.right_tab == tab {
