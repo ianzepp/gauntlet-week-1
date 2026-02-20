@@ -148,3 +148,116 @@ a:hover {
     right: calc(100% + 8px);
 }
 
+/* Shared side-panel primitives */
+.left-panel,
+.right-panel {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.left-panel__header,
+.right-panel__header {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    border-bottom: 1px solid var(--border-default);
+    flex-shrink: 0;
+}
+
+.left-panel__title,
+.right-panel__title {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+    padding-left: var(--space-sm);
+}
+
+.left-panel__close,
+.right-panel__close,
+.tool-rail__btn,
+.tool-rail__toggle,
+.right-panel__rail-button,
+.right-panel__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+}
+
+.left-panel__close,
+.right-panel__close {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1;
+}
+
+.left-panel__close:hover,
+.right-panel__close:hover {
+    color: var(--text-primary);
+    background: transparent;
+}
+
+.tool-rail__btn,
+.tool-rail__toggle,
+.right-panel__rail-button,
+.right-panel__toggle {
+    color: var(--text-nav);
+}
+
+.tool-rail__btn:hover,
+.tool-rail__toggle:hover,
+.right-panel__rail-button:hover,
+.right-panel__toggle:hover {
+    color: var(--text-nav-active);
+    background: transparent;
+}
+
+.left-panel__resize-handle-rail,
+.right-panel__resize-handle-rail {
+    position: absolute;
+    top: 0;
+    width: 12px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 6;
+    pointer-events: auto;
+}
+
+.left-panel__resize-handle-rail::before,
+.right-panel__resize-handle-rail::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    transform: translateX(-50%);
+    background: color-mix(in oklab, var(--accent-highlight) 24%, var(--border-default));
+}
+
+.left-panel__resize-handle-rail:hover::before,
+.right-panel__resize-handle-rail:hover::before {
+    background: color-mix(in oklab, var(--accent-highlight) 65%, var(--border-default));
+}
+
+.tool-rail__btn svg,
+.tool-strip__option svg,
+.right-panel__rail-button svg,
+.right-panel__toggle svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
