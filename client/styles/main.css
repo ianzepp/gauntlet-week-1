@@ -9,15 +9,15 @@
     /* UI Chrome */
     --bg-primary: #f5f0e8;
     --bg-secondary: #ede8dd;
-    --bg-nav: #2c2824;
+    --bg-nav: #ede8dd;
     --bg-status-bar: #f0ebe2;
 
     /* Text */
     --text-primary: #2c2824;
     --text-secondary: #8a8178;
     --text-tertiary: #b5aea4;
-    --text-nav: #d4cfc6;
-    --text-nav-active: #f5f0e8;
+    --text-nav: #6f675f;
+    --text-nav-active: #2c2824;
 
     /* Accents */
     --accent-green: #2c6e49;
