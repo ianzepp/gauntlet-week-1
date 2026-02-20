@@ -19,7 +19,6 @@
 //! over aggressive full-state resets.
 
 use leptos::prelude::*;
-use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_params_map;
 
 use crate::app::FrameSender;
@@ -34,6 +33,7 @@ use crate::state::ai::{AiMessage, AiState};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 use crate::state::ui::{RightTab, UiState, ViewMode};
+use crate::util::auth::install_unauth_redirect;
 use crate::util::frame::request_frame;
 
 fn build_board_membership_frame(syscall: &str, board_id: String) -> crate::net::types::Frame {
@@ -166,14 +166,8 @@ pub fn BoardPage() -> impl IntoView {
         });
     });
 
-    // Redirect to login if not authenticated.
     let navigate = leptos_router::hooks::use_navigate();
-    Effect::new(move || {
-        let state = auth.get();
-        if !state.loading && state.user.is_none() {
-            navigate("/login", NavigateOptions::default());
-        }
-    });
+    install_unauth_redirect(auth, navigate);
 
     Effect::new(move || {
         let Some(start_idx) = pending_message_start.get() else {

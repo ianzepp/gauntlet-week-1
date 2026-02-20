@@ -6,7 +6,6 @@
 //! websocket once connectivity is ready and coordinates create->navigate flow.
 
 use leptos::prelude::*;
-use leptos_router::NavigateOptions;
 use leptos_router::hooks::use_navigate;
 
 use crate::app::FrameSender;
@@ -16,6 +15,7 @@ use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::boards::BoardListItem;
 use crate::state::boards::BoardsState;
 use crate::state::ui::UiState;
+use crate::util::auth::install_unauth_redirect;
 use crate::util::frame::request_frame;
 
 /// Dashboard page — shows a board list and a create-board button.
@@ -29,14 +29,7 @@ pub fn DashboardPage() -> impl IntoView {
     let sender = expect_context::<RwSignal<FrameSender>>();
     let navigate = use_navigate();
 
-    // Redirect to login if not authenticated.
-    let navigate_login = navigate.clone();
-    Effect::new(move || {
-        let state = auth.get();
-        if !state.loading && state.user.is_none() {
-            navigate_login("/login", NavigateOptions::default());
-        }
-    });
+    install_unauth_redirect(auth, navigate.clone());
 
     let requested_list = RwSignal::new(false);
     Effect::new(move || {
@@ -79,7 +72,7 @@ pub fn DashboardPage() -> impl IntoView {
     Effect::new(move || {
         if let Some(board_id) = boards.get().created_board_id.clone() {
             boards.update(|s| s.created_board_id = None);
-            navigate_to_board(&format!("/board/{board_id}"), NavigateOptions::default());
+            navigate_to_board(&format!("/board/{board_id}"), leptos_router::NavigateOptions::default());
         }
     });
 
@@ -88,7 +81,7 @@ pub fn DashboardPage() -> impl IntoView {
         if let Some(board_id) = boards.get().redeemed_board_id.clone() {
             boards.update(|s| s.redeemed_board_id = None);
             show_join.set(false);
-            navigate_to_redeemed(&format!("/board/{board_id}"), NavigateOptions::default());
+            navigate_to_redeemed(&format!("/board/{board_id}"), leptos_router::NavigateOptions::default());
         }
     });
 
