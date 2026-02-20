@@ -1007,7 +1007,7 @@ a:hover {
 
 .canvas-compass {
     position: absolute;
-    left: var(--canvas-overlay-left-offset);
+    right: var(--canvas-overlay-right-offset);
     bottom: var(--canvas-overlay-edge-offset);
     width: 74px;
     height: 74px;
@@ -1096,7 +1096,7 @@ a:hover {
 .canvas-zoom-wheel {
     position: absolute;
     right: var(--canvas-overlay-right-offset);
-    bottom: var(--canvas-overlay-edge-offset);
+    bottom: calc(var(--canvas-overlay-edge-offset) + 74px + var(--space-sm));
     width: 74px;
     height: 74px;
     border-radius: 999px;
