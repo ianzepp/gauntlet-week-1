@@ -11,12 +11,12 @@ use leptos_router::hooks::use_navigate;
 
 use crate::app::FrameSender;
 use crate::components::board_card::BoardCard;
-use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::boards::BoardListItem;
 use crate::state::boards::BoardsState;
 use crate::state::ui::UiState;
+use crate::util::frame::request_frame;
 
 /// Dashboard page — shows a board list and a create-board button.
 /// Redirects to `/login` if the user is not authenticated.
@@ -357,60 +357,28 @@ fn CreateBoardDialog(
 
 fn send_board_list(sender: RwSignal<FrameSender>, boards: RwSignal<BoardsState>) {
     let since_rev = boards.get_untracked().list_rev;
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: None,
-        from: None,
-        syscall: "board:list".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({
+    let frame = request_frame(
+        "board:list",
+        None,
+        serde_json::json!({
             "since_rev": since_rev
         }),
-    };
+    );
     let _ = sender.get_untracked().send(&frame);
 }
 
 fn send_board_create(sender: RwSignal<FrameSender>, name: &str) {
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: None,
-        from: None,
-        syscall: "board:create".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({ "name": name }),
-    };
+    let frame = request_frame("board:create", None, serde_json::json!({ "name": name }));
     let _ = sender.get_untracked().send(&frame);
 }
 
 fn send_board_delete(sender: RwSignal<FrameSender>, board_id: &str) {
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: None,
-        from: None,
-        syscall: "board:delete".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({ "board_id": board_id }),
-    };
+    let frame = request_frame("board:delete", None, serde_json::json!({ "board_id": board_id }));
     let _ = sender.get_untracked().send(&frame);
 }
 
 fn send_access_redeem(sender: RwSignal<FrameSender>, code: &str) {
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: None,
-        from: None,
-        syscall: "board:access:redeem".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({ "code": code }),
-    };
+    let frame = request_frame("board:access:redeem", None, serde_json::json!({ "code": code }));
     let _ = sender.get_untracked().send(&frame);
 }
 

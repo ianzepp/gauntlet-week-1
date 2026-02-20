@@ -6,3 +6,4 @@
 //! logic to improve reuse and testability.
 
 pub mod dark_mode;
+pub mod frame;

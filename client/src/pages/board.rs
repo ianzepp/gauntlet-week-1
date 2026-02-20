@@ -30,23 +30,14 @@ use crate::components::right_panel::RightPanel;
 use crate::components::status_bar::StatusBar;
 use crate::components::toolbar::Toolbar;
 use crate::components::trace_view::TraceView;
-use crate::net::types::{Frame, FrameStatus};
 use crate::state::ai::{AiMessage, AiState};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 use crate::state::ui::{RightTab, UiState, ViewMode};
+use crate::util::frame::request_frame;
 
-fn build_board_membership_frame(syscall: &str, board_id: String) -> Frame {
-    Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: syscall.to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({}),
-    }
+fn build_board_membership_frame(syscall: &str, board_id: String) -> crate::net::types::Frame {
+    request_frame(syscall, Some(board_id), serde_json::json!({}))
 }
 
 fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<String>) {
@@ -197,9 +188,13 @@ pub fn BoardPage() -> impl IntoView {
             .iter()
             .skip(start_idx)
             .any(|msg| msg.role == "error");
-        if let Some(reply) = ai_state.messages.iter().skip(start_idx).rev().find(|msg| {
-            msg.role == "assistant" || msg.role == "error"
-        }) {
+        if let Some(reply) = ai_state
+            .messages
+            .iter()
+            .skip(start_idx)
+            .rev()
+            .find(|msg| msg.role == "assistant" || msg.role == "error")
+        {
             let (preview, has_more) = assistant_preview_and_has_more(&reply.content);
             prompt_preview_assistant.set(preview);
             prompt_preview_assistant_has_more.set(has_more);
@@ -263,17 +258,12 @@ pub fn BoardPage() -> impl IntoView {
         }
 
         let prompt = text.trim().to_owned();
-        let frame_id = uuid::Uuid::new_v4().to_string();
-        let frame = Frame {
-            id: frame_id.clone(),
-            parent_id: None,
-            ts: 0,
-            board_id: board.get().board_id.clone(),
-            from: None,
-            syscall: "ai:prompt".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({ "prompt": prompt }),
-        };
+        let frame = request_frame(
+            "ai:prompt",
+            board.get().board_id.clone(),
+            serde_json::json!({ "prompt": prompt }),
+        );
+        let frame_id = frame.id.clone();
 
         prompt_status.set(PromptBarStatus::Loading);
         prompt_preview_user.set(prompt.clone());
@@ -369,20 +359,15 @@ pub fn BoardPage() -> impl IntoView {
             }
         });
 
-        sender.get().send(&Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({
+        sender.get().send(&request_frame(
+            "object:update",
+            Some(obj.board_id),
+            serde_json::json!({
                 "id": obj.id,
                 "version": obj.version,
                 "props": next_props,
             }),
-        });
+        ));
 
         object_text_dialog_open.set(false);
         object_text_dialog_id.set(None);

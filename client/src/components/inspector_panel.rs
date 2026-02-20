@@ -8,8 +8,9 @@
 use leptos::prelude::*;
 
 use crate::app::FrameSender;
-use crate::net::types::{BoardObject, Frame, FrameStatus};
+use crate::net::types::BoardObject;
 use crate::state::board::BoardState;
+use crate::util::frame::request_frame;
 
 #[cfg(test)]
 #[path = "inspector_panel_test.rs"]
@@ -64,16 +65,7 @@ pub fn InspectorPanel() -> impl IntoView {
     });
 
     let send_update = move |board_id: String, data: serde_json::Value| {
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(board_id),
-            from: None,
-            syscall: "object:update".to_owned(),
-            status: FrameStatus::Request,
-            data,
-        };
+        let frame = request_frame("object:update", Some(board_id), data);
         sender.get().send(&frame);
     };
 
@@ -230,16 +222,7 @@ pub fn InspectorPanel() -> impl IntoView {
             return;
         };
 
-        let frame = Frame {
-            id: uuid::Uuid::new_v4().to_string(),
-            parent_id: None,
-            ts: 0,
-            board_id: Some(obj.board_id.clone()),
-            from: None,
-            syscall: "object:delete".to_owned(),
-            status: FrameStatus::Request,
-            data: serde_json::json!({ "id": obj.id }),
-        };
+        let frame = request_frame("object:delete", Some(obj.board_id.clone()), serde_json::json!({ "id": obj.id }));
         sender.get().send(&frame);
 
         board.update(|b| {
