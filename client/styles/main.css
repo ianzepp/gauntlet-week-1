@@ -1247,6 +1247,33 @@ a:hover {
     height: 100%;
 }
 
+.left-panel__resize-handle-rail {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 12px;
+    height: 100%;
+    transform: translateX(50%);
+    cursor: col-resize;
+    z-index: 6;
+    pointer-events: auto;
+}
+
+.left-panel__resize-handle-rail::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    transform: translateX(-50%);
+    background: color-mix(in oklab, var(--accent-highlight) 24%, var(--border-default));
+}
+
+.left-panel__resize-handle-rail:hover::before {
+    background: color-mix(in oklab, var(--accent-highlight) 65%, var(--border-default));
+}
+
 .left-panel__header {
     display: flex;
     align-items: center;

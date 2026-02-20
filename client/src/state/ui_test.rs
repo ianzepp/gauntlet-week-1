@@ -29,6 +29,7 @@ fn ui_state_default_tool_is_select() {
 fn ui_state_default_left_panel_expanded() {
     let state = UiState::default();
     assert!(!state.left_panel_expanded);
+    assert_eq!(state.left_panel_width, 160.0);
     assert_eq!(state.left_tab, LeftTab::Tools);
 }
 
