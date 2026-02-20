@@ -313,6 +313,76 @@ async fn tool_get_board_state_with_objects() {
     assert!(mutations.is_empty());
 }
 
+#[tokio::test]
+async fn tool_apply_changes_yaml_create_update_delete() {
+    let state = test_helpers::test_app_state();
+    let mut existing = test_helpers::dummy_object();
+    existing.version = 2;
+    let existing_id = existing.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![existing]).await;
+    let mut mutations = Vec::new();
+    let yaml = format!(
+        r##"
+changes:
+  create:
+    - kind: "rectangle"
+      x: "10"
+      y: "20"
+      width: "150"
+      height: "90"
+      props: {{backgroundColor: "#22c55e", borderColor: "#166534", borderWidth: "2"}}
+  update:
+    - id: "{existing_id}"
+      x: "300"
+      y: "400"
+      props: {{backgroundColor: "#f97316"}}
+  delete:
+    - id: "{existing_id}"
+"##
+    );
+
+    let result = execute_tool(&state, board_id, "applyChangesYaml", &json!({ "yaml": yaml }), &mut mutations)
+        .await
+        .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(
+        parsed.get("created").and_then(serde_json::Value::as_u64),
+        Some(1),
+        "result={result}"
+    );
+    assert_eq!(
+        parsed.get("updated").and_then(serde_json::Value::as_u64),
+        Some(1),
+        "result={result}"
+    );
+    assert_eq!(
+        parsed.get("deleted").and_then(serde_json::Value::as_u64),
+        Some(0),
+        "result={result}"
+    );
+    assert_eq!(mutations.len(), 2);
+}
+
+#[tokio::test]
+async fn tool_apply_changes_yaml_invalid_payload() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+
+    let result = execute_tool(
+        &state,
+        board_id,
+        "applyChangesYaml",
+        &json!({ "yaml": "changes: [invalid" }),
+        &mut mutations,
+    )
+    .await
+    .unwrap();
+
+    assert!(result.contains("error: invalid yaml changes document"));
+    assert!(mutations.is_empty());
+}
+
 // =========================================================================
 // execute_tool — unknown
 // =========================================================================

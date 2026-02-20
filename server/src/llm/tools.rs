@@ -174,6 +174,17 @@ pub fn gauntlet_week_1_tools() -> Vec<Tool> {
                 "properties": {}
             }),
         },
+        Tool {
+            name: "applyChangesYaml".into(),
+            description: "Apply a YAML mutation plan with create/update/delete blocks in one call.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "yaml": { "type": "string", "description": "YAML document containing a top-level `changes` map" }
+                },
+                "required": ["yaml"]
+            }),
+        },
     ]
 }
 

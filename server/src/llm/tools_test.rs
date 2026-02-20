@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn tool_count() {
     let tools = gauntlet_week_1_tools();
-    assert_eq!(tools.len(), 10);
+    assert_eq!(tools.len(), 11);
 }
 
 #[test]
@@ -21,10 +21,25 @@ fn tool_names_match_spec() {
         "updateText",
         "changeColor",
         "getBoardState",
+        "applyChangesYaml",
     ];
     for name in &expected {
         assert!(names.contains(name), "missing tool: {name}");
     }
+}
+
+#[test]
+fn apply_changes_yaml_schema_requires_yaml_string() {
+    let tools = gauntlet_week_1_tools();
+    let tool = tools.iter().find(|t| t.name == "applyChangesYaml").unwrap();
+    let required = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap();
+    let req_strs: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
+    assert_eq!(req_strs, vec!["yaml"]);
 }
 
 #[test]
