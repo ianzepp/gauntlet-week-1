@@ -525,6 +525,14 @@ a:hover {
     overflow: hidden;
 }
 
+.board-page.board-page--trace {
+    grid-template-areas:
+        "toolbar toolbar"
+        "canvas right"
+        "status status";
+    grid-template-columns: 1fr auto;
+}
+
 .board-page__toolbar {
     grid-area: toolbar;
     z-index: var(--z-chrome);

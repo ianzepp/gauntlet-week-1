@@ -167,13 +167,16 @@ pub fn BoardPage() -> impl IntoView {
             class="board-page"
             class:board-page--left-expanded=move || ui.get().left_panel_expanded
             class:board-page--right-expanded=move || ui.get().right_panel_expanded
+            class:board-page--trace=move || ui.get().view_mode == ViewMode::Trace
         >
             <div class="board-page__toolbar">
                 <Toolbar/>
             </div>
-            <div class="board-page__left-panel">
-                <LeftPanel/>
-            </div>
+            <Show when=move || ui.get().view_mode == ViewMode::Canvas>
+                <div class="board-page__left-panel">
+                    <LeftPanel/>
+                </div>
+            </Show>
             <div class="board-page__canvas">
                 <Show
                     when=move || ui.get().view_mode == ViewMode::Canvas
