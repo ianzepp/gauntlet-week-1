@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use crate::frame::Frame;
 use crate::llm::LlmChat;
+use crate::llm::types::Message;
 use crate::rate_limit::RateLimiter;
 use crate::services::auth::GitHubConfig;
 
@@ -98,6 +99,8 @@ pub struct AppState {
     pub llm: Option<Arc<dyn LlmChat>>,
     /// In-memory rate limiter for AI requests.
     pub rate_limiter: RateLimiter,
+    /// AI conversation memory scoped to active websocket session and board.
+    pub ai_session_messages: Arc<RwLock<HashMap<(Uuid, Uuid), Vec<Message>>>>,
     /// Optional GitHub OAuth config. `None` disables OAuth endpoints.
     pub github: Option<GitHubConfig>,
 }
@@ -112,6 +115,7 @@ impl AppState {
             frame_persist_tx: None,
             llm,
             rate_limiter: RateLimiter::new(),
+            ai_session_messages: Arc::new(RwLock::new(HashMap::new())),
             github,
         }
     }

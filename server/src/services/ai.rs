@@ -26,6 +26,7 @@ use crate::state::{AppState, BoardObject};
 
 const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
 const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
+const MAX_SESSION_CONVERSATION_MESSAGES: usize = 20;
 const BASE_SYSTEM_PROMPT: &str = include_str!("../llm/system.md");
 
 fn env_parse<T>(key: &str, default: T) -> T
@@ -133,21 +134,34 @@ pub async fn handle_prompt(
 
     let system = build_system_prompt(&board_snapshot, grid_context);
     let tools = gauntlet_week_1_tools();
+    let session_key = (client_id, board_id);
+    let prior_session_messages = load_session_messages(state, session_key).await;
 
-    // Keep AI context scoped to the active prompt lifecycle only.
-    // We intentionally do not preload persisted history so refreshes start fresh.
-    let mut messages =
-        vec![Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) }];
+    // Keep persisted context scoped to the active websocket session.
+    // Refreshing reconnects and clears this memory.
+    let prompt_message =
+        Message { role: "user".into(), content: Content::Text(format!("<user_input>{prompt}</user_input>")) };
+    let mut base_messages = prior_session_messages;
+    base_messages.push(prompt_message.clone());
+    let mut latest_tool_exchange: Option<(Message, Message)> = None;
 
     let mut all_mutations = Vec::new();
     let mut final_text: Option<String> = None;
     let token_reservation = u64::from(max_tokens);
 
     for iteration in 0..max_tool_iterations {
+        let mut llm_messages = base_messages.clone();
+        if let Some((assistant_tools, tool_results)) = latest_tool_exchange.clone() {
+            llm_messages.push(assistant_tools);
+            llm_messages.push(tool_results);
+        }
         state
             .rate_limiter
             .reserve_token_budget(client_id, token_reservation)?;
-        let response = match llm.chat(max_tokens, &system, &messages, Some(&tools)).await {
+        let response = match llm
+            .chat(max_tokens, &system, &llm_messages, Some(&tools))
+            .await
+        {
             Ok(response) => response,
             Err(err) => {
                 state
@@ -218,11 +232,11 @@ pub async fn handle_prompt(
             tool_results.push(ContentBlock::ToolResult { tool_use_id: tool_id.clone(), content, is_error });
         }
 
-        // Only carry the most recent tool-call exchange forward.
-        // Keep the initial user prompt + latest assistant tool_use + latest tool_result blocks.
-        messages.truncate(1);
-        messages.push(Message { role: "assistant".into(), content: Content::Blocks(response.content) });
-        messages.push(Message { role: "user".into(), content: Content::Blocks(tool_results) });
+        // Only carry the most recent tool-call exchange forward between tool rounds.
+        latest_tool_exchange = Some((
+            Message { role: "assistant".into(), content: Content::Blocks(response.content) },
+            Message { role: "user".into(), content: Content::Blocks(tool_results) },
+        ));
 
         // If stop_reason is not tool_use, break.
         if response.stop_reason != "tool_use" {
@@ -248,7 +262,32 @@ pub async fn handle_prompt(
         "ai: prompt complete"
     );
 
+    if let Some(text) = final_text.clone() {
+        append_session_messages(state, session_key, prompt_message, text).await;
+    }
+
     Ok(AiResult { mutations: all_mutations, text: final_text })
+}
+
+async fn load_session_messages(state: &AppState, session_key: (Uuid, Uuid)) -> Vec<Message> {
+    state
+        .ai_session_messages
+        .read()
+        .await
+        .get(&session_key)
+        .cloned()
+        .unwrap_or_default()
+}
+
+async fn append_session_messages(state: &AppState, session_key: (Uuid, Uuid), user: Message, assistant_text: String) {
+    let mut sessions = state.ai_session_messages.write().await;
+    let entry = sessions.entry(session_key).or_default();
+    entry.push(user);
+    entry.push(Message { role: "assistant".into(), content: Content::Text(assistant_text) });
+    if entry.len() > MAX_SESSION_CONVERSATION_MESSAGES {
+        let extra = entry.len() - MAX_SESSION_CONVERSATION_MESSAGES;
+        entry.drain(0..extra);
+    }
 }
 
 // =============================================================================
@@ -269,11 +308,6 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<
                 .get("title")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let color = obj
-                .props
-                .get("color")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
             let label = if !text.is_empty() {
                 text
             } else if !title.is_empty() {
@@ -281,9 +315,11 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<
             } else {
                 ""
             };
+            let props_json =
+                serde_json::to_string(&obj.props).unwrap_or_else(|_| "{\"error\":\"props_serialize\"}".to_owned());
             let _ = writeln!(
                 prompt,
-                "- id={} kind={} x={:.0} y={:.0} w={} h={} label={:?} color={:?}",
+                "- id={} kind={} x={:.0} y={:.0} w={} h={} label={:?} props={}",
                 obj.id,
                 obj.kind,
                 obj.x,
@@ -291,7 +327,7 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<
                 obj.width.map_or("-".into(), |w| format!("{w:.0}")),
                 obj.height.map_or("-".into(), |h| format!("{h:.0}")),
                 label,
-                color,
+                props_json,
             );
         }
     }
@@ -456,12 +492,35 @@ async fn execute_create_sticky_note(
         .get("y")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
-    let color = input
-        .get("color")
+    let fill = input
+        .get("backgroundColor")
+        .or_else(|| input.get("fill"))
         .and_then(|v| v.as_str())
         .unwrap_or("#FFEB3B");
+    let stroke = input
+        .get("borderColor")
+        .or_else(|| input.get("stroke"))
+        .and_then(|v| v.as_str())
+        .unwrap_or(fill);
+    let stroke_width = input
+        .get("borderWidth")
+        .and_then(serde_json::Value::as_f64)
+        .or_else(|| {
+            input
+                .get("stroke_width")
+                .and_then(serde_json::Value::as_f64)
+        })
+        .unwrap_or(1.0);
 
-    let props = json!({"text": text, "color": color});
+    let props = json!({
+        "text": text,
+        "backgroundColor": fill,
+        "fill": fill,
+        "borderColor": stroke,
+        "stroke": stroke,
+        "borderWidth": stroke_width,
+        "stroke_width": stroke_width
+    });
     let obj = super::object::create_object(state, board_id, "sticky_note", x, y, None, None, 0.0, props, None).await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
@@ -486,12 +545,36 @@ async fn execute_create_shape(
         .get("y")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
-    let color = input
-        .get("color")
+    let fill = input
+        .get("backgroundColor")
+        .or_else(|| input.get("fill"))
         .and_then(|v| v.as_str())
-        .unwrap_or("#4CAF50");
+        .unwrap_or("#4CAF50")
+        .to_string();
+    let stroke = input
+        .get("borderColor")
+        .or_else(|| input.get("stroke"))
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| fill.clone());
+    let stroke_width = input
+        .get("borderWidth")
+        .and_then(serde_json::Value::as_f64)
+        .or_else(|| {
+            input
+                .get("stroke_width")
+                .and_then(serde_json::Value::as_f64)
+        })
+        .unwrap_or(1.0);
 
-    let props = json!({"color": color});
+    let props = json!({
+        "backgroundColor": fill.clone(),
+        "fill": fill,
+        "borderColor": stroke.clone(),
+        "stroke": stroke,
+        "borderWidth": stroke_width,
+        "stroke_width": stroke_width
+    });
     let w = input.get("width").and_then(serde_json::Value::as_f64);
     let h = input.get("height").and_then(serde_json::Value::as_f64);
     let mut obj = super::object::create_object(state, board_id, kind, x, y, w, h, 0.0, props, None).await?;
@@ -708,15 +791,47 @@ async fn execute_change_color(
         return Ok("error: missing or invalid objectId".into());
     };
 
-    let color = input
-        .get("color")
+    let background = input
+        .get("backgroundColor")
+        .or_else(|| input.get("fill"))
         .and_then(|v| v.as_str())
-        .unwrap_or("#4CAF50")
-        .to_string();
+        .map(ToOwned::to_owned);
+    let border = input
+        .get("borderColor")
+        .or_else(|| input.get("stroke"))
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned);
+    let border_width = input
+        .get("borderWidth")
+        .and_then(serde_json::Value::as_f64)
+        .or_else(|| {
+            input
+                .get("stroke_width")
+                .and_then(serde_json::Value::as_f64)
+        });
+
+    if background.is_none() && border.is_none() && border_width.is_none() {
+        return Ok("error: provide one of backgroundColor/fill/borderColor/stroke/borderWidth/stroke_width".into());
+    }
 
     match update_object_with_retry(state, board_id, id, |snapshot| {
         let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
-        props.insert("color".into(), json!(color));
+        if let Some(width) = border_width {
+            props.insert("borderWidth".into(), json!(width));
+            props.insert("stroke_width".into(), json!(width));
+        }
+
+        let effective_fill = background.clone();
+        if let Some(fill) = effective_fill {
+            props.insert("backgroundColor".into(), json!(fill.clone()));
+            props.insert("fill".into(), json!(fill));
+        }
+
+        let effective_stroke = border.clone();
+        if let Some(stroke) = effective_stroke {
+            props.insert("borderColor".into(), json!(stroke.clone()));
+            props.insert("stroke".into(), json!(stroke));
+        }
         let mut data = Data::new();
         data.insert("props".into(), json!(props));
         data
@@ -725,7 +840,7 @@ async fn execute_change_color(
     {
         Ok(obj) => {
             mutations.push(AiMutation::Updated(obj));
-            Ok(format!("changed color of {id} to {color}"))
+            Ok(format!("changed style of {id}"))
         }
         Err(e) => {
             warn!(error = %e, %id, "ai: changeColor failed");

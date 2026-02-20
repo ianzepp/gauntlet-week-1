@@ -180,6 +180,10 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
         let mut clients = state.ws_clients.write().await;
         clients.remove(&client_id);
     }
+    {
+        let mut sessions = state.ai_session_messages.write().await;
+        sessions.retain(|(session_client_id, _board_id), _| *session_client_id != client_id);
+    }
     info!(%client_id, "ws: client disconnected");
 }
 

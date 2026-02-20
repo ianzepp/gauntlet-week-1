@@ -18,7 +18,9 @@ pub fn gauntlet_week_1_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "batch".into(),
-            description: "Execute multiple non-batch tool calls in parallel. Each call contains a tool name and input object.".into(),
+            description:
+                "Execute multiple non-batch tool calls in parallel. Each call contains a tool name and input object."
+                    .into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -47,7 +49,12 @@ pub fn gauntlet_week_1_tools() -> Vec<Tool> {
                     "text": { "type": "string", "description": "Text content of the sticky note" },
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
-                    "color": { "type": "string", "description": "Background color (hex, e.g. #FFEB3B)" }
+                    "backgroundColor": { "type": "string", "description": "Background color (hex, e.g. #FFEB3B)" },
+                    "fill": { "type": "string", "description": "Canvas fill color (hex)" },
+                    "borderColor": { "type": "string", "description": "Border color (hex)" },
+                    "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
+                    "borderWidth": { "type": "number", "description": "Border width in pixels" },
+                    "stroke_width": { "type": "number", "description": "Canvas stroke width in pixels" }
                 },
                 "required": ["text", "x", "y"]
             }),
@@ -63,7 +70,12 @@ pub fn gauntlet_week_1_tools() -> Vec<Tool> {
                     "y": { "type": "number", "description": "Y position on canvas" },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
-                    "color": { "type": "string", "description": "Fill color (hex)" }
+                    "backgroundColor": { "type": "string", "description": "Background color (hex)" },
+                    "fill": { "type": "string", "description": "Canvas fill color (hex)" },
+                    "borderColor": { "type": "string", "description": "Border color (hex)" },
+                    "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
+                    "borderWidth": { "type": "number", "description": "Border width in pixels" },
+                    "stroke_width": { "type": "number", "description": "Canvas stroke width in pixels" }
                 },
                 "required": ["type", "x", "y", "width", "height"]
             }),
@@ -136,14 +148,20 @@ pub fn gauntlet_week_1_tools() -> Vec<Tool> {
         },
         Tool {
             name: "changeColor".into(),
-            description: "Change the color of an object.".into(),
+            description: "Change the appearance of an object (fill/background, border/stroke, and border width)."
+                .into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to recolor" },
-                    "color": { "type": "string", "description": "New color (hex, e.g. #FF5722)" }
+                    "backgroundColor": { "type": "string", "description": "New background color (hex)" },
+                    "fill": { "type": "string", "description": "New canvas fill color (hex)" },
+                    "borderColor": { "type": "string", "description": "New border color (hex)" },
+                    "stroke": { "type": "string", "description": "New canvas stroke color (hex)" },
+                    "borderWidth": { "type": "number", "description": "New border width in pixels" },
+                    "stroke_width": { "type": "number", "description": "New canvas stroke width in pixels" }
                 },
-                "required": ["objectId", "color"]
+                "required": ["objectId"]
             }),
         },
         Tool {

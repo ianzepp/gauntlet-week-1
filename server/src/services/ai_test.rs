@@ -78,13 +78,19 @@ async fn tool_create_sticky_note() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
     let mut mutations = Vec::new();
-    let input = json!({ "text": "hello", "x": 100, "y": 200, "color": "#FF5722" });
+    let input = json!({ "text": "hello", "x": 100, "y": 200, "backgroundColor": "#FF5722" });
     let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
         .await
         .unwrap();
     assert!(result.contains("created sticky note"));
     assert_eq!(mutations.len(), 1);
-    assert!(matches!(&mutations[0], AiMutation::Created(obj) if obj.kind == "sticky_note"));
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "sticky_note");
+        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#FF5722"));
+        assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#FF5722"));
+    } else {
+        panic!("expected Created mutation");
+    }
 }
 
 // =========================================================================
@@ -96,12 +102,22 @@ async fn tool_create_shape() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
     let mut mutations = Vec::new();
-    let input = json!({ "type": "rectangle", "x": 50, "y": 50, "width": 200, "height": 100, "color": "#2196F3" });
+    let input =
+        json!({ "type": "rectangle", "x": 50, "y": 50, "width": 200, "height": 100, "backgroundColor": "#2196F3" });
     let result = execute_tool(&state, board_id, "createShape", &input, &mut mutations)
         .await
         .unwrap();
     assert!(result.contains("created rectangle shape"));
     assert_eq!(mutations.len(), 1);
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#2196F3"));
+        assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#2196F3"));
+        assert_eq!(obj.props.get("borderColor").and_then(|v| v.as_str()), Some("#2196F3"));
+        assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#2196F3"));
+        assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(1.0));
+    } else {
+        panic!("expected Created mutation");
+    }
 }
 
 // =========================================================================
@@ -222,14 +238,45 @@ async fn tool_change_color() {
     let obj_id = obj.id;
     let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
     let mut mutations = Vec::new();
-    let input = json!({ "objectId": obj_id.to_string(), "color": "#FF0000" });
+    let input = json!({ "objectId": obj_id.to_string(), "backgroundColor": "#FF0000" });
     let result = execute_tool(&state, board_id, "changeColor", &input, &mut mutations)
         .await
         .unwrap();
-    assert!(result.contains("changed color"));
+    assert!(result.contains("changed style"));
     if let AiMutation::Updated(obj) = &mutations[0] {
-        assert_eq!(obj.props.get("color").and_then(|v| v.as_str()), Some("#FF0000"));
+        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#FF0000"));
+        assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#FF0000"));
         assert_eq!(obj.version, 3);
+    } else {
+        panic!("expected Updated mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_change_color_accepts_explicit_style_fields() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "objectId": obj_id.to_string(),
+        "backgroundColor": "#00FF00",
+        "borderColor": "#0000FF",
+        "borderWidth": 3
+    });
+    let result = execute_tool(&state, board_id, "changeColor", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("changed style"));
+    if let AiMutation::Updated(obj) = &mutations[0] {
+        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#00FF00"));
+        assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#00FF00"));
+        assert_eq!(obj.props.get("borderColor").and_then(|v| v.as_str()), Some("#0000FF"));
+        assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#0000FF"));
+        assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(3.0));
+        assert_eq!(obj.props.get("stroke_width").and_then(|v| v.as_f64()), Some(3.0));
     } else {
         panic!("expected Updated mutation");
     }
@@ -675,4 +722,56 @@ async fn handle_prompt_tool_context_keeps_only_latest_round() {
     assert_eq!(result.mutations.len(), 2);
     assert_eq!(result.text.as_deref(), Some("done"));
     assert_eq!(*capture.message_counts.lock().unwrap(), vec![1, 3, 3]);
+}
+
+#[tokio::test]
+async fn handle_prompt_reuses_session_history_within_same_client_session() {
+    use std::sync::Mutex as StdMutex;
+
+    struct CaptureSessionHistoryLlm {
+        captured: StdMutex<Vec<Vec<Message>>>,
+        calls: StdMutex<usize>,
+    }
+
+    #[async_trait::async_trait]
+    impl LlmChat for CaptureSessionHistoryLlm {
+        async fn chat(
+            &self,
+            _max_tokens: u32,
+            _system: &str,
+            messages: &[Message],
+            _tools: Option<&[Tool]>,
+        ) -> Result<ChatResponse, LlmError> {
+            self.captured.lock().unwrap().push(messages.to_vec());
+            let mut calls = self.calls.lock().unwrap();
+            let text = if *calls == 0 { "first reply" } else { "second reply" };
+            *calls += 1;
+            Ok(ChatResponse {
+                content: vec![ContentBlock::Text { text: text.into() }],
+                model: "mock".into(),
+                stop_reason: "end_turn".into(),
+                input_tokens: 5,
+                output_tokens: 3,
+            })
+        }
+    }
+
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let client_id = Uuid::new_v4();
+    let user_id = Uuid::new_v4();
+    let capture = Arc::new(CaptureSessionHistoryLlm { captured: StdMutex::new(Vec::new()), calls: StdMutex::new(0) });
+    let llm: Arc<dyn LlmChat> = capture.clone();
+
+    let _ = handle_prompt(&state, &llm, board_id, client_id, user_id, "first prompt", None)
+        .await
+        .unwrap();
+    let _ = handle_prompt(&state, &llm, board_id, client_id, user_id, "second prompt", None)
+        .await
+        .unwrap();
+
+    let captured = capture.captured.lock().unwrap();
+    assert_eq!(captured.len(), 2);
+    assert_eq!(captured[0].len(), 1);
+    assert_eq!(captured[1].len(), 3);
 }
