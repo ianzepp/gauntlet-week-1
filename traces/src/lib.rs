@@ -383,36 +383,9 @@ pub fn tree_depth(frame_id: &str, by_id: &HashMap<String, Frame>) -> usize {
 
 #[must_use]
 pub fn sub_label(frame: &Frame) -> Option<String> {
-    if let Some(label) = trace_field(frame, "label").and_then(serde_json::Value::as_str) {
-        return Some(label.to_owned());
-    }
-    match frame.syscall.as_str() {
-        "ai:llm_request" => trace_field(frame, "model")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned),
-        "ai:tool_call" => trace_field(frame, "tool")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned),
-        _ if frame.syscall.starts_with("tool:") => frame
-            .data
-            .get("tool")
-            .or_else(|| trace_field(frame, "tool"))
-            .or_else(|| frame.data.get("name"))
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned)
-            .or_else(|| frame.syscall.split_once(':').map(|(_, op)| op.to_owned())),
-        "object:create" | "object:update" | "object:delete" => frame
-            .data
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned),
-        "chat:message" => frame
-            .data
-            .get("from")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned),
-        _ => None,
-    }
+    trace_field(frame, "label")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
 }
 
 fn trace_field<'a>(frame: &'a Frame, key: &str) -> Option<&'a serde_json::Value> {
@@ -421,7 +394,6 @@ fn trace_field<'a>(frame: &'a Frame, key: &str) -> Option<&'a serde_json::Value>
         .get("trace")
         .and_then(serde_json::Value::as_object)
         .and_then(|trace| trace.get(key))
-        .or_else(|| frame.data.get(key))
 }
 
 fn count_open_requests(frames: &[Frame]) -> usize {

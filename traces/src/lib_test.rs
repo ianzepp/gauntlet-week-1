@@ -310,39 +310,14 @@ fn tree_depth_breaks_on_cycle() {
 }
 
 #[test]
-fn sub_labels_extract_known_fields() {
-    let mut tool = frame("1", None, 1, "ai:tool_call", Status::Done);
-    tool.data = json!({"tool": "fetch_weather"});
-    assert_eq!(sub_label(&tool).as_deref(), Some("fetch_weather"));
-
-    let mut msg = frame("2", None, 2, "chat:message", Status::Item);
-    msg.data = json!({"from": "IANZEPP"});
-    assert_eq!(sub_label(&msg).as_deref(), Some("IANZEPP"));
-}
-
-#[test]
-fn sub_label_prefers_trace_label_when_present() {
+fn sub_label_reads_trace_label_only() {
     let mut tool = frame("1", None, 1, "tool:applyChangesYaml", Status::Done);
-    tool.data = json!({
-        "trace": { "label": "yaml_apply" },
-        "name": "applyChangesYaml"
-    });
+    tool.data = json!({ "trace": { "label": "yaml_apply" } });
     assert_eq!(sub_label(&tool).as_deref(), Some("yaml_apply"));
-}
 
-#[test]
-fn sub_labels_for_object_and_llm_variants() {
-    let mut obj = frame("3", None, 3, "object:update", Status::Done);
-    obj.data = json!({"id": "rect:b3e1"});
-    assert_eq!(sub_label(&obj).as_deref(), Some("rect:b3e1"));
-
-    let mut llm = frame("4", None, 4, "ai:llm_request", Status::Done);
-    llm.data = json!({"model": "claude-sonnet"});
-    assert_eq!(sub_label(&llm).as_deref(), Some("claude-sonnet"));
-
-    let mut tool = frame("5", None, 5, "tool:applyChangesYaml", Status::Done);
-    tool.data = json!({"name": "applyChangesYaml"});
-    assert_eq!(sub_label(&tool).as_deref(), Some("applyChangesYaml"));
+    let mut legacy = frame("2", None, 2, "ai:llm_request", Status::Done);
+    legacy.data = json!({"model": "legacy-without-trace"});
+    assert_eq!(sub_label(&legacy), None);
 }
 
 #[test]
@@ -357,9 +332,9 @@ fn sub_label_missing_or_unknown_payload_returns_none() {
 #[test]
 fn trace_session_aggregate_methods_sum_ai_done_values_only() {
     let mut done_ai = frame("1", None, 1, "ai:prompt", Status::Done);
-    done_ai.data = json!({"tokens": 10_u64, "cost_usd": 0.001_f64});
+    done_ai.data = json!({"trace": {"tokens": 10_u64, "cost_usd": 0.001_f64}});
     let mut item_ai = frame("2", None, 2, "ai:prompt", Status::Item);
-    item_ai.data = json!({"tokens": 100_u64, "cost_usd": 1.0_f64});
+    item_ai.data = json!({"trace": {"tokens": 100_u64, "cost_usd": 1.0_f64}});
     let err = frame("3", None, 3, "ai:prompt", Status::Error);
 
     let session = TraceSession {

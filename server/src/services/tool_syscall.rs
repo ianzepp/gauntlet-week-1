@@ -37,7 +37,6 @@ pub(crate) async fn dispatch_tool_frame(
     if let Some(tool_use_id) = req.data.get("tool_use_id") {
         done_data.insert("tool_use_id".into(), tool_use_id.clone());
     }
-    done_data.insert("name".into(), json!(tool_name));
     done_data.insert("content".into(), json!(content));
     done_data.insert("mutations".into(), json!(mutations.len()));
 
