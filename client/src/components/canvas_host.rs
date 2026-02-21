@@ -58,7 +58,7 @@ use crate::util::selection_metrics::{
     representative_text_color_hex,
 };
 #[cfg(feature = "hydrate")]
-use crate::util::shape_palette::{materialize_shape_props, placement_preview, placement_shape};
+use crate::util::shape_palette::{materialize_shape_props, placement_shape};
 
 #[cfg(feature = "hydrate")]
 use std::cell::RefCell;
@@ -1683,26 +1683,14 @@ pub fn CanvasHost() -> impl IntoView {
     let preview_ghost = move || {
         #[cfg(feature = "hydrate")]
         {
-            let Some((width, height, color)) = placement_preview(_ui.get().active_tool) else {
+            if placement_shape(_ui.get().active_tool).is_none() {
                 return None::<(String, String)>;
-            };
+            }
             let point = preview_cursor
                 .get()
-                .unwrap_or_else(|| CanvasPoint::new(40.0 + (width * 0.5), 40.0 + (height * 0.5)));
-            let style = format!(
-                "left: {:.2}px; top: {:.2}px; width: {:.2}px; height: {:.2}px; background: {};",
-                point.x - (width * 0.5),
-                point.y - (height * 0.5),
-                width,
-                height,
-                color
-            );
-            let class_name = if _ui.get().active_tool == ToolType::Sticky {
-                "canvas-placement-ghost canvas-placement-ghost--sticky".to_owned()
-            } else {
-                "canvas-placement-ghost".to_owned()
-            };
-            Some((class_name, style))
+                .unwrap_or_else(|| CanvasPoint::new(40.0, 40.0));
+            let style = format!("left: {:.2}px; top: {:.2}px;", point.x, point.y);
+            Some(("canvas-placement-ghost".to_owned(), style))
         }
         #[cfg(not(feature = "hydrate"))]
         {
