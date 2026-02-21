@@ -11,9 +11,33 @@
 
 #![allow(clippy::unused_async)]
 
+#[cfg(test)]
+#[path = "api_test.rs"]
+mod api_test;
+
 use super::types::{User, UserProfile};
 #[cfg(feature = "hydrate")]
 use serde::Deserialize;
+
+#[cfg(any(test, feature = "hydrate"))]
+fn user_profile_endpoint(user_id: &str) -> String {
+    format!("/api/users/{user_id}/profile")
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn ticket_request_failed_message(status: u16) -> String {
+    format!("ticket request failed: {status}")
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn request_code_failed_message(status: u16) -> String {
+    format!("request code failed: {status}")
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn verify_code_failed_message(status: u16) -> String {
+    format!("verify code failed: {status}")
+}
 
 /// Fetch the currently authenticated user from `/api/auth/me`.
 /// Returns `None` if not authenticated or on the server.
@@ -49,7 +73,7 @@ pub async fn logout() {
 pub async fn fetch_user_profile(user_id: &str) -> Option<UserProfile> {
     #[cfg(feature = "hydrate")]
     {
-        let url = format!("/api/users/{user_id}/profile");
+        let url = user_profile_endpoint(user_id);
         let resp = gloo_net::http::Request::get(&url).send().await.ok()?;
         if !resp.ok() {
             return None;
@@ -76,7 +100,7 @@ pub async fn create_ws_ticket() -> Result<String, String> {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("ticket request failed: {}", resp.status()));
+            return Err(ticket_request_failed_message(resp.status()));
         }
         #[derive(serde::Deserialize)]
         struct TicketResponse {
@@ -112,7 +136,7 @@ pub async fn request_email_login_code(email: &str) -> Result<Option<String>, Str
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("request code failed: {}", resp.status()));
+            return Err(request_code_failed_message(resp.status()));
         }
         let body: RequestEmailCodeResponse = resp.json().await.map_err(|e| e.to_string())?;
         if !body.ok {
@@ -145,7 +169,7 @@ pub async fn verify_email_login_code(email: &str, code: &str) -> Result<(), Stri
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("verify code failed: {}", resp.status()));
+            return Err(verify_code_failed_message(resp.status()));
         }
         let body: VerifyEmailCodeResponse = resp.json().await.map_err(|e| e.to_string())?;
         if !body.ok {

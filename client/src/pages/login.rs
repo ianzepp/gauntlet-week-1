@@ -1,6 +1,31 @@
 //! Login page supporting GitHub OAuth and email + access-code auth.
 
+#[cfg(test)]
+#[path = "login_test.rs"]
+mod login_test;
+
 use leptos::prelude::*;
+
+fn normalize_code_input(raw: &str) -> String {
+    raw.to_ascii_uppercase()
+}
+
+fn validate_request_code_input(email: &str) -> Result<String, &'static str> {
+    let email = email.trim().to_owned();
+    if email.is_empty() {
+        return Err("Enter an email first.");
+    }
+    Ok(email)
+}
+
+fn validate_verify_code_input(email: &str, code: &str) -> Result<(String, String), &'static str> {
+    let email = email.trim().to_owned();
+    let code = code.trim().to_owned();
+    if email.is_empty() || code.is_empty() {
+        return Err("Enter both email and 6-char code.");
+    }
+    Ok((email, code))
+}
 
 #[component]
 pub fn LoginPage() -> impl IntoView {
@@ -15,18 +40,20 @@ pub fn LoginPage() -> impl IntoView {
         if busy.get() {
             return;
         }
-        let email_value = email.get().trim().to_owned();
-        if email_value.is_empty() {
-            info.set("Enter an email first.".to_owned());
-            return;
-        }
+        let _email_value = match validate_request_code_input(&email.get()) {
+            Ok(email) => email,
+            Err(msg) => {
+                info.set(msg.to_owned());
+                return;
+            }
+        };
         busy.set(true);
         info.set("Requesting code...".to_owned());
         echoed_code.set(None);
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match crate::net::api::request_email_login_code(&email_value).await {
+            match crate::net::api::request_email_login_code(&_email_value).await {
                 Ok(code_opt) => {
                     echoed_code.set(code_opt);
                     info.set("Code generated. Check your email or use the echoed code below.".to_owned());
@@ -42,18 +69,19 @@ pub fn LoginPage() -> impl IntoView {
         if busy.get() {
             return;
         }
-        let email_value = email.get().trim().to_owned();
-        let code_value = code.get().trim().to_owned();
-        if email_value.is_empty() || code_value.is_empty() {
-            info.set("Enter both email and 6-char code.".to_owned());
-            return;
-        }
+        let (_email_value, _code_value) = match validate_verify_code_input(&email.get(), &code.get()) {
+            Ok(inputs) => inputs,
+            Err(msg) => {
+                info.set(msg.to_owned());
+                return;
+            }
+        };
         busy.set(true);
         info.set("Verifying code...".to_owned());
 
         #[cfg(feature = "hydrate")]
         leptos::task::spawn_local(async move {
-            match crate::net::api::verify_email_login_code(&email_value, &code_value).await {
+            match crate::net::api::verify_email_login_code(&_email_value, &_code_value).await {
                 Ok(()) => {
                     if let Some(window) = web_sys::window() {
                         let _ = window.location().set_href("/");
@@ -91,7 +119,7 @@ pub fn LoginPage() -> impl IntoView {
                         maxlength="6"
                         placeholder="ABC123"
                         prop:value=move || code.get()
-                        on:input=move |ev| code.set(event_target_value(&ev).to_ascii_uppercase())
+                        on:input=move |ev| code.set(normalize_code_input(&event_target_value(&ev)))
                     />
                     <button class="login-button" type="submit" disabled=move || busy.get()>
                         "Sign In With Code"

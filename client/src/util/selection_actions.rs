@@ -1,5 +1,9 @@
 //! Selection drag/apply/commit helpers used by canvas host.
 
+#[cfg(test)]
+#[path = "selection_actions_test.rs"]
+mod selection_actions_test;
+
 use leptos::prelude::*;
 
 use crate::app::FrameSender;
@@ -18,6 +22,56 @@ use crate::util::object_props::{
 };
 #[cfg(feature = "hydrate")]
 use crate::util::selection_metrics::representative_rotation_deg;
+
+#[cfg(any(test, feature = "hydrate"))]
+fn selection_scale_multiplier(target_scale: f64, start_group_scale: f64) -> f64 {
+    let target_scale = target_scale.clamp(0.1, 10.0);
+    if start_group_scale.abs() < f64::EPSILON {
+        1.0
+    } else {
+        target_scale / start_group_scale
+    }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn selection_geometry_changed(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    start_x: f64,
+    start_y: f64,
+    start_width: f64,
+    start_height: f64,
+) -> bool {
+    (x - start_x).abs() > 0.01
+        || (y - start_y).abs() > 0.01
+        || (width - start_width).abs() > 0.01
+        || (height - start_height).abs() > 0.01
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn selection_color_changed(fill: &str, base_fill: &str, shift: f64, start_fill: &str, start_base_fill: &str, start_shift: f64) -> bool {
+    fill != start_fill || base_fill != start_base_fill || (shift - start_shift).abs() > 0.001
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn selection_border_changed(color: &str, width: f64, start_color: &str, start_width: f64) -> bool {
+    color != start_color || (width - start_width).abs() > 0.001
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn selection_text_style_changed(color: &str, size: f64, start_color: &str, start_size: f64) -> bool {
+    color != start_color || (size - start_size).abs() > 0.001
+}
+
+#[cfg(any(test, feature = "hydrate"))]
+fn representative_scale_from_values(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        return 1.0;
+    }
+    values.iter().sum::<f64>() / values.len() as f64
+}
 
 #[cfg(feature = "hydrate")]
 #[derive(Clone)]
@@ -170,12 +224,7 @@ pub fn apply_selection_scale_drag(
     let Some(drag_state) = drag_state_signal.get_untracked() else {
         return;
     };
-    let target_scale = target_scale.clamp(0.1, 10.0);
-    let multiplier = if drag_state.start_group_scale.abs() < f64::EPSILON {
-        1.0
-    } else {
-        target_scale / drag_state.start_group_scale
-    };
+    let multiplier = selection_scale_multiplier(target_scale, drag_state.start_group_scale);
     board.update(|b| {
         for seed in &drag_state.start_items {
             let Some(obj) = b.objects.get_mut(&seed.id) else {
@@ -211,10 +260,16 @@ pub fn commit_selection_scale_updates(
         let Some(obj) = state.objects.get(&seed.id) else {
             continue;
         };
-        let changed = (obj.x - seed.x).abs() > 0.01
-            || (obj.y - seed.y).abs() > 0.01
-            || (obj.width.unwrap_or(seed.width) - seed.width).abs() > 0.01
-            || (obj.height.unwrap_or(seed.height) - seed.height).abs() > 0.01;
+        let changed = selection_geometry_changed(
+            obj.x,
+            obj.y,
+            obj.width.unwrap_or(seed.width),
+            obj.height.unwrap_or(seed.height),
+            seed.x,
+            seed.y,
+            seed.width,
+            seed.height,
+        );
         if !changed {
             continue;
         }
@@ -348,9 +403,14 @@ pub fn commit_selection_color_updates(
         let fill = object_fill_hex(obj);
         let base_fill = object_base_fill_hex(obj);
         let shift = object_lightness_shift(obj);
-        let changed = fill != seed.start_fill
-            || base_fill != seed.start_base_fill
-            || (shift - seed.start_lightness_shift).abs() > 0.001;
+        let changed = selection_color_changed(
+            &fill,
+            &base_fill,
+            shift,
+            &seed.start_fill,
+            &seed.start_base_fill,
+            seed.start_lightness_shift,
+        );
         if !changed {
             continue;
         }
@@ -489,7 +549,7 @@ pub fn commit_selection_border_updates(
         };
         let color = object_border_color_hex(obj);
         let width = object_border_width(obj);
-        let changed = color != seed.start_border_color || (width - seed.start_border_width).abs() > 0.001;
+        let changed = selection_border_changed(&color, width, &seed.start_border_color, seed.start_border_width);
         if !changed {
             continue;
         }
@@ -633,7 +693,7 @@ pub fn commit_selection_text_style_updates(
         };
         let color = object_text_color_hex(obj);
         let size = object_font_size(obj);
-        let changed = color != seed.start_text_color || (size - seed.start_font_size).abs() > 0.001;
+        let changed = selection_text_style_changed(&color, size, &seed.start_text_color, seed.start_font_size);
         if !changed {
             continue;
         }
@@ -717,10 +777,7 @@ pub fn apply_group_text_style_defaults_target(_board: RwSignal<BoardState>, _sen
 
 #[cfg(feature = "hydrate")]
 fn selection_representative_scale_from_items(items: &[SelectionScaleSeed]) -> f64 {
-    if items.is_empty() {
-        return 1.0;
-    }
-    items.iter().map(|s| s.start_scale).sum::<f64>() / items.len() as f64
+    representative_scale_from_values(&items.iter().map(|s| s.start_scale).collect::<Vec<_>>())
 }
 
 #[cfg(feature = "hydrate")]

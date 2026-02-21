@@ -1,19 +1,18 @@
 //! Object and presence frame handlers extracted from `frame_client`.
 
+#[cfg(test)]
+#[path = "frame_client_objects_test.rs"]
+mod frame_client_objects_test;
+
 #[cfg(any(test, feature = "hydrate"))]
 use crate::net::types::Frame;
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::board::BoardState;
 
-#[cfg(feature = "hydrate")]
-pub(super) fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) -> bool {
-    use leptos::prelude::Update;
-
-    board.update(|b| {
-        apply_object_frame(frame, b);
-    });
+#[cfg(any(test, feature = "hydrate"))]
+pub(super) fn is_object_related_syscall(syscall: &str) -> bool {
     matches!(
-        frame.syscall.as_str(),
+        syscall,
         "object:create"
             | "object:update"
             | "object:delete"
@@ -22,6 +21,16 @@ pub(super) fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSigna
             | "cursor:moved"
             | "cursor:clear"
     )
+}
+
+#[cfg(feature = "hydrate")]
+pub(super) fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) -> bool {
+    use leptos::prelude::Update;
+
+    board.update(|b| {
+        apply_object_frame(frame, b);
+    });
+    is_object_related_syscall(&frame.syscall)
 }
 
 #[cfg(any(test, feature = "hydrate"))]
