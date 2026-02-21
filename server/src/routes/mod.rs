@@ -53,6 +53,11 @@ fn api_routes(state: AppState) -> Router {
 }
 
 /// Leptos SSR frontend: API routes + Leptos SSR routes.
+///
+/// # Panics
+///
+/// Panics if the Leptos configuration cannot be loaded (missing or
+/// malformed `Cargo.toml` [package.metadata.leptos] section).
 pub fn leptos_app(state: AppState) -> Router {
     let conf = get_configuration(None).expect("leptos configuration");
     let leptos_options = conf.leptos_options;

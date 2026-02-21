@@ -92,9 +92,9 @@ fn color_accessors_handle_fallbacks() {
 
 #[test]
 fn apply_lightness_shift_lightens_and_darkens() {
-    assert_eq!(apply_lightness_shift_to_hex("#000000", 1.0), "#FFFFFF");
+    assert_eq!(apply_lightness_shift_to_hex("#000000", 1.0), "#ffffff");
     assert_eq!(apply_lightness_shift_to_hex("#808080", -0.5), "#404040");
-    assert_eq!(apply_lightness_shift_to_hex("invalid", 0.0), "#D94B4B");
+    assert_eq!(apply_lightness_shift_to_hex("invalid", 0.0), "#d94b4b");
 }
 
 #[test]

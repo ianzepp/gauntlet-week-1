@@ -19,6 +19,10 @@
 - After completing any feature or scope of work, always run in order: `cargo fmt`, `cargo clippy`, `cargo test`, then auto-commit the changes.
 - Do not ask for permission to commit — just do it after passing all checks.
 
+## Worktrees
+
+- All git worktrees (yours or agents') must be created under `.worktrees/` at the project root, not `.claude/worktrees/`.
+
 ## Code Conventions
 
 - Workspace layout: root `Cargo.toml` with members `server` and `canvas`.

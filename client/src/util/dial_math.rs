@@ -19,14 +19,15 @@ pub fn normalize_degrees_360(deg: f64) -> f64 {
 }
 
 pub fn signed_angle_delta_deg(current: f64, start: f64) -> f64 {
-    let mut delta = current - start;
-    while delta > 180.0 {
-        delta -= 360.0;
+    let delta = current - start;
+    if !delta.is_finite() {
+        return 0.0;
     }
-    while delta < -180.0 {
-        delta += 360.0;
+    let mut wrapped = delta.rem_euclid(360.0);
+    if wrapped > 180.0 {
+        wrapped -= 360.0;
     }
-    delta
+    wrapped
 }
 
 pub fn angular_delta_deg(a: f64, b: f64) -> f64 {

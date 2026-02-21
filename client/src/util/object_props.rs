@@ -115,7 +115,7 @@ pub fn apply_lightness_shift_to_hex(base_hex: &str, shift: f64) -> String {
         };
         adjusted.round().clamp(0.0, 255.0) as u8
     };
-    format!("#{:02X}{:02X}{:02X}", scale(r), scale(g), scale(b))
+    format!("#{:02x}{:02x}{:02x}", scale(r), scale(g), scale(b))
 }
 
 pub fn upsert_object_border_props(obj: &mut BoardObject, border_color: &str, border_width: f64) {

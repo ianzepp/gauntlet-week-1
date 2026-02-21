@@ -11,6 +11,9 @@ pub fn parse_hex_rgb(raw: &str) -> Option<(u8, u8, u8)> {
         return None;
     }
     let hex = &trimmed[1..];
+    if !hex.is_ascii() {
+        return None;
+    }
     match hex.len() {
         3 => {
             let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;

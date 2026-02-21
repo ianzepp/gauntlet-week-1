@@ -482,8 +482,11 @@ async fn append_session_messages(state: &AppState, session_key: (Uuid, Uuid), us
     entry.push(user);
     entry.push(Message { role: "assistant".into(), content: Content::Text(assistant_text) });
     if entry.len() > MAX_SESSION_CONVERSATION_MESSAGES {
+        // Round up to even so we never split a user/assistant pair —
+        // the Anthropic API requires messages to start with a user role.
         let extra = entry.len() - MAX_SESSION_CONVERSATION_MESSAGES;
-        entry.drain(0..extra);
+        let extra = extra + (extra % 2);
+        entry.drain(0..extra.min(entry.len()));
     }
 }
 
