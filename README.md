@@ -215,6 +215,32 @@ All tests are `#[ignore]` — run them with `cargo test -p perf -- --ignored --n
 
 ---
 
+### `cli` — API + WS Automation
+
+A command-line client for scripting against CollabBoard over HTTP and websocket frames.
+
+- REST subcommands target:
+- `GET /api/board`
+- `GET /api/board/:id`
+- `GET /api/board/:id/objects`
+- `POST /api/board/:id/objects`
+- `GET /api/board/:id/objects/:object_id`
+- `PATCH /api/board/:id/objects/:object_id`
+- `DELETE /api/board/:id/objects/:object_id`
+- Websocket subcommand `ws stream-create` joins a board and mass-streams `object:create` frames.
+
+Run examples:
+
+```bash
+cargo run -p cli -- api board list --session-token "$SESSION"
+cargo run -p cli -- api object create <board-id> --data '{"kind":"sticky_note","x":0,"y":0,"width":160,"height":100,"rotation":0,"props":{"text":"hello"}}' --session-token "$SESSION"
+cargo run -p cli -- ws stream-create --board-id <board-id> --count 1000 --wait-for-ack false --session-token "$SESSION"
+```
+
+The CLI also reads `COLLAB_BASE_URL`, `COLLAB_SESSION_TOKEN`, and `COLLAB_WS_TICKET`.
+
+---
+
 ## Quick Start
 
 ```bash

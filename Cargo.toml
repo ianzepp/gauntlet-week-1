@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["server", "canvas", "client", "frames", "perf", "traces"]
+members = ["server", "canvas", "client", "frames", "perf", "traces", "cli"]
 
 [profile.dev]
 debug = 0
