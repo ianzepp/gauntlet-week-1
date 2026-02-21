@@ -1213,12 +1213,13 @@ a:hover {
 .canvas-compass__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: var(--accent-error);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
@@ -1227,12 +1228,13 @@ a:hover {
 .canvas-object-rotate__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: var(--accent-highlight);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
@@ -1241,12 +1243,13 @@ a:hover {
 .canvas-object-zoom__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: var(--accent-green);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
@@ -1255,12 +1258,13 @@ a:hover {
 .canvas-object-color__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: color-mix(in oklab, var(--accent-highlight) 60%, var(--accent-green));
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
@@ -1269,12 +1273,13 @@ a:hover {
 .canvas-object-border__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: var(--accent-error);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
@@ -1283,12 +1288,13 @@ a:hover {
 .canvas-object-text-style__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: var(--accent-green);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
@@ -1470,12 +1476,13 @@ a:hover {
 .canvas-zoom-wheel__knob {
     position: absolute;
     left: 50%;
-    top: -12px;
+    top: -7px;
     width: 14px;
     height: 14px;
     transform: translateX(-50%);
     background: var(--accent-green);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--bg-primary) 72%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
     cursor: grab;
