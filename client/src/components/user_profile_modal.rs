@@ -34,10 +34,9 @@ pub fn UserProfileModal(auth: RwSignal<AuthState>, on_close: Callback<()>) -> im
         {
             if let Some(t) = token.get_untracked() {
                 if let Some(window) = web_sys::window() {
-                    if let Some(clipboard) = window.navigator().clipboard() {
-                        let _ = clipboard.write_text(&t);
-                        copied.set(true);
-                    }
+                    let clipboard = window.navigator().clipboard();
+                    let _ = clipboard.write_text(&t);
+                    copied.set(true);
                 }
             }
         }
