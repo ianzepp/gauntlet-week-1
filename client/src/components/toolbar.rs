@@ -300,13 +300,17 @@ pub fn Toolbar() -> impl IntoView {
 
             <span class="toolbar__spacer"></span>
 
-            <button class="toolbar__self toolbar__self--clickable" on:click=move |_| show_profile.set(true) title="View profile">
+            <span class="toolbar__self">
                 {move || self_identity().0}
-                " ("
-                <span class="toolbar__self-method">{move || self_identity().1}</span>
-                ")"
+            </span>
+            <span class="toolbar__self-method">
+                {"("}
+                {move || self_identity().1}
+                {")"}
+            </span>
+            <button class="toolbar__info-btn" on:click=move |_| show_profile.set(true) title="View profile">
+                {"\u{2139}"}
             </button>
-
             <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                 "Logout"
             </button>

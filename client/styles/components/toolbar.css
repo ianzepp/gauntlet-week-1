@@ -146,7 +146,33 @@
 }
 
 .toolbar__self-method {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: color-mix(in oklab, var(--text-secondary) 72%, transparent);
+}
+
+.toolbar__info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--border-default);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.toolbar__info-btn:hover {
+    color: var(--text-nav-active);
+    border-color: var(--text-nav-active);
 }
 
 .toolbar__logout {
@@ -164,16 +190,6 @@
 
 .toolbar__segment-label {
     display: inline;
-}
-
-.toolbar__self--clickable {
-    cursor: pointer;
-    border: none;
-    background: transparent;
-}
-
-.toolbar__self--clickable:hover {
-    color: var(--text-nav-active);
 }
 
 .toolbar__dark-toggle:hover,
