@@ -309,7 +309,11 @@ pub fn Toolbar() -> impl IntoView {
                 {")"}
             </span>
             <button class="toolbar__info-btn" on:click=move |_| show_profile.set(true) title="View profile">
-                {"\u{2139}"}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5" />
+                    <line x1="7" y1="6" x2="7" y2="10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                    <circle cx="7" cy="4" r="0.9" fill="currentColor" />
+                </svg>
             </button>
             <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                 "Logout"

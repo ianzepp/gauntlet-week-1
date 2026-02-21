@@ -158,21 +158,19 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: 1px solid var(--border-default);
     background: transparent;
     color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1;
     cursor: pointer;
-    border-radius: 50%;
 }
 
 .toolbar__info-btn:hover {
     color: var(--text-nav-active);
     border-color: var(--text-nav-active);
+    background: color-mix(in oklab, var(--accent-highlight) 8%, transparent);
 }
 
 .toolbar__logout {
