@@ -2118,17 +2118,6 @@ fn sync_selection_from_engine(engine: &Engine, board: RwSignal<BoardState>) {
 }
 
 #[cfg(feature = "hydrate")]
-fn active_transform_object_id(engine: &Engine) -> Option<String> {
-    match engine.core.input.clone() {
-        CanvasInputState::DraggingObject { ids, .. } => ids.first().map(uuid::Uuid::to_string),
-        CanvasInputState::ResizingObject { id, .. }
-        | CanvasInputState::RotatingObject { id, .. }
-        | CanvasInputState::DraggingEdgeEndpoint { id, .. } => Some(id.to_string()),
-        _ => None,
-    }
-}
-
-#[cfg(feature = "hydrate")]
 fn active_transform_object_ids(engine: &Engine) -> Vec<String> {
     match engine.core.input.clone() {
         CanvasInputState::DraggingObject { ids, .. } => ids.into_iter().map(|id| id.to_string()).collect(),
