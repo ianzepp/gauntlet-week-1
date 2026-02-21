@@ -11,21 +11,9 @@ use leptos::prelude::*;
 use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::canvas_view::CanvasViewState;
-#[cfg(feature = "hydrate")]
-use crate::state::ui::UiState;
 
 #[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
-
-#[cfg(feature = "hydrate")]
-#[derive(Clone)]
-struct MinimapDragState {
-    pointer_id: i32,
-    objects: Vec<crate::net::types::BoardObject>,
-    view: CanvasViewState,
-    start_client_x: f64,
-    start_client_y: f64,
-}
 
 /// Board minimap overlay.
 #[component]
@@ -34,14 +22,7 @@ pub fn BoardStamp() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     #[cfg(feature = "hydrate")]
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
-    #[cfg(feature = "hydrate")]
-    let ui = expect_context::<RwSignal<UiState>>();
     let minimap_ref = NodeRef::<leptos::html::Canvas>::new();
-    let dragging = RwSignal::new(false);
-    #[cfg(feature = "hydrate")]
-    let did_drag = RwSignal::new(false);
-    #[cfg(feature = "hydrate")]
-    let drag_state = RwSignal::new(None::<MinimapDragState>);
 
     #[cfg(feature = "hydrate")]
     {
@@ -56,126 +37,11 @@ pub fn BoardStamp() -> impl IntoView {
         });
     }
 
-    let on_minimap_pointer_down = {
-        #[cfg(feature = "hydrate")]
-        {
-            let minimap_ref = minimap_ref.clone();
-            move |ev: leptos::ev::PointerEvent| {
-                ev.prevent_default();
-                ev.stop_propagation();
-                let Some(canvas) = minimap_ref.get() else {
-                    return;
-                };
-                let objects = board
-                    .get_untracked()
-                    .objects
-                    .values()
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let view = canvas_view.get_untracked();
-                drag_state.set(Some(MinimapDragState {
-                    pointer_id: ev.pointer_id(),
-                    objects,
-                    view,
-                    start_client_x: f64::from(ev.client_x()),
-                    start_client_y: f64::from(ev.client_y()),
-                }));
-                did_drag.set(false);
-                dragging.set(true);
-                let _ = canvas.set_pointer_capture(ev.pointer_id());
-            }
-        }
-        #[cfg(not(feature = "hydrate"))]
-        {
-            move |_ev: leptos::ev::PointerEvent| {}
-        }
-    };
-
-    let on_minimap_pointer_move = {
-        #[cfg(feature = "hydrate")]
-        {
-            let minimap_ref = minimap_ref.clone();
-            move |ev: leptos::ev::PointerEvent| {
-                if !dragging.get_untracked() {
-                    return;
-                }
-                ev.prevent_default();
-                ev.stop_propagation();
-                let Some(state) = drag_state.get_untracked() else {
-                    return;
-                };
-                if ev.pointer_id() != state.pointer_id {
-                    return;
-                }
-                let dx = f64::from(ev.client_x()) - state.start_client_x;
-                let dy = f64::from(ev.client_y()) - state.start_client_y;
-                if !did_drag.get_untracked() && ((dx * dx) + (dy * dy)).sqrt() < 2.0 {
-                    return;
-                }
-                did_drag.set(true);
-                let Some(canvas) = minimap_ref.get() else {
-                    return;
-                };
-                let Some((center_x, center_y)) =
-                    minimap_pointer_to_world_center(&canvas, &state.objects, &state.view, &ev)
-                else {
-                    return;
-                };
-                ui.update(|u| {
-                    u.view_center_override = Some((center_x, center_y));
-                    u.view_center_override_seq = u.view_center_override_seq.saturating_add(1);
-                });
-            }
-        }
-        #[cfg(not(feature = "hydrate"))]
-        {
-            move |_ev: leptos::ev::PointerEvent| {}
-        }
-    };
-
-    let on_minimap_pointer_up = {
-        #[cfg(feature = "hydrate")]
-        {
-            let minimap_ref = minimap_ref.clone();
-            move |ev: leptos::ev::PointerEvent| {
-                let state = drag_state.get_untracked();
-                if let Some(state) = state.as_ref()
-                    && ev.pointer_id() == state.pointer_id
-                    && !did_drag.get_untracked()
-                    && let Some(canvas) = minimap_ref.get()
-                    && let Some((center_x, center_y)) =
-                        minimap_pointer_to_world_center(&canvas, &state.objects, &state.view, &ev)
-                {
-                    ui.update(|u| {
-                        u.view_center_override = Some((center_x, center_y));
-                        u.view_center_override_seq = u.view_center_override_seq.saturating_add(1);
-                    });
-                }
-                if let Some(canvas) = minimap_ref.get() {
-                    let _ = canvas.release_pointer_capture(ev.pointer_id());
-                }
-                drag_state.set(None);
-                did_drag.set(false);
-                dragging.set(false);
-            }
-        }
-        #[cfg(not(feature = "hydrate"))]
-        {
-            move |_ev: leptos::ev::PointerEvent| {
-                dragging.set(false);
-            }
-        }
-    };
-
     view! {
         <canvas
             class="board-stamp__minimap"
             node_ref=minimap_ref
             aria-label="Board minimap"
-            on:pointerdown=on_minimap_pointer_down
-            on:pointermove=on_minimap_pointer_move
-            on:pointerup=on_minimap_pointer_up
-            on:pointercancel=on_minimap_pointer_up
         ></canvas>
     }
 }
@@ -285,27 +151,6 @@ fn minimap_transform(
     let offset_x = pad + ((inner_w - (world_w * scale)) * 0.5);
     let offset_y = pad + ((inner_h - (world_h * scale)) * 0.5);
     MinimapTransform { min_x, min_y, scale, offset_x, offset_y }
-}
-
-#[cfg(feature = "hydrate")]
-fn minimap_pointer_to_world_center(
-    canvas: &web_sys::HtmlCanvasElement,
-    objects: &[crate::net::types::BoardObject],
-    view: &CanvasViewState,
-    ev: &leptos::ev::PointerEvent,
-) -> Option<(f64, f64)> {
-    let width_css = f64::from(canvas.client_width().max(1));
-    let height_css = f64::from(canvas.client_height().max(1));
-    let transform = minimap_transform(objects, view, width_css, height_css);
-    let rect = canvas.get_bounding_client_rect();
-    let x_px = (f64::from(ev.client_x()) - rect.left()).clamp(0.0, width_css);
-    let y_px = (f64::from(ev.client_y()) - rect.top()).clamp(0.0, height_css);
-    let world_x = ((x_px - transform.offset_x) / transform.scale) + transform.min_x;
-    let world_y = ((y_px - transform.offset_y) / transform.scale) + transform.min_y;
-    if !world_x.is_finite() || !world_y.is_finite() {
-        return None;
-    }
-    Some((world_x, world_y))
 }
 
 #[cfg(feature = "hydrate")]

@@ -2990,9 +2990,8 @@ a:hover {
     top: var(--space-md);
     right: var(--canvas-overlay-right-offset);
     z-index: var(--z-canvas-ui);
-    pointer-events: auto;
+    pointer-events: none;
     opacity: 0.9;
-    cursor: crosshair;
     width: min(240px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
     height: 140px;
     display: block;
