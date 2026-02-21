@@ -28,3 +28,4 @@ pub mod trace_summary;
 pub mod trace_view;
 pub mod user_field_report;
 pub mod user_list_panel;
+pub mod user_profile_modal;

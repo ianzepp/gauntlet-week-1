@@ -158,6 +158,24 @@
     letter-spacing: 0.08em;
 }
 
+.toolbar__segment-icon {
+    display: none;
+}
+
+.toolbar__segment-label {
+    display: inline;
+}
+
+.toolbar__self--clickable {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+}
+
+.toolbar__self--clickable:hover {
+    color: var(--text-nav-active);
+}
+
 .toolbar__dark-toggle:hover,
 .toolbar__logout:hover {
     color: var(--text-nav-active);

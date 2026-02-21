@@ -59,6 +59,30 @@ pub async fn fetch_current_user() -> Option<User> {
     }
 }
 
+/// Fetch the session token from `GET /api/auth/session-token`.
+/// Returns `None` if not authenticated or on the server.
+pub async fn fetch_session_token() -> Option<String> {
+    #[cfg(feature = "hydrate")]
+    {
+        #[derive(serde::Deserialize)]
+        struct TokenResponse {
+            token: String,
+        }
+        let resp = gloo_net::http::Request::get("/api/auth/session-token")
+            .send()
+            .await
+            .ok()?;
+        if !resp.ok() {
+            return None;
+        }
+        resp.json::<TokenResponse>().await.ok().map(|r| r.token)
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        None
+    }
+}
+
 /// Log out the current user by calling `POST /api/auth/logout`.
 pub async fn logout() {
     #[cfg(feature = "hydrate")]

@@ -767,6 +767,65 @@ a:hover {
     user-select: all;
 }
 
+.dialog--profile {
+    width: min(400px, calc(100vw - 24px));
+}
+
+.dialog__profile-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+}
+
+.dialog__profile-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    min-width: 80px;
+}
+
+.dialog__profile-value {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.dialog__profile-value--mono {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.dialog__profile-token-box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-default);
+    padding: var(--space-sm);
+    overflow: hidden;
+}
+
+.dialog__profile-token-text {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-primary);
+    word-break: break-all;
+    user-select: all;
+}
+
+.dialog__profile-token-copy {
+    flex-shrink: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
 
 /* Board layout */
 .board-page {

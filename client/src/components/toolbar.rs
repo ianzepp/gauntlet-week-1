@@ -9,6 +9,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
 
 use crate::app::FrameSender;
+use crate::components::user_profile_modal::UserProfileModal;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
@@ -29,6 +30,7 @@ pub fn Toolbar() -> impl IntoView {
     let import_file_ref = NodeRef::<leptos::html::Input>::new();
 
     let show_share = RwSignal::new(false);
+    let show_profile = RwSignal::new(false);
 
     let board_name = move || {
         board
@@ -215,7 +217,8 @@ pub fn Toolbar() -> impl IntoView {
                         }
                         title="Light mode"
                     >
-                        "Light"
+                        <span class="toolbar__segment-icon">{"\u{2600}"}</span>
+                        <span class="toolbar__segment-label">{"Light"}</span>
                     </button>
                     <button
                         class="btn toolbar__segment-btn"
@@ -228,7 +231,8 @@ pub fn Toolbar() -> impl IntoView {
                         }
                         title="Dark mode"
                     >
-                        "Dark"
+                        <span class="toolbar__segment-icon">{"\u{263E}"}</span>
+                        <span class="toolbar__segment-label">{"Dark"}</span>
                     </button>
                 </div>
             </Show>
@@ -241,7 +245,8 @@ pub fn Toolbar() -> impl IntoView {
                         on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Canvas)
                         title="Board canvas view"
                     >
-                        "Board"
+                        <span class="toolbar__segment-icon">{"\u{25A6}"}</span>
+                        <span class="toolbar__segment-label">{"Board"}</span>
                     </button>
                     <button
                         class="btn toolbar__segment-btn"
@@ -249,7 +254,8 @@ pub fn Toolbar() -> impl IntoView {
                         on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Trace)
                         title="Trace view"
                     >
-                        "Traces"
+                        <span class="toolbar__segment-icon">{"\u{2261}"}</span>
+                        <span class="toolbar__segment-label">{"Traces"}</span>
                     </button>
                 </div>
             </Show>
@@ -261,7 +267,8 @@ pub fn Toolbar() -> impl IntoView {
                         on:click=move |_| set_visibility_public.run(true)
                         title="Visible to all users"
                     >
-                        "Public"
+                        <span class="toolbar__segment-icon">{"\u{1F513}"}</span>
+                        <span class="toolbar__segment-label">{"Public"}</span>
                     </button>
                     <button
                         class="btn toolbar__segment-btn"
@@ -269,7 +276,8 @@ pub fn Toolbar() -> impl IntoView {
                         on:click=move |_| set_visibility_private.run(false)
                         title="Visible only to members"
                     >
-                        "Private"
+                        <span class="toolbar__segment-icon">{"\u{1F512}"}</span>
+                        <span class="toolbar__segment-label">{"Private"}</span>
                     </button>
                 </div>
             </Show>
@@ -292,12 +300,12 @@ pub fn Toolbar() -> impl IntoView {
 
             <span class="toolbar__spacer"></span>
 
-            <span class="toolbar__self">
+            <button class="toolbar__self toolbar__self--clickable" on:click=move |_| show_profile.set(true) title="View profile">
                 {move || self_identity().0}
                 " ("
                 <span class="toolbar__self-method">{move || self_identity().1}</span>
                 ")"
-            </span>
+            </button>
 
             <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                 "Logout"
@@ -306,6 +314,9 @@ pub fn Toolbar() -> impl IntoView {
 
         <Show when=move || show_share.get()>
             <ShareDialog board=board on_cancel=on_share_cancel />
+        </Show>
+        <Show when=move || show_profile.get()>
+            <UserProfileModal auth=auth on_close=Callback::new(move |()| show_profile.set(false)) />
         </Show>
     }
 }

@@ -44,6 +44,21 @@
         display: none;
     }
 
+    .toolbar__segment-icon {
+        display: inline;
+        font-size: 13px;
+        line-height: 1;
+    }
+
+    .toolbar__segment-label {
+        display: none;
+    }
+
+    .toolbar__segment-btn {
+        min-width: 32px;
+        padding: 0 6px;
+    }
+
     .dashboard-page__grid {
         padding: var(--space-md);
     }

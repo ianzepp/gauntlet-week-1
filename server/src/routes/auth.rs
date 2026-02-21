@@ -199,6 +199,11 @@ pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> impl IntoR
     (jar, StatusCode::NO_CONTENT)
 }
 
+/// `GET /api/auth/session-token` — return the caller's session token.
+pub async fn session_token(auth: AuthUser) -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "token": auth.token }))
+}
+
 /// `POST /api/auth/ws-ticket` — create a one-time WS ticket.
 pub async fn ws_ticket(State(state): State<AppState>, auth: AuthUser) -> Result<Json<serde_json::Value>, StatusCode> {
     let ticket = session::create_ws_ticket(&state.pool, auth.user.id)
