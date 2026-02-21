@@ -37,6 +37,85 @@ Week 1 Day 5 (Early Release):
 - **Anthropic** or **OpenAI** for AI features (configurable)
 - **Docker Compose** for local development
 
+## Project Stats
+
+*Generated with `scripts/stats-all.sh` on 2026-02-21. 376 commits over 6 days (~63/day).*
+
+### Lines of Code
+
+| Crate | Source | Test | Total | Test% |
+|-------|-------:|-----:|------:|------:|
+| server | 8,049 | 5,209 | 13,258 | 39.3% |
+| canvas | 3,183 | 5,560 | 8,743 | 63.6% |
+| client | 13,065 | 2,749 | 15,814 | 17.4% |
+| frames | 194 | 212 | 406 | 52.2% |
+| perf | 423 | 238 | 661 | 36.0% |
+| traces | 546 | 571 | 1,117 | 51.1% |
+| **Total** | **25,460** | **14,539** | **39,999** | **36.3%** |
+
+### Functions
+
+| Crate | Source Files | Test Files | Pub Fn | Priv Fn | Total |
+|-------|------------:|-----------:|-------:|--------:|------:|
+| server | 25 | 17 | 53 | 80 | 133 |
+| canvas | 8 | 6 | 88 | 56 | 144 |
+| client | 64 | 33 | 146 | 117 | 263 |
+| frames | 1 | 1 | 3 | 5 | 8 |
+| perf | 1 | 1 | 4 | 6 | 10 |
+| traces | 1 | 2 | 17 | 7 | 24 |
+| **Total** | **100** | **60** | **311** | **271** | **582** |
+
+### Tests
+
+| Crate | #[test] | Passed | Failed |
+|-------|--------:|-------:|-------:|
+| server | 162 | 236 | 0 |
+| canvas | 395 | 395 | 0 |
+| client | 214 | 214 | 0 |
+| frames | 15 | 15 | 0 |
+| perf | 0 | 0 | 0 |
+| traces | 33 | 33 | 0 |
+| **Total** | **819** | **893** | **0** |
+
+### Documentation Coverage
+
+| Crate | Code Lines | `///` Doc | `//!` Mod | `//` Comment | Blank | Doc% |
+|-------|----------:|----------:|----------:|-------------:|------:|-----:|
+| server | 6,565 | 241 | 202 | 235 | 806 | 6.7% |
+| canvas | 2,405 | 288 | 60 | 91 | 339 | 14.5% |
+| client | 11,063 | 621 | 373 | 53 | 955 | 9.0% |
+| frames | 162 | 9 | 5 | 0 | 18 | 8.6% |
+| perf | 324 | 49 | 6 | 1 | 43 | 17.0% |
+| traces | 392 | 93 | 4 | 0 | 57 | 24.7% |
+| **Total** | **20,911** | **1,301** | **650** | **380** | **2,218** | **9.3%** |
+
+### Dependencies
+
+| Crate | Deps | Dev Deps | Total |
+|-------|-----:|---------:|------:|
+| server | 24 | 1 | 25 |
+| canvas | 5 | 0 | 5 |
+| client | 21 | 0 | 21 |
+| frames | 5 | 0 | 5 |
+| perf | 8 | 0 | 8 |
+| traces | 3 | 0 | 3 |
+| **Total** | **66** | **1** | **67** |
+
+### Most-Changed Files
+
+| Commits | File |
+|--------:|------|
+| 61 | `server/src/routes/ws.rs` |
+| 35 | `server/src/services/ai.rs` |
+| 35 | `client/src/components/canvas_host.rs` |
+| 26 | `client/src/net/frame_client.rs` |
+| 24 | `client/src/pages/board.rs` |
+| 22 | `server/src/routes/ws_test.rs` |
+| 18 | `canvas/src/engine.rs` |
+| 17 | `server/src/services/board.rs` |
+| 17 | `client/src/pages/dashboard.rs` |
+| 16 | `server/src/main.rs` |
+
 ## The Crates
 
 Six Rust crates in a Cargo workspace. Each one has a job.
