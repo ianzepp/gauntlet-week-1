@@ -8,6 +8,13 @@ mod frame_client_objects_test;
 use crate::net::types::Frame;
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::board::BoardState;
+#[cfg(feature = "hydrate")]
+use std::{cell::RefCell, collections::HashMap};
+
+#[cfg(feature = "hydrate")]
+thread_local! {
+    static LAST_CURSOR_APPLY_MS: RefCell<HashMap<String, f64>> = RefCell::new(HashMap::new());
+}
 
 #[cfg(any(test, feature = "hydrate"))]
 pub(super) fn is_object_related_syscall(syscall: &str) -> bool {
@@ -27,10 +34,58 @@ pub(super) fn is_object_related_syscall(syscall: &str) -> bool {
 pub(super) fn handle_object_frame(frame: &Frame, board: leptos::prelude::RwSignal<BoardState>) -> bool {
     use leptos::prelude::Update;
 
+    if frame.syscall == "cursor:moved" && !should_apply_cursor_frame(frame) {
+        return true;
+    }
+    if frame.syscall == "cursor:clear" {
+        clear_cursor_gate(frame);
+    }
+
     board.update(|b| {
         apply_object_frame(frame, b);
     });
     is_object_related_syscall(&frame.syscall)
+}
+
+#[cfg(feature = "hydrate")]
+fn should_apply_cursor_frame(frame: &Frame) -> bool {
+    // Strong coalescing to prevent seconds-long replay under browser-specific load.
+    const CURSOR_MIN_APPLY_INTERVAL_MS: f64 = 33.0;
+    let Some(client_id) = frame
+        .data
+        .get("client_id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+    else {
+        return true;
+    };
+
+    let now = js_sys::Date::now();
+    LAST_CURSOR_APPLY_MS.with(|state| {
+        let mut state = state.borrow_mut();
+        if let Some(last) = state.get(&client_id)
+            && now - *last < CURSOR_MIN_APPLY_INTERVAL_MS
+        {
+            return false;
+        }
+        state.insert(client_id, now);
+        true
+    })
+}
+
+#[cfg(feature = "hydrate")]
+fn clear_cursor_gate(frame: &Frame) {
+    let Some(client_id) = frame
+        .data
+        .get("client_id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+    else {
+        return;
+    };
+    LAST_CURSOR_APPLY_MS.with(|state| {
+        state.borrow_mut().remove(&client_id);
+    });
 }
 
 #[cfg(any(test, feature = "hydrate"))]

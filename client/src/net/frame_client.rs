@@ -254,8 +254,10 @@ fn dispatch_frame(
     trace: leptos::prelude::RwSignal<TraceState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) {
-    // Buffer every frame for the observability view before domain routing.
-    trace.update(|t| t.push_frame(frame.clone()));
+    // Cursor events are interaction telemetry, not observability trace data.
+    if !frame.syscall.starts_with("cursor:") {
+        trace.update(|t| t.push_frame(frame.clone()));
+    }
 
     if handle_session_connected_frame(frame, board, boards, tx) {
         return;
