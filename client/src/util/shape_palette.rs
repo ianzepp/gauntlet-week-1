@@ -15,9 +15,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             serde_json::json!({
                 "title": "New note",
                 "text": "",
-                "color": "#D94B4B",
-                "backgroundColor": "#D94B4B",
-                "borderColor": "#D94B4B",
+                "color": "#FFEB3B",
+                "backgroundColor": "#FFEB3B",
+                "borderColor": "#FFEB3B",
                 "borderWidth": 0
             }),
         )),
@@ -51,9 +51,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             120.0,
             120.0,
             serde_json::json!({
-                "color": "#D94B4B",
-                "backgroundColor": "#D94B4B",
-                "borderColor": "#D94B4B",
+                "color": "#3B82F6",
+                "backgroundColor": "#3B82F6",
+                "borderColor": "#3B82F6",
                 "borderWidth": 0
             }),
         )),
@@ -106,10 +106,10 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
 
 pub fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
     match tool {
-        ToolType::Sticky => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Sticky => Some((120.0, 120.0, "rgba(255, 235, 59, 0.55)")),
         ToolType::Rectangle => Some((160.0, 100.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Frame => Some((520.0, 320.0, "rgba(154, 163, 173, 0.20)")),
-        ToolType::Ellipse => Some((120.0, 120.0, "rgba(217, 75, 75, 0.5)")),
+        ToolType::Ellipse => Some((120.0, 120.0, "rgba(59, 130, 246, 0.5)")),
         ToolType::Youtube => Some((320.0, 220.0, "rgba(217, 75, 75, 0.45)")),
         ToolType::Line => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
