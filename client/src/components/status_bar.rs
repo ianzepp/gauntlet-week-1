@@ -60,6 +60,8 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
                 <span class="status-bar__item">
                     <span class=status_class></span>
                 </span>
+                <span class="status-bar__divider"></span>
+                <button class="status-bar__help" on:click=on_help_click title="Open help">"[?] HELP"</button>
 
                 <Show
                     when=is_trace_mode
@@ -93,9 +95,6 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
             // Right section: canvas telemetry (hidden in trace mode)
             <Show when=move || !is_trace_mode()>
                 <div class="status-bar__section">
-                    <button class="status-bar__help" on:click=on_help_click title="Open help">"[?] HELP"</button>
-
-                    <span class="status-bar__divider"></span>
                     <span class="status-bar__item">{move || format_cursor(cursor())}</span>
 
                     <span class="status-bar__divider"></span>
