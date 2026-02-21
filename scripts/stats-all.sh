@@ -26,6 +26,10 @@ echo "--- Tests ---"
 "$SCRIPT_DIR/stats-tests.sh"
 echo ""
 
+echo "--- Code Coverage ---"
+"$SCRIPT_DIR/stats-coverage.sh"
+echo ""
+
 echo "--- Dependencies ---"
 "$SCRIPT_DIR/stats-deps.sh"
 echo ""

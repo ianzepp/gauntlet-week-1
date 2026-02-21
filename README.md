@@ -77,6 +77,17 @@ Week 1 Day 5 (Early Release):
 | traces | 33 | 33 | 0 |
 | **Total** | **819** | **893** | **0** |
 
+### Code Coverage
+
+| Crate | Covered | Total | Line% |
+|-------|--------:|------:|------:|
+| server | 2,221 | 5,365 | 41.4% |
+| canvas | 1,105 | 1,900 | 58.2% |
+| client | 1,384 | 5,605 | 24.7% |
+| frames | 86 | 87 | 98.9% |
+| traces | 289 | 316 | 91.5% |
+| **Total** | **5,085** | **13,273** | **38.3%** |
+
 ### Documentation Coverage
 
 | Crate | Code Lines | `///` Doc | `//!` Mod | `//` Comment | Blank | Doc% |
