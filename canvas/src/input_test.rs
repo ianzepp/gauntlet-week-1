@@ -194,7 +194,7 @@ fn ui_state_default_tool_is_select() {
 #[test]
 fn ui_state_default_no_selection() {
     let ui = UiState::default();
-    assert!(ui.selected_id.is_none());
+    assert!(ui.selected_ids.is_empty());
 }
 
 // =============================================================
@@ -222,12 +222,18 @@ fn input_state_panning_carries_point() {
 #[test]
 fn input_state_dragging_object_carries_context() {
     let id = Uuid::new_v4();
-    let s = InputState::DraggingObject { id, last_world: Point::new(1.0, 2.0), orig_x: 3.0, orig_y: 4.0 };
+    let s = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: Point::new(1.0, 2.0),
+        start_world: Point::new(1.0, 2.0),
+        originals: vec![(id, 3.0, 4.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
     match s {
-        InputState::DraggingObject { id: sid, orig_x, orig_y, .. } => {
-            assert_eq!(sid, id);
-            assert_eq!(orig_x, 3.0);
-            assert_eq!(orig_y, 4.0);
+        InputState::DraggingObject { ids, originals, .. } => {
+            assert_eq!(ids, vec![id]);
+            assert_eq!(originals, vec![(id, 3.0, 4.0)]);
         }
         _ => panic!("wrong variant"),
     }
@@ -299,7 +305,14 @@ fn input_state_variants_debug() {
     let variants: Vec<InputState> = vec![
         InputState::Idle,
         InputState::Panning { last_screen: Point::new(0.0, 0.0) },
-        InputState::DraggingObject { id, last_world: Point::new(0.0, 0.0), orig_x: 0.0, orig_y: 0.0 },
+        InputState::DraggingObject {
+            ids: vec![id],
+            last_world: Point::new(0.0, 0.0),
+            start_world: Point::new(0.0, 0.0),
+            originals: vec![(id, 0.0, 0.0)],
+            axis_lock: None,
+            duplicated: false,
+        },
         InputState::DrawingShape { id, anchor_world: Point::new(0.0, 0.0) },
         InputState::ResizingObject {
             id,

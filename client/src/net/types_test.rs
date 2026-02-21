@@ -31,6 +31,7 @@ fn make_board_object() -> BoardObject {
         props: serde_json::json!({"fill": "#ff0000"}),
         created_by: Some("u-1".to_owned()),
         version: 1,
+        group_id: None,
     }
 }
 
@@ -150,6 +151,7 @@ fn board_object_with_no_optional_fields() {
         props: serde_json::json!({}),
         created_by: None,
         version: 0,
+        group_id: None,
     };
     let json = serde_json::to_string(&obj).unwrap();
     let back: BoardObject = serde_json::from_str(&json).unwrap();

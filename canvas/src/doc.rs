@@ -72,6 +72,9 @@ pub struct BoardObject {
     pub created_by: Option<ObjectId>,
     /// Monotonically increasing edit counter used for conflict detection.
     pub version: i64,
+    /// Optional persistent grouping id for multi-object group operations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<ObjectId>,
 }
 
 /// Sparse update for a board object. Only present fields are applied.
@@ -101,6 +104,9 @@ pub struct PartialBoardObject {
     /// New version counter, if being updated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<i64>,
+    /// New grouping id. `Some(None)` clears grouping, `None` leaves unchanged.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<Option<ObjectId>>,
 }
 
 /// Typed access to common props fields from a `BoardObject.props` JSON value.
@@ -211,15 +217,33 @@ fn parse_css_rgb(raw: &str) -> Option<(u8, u8, u8)> {
     if let Some(hex) = s.strip_prefix('#') {
         return match hex.len() {
             3 => {
-                let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
-                let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
-                let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
+                let r = match u8::from_str_radix(&hex[0..1].repeat(2), 16) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
+                let g = match u8::from_str_radix(&hex[1..2].repeat(2), 16) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
+                let b = match u8::from_str_radix(&hex[2..3].repeat(2), 16) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
                 Some((r, g, b))
             }
             6 => {
-                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                let r = match u8::from_str_radix(&hex[0..2], 16) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
+                let g = match u8::from_str_radix(&hex[2..4], 16) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
+                let b = match u8::from_str_radix(&hex[4..6], 16) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
                 Some((r, g, b))
             }
             _ => None,
@@ -234,9 +258,18 @@ fn parse_css_rgb(raw: &str) -> Option<(u8, u8, u8)> {
     }
     let body = &s[open + 1..close];
     let mut parts = body.split(',').map(str::trim);
-    let r = parts.next()?.parse::<u8>().ok()?;
-    let g = parts.next()?.parse::<u8>().ok()?;
-    let b = parts.next()?.parse::<u8>().ok()?;
+    let r = match parts.next()?.parse::<u8>() {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
+    let g = match parts.next()?.parse::<u8>() {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
+    let b = match parts.next()?.parse::<u8>() {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
     Some((r, g, b))
 }
 
@@ -307,6 +340,9 @@ impl DocStore {
         }
         if let Some(v) = partial.version {
             obj.version = v;
+        }
+        if let Some(group_id) = partial.group_id {
+            obj.group_id = group_id;
         }
         if let Some(ref props) = partial.props {
             let Some(incoming) = props.as_object() else {

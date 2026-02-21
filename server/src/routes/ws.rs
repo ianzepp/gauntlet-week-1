@@ -446,9 +446,9 @@ async fn handle_board_join(
             done.insert("count".into(), serde_json::json!(item_payloads.len()));
             if let Ok(Some((name, is_public))) =
                 sqlx::query_as::<_, (String, bool)>("SELECT name, is_public FROM boards WHERE id = $1")
-                .bind(board_id)
-                .fetch_optional(&state.pool)
-                .await
+                    .bind(board_id)
+                    .fetch_optional(&state.pool)
+                    .await
             {
                 done.insert("name".into(), serde_json::json!(name));
                 done.insert("is_public".into(), serde_json::json!(is_public));
@@ -916,6 +916,11 @@ async fn handle_object(
                 .get("props")
                 .cloned()
                 .unwrap_or(serde_json::json!({}));
+            let group_id = req
+                .data
+                .get("group_id")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|s| Uuid::parse_str(s).ok());
 
             match services::object::create_object(
                 state,
@@ -928,6 +933,7 @@ async fn handle_object(
                 rotation,
                 props,
                 Some(user_id),
+                group_id,
             )
             .await
             {
@@ -1010,7 +1016,7 @@ async fn handle_object(
 
             let mut data = Data::new();
             data.insert("id".into(), serde_json::json!(object_id));
-            for key in ["x", "y", "width", "height", "rotation", "z_index", "props"] {
+            for key in ["x", "y", "width", "height", "rotation", "z_index", "props", "group_id"] {
                 if let Some(value) = req.data.get(key) {
                     data.insert(key.into(), value.clone());
                 }
@@ -1399,6 +1405,7 @@ fn object_to_data(obj: &crate::state::BoardObject) -> Data {
     data.insert("props".into(), obj.props.clone());
     data.insert("created_by".into(), serde_json::json!(obj.created_by));
     data.insert("version".into(), serde_json::json!(obj.version));
+    data.insert("group_id".into(), serde_json::json!(obj.group_id));
     data
 }
 

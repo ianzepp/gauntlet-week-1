@@ -267,6 +267,10 @@ fn parse_import_object_line(
         .and_then(|value| i32::try_from(value).ok())
         .unwrap_or(1)
         .max(1);
+    let group_id = map
+        .get("group_id")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|s| Uuid::parse_str(s).ok());
 
     Ok(Some(crate::state::BoardObject {
         id: Uuid::new_v4(),
@@ -281,6 +285,7 @@ fn parse_import_object_line(
         props,
         created_by: Some(user_id),
         version,
+        group_id,
     }))
 }
 

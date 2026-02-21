@@ -79,6 +79,7 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
             props: props.clone(),
             created_by: Some("local".to_owned()),
             version: 1,
+            group_id: None,
         };
 
         board.update(|b| {
@@ -104,6 +105,7 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
                 "height": shape.height,
                 "rotation": 0,
                 "props": props,
+                "group_id": null,
             }),
         };
         sender.get().send(&frame);

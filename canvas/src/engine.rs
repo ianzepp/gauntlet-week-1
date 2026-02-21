@@ -5,7 +5,7 @@ use crate::camera::{Camera, Point};
 use crate::consts::{MIN_SHAPE_SIZE, ZOOM_FACTOR, ZOOM_MAX, ZOOM_MIN};
 use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, PartialBoardObject, Props};
 use crate::hit::{self, EdgeEnd, HitPart, ResizeAnchor};
-use crate::input::{Button, InputState, Key, Modifiers, Tool, UiState, WheelDelta};
+use crate::input::{Button, DragAxis, InputState, Key, Modifiers, SelectionRect, Tool, UiState, WheelDelta};
 use crate::render;
 
 const EDGE_ATTACH_SNAP_PX: f64 = 16.0;
@@ -94,14 +94,23 @@ impl EngineCore {
     /// Apply a server broadcast: object updated.
     pub fn apply_update(&mut self, id: &ObjectId, fields: &PartialBoardObject) {
         self.doc.apply_partial(id, fields);
+        if let InputState::DraggingObject { ids, originals, .. } = &mut self.input
+            && ids.contains(id)
+            && let Some((_, ox, oy)) = originals.iter_mut().find(|(oid, _, _)| oid == id)
+        {
+            if let Some(x) = fields.x {
+                *ox = x;
+            }
+            if let Some(y) = fields.y {
+                *oy = y;
+            }
+        }
     }
 
     /// Apply a server broadcast: object deleted.
     pub fn apply_delete(&mut self, id: &ObjectId) {
         self.doc.remove(id);
-        if self.ui.selected_id.as_ref() == Some(id) {
-            self.ui.selected_id = None;
-        }
+        self.ui.selected_ids.remove(id);
     }
 
     // --- Tool / text ---
@@ -160,12 +169,12 @@ impl EngineCore {
     // --- Input events ---
 
     /// Handle a pointer-down event. Returns actions for the host.
-    pub fn on_pointer_down(&mut self, screen_pt: Point, button: Button, _modifiers: Modifiers) -> Vec<Action> {
+    pub fn on_pointer_down(&mut self, screen_pt: Point, button: Button, modifiers: Modifiers) -> Vec<Action> {
         let world_pt = self.screen_to_world(screen_pt);
         let mut actions = Vec::new();
 
-        // Middle button always pans.
-        if button == Button::Middle {
+        // Middle button or space+drag always pans.
+        if button == Button::Middle || (button == Button::Primary && self.ui.space_pan) {
             self.input = InputState::Panning { last_screen: screen_pt };
             actions.push(Action::SetCursor("grab".into()));
             return actions;
@@ -178,7 +187,7 @@ impl EngineCore {
 
         match self.ui.tool {
             Tool::Select => {
-                self.handle_select_down(screen_pt, world_pt, &mut actions);
+                self.handle_select_down(world_pt, modifiers, &mut actions);
             }
             tool if tool.is_shape() => {
                 self.handle_shape_tool_down(world_pt, tool, &mut actions);
@@ -193,7 +202,7 @@ impl EngineCore {
     }
 
     /// Handle a pointer-move event. Returns actions for the host.
-    pub fn on_pointer_move(&mut self, screen_pt: Point, _modifiers: Modifiers) -> Vec<Action> {
+    pub fn on_pointer_move(&mut self, screen_pt: Point, modifiers: Modifiers) -> Vec<Action> {
         let world_pt = self.screen_to_world(screen_pt);
 
         match self.input.clone() {
@@ -206,31 +215,39 @@ impl EngineCore {
                 self.input = InputState::Panning { last_screen: screen_pt };
                 vec![Action::RenderNeeded]
             }
-            InputState::DraggingObject { id, last_world, orig_x, orig_y } => {
-                let dx = world_pt.x - last_world.x;
-                let dy = world_pt.y - last_world.y;
-                if let Some(obj) = self.doc.get(&id).cloned() {
-                    let new_x = obj.x + dx;
-                    let new_y = obj.y + dy;
-                    let partial = PartialBoardObject { x: Some(new_x), y: Some(new_y), ..Default::default() };
-                    self.doc.apply_partial(&id, &partial);
-
-                    // Grouping behavior: moving a frame carries enclosed children.
-                    if obj.kind == ObjectKind::Frame {
-                        let child_ids = self.grouped_children_in_frame(&obj);
-                        for child_id in child_ids {
-                            if let Some(child) = self.doc.get(&child_id).cloned() {
-                                let child_partial = PartialBoardObject {
-                                    x: Some(child.x + dx),
-                                    y: Some(child.y + dy),
-                                    ..Default::default()
-                                };
-                                self.doc.apply_partial(&child_id, &child_partial);
-                            }
-                        }
+            InputState::DraggingObject { ids, last_world: _, start_world, originals, mut axis_lock, duplicated } => {
+                let mut dx = world_pt.x - start_world.x;
+                let mut dy = world_pt.y - start_world.y;
+                if modifiers.shift {
+                    if axis_lock.is_none() {
+                        axis_lock = Some(if dx.abs() >= dy.abs() { DragAxis::X } else { DragAxis::Y });
                     }
+                    match axis_lock {
+                        Some(DragAxis::X) => dy = 0.0,
+                        Some(DragAxis::Y) => dx = 0.0,
+                        None => {}
+                    }
+                } else {
+                    axis_lock = None;
                 }
-                self.input = InputState::DraggingObject { id, last_world: world_pt, orig_x, orig_y };
+
+                for (id, ox, oy) in &originals {
+                    let partial = PartialBoardObject { x: Some(*ox + dx), y: Some(*oy + dy), ..Default::default() };
+                    self.doc.apply_partial(id, &partial);
+                }
+                self.input = InputState::DraggingObject {
+                    ids,
+                    last_world: world_pt,
+                    start_world,
+                    originals,
+                    axis_lock,
+                    duplicated,
+                };
+                vec![Action::RenderNeeded]
+            }
+            InputState::MarqueeSelecting { anchor_world, .. } => {
+                self.update_marquee(anchor_world, world_pt);
+                self.input = InputState::MarqueeSelecting { anchor_world, last_world: world_pt };
                 vec![Action::RenderNeeded]
             }
             InputState::DrawingShape { id, anchor_world } => {
@@ -284,31 +301,31 @@ impl EngineCore {
             InputState::Panning { .. } => {
                 actions.push(Action::RenderNeeded);
             }
-            InputState::DraggingObject { id, orig_x, orig_y, .. } => {
-                if let Some(obj) = self.doc.get(&id) {
-                    let partial = PartialBoardObject { x: Some(obj.x), y: Some(obj.y), ..Default::default() };
-                    // Only emit update if position actually changed.
-                    if (obj.x - orig_x).abs() > f64::EPSILON || (obj.y - orig_y).abs() > f64::EPSILON {
-                        actions.push(Action::ObjectUpdated { id, fields: partial });
-
-                        // If the dragged object is a frame, persist child positions too.
-                        if obj.kind == ObjectKind::Frame {
-                            let child_ids = self.grouped_children_in_frame(obj);
-                            for child_id in child_ids {
-                                if let Some(child) = self.doc.get(&child_id) {
-                                    actions.push(Action::ObjectUpdated {
-                                        id: child_id,
-                                        fields: PartialBoardObject {
-                                            x: Some(child.x),
-                                            y: Some(child.y),
-                                            ..Default::default()
-                                        },
-                                    });
-                                }
-                            }
+            InputState::DraggingObject { ids, originals, duplicated, .. } => {
+                for id in &ids {
+                    if let Some(obj) = self.doc.get(id) {
+                        let mut changed = true;
+                        if let Some((_, ox, oy)) = originals.iter().find(|(orig_id, _, _)| orig_id == id) {
+                            changed = (obj.x - *ox).abs() > f64::EPSILON || (obj.y - *oy).abs() > f64::EPSILON;
+                        }
+                        if changed {
+                            let partial = PartialBoardObject { x: Some(obj.x), y: Some(obj.y), ..Default::default() };
+                            actions.push(Action::ObjectUpdated { id: *id, fields: partial });
                         }
                     }
                 }
+                if duplicated {
+                    for id in &ids {
+                        if let Some(obj) = self.doc.get(id).cloned() {
+                            actions.push(Action::ObjectCreated(obj));
+                        }
+                    }
+                }
+            }
+            InputState::MarqueeSelecting { anchor_world, last_world } => {
+                self.ui.marquee = None;
+                self.select_by_marquee(anchor_world, last_world);
+                actions.push(Action::RenderNeeded);
             }
             InputState::DrawingShape { id, .. } => {
                 if let Some(obj) = self.doc.get(&id) {
@@ -393,26 +410,40 @@ impl EngineCore {
     }
 
     /// Handle a key-down event. Returns actions for the host.
-    pub fn on_key_down(&mut self, key: Key, _modifiers: Modifiers) -> Vec<Action> {
+    pub fn on_key_down(&mut self, key: Key, modifiers: Modifiers) -> Vec<Action> {
         let mut actions = Vec::new();
+        let accel = modifiers.ctrl || modifiers.meta;
 
         match key.0.as_str() {
+            " " => {
+                self.ui.space_pan = true;
+            }
             "Delete" | "Backspace" => {
-                if let Some(id) = self.ui.selected_id.take() {
+                let selected = self.ui.selected_ids.iter().copied().collect::<Vec<_>>();
+                let mut deleted_any = false;
+                for id in selected {
                     self.doc.remove(&id);
+                    self.ui.selected_ids.remove(&id);
                     actions.push(Action::ObjectDeleted { id });
+                    deleted_any = true;
+                }
+                if deleted_any {
                     actions.push(Action::RenderNeeded);
                 }
             }
             "Escape" => {
                 // Cancel active gesture and deselect.
                 self.input = InputState::Idle;
-                if self.ui.selected_id.take().is_some() {
+                self.ui.marquee = None;
+                if !self.ui.selected_ids.is_empty() {
+                    self.ui.selected_ids.clear();
                     actions.push(Action::RenderNeeded);
                 }
             }
             "Enter" => {
-                if let Some(id) = self.ui.selected_id {
+                if self.ui.selected_ids.len() == 1
+                    && let Some(id) = self.primary_selection()
+                {
                     if let Some(obj) = self.doc.get(&id) {
                         let props = Props::new(&obj.props);
                         actions.push(Action::EditTextRequested {
@@ -424,6 +455,53 @@ impl EngineCore {
                     }
                 }
             }
+            "a" | "A" if accel => {
+                self.ui.selected_ids = self
+                    .doc
+                    .sorted_objects()
+                    .into_iter()
+                    .map(|o| o.id)
+                    .collect();
+                actions.push(Action::RenderNeeded);
+            }
+            "g" | "G" if accel && modifiers.shift => {
+                for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
+                    let partial = PartialBoardObject { group_id: Some(None), ..Default::default() };
+                    self.doc.apply_partial(&id, &partial);
+                    actions.push(Action::ObjectUpdated { id, fields: partial });
+                }
+                actions.push(Action::RenderNeeded);
+            }
+            "g" | "G" if accel => {
+                if self.ui.selected_ids.len() >= 2 {
+                    let group_id = uuid::Uuid::new_v4();
+                    for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
+                        let partial = PartialBoardObject { group_id: Some(Some(group_id)), ..Default::default() };
+                        self.doc.apply_partial(&id, &partial);
+                        actions.push(Action::ObjectUpdated { id, fields: partial });
+                    }
+                    actions.push(Action::RenderNeeded);
+                }
+            }
+            "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
+                let step = if modifiers.shift { 10.0 } else { 1.0 };
+                let (dx, dy) = match key.0.as_str() {
+                    "ArrowUp" => (0.0, -step),
+                    "ArrowDown" => (0.0, step),
+                    "ArrowLeft" => (-step, 0.0),
+                    "ArrowRight" => (step, 0.0),
+                    _ => (0.0, 0.0),
+                };
+                for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
+                    if let Some(obj) = self.doc.get(&id) {
+                        let partial =
+                            PartialBoardObject { x: Some(obj.x + dx), y: Some(obj.y + dy), ..Default::default() };
+                        self.doc.apply_partial(&id, &partial);
+                        actions.push(Action::ObjectUpdated { id, fields: partial });
+                    }
+                }
+                actions.push(Action::RenderNeeded);
+            }
             _ => {}
         }
 
@@ -431,7 +509,10 @@ impl EngineCore {
     }
 
     /// Handle a key-up event. No-op for v0.
-    pub fn on_key_up(&mut self, _key: Key, _modifiers: Modifiers) -> Vec<Action> {
+    pub fn on_key_up(&mut self, key: Key, _modifiers: Modifiers) -> Vec<Action> {
+        if key.0 == " " {
+            self.ui.space_pan = false;
+        }
         Vec::new()
     }
 
@@ -440,7 +521,13 @@ impl EngineCore {
     /// The currently selected object, if any.
     #[must_use]
     pub fn selection(&self) -> Option<ObjectId> {
-        self.ui.selected_id
+        self.primary_selection()
+    }
+
+    /// All selected ids (order not guaranteed).
+    #[must_use]
+    pub fn selections(&self) -> Vec<ObjectId> {
+        self.ui.selected_ids.iter().copied().collect()
     }
 
     /// The current camera state.
@@ -459,13 +546,21 @@ impl EngineCore {
     // Private helpers
     // =============================================================
 
-    fn handle_select_down(&mut self, screen_pt: Point, world_pt: Point, actions: &mut Vec<Action>) {
-        let hit = hit::hit_test(world_pt, &self.doc, &self.camera, self.ui.selected_id);
+    fn handle_select_down(&mut self, world_pt: Point, modifiers: Modifiers, actions: &mut Vec<Action>) {
+        let selected_for_handles = if self.ui.selected_ids.len() == 1 {
+            self.primary_selection()
+        } else {
+            None
+        };
+        let hit = hit::hit_test(world_pt, &self.doc, &self.camera, selected_for_handles);
 
         if let Some(h) = hit {
             match h.part {
                 HitPart::ResizeHandle(anchor) => {
-                    if let Some(obj) = self.doc.get(&h.object_id) {
+                    if self.ui.selected_ids.len() == 1
+                        && self.ui.selected_ids.contains(&h.object_id)
+                        && let Some(obj) = self.doc.get(&h.object_id)
+                    {
                         self.input = InputState::ResizingObject {
                             id: h.object_id,
                             anchor,
@@ -478,25 +573,56 @@ impl EngineCore {
                     }
                 }
                 HitPart::RotateHandle => {
-                    if let Some(obj) = self.doc.get(&h.object_id) {
+                    if self.ui.selected_ids.len() == 1
+                        && self.ui.selected_ids.contains(&h.object_id)
+                        && let Some(obj) = self.doc.get(&h.object_id)
+                    {
                         let center = Point::new(obj.x + obj.width / 2.0, obj.y + obj.height / 2.0);
                         self.input =
                             InputState::RotatingObject { id: h.object_id, center, orig_rotation: obj.rotation };
                     }
                 }
                 HitPart::EdgeEndpoint(end) => {
-                    self.ui.selected_id = Some(h.object_id);
+                    self.ui.selected_ids.clear();
+                    self.ui.selected_ids.insert(h.object_id);
                     self.input = InputState::DraggingEdgeEndpoint { id: h.object_id, end };
                     actions.push(Action::RenderNeeded);
                 }
                 HitPart::Body | HitPart::EdgeBody => {
-                    self.ui.selected_id = Some(h.object_id);
-                    if let Some(obj) = self.doc.get(&h.object_id) {
+                    if modifiers.shift {
+                        if self.ui.selected_ids.contains(&h.object_id) {
+                            self.ui.selected_ids.remove(&h.object_id);
+                        } else {
+                            self.ui.selected_ids.insert(h.object_id);
+                        }
+                        actions.push(Action::RenderNeeded);
+                        return;
+                    }
+
+                    let hit_already_selected = self.ui.selected_ids.contains(&h.object_id);
+                    if !hit_already_selected {
+                        self.ui.selected_ids.clear();
+                        self.ui.selected_ids.insert(h.object_id);
+                    }
+                    let mut drag_ids = self.ui.selected_ids.iter().copied().collect::<Vec<_>>();
+                    drag_ids.sort_unstable();
+                    if modifiers.alt {
+                        drag_ids = self.duplicate_objects(&drag_ids);
+                        self.ui.selected_ids.clear();
+                        self.ui.selected_ids.extend(drag_ids.iter().copied());
+                    }
+                    let originals = drag_ids
+                        .iter()
+                        .filter_map(|id| self.doc.get(id).map(|obj| (*id, obj.x, obj.y)))
+                        .collect::<Vec<_>>();
+                    if !originals.is_empty() {
                         self.input = InputState::DraggingObject {
-                            id: h.object_id,
+                            ids: drag_ids,
                             last_world: world_pt,
-                            orig_x: obj.x,
-                            orig_y: obj.y,
+                            start_world: world_pt,
+                            originals,
+                            axis_lock: None,
+                            duplicated: modifiers.alt,
                         };
                     }
                     actions.push(Action::RenderNeeded);
@@ -504,11 +630,13 @@ impl EngineCore {
             }
         } else {
             // Click on empty space: deselect.
-            if self.ui.selected_id.take().is_some() {
+            if !self.ui.selected_ids.is_empty() {
+                self.ui.selected_ids.clear();
                 actions.push(Action::RenderNeeded);
             }
-            // Also start panning on empty space drag.
-            self.input = InputState::Panning { last_screen: screen_pt };
+            self.input = InputState::MarqueeSelecting { anchor_world: world_pt, last_world: world_pt };
+            self.update_marquee(world_pt, world_pt);
+            actions.push(Action::RenderNeeded);
         }
     }
 
@@ -524,7 +652,8 @@ impl EngineCore {
         let obj = self.create_default_object(kind, world_pt.x, world_pt.y, 0.0, 0.0);
         let id = obj.id;
         self.doc.insert(obj);
-        self.ui.selected_id = Some(id);
+        self.ui.selected_ids.clear();
+        self.ui.selected_ids.insert(id);
         self.input = InputState::DrawingShape { id, anchor_world: world_pt };
         actions.push(Action::RenderNeeded);
     }
@@ -542,7 +671,8 @@ impl EngineCore {
         });
         let id = obj.id;
         self.doc.insert(obj);
-        self.ui.selected_id = Some(id);
+        self.ui.selected_ids.clear();
+        self.ui.selected_ids.insert(id);
         self.input = InputState::DrawingShape { id, anchor_world: world_pt };
         actions.push(Action::RenderNeeded);
     }
@@ -773,6 +903,7 @@ impl EngineCore {
             props,
             created_by: None,
             version: 1,
+            group_id: None,
         }
     }
 
@@ -790,6 +921,81 @@ impl EngineCore {
     fn screen_to_world(&self, screen_pt: Point) -> Point {
         self.camera
             .screen_to_world(screen_pt, self.viewport_center())
+    }
+
+    fn primary_selection(&self) -> Option<ObjectId> {
+        self.ui.selected_ids.iter().copied().min()
+    }
+
+    fn duplicate_objects(&mut self, ids: &[ObjectId]) -> Vec<ObjectId> {
+        let mut duplicated = Vec::new();
+        for id in ids {
+            if let Some(mut obj) = self.doc.get(id).cloned() {
+                obj.id = uuid::Uuid::new_v4();
+                obj.z_index = self.next_z_index();
+                obj.version = 1;
+                self.doc.insert(obj.clone());
+                duplicated.push(obj.id);
+            }
+        }
+        duplicated
+    }
+
+    fn update_marquee(&mut self, anchor: Point, current: Point) {
+        let x = anchor.x.min(current.x);
+        let y = anchor.y.min(current.y);
+        let width = (current.x - anchor.x).abs();
+        let height = (current.y - anchor.y).abs();
+        self.ui.marquee = Some(SelectionRect { x, y, width, height });
+    }
+
+    fn select_by_marquee(&mut self, anchor: Point, current: Point) {
+        let x = anchor.x.min(current.x);
+        let y = anchor.y.min(current.y);
+        let width = (current.x - anchor.x).abs();
+        let height = (current.y - anchor.y).abs();
+
+        if width <= f64::EPSILON || height <= f64::EPSILON {
+            return;
+        }
+
+        self.ui.selected_ids.clear();
+        for obj in self.doc.sorted_objects() {
+            if self.rect_intersects_object(x, y, width, height, obj) {
+                self.ui.selected_ids.insert(obj.id);
+            }
+        }
+    }
+
+    fn rect_intersects_object(&self, x: f64, y: f64, width: f64, height: f64, obj: &BoardObject) -> bool {
+        let rx2 = x + width;
+        let ry2 = y + height;
+
+        let (ox1, oy1, ox2, oy2) = match obj.kind {
+            ObjectKind::Line | ObjectKind::Arrow => {
+                let a = hit::edge_endpoint_a_resolved(obj, &self.doc);
+                let b = hit::edge_endpoint_b_resolved(obj, &self.doc);
+                let Some(a) = a else { return false };
+                let Some(b) = b else { return false };
+                (a.x.min(b.x), a.y.min(b.y), a.x.max(b.x), a.y.max(b.y))
+            }
+            _ => {
+                let handles = hit::resize_handle_positions(obj.x, obj.y, obj.width, obj.height, obj.rotation);
+                let mut min_x = f64::INFINITY;
+                let mut min_y = f64::INFINITY;
+                let mut max_x = f64::NEG_INFINITY;
+                let mut max_y = f64::NEG_INFINITY;
+                for p in handles {
+                    min_x = min_x.min(p.x);
+                    min_y = min_y.min(p.y);
+                    max_x = max_x.max(p.x);
+                    max_y = max_y.max(p.y);
+                }
+                (min_x, min_y, max_x, max_y)
+            }
+        };
+
+        ox1 <= rx2 && ox2 >= x && oy1 <= ry2 && oy2 >= y
     }
 }
 
@@ -995,6 +1201,12 @@ impl Engine {
     #[must_use]
     pub fn selection(&self) -> Option<ObjectId> {
         self.core.selection()
+    }
+
+    /// All selected object ids.
+    #[must_use]
+    pub fn selections(&self) -> Vec<ObjectId> {
+        self.core.selections()
     }
 
     /// The current camera state.

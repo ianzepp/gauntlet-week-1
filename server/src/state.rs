@@ -40,6 +40,7 @@ pub struct BoardObject {
     pub props: serde_json::Value,
     pub created_by: Option<Uuid>,
     pub version: i32,
+    pub group_id: Option<Uuid>,
 }
 
 // =============================================================================

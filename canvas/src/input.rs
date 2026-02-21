@@ -13,6 +13,7 @@ mod input_test;
 use crate::camera::Point;
 use crate::doc::ObjectId;
 use crate::hit::{EdgeEnd, ResizeAnchor};
+use std::collections::HashSet;
 
 /// Which tool is currently active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -95,8 +96,21 @@ pub struct WheelDelta {
 pub struct UiState {
     /// Currently active drawing tool.
     pub tool: Tool,
-    /// The id of the currently selected object, if any.
-    pub selected_id: Option<ObjectId>,
+    /// All selected object ids.
+    pub selected_ids: HashSet<ObjectId>,
+    /// Marquee rectangle while drag-selecting.
+    pub marquee: Option<SelectionRect>,
+    /// True while space is held to temporarily pan.
+    pub space_pan: bool,
+}
+
+/// World-space marquee rectangle.
+#[derive(Debug, Clone, Copy)]
+pub struct SelectionRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 /// Internal state for the input state machine.
@@ -114,15 +128,21 @@ pub enum InputState {
     },
     /// The user is moving an existing object across the canvas.
     DraggingObject {
-        /// Id of the object being dragged.
-        id: ObjectId,
+        /// Ids of objects being dragged.
+        ids: Vec<ObjectId>,
         /// World-space position of the pointer at the previous event.
         last_world: Point,
-        /// Object x at the start of the drag, used to snap or revert.
-        orig_x: f64,
-        /// Object y at the start of the drag, used to snap or revert.
-        orig_y: f64,
+        /// World-space position at drag start, used for axis lock.
+        start_world: Point,
+        /// Object origins at drag start.
+        originals: Vec<(ObjectId, f64, f64)>,
+        /// Axis lock state when shift-dragging.
+        axis_lock: Option<DragAxis>,
+        /// Whether this drag is moving freshly duplicated objects.
+        duplicated: bool,
     },
+    /// User is drag-selecting with a marquee.
+    MarqueeSelecting { anchor_world: Point, last_world: Point },
     /// The user is drawing a new shape by dragging from an anchor corner.
     DrawingShape {
         /// Id of the newly created (provisional) object being sized.
@@ -163,6 +183,12 @@ pub enum InputState {
         /// Which endpoint (A or B) is being dragged.
         end: EdgeEnd,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DragAxis {
+    X,
+    Y,
 }
 
 impl Default for InputState {

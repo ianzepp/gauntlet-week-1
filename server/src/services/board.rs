@@ -132,6 +132,7 @@ pub struct BoardExportObject {
     pub props: serde_json::Value,
     pub created_by: Option<Uuid>,
     pub version: i32,
+    pub group_id: Option<Uuid>,
 }
 
 // =============================================================================
@@ -542,9 +543,10 @@ pub async fn list_board_export_objects(
             serde_json::Value,
             Option<Uuid>,
             i32,
+            Option<Uuid>,
         ),
     >(
-        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id
          FROM board_objects
          WHERE board_id = $1
          ORDER BY z_index ASC, id ASC",
@@ -556,7 +558,7 @@ pub async fn list_board_export_objects(
     Ok(rows
         .into_iter()
         .map(
-            |(id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version)| {
+            |(id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id)| {
                 BoardExportObject {
                     id,
                     board_id,
@@ -570,6 +572,7 @@ pub async fn list_board_export_objects(
                     props,
                     created_by,
                     version,
+                    group_id,
                 }
             },
         )
@@ -809,9 +812,10 @@ async fn hydrate_objects(pool: &PgPool, board_id: Uuid) -> Result<HashMap<Uuid, 
             serde_json::Value,
             Option<Uuid>,
             i32,
+            Option<Uuid>,
         ),
     >(
-        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version \
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id \
          FROM board_objects WHERE board_id = $1",
     )
     .bind(board_id)
@@ -819,10 +823,24 @@ async fn hydrate_objects(pool: &PgPool, board_id: Uuid) -> Result<HashMap<Uuid, 
     .await?;
 
     let mut objects = HashMap::new();
-    for (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version) in rows {
+    for (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id) in rows {
         objects.insert(
             id,
-            BoardObject { id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version },
+            BoardObject {
+                id,
+                board_id,
+                kind,
+                x,
+                y,
+                width,
+                height,
+                rotation,
+                z_index,
+                props,
+                created_by,
+                version,
+                group_id,
+            },
         );
     }
     Ok(objects)
@@ -832,12 +850,12 @@ async fn hydrate_objects(pool: &PgPool, board_id: Uuid) -> Result<HashMap<Uuid, 
 pub async fn flush_objects(pool: &PgPool, objects: &[BoardObject]) -> Result<(), sqlx::Error> {
     for obj in objects {
         sqlx::query(
-            "INSERT INTO board_objects (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, updated_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now()) \
+            "INSERT INTO board_objects (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now()) \
              ON CONFLICT (id) DO UPDATE SET \
                  x = EXCLUDED.x, y = EXCLUDED.y, width = EXCLUDED.width, height = EXCLUDED.height, \
                  rotation = EXCLUDED.rotation, z_index = EXCLUDED.z_index, props = EXCLUDED.props, \
-                 version = EXCLUDED.version, updated_at = now()",
+                 version = EXCLUDED.version, group_id = EXCLUDED.group_id, updated_at = now()",
         )
         .bind(obj.id)
         .bind(obj.board_id)
@@ -851,6 +869,7 @@ pub async fn flush_objects(pool: &PgPool, objects: &[BoardObject]) -> Result<(),
         .bind(&obj.props)
         .bind(obj.created_by)
         .bind(obj.version)
+        .bind(obj.group_id)
         .execute(pool)
         .await?;
     }

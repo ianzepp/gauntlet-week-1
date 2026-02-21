@@ -117,6 +117,7 @@ fn board_object_optional_fields_none() {
         props: serde_json::json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     };
     let json = serde_json::to_string(&obj).unwrap();
     let restored: BoardObject = serde_json::from_str(&json).unwrap();
@@ -141,6 +142,7 @@ fn board_object_optional_fields_some() {
         props: serde_json::json!({"text": "hello"}),
         created_by: Some(user_id),
         version: 5,
+        group_id: None,
     };
     let json = serde_json::to_string(&obj).unwrap();
     let restored: BoardObject = serde_json::from_str(&json).unwrap();

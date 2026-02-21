@@ -85,7 +85,22 @@ pub fn map_modifiers(shift: bool, ctrl: bool, alt: bool, meta: bool) -> CanvasMo
 
 #[cfg(feature = "hydrate")]
 pub fn should_prevent_default_key(key: &str) -> bool {
-    matches!(key, "Delete" | "Backspace" | "Escape" | "Enter")
+    matches!(
+        key,
+        "Delete"
+            | "Backspace"
+            | "Escape"
+            | "Enter"
+            | "ArrowUp"
+            | "ArrowDown"
+            | "ArrowLeft"
+            | "ArrowRight"
+            | " "
+            | "a"
+            | "A"
+            | "g"
+            | "G"
+    )
 }
 
 #[cfg(feature = "hydrate")]

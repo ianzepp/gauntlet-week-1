@@ -3,11 +3,7 @@ use crate::net::types::FrameStatus;
 
 #[test]
 fn request_frame_sets_expected_envelope_fields() {
-    let frame = request_frame(
-        "object:create",
-        Some("board-1".to_owned()),
-        serde_json::json!({ "id": "o-1" }),
-    );
+    let frame = request_frame("object:create", Some("board-1".to_owned()), serde_json::json!({ "id": "o-1" }));
 
     assert_eq!(frame.syscall, "object:create");
     assert_eq!(frame.status, FrameStatus::Request);

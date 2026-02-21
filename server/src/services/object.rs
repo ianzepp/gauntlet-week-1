@@ -60,6 +60,7 @@ pub async fn create_object(
     rotation: f64,
     props: serde_json::Value,
     created_by: Option<Uuid>,
+    group_id: Option<Uuid>,
 ) -> Result<BoardObject, ObjectError> {
     let mut boards = state.boards.write().await;
     let board = boards
@@ -81,6 +82,7 @@ pub async fn create_object(
         props,
         created_by,
         version: 1,
+        group_id,
     };
 
     let result = obj.clone();
@@ -151,6 +153,12 @@ pub async fn update_object(
     }
     if let Some(p) = updates.get("props") {
         obj.props = p.clone();
+    }
+    if updates.get("group_id").is_some() {
+        obj.group_id = updates
+            .get("group_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|s| Uuid::parse_str(s).ok());
     }
 
     obj.version += 1;

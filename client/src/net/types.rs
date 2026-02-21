@@ -34,6 +34,7 @@ pub struct BoardObject {
     pub created_by: Option<String>,
     #[serde(deserialize_with = "deserialize_i64_from_number")]
     pub version: i64,
+    pub group_id: Option<String>,
 }
 
 /// Persisted board savepoint with full snapshot for preview/rewind.

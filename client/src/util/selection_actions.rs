@@ -51,7 +51,14 @@ fn selection_geometry_changed(
 }
 
 #[cfg(any(test, feature = "hydrate"))]
-fn selection_color_changed(fill: &str, base_fill: &str, shift: f64, start_fill: &str, start_base_fill: &str, start_shift: f64) -> bool {
+fn selection_color_changed(
+    fill: &str,
+    base_fill: &str,
+    shift: f64,
+    start_fill: &str,
+    start_base_fill: &str,
+    start_shift: f64,
+) -> bool {
     fill != start_fill || base_fill != start_base_fill || (shift - start_shift).abs() > 0.001
 }
 

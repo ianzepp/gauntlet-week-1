@@ -62,10 +62,16 @@ pub fn draw(
     }
 
     // Layer 3: selection UI.
-    if let Some(sel_id) = ui.selected_id {
+    let selected = ui.selected_ids.iter().copied().collect::<Vec<_>>();
+    let show_handles = selected.len() == 1;
+    for sel_id in selected {
         if let Some(obj) = doc.get(&sel_id) {
-            draw_selection(ctx, obj, doc, camera.zoom)?;
+            draw_selection(ctx, obj, doc, camera.zoom, show_handles)?;
         }
+    }
+
+    if let Some(m) = ui.marquee {
+        draw_marquee(ctx, m, camera.zoom)?;
     }
 
     Ok(())
@@ -546,14 +552,25 @@ fn measured_text_width(ctx: &CanvasRenderingContext2d, text: &str) -> f64 {
 // Selection UI
 // =============================================================
 
-fn draw_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore, zoom: f64) -> Result<(), JsValue> {
+fn draw_selection(
+    ctx: &CanvasRenderingContext2d,
+    obj: &BoardObject,
+    doc: &DocStore,
+    zoom: f64,
+    show_handles: bool,
+) -> Result<(), JsValue> {
     match obj.kind {
-        ObjectKind::Line | ObjectKind::Arrow => draw_edge_selection(ctx, obj, doc, zoom),
-        _ => draw_node_selection(ctx, obj, zoom),
+        ObjectKind::Line | ObjectKind::Arrow => draw_edge_selection(ctx, obj, doc, zoom, show_handles),
+        _ => draw_node_selection(ctx, obj, zoom, show_handles),
     }
 }
 
-fn draw_node_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, zoom: f64) -> Result<(), JsValue> {
+fn draw_node_selection(
+    ctx: &CanvasRenderingContext2d,
+    obj: &BoardObject,
+    zoom: f64,
+    show_handles: bool,
+) -> Result<(), JsValue> {
     ctx.save();
 
     // Dashed bounding box (rotated with the object).
@@ -574,6 +591,10 @@ fn draw_node_selection(ctx: &CanvasRenderingContext2d, obj: &BoardObject, zoom: 
     ctx.set_line_dash(&js_sys::Array::new())?;
 
     ctx.restore();
+
+    if !show_handles {
+        return Ok(());
+    }
 
     // Resize handles (drawn in world coordinates, not rotated context).
     let handle_size_world = HANDLE_RADIUS_PX / zoom;
@@ -626,6 +647,7 @@ fn draw_edge_selection(
     obj: &BoardObject,
     doc: &DocStore,
     zoom: f64,
+    show_handles: bool,
 ) -> Result<(), JsValue> {
     let Some(a) = hit::edge_endpoint_a_resolved(obj, doc) else {
         return Ok(());
@@ -634,7 +656,11 @@ fn draw_edge_selection(
         return Ok(());
     };
 
-    let handle_radius = HANDLE_RADIUS_PX / zoom;
+    let handle_radius = if show_handles {
+        HANDLE_RADIUS_PX / zoom
+    } else {
+        (HANDLE_RADIUS_PX * 0.6) / zoom
+    };
 
     ctx.save();
     ctx.set_fill_style_str("#fff");
@@ -648,6 +674,27 @@ fn draw_edge_selection(
         ctx.stroke();
     }
 
+    ctx.restore();
+    Ok(())
+}
+
+fn draw_marquee(
+    ctx: &CanvasRenderingContext2d,
+    marquee: crate::input::SelectionRect,
+    zoom: f64,
+) -> Result<(), JsValue> {
+    ctx.save();
+    let dash_world = SELECTION_DASH_PX / zoom;
+    let dash_array = js_sys::Array::new();
+    dash_array.push(&dash_world.into());
+    dash_array.push(&dash_world.into());
+    ctx.set_line_dash(&dash_array)?;
+    ctx.set_stroke_style_str("#1E90FF");
+    ctx.set_fill_style_str("rgba(30, 144, 255, 0.12)");
+    ctx.set_line_width(1.0 / zoom);
+    ctx.fill_rect(marquee.x, marquee.y, marquee.width, marquee.height);
+    ctx.stroke_rect(marquee.x, marquee.y, marquee.width, marquee.height);
+    ctx.set_line_dash(&js_sys::Array::new())?;
     ctx.restore();
     Ok(())
 }

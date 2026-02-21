@@ -3,10 +3,7 @@ use crate::state::boards::BoardsState;
 
 #[test]
 fn apply_board_error_state_handles_board_list() {
-    let mut boards = BoardsState {
-        loading: true,
-        ..BoardsState::default()
-    };
+    let mut boards = BoardsState { loading: true, ..BoardsState::default() };
     let handled = apply_board_error_state("board:list", "failed", &mut boards);
     assert!(handled);
     assert!(!boards.loading);
@@ -15,10 +12,7 @@ fn apply_board_error_state_handles_board_list() {
 
 #[test]
 fn apply_board_error_state_handles_board_create() {
-    let mut boards = BoardsState {
-        create_pending: true,
-        ..BoardsState::default()
-    };
+    let mut boards = BoardsState { create_pending: true, ..BoardsState::default() };
     let handled = apply_board_error_state("board:create", "nope", &mut boards);
     assert!(handled);
     assert!(!boards.create_pending);
@@ -27,11 +21,7 @@ fn apply_board_error_state_handles_board_create() {
 
 #[test]
 fn apply_board_error_state_returns_false_for_unrelated_syscall() {
-    let mut boards = BoardsState {
-        loading: true,
-        create_pending: true,
-        ..BoardsState::default()
-    };
+    let mut boards = BoardsState { loading: true, create_pending: true, ..BoardsState::default() };
     let handled = apply_board_error_state("chat:message", "ignored", &mut boards);
     assert!(!handled);
     assert!(boards.loading);

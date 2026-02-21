@@ -90,9 +90,10 @@ async fn snapshot_objects(state: &AppState, board_id: Uuid) -> Result<Vec<BoardO
             serde_json::Value,
             Option<Uuid>,
             i32,
+            Option<Uuid>,
         ),
     >(
-        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version \
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id \
          FROM board_objects WHERE board_id = $1",
     )
     .bind(board_id)
@@ -100,7 +101,7 @@ async fn snapshot_objects(state: &AppState, board_id: Uuid) -> Result<Vec<BoardO
     .await?;
 
     let mut objects = Vec::with_capacity(rows.len());
-    for (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version) in rows {
+    for (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id) in rows {
         objects.push(BoardObject {
             id,
             board_id,
@@ -114,6 +115,7 @@ async fn snapshot_objects(state: &AppState, board_id: Uuid) -> Result<Vec<BoardO
             props,
             created_by,
             version,
+            group_id,
         });
     }
     Ok(objects)

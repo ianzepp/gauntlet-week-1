@@ -16,6 +16,7 @@ fn make_obj(id: &str, rotation: f64, width: Option<f64>, height: Option<f64>, pr
         rotation,
         z_index: 0,
         version: 1,
+        group_id: None,
         props,
         created_by: None,
     }
@@ -54,11 +55,23 @@ fn representative_lightness_and_border_width_average_and_clamp() {
     let mut state = BoardState::default();
     state.objects.insert(
         "a".to_owned(),
-        make_obj("a", 0.0, None, None, serde_json::json!({ "lightnessShift": -2, "borderWidth": 2 })),
+        make_obj(
+            "a",
+            0.0,
+            None,
+            None,
+            serde_json::json!({ "lightnessShift": -2, "borderWidth": 2 }),
+        ),
     );
     state.objects.insert(
         "b".to_owned(),
-        make_obj("b", 0.0, None, None, serde_json::json!({ "lightnessShift": 1, "borderWidth": 10 })),
+        make_obj(
+            "b",
+            0.0,
+            None,
+            None,
+            serde_json::json!({ "lightnessShift": 1, "borderWidth": 10 }),
+        ),
     );
     state.selection = selection(&["a", "b"]);
 
@@ -69,8 +82,14 @@ fn representative_lightness_and_border_width_average_and_clamp() {
 #[test]
 fn representative_font_size_rounds_mean() {
     let mut state = BoardState::default();
-    state.objects.insert("a".to_owned(), make_obj("a", 0.0, None, None, serde_json::json!({ "fontSize": 17 })));
-    state.objects.insert("b".to_owned(), make_obj("b", 0.0, None, None, serde_json::json!({ "fontSize": 18 })));
+    state.objects.insert(
+        "a".to_owned(),
+        make_obj("a", 0.0, None, None, serde_json::json!({ "fontSize": 17 })),
+    );
+    state.objects.insert(
+        "b".to_owned(),
+        make_obj("b", 0.0, None, None, serde_json::json!({ "fontSize": 18 })),
+    );
     state.selection = selection(&["a", "b"]);
 
     assert_eq!(representative_font_size(&state), 18.0);
@@ -79,8 +98,12 @@ fn representative_font_size_rounds_mean() {
 #[test]
 fn representative_rotation_handles_wraparound_mean() {
     let mut state = BoardState::default();
-    state.objects.insert("a".to_owned(), make_obj("a", 350.0, None, None, serde_json::json!({})));
-    state.objects.insert("b".to_owned(), make_obj("b", 10.0, None, None, serde_json::json!({})));
+    state
+        .objects
+        .insert("a".to_owned(), make_obj("a", 350.0, None, None, serde_json::json!({})));
+    state
+        .objects
+        .insert("b".to_owned(), make_obj("b", 10.0, None, None, serde_json::json!({})));
     state.selection = selection(&["a", "b"]);
 
     let rotation = representative_rotation_deg(&state);

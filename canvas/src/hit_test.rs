@@ -27,6 +27,7 @@ fn make_node(kind: ObjectKind, x: f64, y: f64, w: f64, h: f64, rotation: f64) ->
         props: json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -47,6 +48,7 @@ fn make_edge(kind: ObjectKind, ax: f64, ay: f64, bx: f64, by: f64) -> BoardObjec
         }),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -501,6 +503,7 @@ fn edge_endpoint_partial_props() {
         props: json!({"a": {"type": "free", "x": 5.0}}), // missing y
         created_by: None,
         version: 1,
+        group_id: None,
     };
     assert!(edge_endpoint_a(&obj).is_none());
 }
@@ -525,6 +528,7 @@ fn edge_endpoint_resolved_attached_uses_target_geometry() {
         }),
         created_by: None,
         version: 1,
+        group_id: None,
     };
 
     let mut doc = DocStore::new();
@@ -561,6 +565,7 @@ fn edge_endpoint_resolved_attached_falls_back_to_embedded_free_point() {
         }),
         created_by: None,
         version: 1,
+        group_id: None,
     };
 
     let doc = DocStore::new();

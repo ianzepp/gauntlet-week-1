@@ -528,7 +528,7 @@ pub fn CanvasHost() -> impl IntoView {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
-                    let active_transform = active_transform_object_id(engine);
+                    let active_transform = active_transform_object_ids(engine);
                     sync_viewport(engine, &canvas_ref);
                     let point = pointer_point(&ev);
                     let button = map_button(ev.button());
@@ -648,7 +648,7 @@ pub fn CanvasHost() -> impl IntoView {
                     active_youtube.set(None);
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
-                    let active_transform = active_transform_object_id(engine);
+                    let active_transform = active_transform_object_ids(engine);
                     sync_viewport(engine, &canvas_ref);
                     if should_prevent_default_key(&key) {
                         ev.prevent_default();
@@ -2101,28 +2101,41 @@ fn sanitize_youtube_id(id: &str) -> Option<String> {
 
 #[cfg(feature = "hydrate")]
 fn sync_selection_from_engine(engine: &Engine, board: RwSignal<BoardState>) {
-    let selected = engine.selection().map(|id| id.to_string());
+    let selected = engine
+        .selections()
+        .into_iter()
+        .map(|id| id.to_string())
+        .collect::<std::collections::HashSet<_>>();
     board.update(|b| {
-        if b.selection.len() <= 1 && b.selection.iter().next().cloned() == selected {
+        if b.selection == selected {
             return;
         }
-        b.selection.clear();
-        if let Some(id) = selected
-            && b.objects.contains_key(&id)
-        {
-            b.selection.insert(id);
-        }
+        b.selection = selected
+            .into_iter()
+            .filter(|id| b.objects.contains_key(id))
+            .collect();
     });
 }
 
 #[cfg(feature = "hydrate")]
 fn active_transform_object_id(engine: &Engine) -> Option<String> {
     match engine.core.input.clone() {
-        CanvasInputState::DraggingObject { id, .. }
-        | CanvasInputState::ResizingObject { id, .. }
+        CanvasInputState::DraggingObject { ids, .. } => ids.first().map(uuid::Uuid::to_string),
+        CanvasInputState::ResizingObject { id, .. }
         | CanvasInputState::RotatingObject { id, .. }
         | CanvasInputState::DraggingEdgeEndpoint { id, .. } => Some(id.to_string()),
         _ => None,
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn active_transform_object_ids(engine: &Engine) -> Vec<String> {
+    match engine.core.input.clone() {
+        CanvasInputState::DraggingObject { ids, .. } => ids.into_iter().map(|id| id.to_string()).collect(),
+        CanvasInputState::ResizingObject { id, .. }
+        | CanvasInputState::RotatingObject { id, .. }
+        | CanvasInputState::DraggingEdgeEndpoint { id, .. } => vec![id.to_string()],
+        _ => Vec::new(),
     }
 }
 
@@ -2156,64 +2169,70 @@ fn send_object_drag_if_needed(
         return;
     }
 
-    let object_id = match engine.core.input.clone() {
-        CanvasInputState::DraggingObject { id, .. }
-        | CanvasInputState::ResizingObject { id, .. }
-        | CanvasInputState::RotatingObject { id, .. }
-        | CanvasInputState::DraggingEdgeEndpoint { id, .. } => id,
-        _ => return,
-    };
-
     let Some(board_id) = board.get_untracked().board_id else {
         return;
     };
-    let Some(obj) = engine.object(&object_id) else {
-        return;
+    let ids: Vec<uuid::Uuid> = match engine.core.input.clone() {
+        CanvasInputState::DraggingObject { duplicated: true, .. } => return,
+        CanvasInputState::DraggingObject { ids, .. } => ids,
+        CanvasInputState::ResizingObject { id, .. }
+        | CanvasInputState::RotatingObject { id, .. }
+        | CanvasInputState::DraggingEdgeEndpoint { id, .. } => vec![id],
+        _ => return,
     };
 
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: "object:drag".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({
-            "id": obj.id.to_string(),
-            "x": obj.x,
-            "y": obj.y,
-            "width": obj.width,
-            "height": obj.height,
-            "rotation": obj.rotation,
-            "z_index": obj.z_index,
-            "props": obj.props,
-        }),
-    };
-    if sender.get_untracked().send(&frame) {
+    let mut sent = false;
+    for object_id in ids {
+        let Some(obj) = engine.object(&object_id) else {
+            continue;
+        };
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(board_id.clone()),
+            from: None,
+            syscall: "object:drag".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({
+                "id": obj.id.to_string(),
+                "x": obj.x,
+                "y": obj.y,
+                "width": obj.width,
+                "height": obj.height,
+                "rotation": obj.rotation,
+                "z_index": obj.z_index,
+                "props": obj.props,
+            }),
+        };
+        sent = sender.get_untracked().send(&frame) || sent;
+    }
+    if sent {
         last_sent_ms.set(now);
     }
 }
 
 #[cfg(feature = "hydrate")]
-fn send_object_drag_end(id: Option<String>, board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
-    let Some(id) = id else {
+fn send_object_drag_end(ids: Vec<String>, board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) {
+    if ids.is_empty() {
         return;
-    };
+    }
     let Some(board_id) = board.get_untracked().board_id else {
         return;
     };
-    let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
-        parent_id: None,
-        ts: 0,
-        board_id: Some(board_id),
-        from: None,
-        syscall: "object:drag:end".to_owned(),
-        status: FrameStatus::Request,
-        data: serde_json::json!({ "id": id }),
-    };
-    let _ = sender.get_untracked().send(&frame);
+    for id in ids {
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0,
+            board_id: Some(board_id.clone()),
+            from: None,
+            syscall: "object:drag:end".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({ "id": id }),
+        };
+        let _ = sender.get_untracked().send(&frame);
+    }
 }
 
 fn remote_cursor_style(x: f64, y: f64, color: &str) -> String {
@@ -2341,6 +2360,10 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
         props,
         created_by,
         version: obj.version,
+        group_id: obj
+            .group_id
+            .as_deref()
+            .and_then(|s| uuid::Uuid::parse_str(s).ok()),
     })
 }
 
@@ -2382,6 +2405,7 @@ fn process_actions(
                         "height": obj.height,
                         "rotation": obj.rotation,
                         "props": obj.props,
+                        "group_id": obj.group_id.map(|id| id.to_string()),
                     }),
                 };
                 let _ = sender.get_untracked().send(&frame);
@@ -2421,6 +2445,9 @@ fn process_actions(
                 }
                 if let Some(z) = fields.z_index {
                     data.insert("z_index".to_owned(), serde_json::json!(z));
+                }
+                if let Some(group_id) = fields.group_id {
+                    data.insert("group_id".to_owned(), serde_json::json!(group_id.map(|id| id.to_string())));
                 }
                 if let Some(props) = fields.props {
                     data.insert("props".to_owned(), props);
@@ -2506,5 +2533,6 @@ fn to_wire_object(obj: &CanvasObject, board_id: &str) -> Option<BoardObject> {
         props: obj.props.clone(),
         created_by: obj.created_by.map(|u| u.to_string()),
         version: obj.version,
+        group_id: obj.group_id.map(|id| id.to_string()),
     })
 }

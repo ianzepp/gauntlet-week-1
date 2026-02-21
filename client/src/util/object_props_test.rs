@@ -13,6 +13,7 @@ fn make_obj(props: serde_json::Value, width: Option<f64>, height: Option<f64>) -
         rotation: 0.0,
         z_index: 0,
         version: 1,
+        group_id: None,
         props,
         created_by: None,
     }

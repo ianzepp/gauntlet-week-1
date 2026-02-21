@@ -16,6 +16,7 @@ async fn create_object_succeeds() {
         0.0,
         serde_json::json!({"text": "hi"}),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -46,6 +47,7 @@ async fn create_object_board_not_loaded() {
         0.0,
         serde_json::json!({}),
         None,
+        None,
     )
     .await;
     assert!(result.is_err());
@@ -66,6 +68,7 @@ async fn update_object_succeeds() {
         None,
         0.0,
         serde_json::json!({}),
+        None,
         None,
     )
     .await
@@ -96,6 +99,7 @@ async fn update_object_lww_rejects_stale() {
         None,
         0.0,
         serde_json::json!({}),
+        None,
         None,
     )
     .await
@@ -142,6 +146,7 @@ async fn update_object_partial_fields() {
         0.0,
         serde_json::json!({}),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -171,6 +176,7 @@ async fn update_object_props() {
         0.0,
         serde_json::json!({"text": "old"}),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -199,6 +205,7 @@ async fn create_object_marks_dirty() {
         0.0,
         serde_json::json!({}),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -223,6 +230,7 @@ async fn delete_object_removes_from_memory() {
         None,
         0.0,
         serde_json::json!({}),
+        None,
         None,
     )
     .await

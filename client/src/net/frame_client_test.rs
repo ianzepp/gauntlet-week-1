@@ -28,6 +28,7 @@ fn object() -> BoardObject {
         props: serde_json::json!({"fill":"#fff"}),
         created_by: Some("u-1".to_owned()),
         version: 1,
+        group_id: None,
     }
 }
 

@@ -119,6 +119,7 @@ async fn flush_all_dirty_failure_preserves_dirty_flags() {
         props: serde_json::json!({"text":"persist me"}),
         created_by: None,
         version: 1,
+        group_id: None,
     };
     let object_id = object.id;
 

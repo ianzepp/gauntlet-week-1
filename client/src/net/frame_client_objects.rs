@@ -317,6 +317,12 @@ pub(super) fn merge_object_update(obj: &mut crate::net::types::BoardObject, data
     if let Some(v) = data.get("version").and_then(number_as_i64) {
         obj.version = v;
     }
+    if data.get("group_id").is_some() {
+        obj.group_id = data
+            .get("group_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_owned);
+    }
 }
 
 #[cfg(any(test, feature = "hydrate"))]

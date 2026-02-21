@@ -282,11 +282,7 @@ fn BoardSections(
 }
 
 #[component]
-fn BoardSection(
-    title: &'static str,
-    items: Vec<BoardListItem>,
-    on_delete: Callback<String>,
-) -> impl IntoView {
+fn BoardSection(title: &'static str, items: Vec<BoardListItem>, on_delete: Callback<String>) -> impl IntoView {
     let count = items.len();
     view! {
         <section class="dashboard-page__section">

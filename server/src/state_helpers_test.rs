@@ -61,5 +61,6 @@ pub fn dummy_object() -> BoardObject {
         props: serde_json::json!({"text": "test", "color": "#FFEB3B"}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }

@@ -29,6 +29,7 @@ fn obj(id: &str) -> BoardObject {
         props: serde_json::json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 

@@ -19,6 +19,7 @@ fn make_object(kind: ObjectKind, z: i64) -> BoardObject {
         props: json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -36,6 +37,7 @@ fn make_object_with_id(id: Uuid, kind: ObjectKind, z: i64) -> BoardObject {
         props: json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -128,6 +130,7 @@ fn board_object_serde_roundtrip() {
         props: json!({"fill": "#FF0000"}),
         created_by: Some(Uuid::nil()),
         version: 7,
+        group_id: None,
     };
     let serialized = serde_json::to_string(&obj).unwrap();
     let back: BoardObject = serde_json::from_str(&serialized).unwrap();
@@ -202,6 +205,7 @@ fn partial_serde_roundtrip() {
         z_index: Some(6),
         props: Some(json!({"fill": "#000"})),
         version: Some(7),
+        group_id: None,
     };
     let serialized = serde_json::to_string(&p).unwrap();
     let back: PartialBoardObject = serde_json::from_str(&serialized).unwrap();
@@ -365,7 +369,10 @@ fn apply_partial_version() {
     let obj = make_object(ObjectKind::Rect, 0);
     let id = obj.id;
     store.insert(obj);
-    store.apply_partial(&id, &PartialBoardObject { version: Some(42), ..Default::default() });
+    store.apply_partial(
+        &id,
+        &PartialBoardObject { version: Some(42), group_id: None, ..Default::default() },
+    );
     assert_eq!(store.get(&id).unwrap().version, 42);
 }
 

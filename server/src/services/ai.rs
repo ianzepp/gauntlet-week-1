@@ -719,7 +719,8 @@ async fn execute_create_sticky_note(
         "borderWidth": stroke_width,
         "stroke_width": stroke_width
     });
-    let obj = super::object::create_object(state, board_id, "sticky_note", x, y, None, None, 0.0, props, None).await?;
+    let obj =
+        super::object::create_object(state, board_id, "sticky_note", x, y, None, None, 0.0, props, None, None).await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created sticky note {id}"))
@@ -785,7 +786,7 @@ async fn execute_create_shape(
     let h = input.get("height").and_then(serde_json::Value::as_f64);
     let default_w = if kind == "text" { 220.0 } else { 160.0 };
     let default_h = if kind == "text" { 56.0 } else { 100.0 };
-    let mut obj = super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None).await?;
+    let mut obj = super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None, None).await?;
 
     // Update the in-memory object with dimensions.
     if obj.width.is_some() || obj.height.is_some() || kind == "text" {
@@ -832,7 +833,8 @@ async fn execute_create_frame(
         .get("height")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(300.0);
-    let obj = super::object::create_object(state, board_id, "frame", x, y, Some(w), Some(h), 0.0, props, None).await?;
+    let obj =
+        super::object::create_object(state, board_id, "frame", x, y, Some(w), Some(h), 0.0, props, None, None).await?;
     let obj_id = obj.id;
     let mut data = Data::new();
     data.insert("width".into(), json!(w));
@@ -858,8 +860,8 @@ async fn execute_create_connector(
 
     let props = json!({"source_id": from_id, "target_id": to_id, "style": style});
     // Place connector at origin — rendering uses source/target positions.
-    let obj =
-        super::object::create_object(state, board_id, "connector", 0.0, 0.0, None, None, 0.0, props, None).await?;
+    let obj = super::object::create_object(state, board_id, "connector", 0.0, 0.0, None, None, 0.0, props, None, None)
+        .await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created connector {id} from {from_id} to {to_id}"))
@@ -1158,7 +1160,9 @@ async fn execute_apply_changes_yaml(
 
         let kind = canonical_kind(&change.kind);
         let props = change.props.unwrap_or_else(|| json!({}));
-        match super::object::create_object(state, board_id, &kind, x, y, width, height, rotation, props, None).await {
+        match super::object::create_object(state, board_id, &kind, x, y, width, height, rotation, props, None, None)
+            .await
+        {
             Ok(mut obj) => {
                 if let Some(z_index) = z {
                     let mut update = Data::new();

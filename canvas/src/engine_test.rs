@@ -26,6 +26,7 @@ fn make_object(kind: ObjectKind, z: i64) -> BoardObject {
         props: json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -43,6 +44,7 @@ fn make_object_at(kind: ObjectKind, x: f64, y: f64, w: f64, h: f64) -> BoardObje
         props: json!({}),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -63,6 +65,7 @@ fn make_edge(kind: ObjectKind, ax: f64, ay: f64, bx: f64, by: f64) -> BoardObjec
         }),
         created_by: None,
         version: 1,
+        group_id: None,
     }
 }
 
@@ -252,7 +255,8 @@ fn core_apply_delete_clears_selection_if_selected() {
     let obj = make_object(ObjectKind::Rect, 0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     core.apply_delete(&id);
     assert!(core.selection().is_none());
@@ -267,7 +271,8 @@ fn core_apply_delete_preserves_selection_of_other() {
     let id_b = b.id;
     core.apply_create(a);
     core.apply_create(b);
-    core.ui.selected_id = Some(id_a);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id_a);
 
     core.apply_delete(&id_b);
     assert_eq!(core.selection(), Some(id_a));
@@ -477,10 +482,8 @@ fn core_object_returns_correct_object() {
 fn select_click_empty_stays_idle() {
     let mut core = EngineCore::new();
     let actions = core.on_pointer_down(pt(500.0, 500.0), Button::Primary, no_modifiers());
-    // Should transition to Panning (empty space enables drag-to-pan).
-    assert!(matches!(core.input, InputState::Panning { .. }));
-    // No render needed if nothing was selected before.
-    assert!(!has_render_needed(&actions));
+    assert!(matches!(core.input, InputState::MarqueeSelecting { .. }));
+    assert!(has_render_needed(&actions));
 }
 
 #[test]
@@ -489,7 +492,8 @@ fn select_click_empty_deselects() {
     let obj = make_object_at(ObjectKind::Rect, 10.0, 10.0, 50.0, 50.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     // Click far from the object.
     let actions = core.on_pointer_down(pt(500.0, 500.0), Button::Primary, no_modifiers());
@@ -545,10 +549,9 @@ fn select_click_body_stores_original_position() {
 
     core.on_pointer_down(pt(70.0, 70.0), Button::Primary, no_modifiers());
     match &core.input {
-        InputState::DraggingObject { id: drag_id, orig_x, orig_y, .. } => {
-            assert_eq!(*drag_id, id);
-            assert_eq!(*orig_x, 20.0);
-            assert_eq!(*orig_y, 30.0);
+        InputState::DraggingObject { ids, originals, .. } => {
+            assert_eq!(*ids, vec![id]);
+            assert_eq!(*originals, vec![(id, 20.0, 30.0)]);
         }
         other => panic!("Expected DraggingObject, got {other:?}"),
     }
@@ -581,7 +584,8 @@ fn select_click_resize_handle_starts_resize() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     // Click on the SE handle (bottom-right corner at 100, 80).
     let actions = core.on_pointer_down(pt(100.0, 80.0), Button::Primary, no_modifiers());
@@ -598,7 +602,8 @@ fn select_click_resize_handle_with_view_rotation_starts_resize() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     let viewport_center = pt(core.viewport_width * 0.5, core.viewport_height * 0.5);
     let se_handle_world = pt(100.0, 80.0);
@@ -620,7 +625,8 @@ fn select_click_rotate_handle_starts_rotation() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     // Rotate handle is above center-top (50, -24) at zoom 1.
     let actions = core.on_pointer_down(pt(50.0, -24.0), Button::Primary, no_modifiers());
@@ -636,7 +642,8 @@ fn select_click_rotate_handle_with_view_rotation_starts_rotation() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     let viewport_center = pt(core.viewport_width * 0.5, core.viewport_height * 0.5);
     let rotate_handle_world = pt(50.0, -24.0);
@@ -658,7 +665,8 @@ fn select_click_edge_endpoint_starts_drag() {
     let edge = make_edge(ObjectKind::Arrow, 10.0, 10.0, 200.0, 200.0);
     let id = edge.id;
     core.apply_create(edge);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     // Click near endpoint A.
     let actions = core.on_pointer_down(pt(10.0, 10.0), Button::Primary, no_modifiers());
@@ -834,7 +842,14 @@ fn dragging_object_moves_position() {
     let obj = make_object_at(ObjectKind::Rect, 50.0, 60.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(75.0, 80.0), orig_x: 50.0, orig_y: 60.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(75.0, 80.0),
+        start_world: pt(75.0, 80.0),
+        originals: vec![(id, 50.0, 60.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     let actions = core.on_pointer_move(pt(85.0, 90.0), no_modifiers());
     let updated = core.object(&id).unwrap();
@@ -849,7 +864,14 @@ fn dragging_object_accumulates_moves() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 40.0),
+        start_world: pt(50.0, 40.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     core.on_pointer_move(pt(60.0, 50.0), no_modifiers());
     core.on_pointer_move(pt(70.0, 60.0), no_modifiers());
@@ -1287,7 +1309,14 @@ fn pointer_up_dragging_emits_update() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 40.0),
+        start_world: pt(50.0, 40.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     // Move it first.
     core.on_pointer_move(pt(60.0, 50.0), no_modifiers());
@@ -1302,7 +1331,14 @@ fn pointer_up_dragging_no_move_no_update() {
     let obj = make_object_at(ObjectKind::Rect, 10.0, 20.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 50.0), orig_x: 10.0, orig_y: 20.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 50.0),
+        start_world: pt(50.0, 50.0),
+        originals: vec![(id, 10.0, 20.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     // Don't move, just release.
     let actions = core.on_pointer_up(pt(50.0, 50.0), Button::Primary, no_modifiers());
@@ -1578,7 +1614,8 @@ fn delete_key_removes_selected_object() {
     let obj = make_object(ObjectKind::Rect, 0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     let actions = core.on_key_down(Key("Delete".into()), no_modifiers());
     assert!(core.object(&id).is_none());
@@ -1593,7 +1630,8 @@ fn backspace_key_removes_selected_object() {
     let obj = make_object(ObjectKind::Rect, 0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     let actions = core.on_key_down(Key("Backspace".into()), no_modifiers());
     assert!(has_object_deleted(&actions));
@@ -1616,7 +1654,8 @@ fn escape_deselects() {
     let obj = make_object(ObjectKind::Rect, 0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     let actions = core.on_key_down(Key("Escape".into()), no_modifiers());
     assert!(core.selection().is_none());
@@ -1629,7 +1668,14 @@ fn escape_cancels_active_gesture() {
     let obj = make_object(ObjectKind::Rect, 0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(0.0, 0.0), orig_x: 0.0, orig_y: 0.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(0.0, 0.0),
+        start_world: pt(0.0, 0.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     core.on_key_down(Key("Escape".into()), no_modifiers());
     assert!(matches!(core.input, InputState::Idle));
@@ -1649,7 +1695,8 @@ fn enter_on_selected_object_requests_text_edit() {
     obj.props = json!({"head": "Top", "text": "Body", "foot": "Bottom"});
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     let actions = core.on_key_down(Key("Enter".into()), no_modifiers());
     assert!(has_action(&actions, |a| matches!(
@@ -2339,7 +2386,8 @@ fn dragging_edge_endpoint_snaps_to_shape_and_tracks_target_motion() {
     let edge = make_edge(ObjectKind::Line, 10.0, 10.0, 40.0, 10.0);
     let edge_id = edge.id;
     core.apply_create(edge);
-    core.ui.selected_id = Some(edge_id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(edge_id);
 
     core.on_pointer_down(pt(40.0, 10.0), Button::Primary, no_modifiers());
     assert!(matches!(core.input, InputState::DraggingEdgeEndpoint { id, end: EdgeEnd::B } if id == edge_id));
@@ -2463,8 +2511,16 @@ fn apply_delete_on_dragged_object_graceful_move() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 40.0),
+        start_world: pt(50.0, 40.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     // Server deletes the object mid-drag.
     core.apply_delete(&id);
@@ -2507,7 +2563,14 @@ fn apply_update_on_dragged_object_continues_from_server_position() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 40.0),
+        start_world: pt(50.0, 40.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     // Server moves the object.
     let partial = PartialBoardObject { x: Some(200.0), y: Some(200.0), ..Default::default() };
@@ -2527,7 +2590,8 @@ fn apply_delete_clears_selection_during_gesture() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
     core.input = InputState::RotatingObject { id, center: pt(50.0, 40.0), orig_rotation: 0.0 };
 
     core.apply_delete(&id);
@@ -2540,7 +2604,14 @@ fn load_snapshot_during_drag_graceful() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 40.0),
+        start_world: pt(50.0, 40.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     // Full snapshot replaces doc — dragged object is gone.
     let new_obj = make_object(ObjectKind::Ellipse, 0);
@@ -2664,15 +2735,14 @@ fn pan_to_large_coordinates() {
 }
 
 #[test]
-fn empty_space_drag_to_pan() {
+fn empty_space_drag_selects_marquee() {
     let mut core = EngineCore::new();
-    // Click on empty space with select tool.
     core.on_pointer_down(pt(100.0, 100.0), Button::Primary, no_modifiers());
-    assert!(matches!(core.input, InputState::Panning { .. }));
+    assert!(matches!(core.input, InputState::MarqueeSelecting { .. }));
 
     core.on_pointer_move(pt(150.0, 130.0), no_modifiers());
-    assert_eq!(core.camera.pan_x, 50.0);
-    assert_eq!(core.camera.pan_y, 30.0);
+    assert_eq!(core.camera.pan_x, 0.0);
+    assert_eq!(core.camera.pan_y, 0.0);
 
     core.on_pointer_up(pt(150.0, 130.0), Button::Primary, no_modifiers());
     assert!(matches!(core.input, InputState::Idle));
@@ -2688,8 +2758,16 @@ fn delete_key_during_dragging_object() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
-    core.input = InputState::DraggingObject { id, last_world: pt(50.0, 40.0), orig_x: 0.0, orig_y: 0.0 };
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
+    core.input = InputState::DraggingObject {
+        ids: vec![id],
+        last_world: pt(50.0, 40.0),
+        start_world: pt(50.0, 40.0),
+        originals: vec![(id, 0.0, 0.0)],
+        axis_lock: None,
+        duplicated: false,
+    };
 
     let actions = core.on_key_down(Key("Delete".into()), no_modifiers());
     // Delete key removes the object and clears selection.
@@ -2721,7 +2799,8 @@ fn escape_during_resizing_object() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
     core.input = InputState::ResizingObject {
         id,
         anchor: ResizeAnchor::Se,
@@ -2829,7 +2908,8 @@ fn click_near_but_outside_object_deselects() {
     let obj = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
     let id = obj.id;
     core.apply_create(obj);
-    core.ui.selected_id = Some(id);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
 
     // Click just outside the boundary.
     core.on_pointer_down(pt(101.0, 81.0), Button::Primary, no_modifiers());

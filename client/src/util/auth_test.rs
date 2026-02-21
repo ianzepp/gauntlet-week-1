@@ -3,19 +3,13 @@ use crate::net::types::User;
 
 #[test]
 fn should_redirect_unauth_when_not_loading_and_user_missing() {
-    let state = AuthState {
-        user: None,
-        loading: false,
-    };
+    let state = AuthState { user: None, loading: false };
     assert!(should_redirect_unauth(&state));
 }
 
 #[test]
 fn should_not_redirect_while_loading() {
-    let state = AuthState {
-        user: None,
-        loading: true,
-    };
+    let state = AuthState { user: None, loading: true };
     assert!(!should_redirect_unauth(&state));
 }
 

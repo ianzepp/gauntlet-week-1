@@ -119,6 +119,7 @@ async fn part_board_keeps_dirty_board_loaded_if_flush_fails() {
         props: serde_json::json!({"text": "dirty"}),
         created_by: None,
         version: 1,
+        group_id: None,
     };
 
     let (tx, _rx) = mpsc::channel(8);
@@ -222,6 +223,7 @@ async fn join_board_hydrates_objects_from_database() {
         props: serde_json::json!({"text": "seeded"}),
         created_by: None,
         version: 1,
+        group_id: None,
     };
     flush_objects(&pool, std::slice::from_ref(&obj))
         .await
@@ -270,6 +272,7 @@ async fn part_board_flushes_dirty_object_to_database_on_last_client() {
         props: serde_json::json!({"text": "flush me"}),
         created_by: None,
         version: 2,
+        group_id: None,
     };
 
     let (tx, _rx) = mpsc::channel(8);
