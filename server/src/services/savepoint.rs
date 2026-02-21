@@ -17,10 +17,13 @@ use crate::state::{AppState, BoardObject};
 
 const DEFAULT_AUTO_SAVEPOINT_DEBOUNCE_MS: i64 = 1500;
 
+/// Errors returned by savepoint service operations.
 #[derive(Debug, thiserror::Error)]
 pub enum SavepointError {
+    /// No board with the given ID was found, or the caller lacks access.
     #[error("board not found or not accessible: {0}")]
     BoardNotFound(Uuid),
+    /// A Postgres query failed.
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 }
@@ -34,16 +37,26 @@ impl crate::frame::ErrorCode for SavepointError {
     }
 }
 
+/// A savepoint record as stored in and retrieved from the database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavepointRow {
+    /// Unique savepoint identifier.
     pub id: Uuid,
+    /// Board this savepoint belongs to.
     pub board_id: Uuid,
+    /// Global frame sequence number at the time this savepoint was created.
     pub seq: i64,
+    /// Creation timestamp in milliseconds since the Unix epoch.
     pub ts: i64,
+    /// User who triggered the savepoint, if user-initiated.
     pub created_by: Option<Uuid>,
+    /// Whether this savepoint was created automatically (debounced) vs. manually.
     pub is_auto: bool,
+    /// Short machine-readable reason for the savepoint (e.g. `"auto"`, `"manual"`).
     pub reason: String,
+    /// Optional human-readable label shown in the rewind UI.
     pub label: Option<String>,
+    /// Full board snapshot serialized as JSON.
     pub snapshot: serde_json::Value,
 }
 

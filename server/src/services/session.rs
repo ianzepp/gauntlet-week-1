@@ -41,10 +41,15 @@ pub(crate) fn generate_ws_ticket() -> String {
 /// User row returned from session validation.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SessionUser {
+    /// Unique user identifier.
     pub id: Uuid,
+    /// Display name.
     pub name: String,
+    /// Avatar image URL, if available.
     pub avatar_url: Option<String>,
+    /// Assigned presence color (hex).
     pub color: String,
+    /// Authentication method used to create the session (e.g. `"github"`, `"email"`).
     pub auth_method: String,
 }
 

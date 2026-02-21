@@ -18,6 +18,9 @@ use types::{ChatResponse, LlmError, Message, Tool};
 // CLIENT DISPATCH
 // =============================================================================
 
+/// Concrete LLM client that dispatches to either Anthropic or OpenAI.
+///
+/// Configured from environment variables by [`LlmClient::from_env`].
 pub struct LlmClient {
     inner: LlmProvider,
     model: String,
@@ -66,7 +69,8 @@ impl LlmClient {
         Ok(Self { inner, model })
     }
 
-    /// The configured model name.
+    /// Return the configured model name (e.g. `"claude-sonnet-4-5-20250929"`).
+    #[must_use]
     pub fn model(&self) -> &str {
         &self.model
     }

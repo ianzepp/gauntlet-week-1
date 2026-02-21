@@ -27,12 +27,16 @@ use crate::state::{AppState, BoardObject, BoardState, ConnectedClient};
 // TYPES
 // =============================================================================
 
+/// Errors returned by board service operations.
 #[derive(Debug, thiserror::Error)]
 pub enum BoardError {
+    /// No board with the given ID exists.
     #[error("board not found: {0}")]
     NotFound(Uuid),
+    /// The requesting user does not have the required permission on this board.
     #[error("board access forbidden: {0}")]
     Forbidden(Uuid),
+    /// A Postgres query failed.
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 }
@@ -56,14 +60,20 @@ pub struct BoardRow {
     pub is_public: bool,
 }
 
+/// Role a user holds on a board, stored in `board_members.role`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoardRole {
+    /// Read-only access.
     Viewer,
+    /// Can create, update, and delete objects.
     Editor,
+    /// Full control including member management.
     Admin,
 }
 
 impl BoardRole {
+    /// Convert to the string stored in the database.
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Viewer => "viewer",
@@ -72,6 +82,8 @@ impl BoardRole {
         }
     }
 
+    /// Parse a role from its database string representation.
+    #[must_use]
     pub fn from_str(value: &str) -> Option<Self> {
         match value {
             "viewer" => Some(Self::Viewer),
@@ -82,56 +94,94 @@ impl BoardRole {
     }
 }
 
+/// Minimum required permission level for a board operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoardPermission {
+    /// Reading objects and joining the board.
     View,
+    /// Mutating objects on the board.
     Edit,
+    /// Managing board metadata and members.
     Admin,
 }
 
+/// A board member record returned from membership queries.
 #[derive(Debug, Clone)]
 pub struct BoardMemberRow {
+    /// The member's user ID.
     pub user_id: Uuid,
+    /// Display name.
     pub name: String,
+    /// Avatar image URL, if available.
     pub avatar_url: Option<String>,
+    /// Assigned presence color.
     pub color: String,
+    /// The member's role on this board.
     pub role: BoardRole,
+    /// Whether this member is the board owner.
     pub is_owner: bool,
 }
 
+/// A connected user on a board, combining WS client ID with user identity.
 #[derive(Debug, Clone)]
 pub struct BoardUser {
+    /// WS client identifier for this connection.
     pub client_id: Uuid,
+    /// Authenticated user ID.
     pub user_id: Uuid,
+    /// Display name.
     pub user_name: String,
+    /// Assigned presence color.
     pub user_color: String,
 }
 
+/// Lightweight object summary used in board preview responses.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BoardPreviewObject {
+    /// Shape or edge type (e.g. `"rect"`, `"arrow"`).
     pub kind: String,
+    /// Left edge in world coordinates.
     pub x: f64,
+    /// Top edge in world coordinates.
     pub y: f64,
+    /// Bounding-box width, if applicable.
     pub width: Option<f64>,
+    /// Bounding-box height, if applicable.
     pub height: Option<f64>,
+    /// Clockwise rotation in degrees.
     pub rotation: f64,
+    /// Draw order index.
     pub z_index: i32,
 }
 
+/// Full object record included in JSONL board exports.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BoardExportObject {
+    /// Unique object identifier.
     pub id: Uuid,
+    /// Board this object belongs to.
     pub board_id: Uuid,
+    /// Shape or edge type.
     pub kind: String,
+    /// Left edge in world coordinates.
     pub x: f64,
+    /// Top edge in world coordinates.
     pub y: f64,
+    /// Bounding-box width, if applicable.
     pub width: Option<f64>,
+    /// Bounding-box height, if applicable.
     pub height: Option<f64>,
+    /// Clockwise rotation in degrees.
     pub rotation: f64,
+    /// Draw order index.
     pub z_index: i32,
+    /// Open-ended per-kind properties (fill, stroke, text, endpoints, etc.).
     pub props: serde_json::Value,
+    /// User who created the object, if known.
     pub created_by: Option<Uuid>,
+    /// Edit version counter.
     pub version: i32,
+    /// Optional group membership ID.
     pub group_id: Option<Uuid>,
 }
 

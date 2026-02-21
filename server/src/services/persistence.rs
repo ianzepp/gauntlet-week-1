@@ -30,12 +30,18 @@ const DEFAULT_FRAME_PERSIST_RETRIES: usize = 2;
 const DEFAULT_FRAME_PERSIST_RETRY_BASE_MS: u64 = 20;
 const DEFAULT_OBJECT_FLUSH_INTERVAL_MS: u64 = 100;
 
+/// Tuning knobs for the frame persistence worker, loaded from environment variables.
 #[derive(Clone, Copy)]
 pub(crate) struct FramePersistConfig {
+    /// Bounded channel capacity for the frame persist queue.
     pub(crate) queue_capacity: usize,
+    /// Maximum frames flushed per Postgres write batch.
     pub(crate) batch_size: usize,
+    /// How long to wait for the batch to fill before flushing, in milliseconds.
     pub(crate) flush_ms: u64,
+    /// Number of retry attempts on transient database failures.
     pub(crate) retries: usize,
+    /// Base delay in milliseconds for exponential retry back-off.
     pub(crate) retry_base_ms: u64,
 }
 

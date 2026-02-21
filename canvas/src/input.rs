@@ -107,9 +107,13 @@ pub struct UiState {
 /// World-space marquee rectangle.
 #[derive(Debug, Clone, Copy)]
 pub struct SelectionRect {
+    /// Left edge in world coordinates.
     pub x: f64,
+    /// Top edge in world coordinates.
     pub y: f64,
+    /// Width of the selection region in world coordinates.
     pub width: f64,
+    /// Height of the selection region in world coordinates.
     pub height: f64,
 }
 
@@ -185,9 +189,12 @@ pub enum InputState {
     },
 }
 
+/// Which axis is locked during a shift-drag operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DragAxis {
+    /// Movement constrained to the horizontal axis.
     X,
+    /// Movement constrained to the vertical axis.
     Y,
 }
 

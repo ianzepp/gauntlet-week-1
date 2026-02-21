@@ -16,12 +16,19 @@ use tokio_tungstenite::tungstenite::Message;
 /// Runtime configuration for perf tests, loaded from environment variables.
 #[derive(Clone, Debug)]
 pub struct PerfConfig {
+    /// HTTP base URL of the server under test (e.g. `"http://127.0.0.1:3000"`).
     pub base_url: String,
+    /// Pre-obtained one-time WS ticket. When set, skips the HTTP ticket-acquisition flow.
     pub ws_ticket: Option<String>,
+    /// Session cookie token used to fetch WS tickets programmatically.
     pub session_token: Option<String>,
+    /// Number of requests to issue in baseline round-trip tests.
     pub baseline_requests: usize,
+    /// Object counts to use for complexity scaling tests.
     pub complexity_counts: Vec<usize>,
+    /// Number of simulated concurrent users for mass-load tests.
     pub mass_users: usize,
+    /// Number of requests each simulated user sends in mass-load tests.
     pub mass_requests_per_user: usize,
 }
 
@@ -57,26 +64,37 @@ impl PerfConfig {
 /// Error type for perf harness operations.
 #[derive(Debug, thiserror::Error)]
 pub enum PerfError {
+    /// Neither `PERF_WS_TICKET` nor `PERF_SESSION_TOKEN` was provided.
     #[error("missing auth context: set PERF_WS_TICKET or PERF_SESSION_TOKEN")]
     MissingAuth,
+    /// The base URL could not be converted to a WebSocket URL.
     #[error("invalid base URL: {0}")]
     InvalidBaseUrl(String),
+    /// An HTTP request to the server failed.
     #[error("http request failed: {0}")]
     Http(#[from] reqwest::Error),
+    /// An HTTP header value could not be constructed.
     #[error("invalid header value: {0}")]
     InvalidHeader(#[from] reqwest::header::InvalidHeaderValue),
+    /// The WebSocket connection or handshake failed.
     #[error("websocket connect failed: {0}")]
     WsConnect(Box<tokio_tungstenite::tungstenite::Error>),
+    /// The WebSocket connection was closed unexpectedly.
     #[error("websocket closed")]
     WsClosed,
+    /// A binary frame could not be decoded.
     #[error("frame decode failed: {0}")]
     Decode(#[from] frames::CodecError),
+    /// No response frame arrived before the deadline.
     #[error("timed out waiting for frame")]
     Timeout,
+    /// The server returned an error-status frame for the given syscall.
     #[error("server returned error status for {syscall}: {message}")]
     ServerError { syscall: String, message: String },
+    /// A required field was absent from the server response payload.
     #[error("missing expected field `{0}`")]
     MissingField(&'static str),
+    /// `PERF_WS_TICKET` is a one-time secret and cannot be shared across multiple users.
     #[error("PERF_WS_TICKET is one-time and cannot be reused for {0} users")]
     StaticTicketInsufficient(usize),
 }
@@ -84,13 +102,21 @@ pub enum PerfError {
 /// Aggregated latency metrics in milliseconds.
 #[derive(Clone, Debug)]
 pub struct LatencyMetrics {
+    /// Total number of operations measured.
     pub count: usize,
+    /// Minimum observed latency in milliseconds.
     pub min_ms: f64,
+    /// Maximum observed latency in milliseconds.
     pub max_ms: f64,
+    /// Arithmetic mean latency in milliseconds.
     pub avg_ms: f64,
+    /// Median (50th percentile) latency in milliseconds.
     pub p50_ms: f64,
+    /// 95th percentile latency in milliseconds.
     pub p95_ms: f64,
+    /// 99th percentile latency in milliseconds.
     pub p99_ms: f64,
+    /// Throughput in operations per second.
     pub ops_per_sec: f64,
 }
 
@@ -141,7 +167,7 @@ impl LatencyMetrics {
     }
 }
 
-/// One connected websocket client for perf scenarios.
+/// A single WebSocket connection used to issue frames and measure latency in perf scenarios.
 pub struct WsPerfClient {
     stream: tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,

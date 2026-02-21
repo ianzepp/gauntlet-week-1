@@ -50,10 +50,15 @@ pub type Data = HashMap<String, serde_json::Value>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
+    /// Initial request frame from a client.
     Request,
+    /// Intermediate streaming item (non-terminal).
     Item,
+    /// Successful terminal response.
     Done,
+    /// Error terminal response.
     Error,
+    /// Cancellation signal.
     Cancel,
 }
 
@@ -92,25 +97,34 @@ impl Status {
 /// The universal message type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Frame {
+    /// Unique identifier for this frame.
     pub id: Uuid,
+    /// ID of the request frame this is replying to, if any.
     #[serde(default)]
     pub parent_id: Option<Uuid>,
     /// Milliseconds since Unix epoch. Set automatically at construction.
     #[serde(default)]
     pub ts: i64,
+    /// Board this frame belongs to, if applicable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub board_id: Option<Uuid>,
+    /// Sender identifier (user ID string or server label).
     #[serde(default)]
     pub from: Option<String>,
+    /// Namespaced operation name, e.g. `"object:create"`.
     pub syscall: String,
+    /// Lifecycle position of this frame in its request/response stream.
     #[serde(default = "default_status")]
     pub status: Status,
+    /// Flat key-value payload specific to the syscall.
     #[serde(default)]
     pub data: Data,
 }
 
+/// Error returned when converting a [`frames::Frame`] into a server [`Frame`].
 #[derive(Debug, thiserror::Error)]
 pub enum FrameConvertError {
+    /// A UUID field could not be parsed.
     #[error("invalid uuid in field `{field}`: {value}")]
     InvalidUuid { field: &'static str, value: String },
 }
@@ -125,8 +139,10 @@ fn default_status() -> Status {
 
 /// Grepable error code and retryable flag for structured error frames.
 pub trait ErrorCode: std::fmt::Display {
+    /// Short uppercase error code included in the `code` field of error frames.
     fn error_code(&self) -> &'static str;
 
+    /// Whether the client should automatically retry after receiving this error.
     fn retryable(&self) -> bool {
         false
     }
@@ -298,18 +314,21 @@ impl TryFrom<frames::Frame> for Frame {
 // =============================================================================
 
 impl Frame {
+    /// Set the `board_id` field on this frame.
     #[must_use]
     pub fn with_board_id(mut self, board_id: Uuid) -> Self {
         self.board_id = Some(board_id);
         self
     }
 
+    /// Set the `from` sender identifier field.
     #[must_use]
     pub fn with_from(mut self, from: impl Into<String>) -> Self {
         self.from = Some(from.into());
         self
     }
 
+    /// Insert a `content` string into the frame payload under [`FRAME_CONTENT`].
     #[must_use]
     pub fn with_content(mut self, content: impl Into<String>) -> Self {
         self.data
@@ -317,6 +336,7 @@ impl Frame {
         self
     }
 
+    /// Insert an arbitrary key-value pair into the frame payload.
     #[must_use]
     pub fn with_data(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
         self.data.insert(key.into(), value.into());

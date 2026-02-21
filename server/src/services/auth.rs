@@ -55,19 +55,27 @@ struct TokenResponse {
     access_token: String,
 }
 
+/// GitHub user profile as returned by the `/user` API endpoint.
 #[derive(Debug, serde::Deserialize)]
 pub struct GitHubUser {
+    /// GitHub numeric user ID.
     pub id: i64,
+    /// GitHub username (login handle).
     pub login: String,
+    /// URL of the user's avatar image, if set.
     pub avatar_url: Option<String>,
 }
 
+/// Errors returned by GitHub OAuth and user upsert operations.
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {
+    /// The code-for-token exchange with GitHub failed.
     #[error("github token exchange failed: {0}")]
     TokenExchange(String),
+    /// A call to a GitHub API endpoint returned an error.
     #[error("github api error: {0}")]
     GitHubApi(String),
+    /// A Postgres query failed.
     #[error("database error: {0}")]
     Db(#[from] sqlx::Error),
 }

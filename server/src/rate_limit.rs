@@ -70,13 +70,17 @@ where
 // ERROR TYPE
 // =============================================================================
 
+/// Error returned when a rate limit or token budget is exceeded.
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::enum_variant_names)]
 pub enum RateLimitError {
+    /// The per-client request rate exceeded its sliding-window limit.
     #[error("per-client rate limit exceeded (max {limit} requests/{window_secs}s)")]
     PerClientExceeded { limit: usize, window_secs: u64 },
+    /// The global request rate across all clients exceeded its limit.
     #[error("global rate limit exceeded (max {limit} requests/{window_secs}s)")]
     GlobalExceeded { limit: usize, window_secs: u64 },
+    /// The per-client token budget for the current window was exhausted.
     #[error("token budget exceeded (max {budget} tokens/{window_secs}s)")]
     TokenBudgetExceeded { budget: u64, window_secs: u64 },
 }
@@ -103,6 +107,7 @@ struct RateLimiterInner {
 }
 
 impl RateLimiter {
+    /// Create a new rate limiter with limits loaded from environment variables.
     #[must_use]
     pub fn new() -> Self {
         Self {

@@ -8,21 +8,30 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+/// Error returned by [`decode_frame`].
 #[derive(Debug, thiserror::Error)]
 pub enum CodecError {
+    /// The raw bytes could not be decoded as a protobuf `WireFrame`.
     #[error("failed to decode protobuf frame: {0}")]
     Decode(#[from] prost::DecodeError),
+    /// The `status` integer on the wire does not map to a known [`Status`] variant.
     #[error("invalid frame status: {0}")]
     InvalidStatus(i32),
 }
 
+/// Lifecycle status of a frame in a request/response exchange.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
+    /// Initial request frame sent by the client.
     Request,
+    /// Intermediate streaming item (non-terminal).
     Item,
+    /// Successful terminal response.
     Done,
+    /// Error terminal response.
     Error,
+    /// Cancellation frame.
     Cancel,
 }
 
@@ -52,15 +61,24 @@ impl Status {
     }
 }
 
+/// A single message on the realtime wire protocol.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
+    /// Unique identifier for this frame (UUID string).
     pub id: String,
+    /// ID of the request frame this is responding to, if any.
     pub parent_id: Option<String>,
+    /// Milliseconds since the Unix epoch when the frame was created.
     pub ts: i64,
+    /// Board context for this frame, if any (UUID string).
     pub board_id: Option<String>,
+    /// Sender identifier (user ID or system label).
     pub from: Option<String>,
+    /// Namespaced operation name, e.g. `"object:create"`.
     pub syscall: String,
+    /// Lifecycle position of the frame.
     pub status: Status,
+    /// Arbitrary JSON payload.
     pub data: Value,
 }
 

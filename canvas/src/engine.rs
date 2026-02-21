@@ -17,22 +17,36 @@ mod engine_test;
 /// Actions returned from input handlers for the host to process.
 #[derive(Debug, Clone)]
 pub enum Action {
+    /// No action needed; the host should do nothing.
     None,
+    /// A new object was finalized and should be persisted to the server.
     ObjectCreated(BoardObject),
+    /// An existing object was mutated locally and the delta should be sent to the server.
     ObjectUpdated {
+        /// ID of the object that changed.
         id: ObjectId,
+        /// Sparse set of changed fields.
         fields: PartialBoardObject,
     },
+    /// An object was removed and the host should broadcast the deletion.
     ObjectDeleted {
+        /// ID of the deleted object.
         id: ObjectId,
     },
+    /// The host should open the text-editing overlay for this object.
     EditTextRequested {
+        /// ID of the object whose text should be edited.
         id: ObjectId,
+        /// Current value of the `head` text field.
         head: String,
+        /// Current value of the body `text` field.
         text: String,
+        /// Current value of the `foot` text field.
         foot: String,
     },
+    /// The host should update the CSS cursor to the given value.
     SetCursor(String),
+    /// The canvas has changed and the host should call `render()`.
     RenderNeeded,
 }
 

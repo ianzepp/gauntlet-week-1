@@ -16,14 +16,19 @@ use crate::state::{AppState, BoardObject};
 // TYPES
 // =============================================================================
 
+/// Errors returned by object service operations.
 #[derive(Debug, thiserror::Error)]
 pub enum ObjectError {
+    /// No object with the given ID exists on the board.
     #[error("object not found: {0}")]
     NotFound(Uuid),
+    /// The board has not been loaded into memory yet.
     #[error("board not loaded: {0}")]
     BoardNotLoaded(Uuid),
+    /// The incoming version is older than the currently stored version (LWW conflict).
     #[error("stale update: incoming version {incoming} < current {current}")]
     StaleUpdate { incoming: i32, current: i32 },
+    /// A Postgres query failed.
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 }
