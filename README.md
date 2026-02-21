@@ -39,66 +39,66 @@ Week 1 Day 5 (Early Release):
 
 ## Project Stats
 
-*Generated with `scripts/stats-all.sh` on 2026-02-21. 376 commits over 6 days (~63/day).*
+*Generated with `scripts/stats-all.sh` on 2026-02-21. 382 commits over 6 days (~64/day).*
 
 ### Lines of Code
 
 | Crate | Source | Test | Total | Test% |
 |-------|-------:|-----:|------:|------:|
-| server | 8,049 | 5,209 | 13,258 | 39.3% |
-| canvas | 3,183 | 5,560 | 8,743 | 63.6% |
-| client | 13,065 | 2,749 | 15,814 | 17.4% |
-| frames | 194 | 212 | 406 | 52.2% |
-| perf | 423 | 238 | 661 | 36.0% |
-| traces | 546 | 571 | 1,117 | 51.1% |
-| **Total** | **25,460** | **14,539** | **39,999** | **36.3%** |
+| server | 8,241 | 5,765 | 14,006 | 41.2% |
+| canvas | 3,188 | 5,709 | 8,897 | 64.2% |
+| client | 13,165 | 2,749 | 15,914 | 17.3% |
+| frames | 218 | 392 | 610 | 64.3% |
+| perf | 460 | 238 | 698 | 34.1% |
+| traces | 549 | 904 | 1,453 | 62.2% |
+| **Total** | **25,821** | **15,757** | **41,578** | **37.9%** |
 
 ### Functions
 
 | Crate | Source Files | Test Files | Pub Fn | Priv Fn | Total |
 |-------|------------:|-----------:|-------:|--------:|------:|
-| server | 25 | 17 | 53 | 80 | 133 |
+| server | 25 | 19 | 58 | 75 | 133 |
 | canvas | 8 | 6 | 88 | 56 | 144 |
-| client | 64 | 33 | 146 | 117 | 263 |
+| client | 64 | 33 | 146 | 116 | 262 |
 | frames | 1 | 1 | 3 | 5 | 8 |
 | perf | 1 | 1 | 4 | 6 | 10 |
 | traces | 1 | 2 | 17 | 7 | 24 |
-| **Total** | **100** | **60** | **311** | **271** | **582** |
+| **Total** | **100** | **62** | **316** | **265** | **581** |
 
 ### Tests
 
 | Crate | #[test] | Passed | Failed |
 |-------|--------:|-------:|-------:|
-| server | 162 | 236 | 0 |
-| canvas | 395 | 395 | 0 |
+| server | 202 | 276 | 0 |
+| canvas | 409 | 409 | 0 |
 | client | 214 | 214 | 0 |
-| frames | 15 | 15 | 0 |
+| frames | 26 | 26 | 0 |
 | perf | 0 | 0 | 0 |
-| traces | 33 | 33 | 0 |
-| **Total** | **819** | **893** | **0** |
+| traces | 64 | 64 | 0 |
+| **Total** | **915** | **989** | **0** |
 
 ### Code Coverage
 
 | Crate | Covered | Total | Line% |
 |-------|--------:|------:|------:|
-| server | 2,221 | 5,365 | 41.4% |
-| canvas | 1,105 | 1,900 | 58.2% |
-| client | 1,384 | 5,605 | 24.7% |
-| frames | 86 | 87 | 98.9% |
-| traces | 289 | 316 | 91.5% |
-| **Total** | **5,085** | **13,273** | **38.3%** |
+| server | 2,602 | 5,388 | 48.3% |
+| canvas | 1,122 | 1,885 | 59.5% |
+| client | 1,368 | 5,586 | 24.5% |
+| frames | 86 | 174 | 49.4% |
+| traces | 317 | 318 | 99.7% |
+| **Total** | **5,495** | **13,351** | **41.2%** |
 
 ### Documentation Coverage
 
 | Crate | Code Lines | `///` Doc | `//!` Mod | `//` Comment | Blank | Doc% |
 |-------|----------:|----------:|----------:|-------------:|------:|-----:|
-| server | 6,565 | 241 | 202 | 235 | 806 | 6.7% |
-| canvas | 2,405 | 288 | 60 | 91 | 339 | 14.5% |
-| client | 11,063 | 621 | 373 | 53 | 955 | 9.0% |
-| frames | 162 | 9 | 5 | 0 | 18 | 8.6% |
-| perf | 324 | 49 | 6 | 1 | 43 | 17.0% |
-| traces | 392 | 93 | 4 | 0 | 57 | 24.7% |
-| **Total** | **20,911** | **1,301** | **650** | **380** | **2,218** | **9.3%** |
+| server | 6,595 | 394 | 202 | 238 | 812 | 9.0% |
+| canvas | 2,389 | 309 | 60 | 91 | 339 | 15.4% |
+| client | 11,056 | 729 | 373 | 53 | 954 | 10.0% |
+| frames | 162 | 31 | 5 | 2 | 18 | 22.2% |
+| perf | 335 | 75 | 6 | 1 | 43 | 24.2% |
+| traces | 395 | 93 | 4 | 0 | 57 | 24.6% |
+| **Total** | **20,932** | **1,631** | **650** | **385** | **2,223** | **10.9%** |
 
 ### Dependencies
 
@@ -116,16 +116,16 @@ Week 1 Day 5 (Early Release):
 
 | Commits | File |
 |--------:|------|
-| 61 | `server/src/routes/ws.rs` |
-| 35 | `server/src/services/ai.rs` |
-| 35 | `client/src/components/canvas_host.rs` |
+| 62 | `server/src/routes/ws.rs` |
+| 36 | `server/src/services/ai.rs` |
+| 36 | `client/src/components/canvas_host.rs` |
 | 26 | `client/src/net/frame_client.rs` |
-| 24 | `client/src/pages/board.rs` |
+| 25 | `client/src/pages/board.rs` |
+| 25 | `client-rust/src/components/canvas_host.rs` |
+| 23 | `client-rust/src/net/frame_client.rs` |
 | 22 | `server/src/routes/ws_test.rs` |
-| 18 | `canvas/src/engine.rs` |
-| 17 | `server/src/services/board.rs` |
-| 17 | `client/src/pages/dashboard.rs` |
-| 16 | `server/src/main.rs` |
+| 20 | `canvas/src/engine.rs` |
+| 18 | `server/src/services/board.rs` |
 
 ## The Crates
 
