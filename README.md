@@ -19,6 +19,14 @@ This is a one-week sprint project for [The Gauntlet](https://www.yourfirstclient
 Deployed on Railway (as of 2026-02-20, URL may change):
 **https://gauntlet-week-1-production.up.railway.app/**
 
+## Prerelease Video Demos
+
+Week 1 Day 2 (MVP):
+**https://www.loom.com/share/613a53b528ae431a81873c41583a11c2**
+
+Week 1 Day 5 (Early Release):
+**https://www.loom.com/share/5d38b03c2450418ab11c29e0bbd28e52**
+
 ## Tech Stack
 
 - **Rust** end to end (edition 2024, compiled to WASM for the browser)

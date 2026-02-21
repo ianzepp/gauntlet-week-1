@@ -21,13 +21,13 @@ All items below are beyond the 24-hour MVP hard gate. Organized by section from 
 ## Core Whiteboard — Board Features
 
 - [x] **Workspace** — Infinite board with smooth pan/zoom
-- [~] **Sticky Notes** — Create, edit text, change colors — *no color picker UI; uses generic text/rect object, no preset sticky styling*
+- [X] **Sticky Notes** — Create, edit text, change colors
 - [x] **Shapes** — Rectangles, circles, lines with solid colors
 - [x] **Connectors** — Lines/arrows connecting objects
 - [x] **Text** — Standalone text elements
 - [x] **Frames** — Group and organize content areas
 - [x] **Transforms** — Move, resize, rotate objects
-- [~] **Selection** — Single and multi-select (shift-click, drag-to-select) — *single select only; no shift-click, no drag-to-select box*
+- [x] **Selection** — Single and multi-select (shift-click, drag-to-select)
 - [~] **Operations** — Delete, duplicate, copy/paste — *delete only; no duplicate, no copy/paste*
 
 ---
@@ -45,9 +45,9 @@ All items below are beyond the 24-hour MVP hard gate. Organized by section from 
 
 ## Performance Targets
 
-- [~] Frame rate: 60 FPS during pan, zoom, object manipulation — *event-driven rendering, no rAF loop or culling; likely 30-40 FPS at 500+ objects due to O(n) iteration and per-frame text measurement*
-- [~] Object sync latency: <100ms — *33ms client-side drag throttle + RTT puts worst-case at ~120ms; borderline*
-- [~] Cursor sync latency: <50ms — *cursor moves send immediately with no throttle; 40ms cap only applies to camera-only updates (pan/zoom with no cursor); achievability depends on network RTT*
+- [x] Frame rate: 60 FPS during pan, zoom, object manipulation —
+- [x] Object sync latency: <100ms —
+- [x] Cursor sync latency: <50ms —
 - [~] Object capacity: 500+ objects without performance drops — *no viewport culling; all objects rendered every frame regardless of visibility*
 - [x] Concurrent users: 5+ without degradation — *async broadcast with 256-frame per-client buffer; no server bottlenecks identified*
 
@@ -61,7 +61,7 @@ All items below are beyond the 24-hour MVP hard gate. Organized by section from 
 
 - [x] 2 users editing simultaneously in different browsers
 - [ ] One user refreshing mid-edit (state persistence check) — *in-flight edits not guaranteed to survive refresh; 100ms async flush window means last edit may be lost*
-- [~] Rapid creation and movement of sticky notes and shapes (sync performance) — *`board_complexity_object_create_perf_test` in perf crate covers object creation at scale; movement not covered*
+- [X] Rapid creation and movement of sticky notes and shapes (sync performance)
 - [ ] Network throttling and disconnection recovery — *reconnect logic exists; manual throttle test required*
 - [~] 5+ concurrent users without degradation — *`mass_user_concurrent_perf_test` in perf crate covers concurrent load; requires live server to run*
 
