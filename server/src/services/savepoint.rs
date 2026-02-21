@@ -251,6 +251,10 @@ pub async fn maybe_create_auto_savepoint(
     Ok(Some(row))
 }
 
+#[cfg(test)]
+#[path = "savepoint_test.rs"]
+mod tests;
+
 pub fn savepoint_row_to_json(row: SavepointRow) -> serde_json::Value {
     let mut map = serde_json::Map::new();
     map.insert("id".into(), serde_json::json!(row.id));

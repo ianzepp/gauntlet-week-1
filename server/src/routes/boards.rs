@@ -114,7 +114,7 @@ pub async fn delete_member(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
-fn board_error_to_status(err: board::BoardError) -> StatusCode {
+pub(crate) fn board_error_to_status(err: board::BoardError) -> StatusCode {
     match err {
         board::BoardError::NotFound(_) => StatusCode::NOT_FOUND,
         board::BoardError::Forbidden(_) => StatusCode::FORBIDDEN,
@@ -207,7 +207,7 @@ fn now_ms_i64() -> i64 {
     i64::try_from(duration.as_millis()).unwrap_or(0)
 }
 
-fn parse_import_object_line(
+pub(crate) fn parse_import_object_line(
     line: &str,
     board_id: Uuid,
     user_id: Uuid,
@@ -288,6 +288,10 @@ fn parse_import_object_line(
         group_id,
     }))
 }
+
+#[cfg(test)]
+#[path = "boards_test.rs"]
+mod tests;
 
 /// `POST /api/boards/:id/import.jsonl` — import NDJSON/JSONL object lines.
 pub async fn import_jsonl(

@@ -208,7 +208,7 @@ impl<'a> From<&'a Tool> for CcToolDef<'a> {
     }
 }
 
-fn build_chat_completions_messages(system: &str, messages: &[Message]) -> Vec<CcMessage> {
+pub(crate) fn build_chat_completions_messages(system: &str, messages: &[Message]) -> Vec<CcMessage> {
     let mut out = Vec::new();
     if !system.trim().is_empty() {
         out.push(CcMessage {
@@ -333,7 +333,7 @@ impl<'a> From<&'a Tool> for RespToolDef<'a> {
     }
 }
 
-fn build_responses_input(messages: &[Message]) -> Vec<RespInputItem> {
+pub(crate) fn build_responses_input(messages: &[Message]) -> Vec<RespInputItem> {
     let mut out = Vec::new();
     for message in messages {
         match &message.content {

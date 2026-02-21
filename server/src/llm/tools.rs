@@ -40,7 +40,7 @@ pub fn gauntlet_week_1_tools() -> Vec<Tool> {
 
 #[must_use]
 #[allow(clippy::too_many_lines)]
-fn legacy_tools() -> Vec<Tool> {
+pub(crate) fn legacy_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "batch".into(),
