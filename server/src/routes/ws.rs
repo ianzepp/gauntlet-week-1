@@ -941,13 +941,6 @@ async fn handle_object(
             .await
             {
                 Ok(obj) => {
-                    if state.frame_persist_tx.is_some()
-                        && let Err(e) =
-                            services::savepoint::maybe_create_auto_savepoint(state, board_id, user_id, "object:create")
-                                .await
-                    {
-                        warn!(error = %e, %board_id, object_id = %obj.id, "auto savepoint create failed");
-                    }
                     Ok(Outcome::Broadcast(object_to_data(&obj)))
                 }
                 Err(e) => Err(req.error_from(&e)),
@@ -994,13 +987,6 @@ async fn handle_object(
 
             match services::object::delete_object(state, board_id, object_id).await {
                 Ok(()) => {
-                    if state.frame_persist_tx.is_some()
-                        && let Err(e) =
-                            services::savepoint::maybe_create_auto_savepoint(state, board_id, user_id, "object:delete")
-                                .await
-                    {
-                        warn!(error = %e, %board_id, %object_id, "auto savepoint create failed");
-                    }
                     let mut data = Data::new();
                     data.insert("id".into(), serde_json::json!(object_id));
                     Ok(Outcome::Broadcast(data))

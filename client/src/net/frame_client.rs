@@ -51,7 +51,7 @@ use self::frame_client_parse::{
     parse_chat_message,
 };
 #[cfg(feature = "hydrate")]
-use crate::net::types::Frame;
+use crate::net::types::{BoardObject, Frame, FrameStatus};
 #[cfg(any(test, feature = "hydrate"))]
 use crate::state::ai::AiState;
 #[cfg(feature = "hydrate")]
@@ -72,6 +72,139 @@ use crate::state::trace::TraceState;
 use leptos::prelude::GetUntracked;
 #[cfg(feature = "hydrate")]
 use leptos::prelude::Update;
+#[cfg(feature = "hydrate")]
+use std::cell::RefCell;
+
+#[cfg(feature = "hydrate")]
+thread_local! {
+    static JOIN_ITEM_BUFFER: RefCell<Vec<BoardObject>> = const { RefCell::new(Vec::new()) };
+    static LIVE_OBJECT_FRAME_BUFFER: RefCell<Vec<Frame>> = const { RefCell::new(Vec::new()) };
+    static LIVE_OBJECT_FLUSH_SCHEDULED: RefCell<bool> = const { RefCell::new(false) };
+    static TRACE_MUTED_UNTIL_JOIN_DONE: RefCell<bool> = const { RefCell::new(false) };
+}
+
+#[cfg(feature = "hydrate")]
+const LIVE_OBJECT_FLUSH_BATCH_SIZE: usize = 256;
+
+#[cfg(feature = "hydrate")]
+fn flush_join_items(board: leptos::prelude::RwSignal<BoardState>) {
+    let drained = JOIN_ITEM_BUFFER.with(|buf| {
+        let mut buf = buf.borrow_mut();
+        if buf.is_empty() {
+            Vec::new()
+        } else {
+            buf.drain(..).collect::<Vec<_>>()
+        }
+    });
+    if drained.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for obj in drained {
+            b.objects.insert(obj.id.clone(), obj);
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn queue_join_item(board: leptos::prelude::RwSignal<BoardState>, obj: BoardObject) {
+    let _ = board;
+    JOIN_ITEM_BUFFER.with(|buf| buf.borrow_mut().push(obj));
+}
+
+#[cfg(feature = "hydrate")]
+fn flush_live_object_frames(board: leptos::prelude::RwSignal<BoardState>) {
+    let drained = LIVE_OBJECT_FRAME_BUFFER.with(|buf| {
+        let mut buf = buf.borrow_mut();
+        if buf.is_empty() {
+            Vec::new()
+        } else {
+            buf.drain(..).collect::<Vec<_>>()
+        }
+    });
+    if drained.is_empty() {
+        return;
+    }
+
+    board.update(|b| {
+        for frame in drained {
+            frame_client_objects::apply_object_frame(&frame, b);
+        }
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn schedule_live_object_flush(board: leptos::prelude::RwSignal<BoardState>) {
+    let already_scheduled = LIVE_OBJECT_FLUSH_SCHEDULED.with(|flag| {
+        let mut flag = flag.borrow_mut();
+        if *flag {
+            true
+        } else {
+            *flag = true;
+            false
+        }
+    });
+    if already_scheduled {
+        return;
+    }
+
+    leptos::task::spawn_local(async move {
+        gloo_timers::future::sleep(std::time::Duration::from_millis(16)).await;
+        flush_live_object_frames(board);
+        LIVE_OBJECT_FLUSH_SCHEDULED.with(|flag| *flag.borrow_mut() = false);
+    });
+}
+
+#[cfg(feature = "hydrate")]
+fn queue_live_object_frame(board: leptos::prelude::RwSignal<BoardState>, frame: &Frame) -> bool {
+    let is_batchable = matches!(
+        (frame.syscall.as_str(), frame.status),
+        ("object:create", crate::net::types::FrameStatus::Done)
+            | ("object:update", crate::net::types::FrameStatus::Done)
+            | ("object:delete", crate::net::types::FrameStatus::Done)
+    );
+    if !is_batchable {
+        return false;
+    }
+
+    let flush_now = LIVE_OBJECT_FRAME_BUFFER.with(|buf| {
+        let mut buf = buf.borrow_mut();
+        buf.push(frame.clone());
+        buf.len() >= LIVE_OBJECT_FLUSH_BATCH_SIZE
+    });
+    if flush_now {
+        flush_live_object_frames(board);
+        LIVE_OBJECT_FLUSH_SCHEDULED.with(|flag| *flag.borrow_mut() = false);
+    } else {
+        schedule_live_object_flush(board);
+    }
+    true
+}
+
+#[cfg(feature = "hydrate")]
+fn should_record_trace(frame: &Frame) -> bool {
+    // Cursor events are interaction telemetry, not observability trace data.
+    if frame.syscall.starts_with("cursor:") {
+        return false;
+    }
+
+    if frame.syscall == "board:join" {
+        match frame.status {
+            FrameStatus::Item => {
+                TRACE_MUTED_UNTIL_JOIN_DONE.with(|flag| *flag.borrow_mut() = true);
+                return false;
+            }
+            FrameStatus::Done => {
+                TRACE_MUTED_UNTIL_JOIN_DONE.with(|flag| *flag.borrow_mut() = false);
+                return false;
+            }
+            _ => return false,
+        }
+    }
+
+    TRACE_MUTED_UNTIL_JOIN_DONE.with(|flag| !*flag.borrow())
+}
 
 #[cfg(test)]
 fn upsert_ai_user_message(ai: &mut AiState, msg: crate::state::ai::AiMessage) {
@@ -254,8 +387,7 @@ fn dispatch_frame(
     trace: leptos::prelude::RwSignal<TraceState>,
     tx: &futures::channel::mpsc::UnboundedSender<Vec<u8>>,
 ) {
-    // Cursor events are interaction telemetry, not observability trace data.
-    if !frame.syscall.starts_with("cursor:") {
+    if should_record_trace(frame) {
         trace.update(|t| t.push_frame(frame.clone()));
     }
 
@@ -263,6 +395,9 @@ fn dispatch_frame(
         return;
     }
     if handle_board_frame(frame, board, boards, tx) {
+        return;
+    }
+    if queue_live_object_frame(board, frame) {
         return;
     }
     if handle_object_frame(frame, board) {
@@ -324,13 +459,15 @@ fn handle_board_frame(
                         b.drag_objects.clear();
                         b.drag_updated_at.clear();
                         b.join_streaming = true;
+                        JOIN_ITEM_BUFFER.with(|buf| buf.borrow_mut().clear());
                     }
-                    b.objects.insert(obj.id.clone(), obj);
                 });
+                queue_join_item(board, obj);
             }
             true
         }
         Some("join") if frame.status == FrameStatus::Done => {
+            flush_join_items(board);
             board.update(|b| {
                 if let Some(objs) = parse_board_objects(&frame.data) {
                     b.objects.clear();

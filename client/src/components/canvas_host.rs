@@ -204,8 +204,12 @@ pub fn CanvasHost() -> impl IntoView {
         let engine = Rc::clone(&engine);
         let canvas_ref_sync = canvas_ref.clone();
         Effect::new(move || {
-            let mut snapshot = Vec::new();
             let state = board.get();
+            if state.join_streaming {
+                return;
+            }
+
+            let mut snapshot = Vec::new();
             let board_id = state.board_id.clone();
             for (id, obj) in &state.objects {
                 let source = state.drag_objects.get(id).unwrap_or(obj);

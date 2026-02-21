@@ -28,7 +28,11 @@ pub fn BoardStamp() -> impl IntoView {
     {
         let minimap_ref = minimap_ref.clone();
         Effect::new(move || {
-            let objects = board.get().objects.values().cloned().collect::<Vec<_>>();
+            let board_state = board.get();
+            if board_state.join_streaming {
+                return;
+            }
+            let objects = board_state.objects.values().cloned().collect::<Vec<_>>();
             let view = canvas_view.get();
             let Some(canvas) = minimap_ref.get() else {
                 return;
