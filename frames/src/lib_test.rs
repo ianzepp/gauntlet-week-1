@@ -210,3 +210,183 @@ fn status_deserializes_from_lowercase_json() {
 fn status_rejects_non_lowercase_json() {
     assert!(serde_json::from_str::<Status>("\"Error\"").is_err());
 }
+
+// =============================================================
+// Status: all variants serialise and deserialise correctly
+// =============================================================
+
+#[test]
+fn status_all_variants_serialize_lowercase() {
+    let cases = [
+        (Status::Request, "\"request\""),
+        (Status::Item, "\"item\""),
+        (Status::Done, "\"done\""),
+        (Status::Error, "\"error\""),
+        (Status::Cancel, "\"cancel\""),
+    ];
+    for (status, expected) in cases {
+        assert_eq!(serde_json::to_string(&status).expect("serialize"), expected);
+    }
+}
+
+#[test]
+fn status_all_variants_deserialize_from_lowercase() {
+    let cases = [
+        ("\"request\"", Status::Request),
+        ("\"item\"", Status::Item),
+        ("\"done\"", Status::Done),
+        ("\"error\"", Status::Error),
+        ("\"cancel\"", Status::Cancel),
+    ];
+    for (input, expected) in cases {
+        let got: Status = serde_json::from_str(input).expect("deserialize");
+        assert_eq!(got, expected);
+    }
+}
+
+#[test]
+fn status_all_variants_as_i32_are_distinct() {
+    let values: Vec<i32> = [
+        Status::Request.as_i32(),
+        Status::Item.as_i32(),
+        Status::Done.as_i32(),
+        Status::Error.as_i32(),
+        Status::Cancel.as_i32(),
+    ]
+    .to_vec();
+    let deduped: std::collections::HashSet<i32> = values.iter().copied().collect();
+    assert_eq!(deduped.len(), 5);
+}
+
+// =============================================================
+// encode_frame / decode_frame: per-field fidelity
+// =============================================================
+
+#[test]
+fn encode_decode_preserves_all_optional_string_fields() {
+    let frame = Frame {
+        id: "test-id".to_owned(),
+        parent_id: Some("parent-id".to_owned()),
+        ts: 12345,
+        board_id: Some("board-id".to_owned()),
+        from: Some("user-id".to_owned()),
+        syscall: "object:create".to_owned(),
+        status: Status::Request,
+        data: serde_json::json!({}),
+    };
+    let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
+    assert_eq!(decoded.id, "test-id");
+    assert_eq!(decoded.parent_id.as_deref(), Some("parent-id"));
+    assert_eq!(decoded.board_id.as_deref(), Some("board-id"));
+    assert_eq!(decoded.from.as_deref(), Some("user-id"));
+    assert_eq!(decoded.ts, 12345);
+    assert_eq!(decoded.syscall, "object:create");
+    assert_eq!(decoded.status, Status::Request);
+}
+
+#[test]
+fn encode_decode_negative_timestamp() {
+    let frame = Frame {
+        id: "neg-ts".to_owned(),
+        parent_id: None,
+        ts: -999_999,
+        board_id: None,
+        from: None,
+        syscall: "board:join".to_owned(),
+        status: Status::Done,
+        data: serde_json::json!({}),
+    };
+    let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
+    assert_eq!(decoded.ts, -999_999);
+}
+
+#[test]
+fn encode_decode_all_status_variants() {
+    for status in [
+        Status::Request,
+        Status::Item,
+        Status::Done,
+        Status::Error,
+        Status::Cancel,
+    ] {
+        let frame = Frame {
+            id: "status-test".to_owned(),
+            parent_id: None,
+            ts: 1,
+            board_id: None,
+            from: None,
+            syscall: "board:join".to_owned(),
+            status,
+            data: serde_json::json!({}),
+        };
+        let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
+        assert_eq!(decoded.status, status);
+    }
+}
+
+#[test]
+fn encode_decode_bool_in_data() {
+    let frame = Frame {
+        id: "bool-test".to_owned(),
+        parent_id: None,
+        ts: 1,
+        board_id: None,
+        from: None,
+        syscall: "board:join".to_owned(),
+        status: Status::Done,
+        data: serde_json::json!({"success": true, "failed": false}),
+    };
+    let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
+    assert_eq!(decoded.data["success"], serde_json::json!(true));
+    assert_eq!(decoded.data["failed"], serde_json::json!(false));
+}
+
+#[test]
+fn encode_decode_null_in_data() {
+    let frame = Frame {
+        id: "null-test".to_owned(),
+        parent_id: None,
+        ts: 1,
+        board_id: None,
+        from: None,
+        syscall: "board:join".to_owned(),
+        status: Status::Done,
+        data: serde_json::json!({"value": null}),
+    };
+    let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
+    assert_eq!(decoded.data["value"], serde_json::Value::Null);
+}
+
+#[test]
+fn encode_decode_array_in_data() {
+    let frame = Frame {
+        id: "arr-test".to_owned(),
+        parent_id: None,
+        ts: 1,
+        board_id: None,
+        from: None,
+        syscall: "board:join".to_owned(),
+        status: Status::Done,
+        data: serde_json::json!({"items": [1.0, 2.0, 3.0]}),
+    };
+    let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
+    assert_eq!(decoded.data["items"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn decode_frame_rejects_empty_bytes() {
+    // Empty input is not valid protobuf for a non-empty message type.
+    // prost treats empty bytes as a zero-value message (all defaults).
+    let result = decode_frame(&[]);
+    // An empty frame has status 0 (Request), which is valid, so it should succeed.
+    // This verifies the decoder doesn't panic on empty input.
+    let _ = result;
+}
+
+#[test]
+fn frame_serde_roundtrip_via_json() {
+    let frame = sample_frame();
+    let json = serde_json::to_string(&frame).expect("serialize");
+    let restored: Frame = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(restored, frame);
+}

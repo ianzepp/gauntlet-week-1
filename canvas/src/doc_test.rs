@@ -717,3 +717,152 @@ fn props_text_prefers_text_over_content() {
     let p = Props::new(&value);
     assert_eq!(p.text(), "primary");
 }
+
+// =============================================================
+// Props: font_size edge cases
+// =============================================================
+
+#[test]
+fn props_font_size_float_present() {
+    let value = json!({"fontSize": 18.5});
+    let p = Props::new(&value);
+    assert_eq!(p.font_size(), Some(18.5));
+}
+
+#[test]
+fn props_font_size_integer_coerces_to_float() {
+    let value = json!({"fontSize": 24});
+    let p = Props::new(&value);
+    assert_eq!(p.font_size(), Some(24.0));
+}
+
+#[test]
+fn props_font_size_absent_returns_none() {
+    let value = json!({});
+    let p = Props::new(&value);
+    assert_eq!(p.font_size(), None);
+}
+
+#[test]
+fn props_font_size_wrong_type_returns_none() {
+    let value = json!({"fontSize": "large"});
+    let p = Props::new(&value);
+    assert_eq!(p.font_size(), None);
+}
+
+// =============================================================
+// Props: text_color when no fill is present
+// =============================================================
+
+#[test]
+fn props_text_color_dark_fill_returns_light_text() {
+    // A very dark fill should produce the light text color.
+    let value = json!({"fill": "#000000"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#F5F0E8");
+}
+
+#[test]
+fn props_text_color_medium_fill_selects_correct_contrast() {
+    // #808080 is roughly 0.216 luminance — below 0.42 threshold — so light text.
+    let value = json!({"fill": "#808080"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#F5F0E8");
+}
+
+#[test]
+fn props_text_color_invalid_fill_falls_back_to_dark() {
+    // An unrecognised fill value cannot be parsed; fall back to the dark default.
+    let value = json!({"fill": "not-a-color"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#1F1A17");
+}
+
+#[test]
+fn props_text_color_rgb_fill_selects_correct_contrast() {
+    let value = json!({"fill": "rgb(0, 0, 0)"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#F5F0E8");
+}
+
+#[test]
+fn props_text_color_short_hex_fill() {
+    // #fff == #ffffff (white) — luminance 1.0 > 0.42, so dark text.
+    let value = json!({"fill": "#fff"});
+    let p = Props::new(&value);
+    assert_eq!(p.text_color(), "#1F1A17");
+}
+
+// =============================================================
+// apply_partial: group_id updates
+// =============================================================
+
+#[test]
+fn apply_partial_group_id_set() {
+    let mut store = DocStore::new();
+    let obj = make_object(ObjectKind::Rect, 0);
+    let id = obj.id;
+    store.insert(obj);
+
+    let group = Uuid::new_v4();
+    let partial = PartialBoardObject { group_id: Some(Some(group)), ..Default::default() };
+    assert!(store.apply_partial(&id, &partial));
+    assert_eq!(store.get(&id).unwrap().group_id, Some(group));
+}
+
+#[test]
+fn apply_partial_group_id_cleared() {
+    let mut store = DocStore::new();
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    let group = Uuid::new_v4();
+    obj.group_id = Some(group);
+    let id = obj.id;
+    store.insert(obj);
+
+    let partial = PartialBoardObject { group_id: Some(None), ..Default::default() };
+    assert!(store.apply_partial(&id, &partial));
+    assert_eq!(store.get(&id).unwrap().group_id, None);
+}
+
+#[test]
+fn apply_partial_group_id_none_leaves_unchanged() {
+    let mut store = DocStore::new();
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    let group = Uuid::new_v4();
+    obj.group_id = Some(group);
+    let id = obj.id;
+    store.insert(obj);
+
+    // group_id: None means "don't touch group_id"
+    let partial = PartialBoardObject { group_id: None, ..Default::default() };
+    store.apply_partial(&id, &partial);
+    assert_eq!(store.get(&id).unwrap().group_id, Some(group));
+}
+
+// =============================================================
+// DocStore: multiple inserts and len consistency
+// =============================================================
+
+#[test]
+fn store_insert_multiple_different_ids() {
+    let mut store = DocStore::new();
+    for i in 0..5 {
+        store.insert(make_object(ObjectKind::Rect, i));
+    }
+    assert_eq!(store.len(), 5);
+}
+
+#[test]
+fn store_remove_from_middle_of_multiple() {
+    let mut store = DocStore::new();
+    let objs: Vec<BoardObject> = (0..3).map(|i| make_object(ObjectKind::Rect, i)).collect();
+    let ids: Vec<Uuid> = objs.iter().map(|o| o.id).collect();
+    for obj in objs {
+        store.insert(obj);
+    }
+    store.remove(&ids[1]);
+    assert_eq!(store.len(), 2);
+    assert!(store.get(&ids[0]).is_some());
+    assert!(store.get(&ids[1]).is_none());
+    assert!(store.get(&ids[2]).is_some());
+}

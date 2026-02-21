@@ -368,3 +368,336 @@ fn trace_session_board_id_is_taken_from_earliest_frame() {
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].board_id, None);
 }
+
+// =============================================================
+// TraceSession: aggregate methods — zero and boundary cases
+// =============================================================
+
+#[test]
+fn trace_session_total_frames_empty() {
+    let session = TraceSession {
+        root_frame_id: "r".to_owned(),
+        board_id: None,
+        frames: vec![],
+        started_at: 0,
+        ended_at: None,
+    };
+    assert_eq!(session.total_frames(), 0);
+}
+
+#[test]
+fn trace_session_total_tokens_no_ai_frames() {
+    let session = TraceSession {
+        root_frame_id: "r".to_owned(),
+        board_id: None,
+        frames: vec![frame("1", None, 1, "board:join", Status::Done)],
+        started_at: 1,
+        ended_at: Some(1),
+    };
+    assert_eq!(session.total_tokens(), 0);
+}
+
+#[test]
+fn trace_session_total_cost_no_ai_frames() {
+    let session = TraceSession {
+        root_frame_id: "r".to_owned(),
+        board_id: None,
+        frames: vec![frame("1", None, 1, "board:join", Status::Done)],
+        started_at: 1,
+        ended_at: Some(1),
+    };
+    assert!((session.total_cost() - 0.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn trace_session_error_count_zero_errors() {
+    let session = TraceSession {
+        root_frame_id: "r".to_owned(),
+        board_id: None,
+        frames: vec![
+            frame("1", None, 1, "ai:prompt", Status::Request),
+            frame("2", None, 2, "ai:prompt", Status::Done),
+        ],
+        started_at: 1,
+        ended_at: Some(2),
+    };
+    assert_eq!(session.error_count(), 0);
+}
+
+#[test]
+fn trace_session_error_count_multiple_errors() {
+    let session = TraceSession {
+        root_frame_id: "r".to_owned(),
+        board_id: None,
+        frames: vec![
+            frame("1", None, 1, "ai:prompt", Status::Error),
+            frame("2", None, 2, "board:join", Status::Error),
+            frame("3", None, 3, "object:update", Status::Done),
+        ],
+        started_at: 1,
+        ended_at: Some(3),
+    };
+    assert_eq!(session.error_count(), 2);
+}
+
+// =============================================================
+// prefix_display: all known prefixes
+// =============================================================
+
+#[test]
+fn prefix_display_board() {
+    let d = prefix_display("board:join");
+    assert_eq!(d.letter, "B");
+    assert_eq!(d.label, "BOARD");
+}
+
+#[test]
+fn prefix_display_object() {
+    let d = prefix_display("object:update");
+    assert_eq!(d.letter, "O");
+    assert_eq!(d.label, "OBJECT");
+}
+
+#[test]
+fn prefix_display_tool() {
+    let d = prefix_display("tool:applyChanges");
+    assert_eq!(d.letter, "T");
+    assert_eq!(d.label, "TOOL");
+}
+
+#[test]
+fn prefix_display_chat() {
+    let d = prefix_display("chat:send");
+    assert_eq!(d.letter, "C");
+    assert_eq!(d.label, "CHAT");
+}
+
+#[test]
+fn prefix_display_cursor() {
+    let d = prefix_display("cursor:move");
+    assert_eq!(d.letter, "U");
+    assert_eq!(d.label, "CURSOR");
+}
+
+#[test]
+fn prefix_display_save() {
+    let d = prefix_display("save:snapshot");
+    assert_eq!(d.letter, "S");
+    assert_eq!(d.label, "SAVE");
+}
+
+#[test]
+fn prefix_display_unknown_prefix() {
+    let d = prefix_display("foo:bar");
+    assert_eq!(d.letter, "-");
+    assert_eq!(d.label, "OTHER");
+}
+
+#[test]
+fn prefix_display_empty_syscall() {
+    let d = prefix_display("");
+    assert_eq!(d.letter, "-");
+    assert_eq!(d.label, "OTHER");
+}
+
+// =============================================================
+// syscall_prefix: edge cases
+// =============================================================
+
+#[test]
+fn syscall_prefix_multiple_colons_returns_first_segment() {
+    assert_eq!(syscall_prefix("ai:llm:request"), "ai");
+}
+
+#[test]
+fn syscall_prefix_only_colon() {
+    assert_eq!(syscall_prefix(":"), "");
+}
+
+// =============================================================
+// compute_metrics: additional cases
+// =============================================================
+
+#[test]
+fn metrics_all_done_no_pending() {
+    let frames = vec![
+        frame("1", None, 1, "board:join", Status::Done),
+        frame("2", None, 2, "board:leave", Status::Done),
+    ];
+    let metrics = compute_metrics(&frames);
+    assert_eq!(metrics.total, 2);
+    assert_eq!(metrics.errors, 0);
+    assert_eq!(metrics.pending_requests, 0);
+}
+
+#[test]
+fn metrics_single_error_frame() {
+    let frames = vec![frame("1", None, 1, "ai:prompt", Status::Error)];
+    let metrics = compute_metrics(&frames);
+    assert_eq!(metrics.total, 1);
+    assert_eq!(metrics.errors, 1);
+    assert_eq!(metrics.pending_requests, 0);
+}
+
+#[test]
+fn metrics_item_frames_not_pending() {
+    // Item frames are streaming — they should not count as pending requests.
+    let frames = vec![
+        frame("1", None, 1, "ai:stream", Status::Request),
+        frame("2", None, 2, "ai:stream", Status::Item),
+        frame("3", None, 3, "ai:stream", Status::Item),
+    ];
+    let metrics = compute_metrics(&frames);
+    assert_eq!(metrics.pending_requests, 1);
+}
+
+// =============================================================
+// pair_request_spans: edge cases
+// =============================================================
+
+#[test]
+fn span_pairing_empty_input() {
+    let spans = pair_request_spans(&[]);
+    assert!(spans.is_empty());
+}
+
+#[test]
+fn span_pairing_only_items_produces_no_spans() {
+    let frames = vec![
+        frame("i1", None, 1, "ai:stream", Status::Item),
+        frame("i2", None, 2, "ai:stream", Status::Item),
+    ];
+    let spans = pair_request_spans(&frames);
+    assert!(spans.is_empty());
+}
+
+#[test]
+fn span_pairing_error_status_is_terminal() {
+    let frames = vec![
+        frame("req", None, 100, "ai:prompt", Status::Request),
+        frame("err", None, 150, "ai:prompt", Status::Error),
+    ];
+    let spans = pair_request_spans(&frames);
+    assert_eq!(spans.len(), 1);
+    assert_eq!(spans[0].request_frame_id.as_deref(), Some("req"));
+    assert_eq!(spans[0].duration_ms, 50);
+}
+
+#[test]
+fn span_duration_ms_is_zero_when_done_without_request() {
+    // A Done frame with no matching Request has started_at == ended_at.
+    let frames = vec![frame("done", None, 999, "chat:message", Status::Done)];
+    let spans = pair_request_spans(&frames);
+    assert_eq!(spans.len(), 1);
+    assert_eq!(spans[0].duration_ms, 0);
+    assert_eq!(spans[0].started_at, 999);
+    assert_eq!(spans[0].ended_at, 999);
+}
+
+// =============================================================
+// TraceFilter: additional toggle and active_* edge cases
+// =============================================================
+
+#[test]
+fn filter_active_prefixes_sorted() {
+    let filter = TraceFilter::default();
+    let prefixes = filter.active_prefixes();
+    // Should be sorted alphabetically (BTreeSet ordering).
+    let mut sorted = prefixes.clone();
+    sorted.sort();
+    assert_eq!(prefixes, sorted);
+}
+
+#[test]
+fn filter_active_statuses_stable() {
+    let filter = TraceFilter::default();
+    let statuses = filter.active_statuses();
+    // Default includes Request, Done, Error.
+    assert!(statuses.contains(&Status::Request));
+    assert!(statuses.contains(&Status::Done));
+    assert!(statuses.contains(&Status::Error));
+    assert!(!statuses.contains(&Status::Item));
+    assert!(!statuses.contains(&Status::Cancel));
+}
+
+#[test]
+fn filter_set_same_prefix_twice_is_idempotent() {
+    let mut filter = TraceFilter::default();
+    filter.set_prefix_enabled("ai", true);
+    filter.set_prefix_enabled("ai", true);
+    let prefixes = filter.active_prefixes();
+    let count = prefixes.iter().filter(|p| p.as_str() == "ai").count();
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn filter_allows_empty_prefix_as_other() {
+    let mut filter = TraceFilter::default();
+    // "other" is not in the default set; add it.
+    filter.set_prefix_enabled("other", true);
+    assert!(filter.allows(&frame("1", None, 1, "", Status::Done)));
+}
+
+// =============================================================
+// build_trace_sessions: ordering by start timestamp
+// =============================================================
+
+#[test]
+fn trace_sessions_sorted_by_start_timestamp() {
+    let frames = vec![
+        frame("late", None, 1000, "board:join", Status::Done),
+        frame("early", None, 100, "board:join", Status::Done),
+    ];
+    let sessions = build_trace_sessions(&frames);
+    assert_eq!(sessions.len(), 2);
+    assert!(sessions[0].started_at < sessions[1].started_at);
+}
+
+#[test]
+fn trace_sessions_single_frame_is_its_own_session() {
+    let frames = vec![frame("solo", None, 5, "object:update", Status::Done)];
+    let sessions = build_trace_sessions(&frames);
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].root_frame_id, "solo");
+    assert_eq!(sessions[0].frames.len(), 1);
+    assert_eq!(sessions[0].ended_at, Some(5));
+}
+
+#[test]
+fn trace_session_ended_at_none_when_last_status_is_request() {
+    let frames = vec![
+        frame("root", None, 10, "ai:prompt", Status::Request),
+        frame("child", Some("root"), 20, "ai:llm_request", Status::Done),
+        frame("root2", Some("root"), 30, "ai:result", Status::Request),
+    ];
+    let sessions = build_trace_sessions(&frames);
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].ended_at, None);
+}
+
+// =============================================================
+// tree_depth: additional cases
+// =============================================================
+
+#[test]
+fn tree_depth_parent_not_in_map_stops_walk() {
+    let by_id = HashMap::from([
+        ("b".to_owned(), frame("b", Some("a"), 2, "x", Status::Done)),
+        ("c".to_owned(), frame("c", Some("b"), 3, "x", Status::Done)),
+    ]);
+    // "c" -> "b" -> "a" (not in map) => depth 2 (two parent hops)
+    assert_eq!(tree_depth("c", &by_id), 2);
+}
+
+#[test]
+fn tree_depth_single_hop() {
+    let by_id = HashMap::from([
+        ("root".to_owned(), frame("root", None, 1, "x", Status::Done)),
+        (
+            "child".to_owned(),
+            frame("child", Some("root"), 2, "x", Status::Done),
+        ),
+    ]);
+    assert_eq!(tree_depth("root", &by_id), 0);
+    assert_eq!(tree_depth("child", &by_id), 1);
+}
