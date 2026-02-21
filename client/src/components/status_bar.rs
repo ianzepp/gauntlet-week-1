@@ -15,7 +15,7 @@ use crate::state::ui::{UiState, ViewMode};
 
 /// Status bar at the bottom of the board page.
 #[component]
-pub fn StatusBar() -> impl IntoView {
+pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
     let ui = expect_context::<RwSignal<UiState>>();
@@ -51,6 +51,7 @@ pub fn StatusBar() -> impl IntoView {
     let trace_mode_label = move || {
         if trace.get().paused { "PAUSED" } else { "LIVE ●" }
     };
+    let on_help_click = move |_| on_help.run(());
 
     view! {
         <div class="status-bar">
@@ -92,6 +93,9 @@ pub fn StatusBar() -> impl IntoView {
             // Right section: canvas telemetry (hidden in trace mode)
             <Show when=move || !is_trace_mode()>
                 <div class="status-bar__section">
+                    <button class="status-bar__help" on:click=on_help_click title="Open help">"[?] HELP"</button>
+
+                    <span class="status-bar__divider"></span>
                     <span class="status-bar__item">{move || format_cursor(cursor())}</span>
 
                     <span class="status-bar__divider"></span>

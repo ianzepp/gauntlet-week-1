@@ -25,6 +25,7 @@ use leptos_router::hooks::use_params_map;
 use crate::app::FrameSender;
 use crate::components::board_stamp::BoardStamp;
 use crate::components::canvas_host::CanvasHost;
+use crate::components::help_shortcuts_modal::HelpShortcutsModal;
 use crate::components::left_panel::LeftPanel;
 use crate::components::object_text_dialog::ObjectTextDialog;
 use crate::components::right_panel::RightPanel;
@@ -86,6 +87,7 @@ pub fn BoardPage() -> impl IntoView {
     let object_text_dialog_id = RwSignal::new(None::<String>);
     let object_text_dialog_value = RwSignal::new(String::new());
     let last_object_text_dialog_seq = RwSignal::new(0_u64);
+    let help_modal_open = RwSignal::new(false);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
@@ -353,12 +355,36 @@ pub fn BoardPage() -> impl IntoView {
         object_text_dialog_id.set(None);
     });
 
+    let on_help_open = Callback::new(move |_| help_modal_open.set(true));
+    let on_help_close = Callback::new(move |_| help_modal_open.set(false));
+    let on_board_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        let key = ev.key();
+        if key == "?"
+            || (key == "/" && ev.shift_key())
+            || (key == "Escape" && help_modal_open.get_untracked())
+        {
+            #[cfg(feature = "hydrate")]
+            {
+                if is_text_input_target(&ev) {
+                    return;
+                }
+            }
+            ev.prevent_default();
+            if key == "Escape" {
+                help_modal_open.set(false);
+            } else {
+                help_modal_open.set(true);
+            }
+        }
+    };
+
     view! {
         <div
             class="board-page"
             class:board-page--left-expanded=move || ui.get().left_panel_expanded
             class:board-page--right-expanded=move || ui.get().right_panel_expanded
             class:board-page--trace=move || ui.get().view_mode == ViewMode::Trace
+            on:keydown=on_board_keydown
         >
             <div class="board-page__toolbar">
                 <Toolbar/>
@@ -404,7 +430,7 @@ pub fn BoardPage() -> impl IntoView {
                 <RightPanel/>
             </div>
             <div class="board-page__status-bar">
-                <StatusBar/>
+                <StatusBar on_help=on_help_open/>
             </div>
             {move || {
                 if object_text_dialog_open.get() {
@@ -421,8 +447,28 @@ pub fn BoardPage() -> impl IntoView {
                     view! { <></> }.into_any()
                 }
             }}
+            <Show when=move || help_modal_open.get()>
+                <HelpShortcutsModal on_close=on_help_close />
+            </Show>
         </div>
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn is_text_input_target(ev: &leptos::ev::KeyboardEvent) -> bool {
+    use wasm_bindgen::JsCast;
+
+    let Some(target) = ev.target() else {
+        return false;
+    };
+    let Ok(element) = target.dyn_into::<web_sys::Element>() else {
+        return false;
+    };
+    let tag = element.tag_name().to_ascii_lowercase();
+    if tag == "input" || tag == "textarea" || tag == "select" {
+        return true;
+    }
+    element.has_attribute("contenteditable")
 }
 
 #[cfg(test)]

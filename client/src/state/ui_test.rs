@@ -121,12 +121,17 @@ fn right_tab_default_is_chat() {
 fn right_tab_variants_are_distinct() {
     assert_ne!(RightTab::Chat, RightTab::Ai);
     assert_ne!(RightTab::Chat, RightTab::Trace);
+    assert_ne!(RightTab::Chat, RightTab::Users);
     assert_ne!(RightTab::Chat, RightTab::Boards);
     assert_ne!(RightTab::Chat, RightTab::Records);
     assert_ne!(RightTab::Ai, RightTab::Trace);
+    assert_ne!(RightTab::Ai, RightTab::Users);
     assert_ne!(RightTab::Ai, RightTab::Boards);
     assert_ne!(RightTab::Ai, RightTab::Records);
+    assert_ne!(RightTab::Trace, RightTab::Users);
     assert_ne!(RightTab::Trace, RightTab::Boards);
     assert_ne!(RightTab::Trace, RightTab::Records);
+    assert_ne!(RightTab::Users, RightTab::Boards);
+    assert_ne!(RightTab::Users, RightTab::Records);
     assert_ne!(RightTab::Boards, RightTab::Records);
 }

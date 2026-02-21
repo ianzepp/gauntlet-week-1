@@ -14,6 +14,7 @@ use crate::components::chat_panel::ChatPanel;
 use crate::components::mission_control::MissionControl;
 use crate::components::rewind_shelf::RewindShelf;
 use crate::components::trace_inspector::TraceInspector;
+use crate::components::user_list_panel::UserListPanel;
 use crate::state::ui::{RightTab, UiState, ViewMode};
 
 /// Collapsible right sidebar with icon rail and expandable content panel.
@@ -136,6 +137,21 @@ pub fn RightPanel() -> impl IntoView {
 
                 <button
                     class="right-panel__rail-button ui-tooltip ui-tooltip--left"
+                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Users
+                    on:click=move |_| toggle_tab(RightTab::Users)
+                    title="Users"
+                    attr:data-tooltip="Users"
+                >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <circle cx="7" cy="7" r="2.5" />
+                        <circle cx="13.5" cy="8" r="2" />
+                        <path d="M2.5 16 C3.5 12.8 5.5 11.5 7.5 11.5 C9.5 11.5 11.6 12.8 12.5 16" />
+                        <path d="M11 16 C11.7 13.8 13 12.8 14.5 12.8 C16 12.8 17.2 13.8 18 16" />
+                    </svg>
+                </button>
+
+                <button
+                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
                     class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Ai
                     on:click=move |_| toggle_tab(RightTab::Ai)
                     title="Field Notes"
@@ -176,6 +192,7 @@ pub fn RightPanel() -> impl IntoView {
                         <span class="right-panel__title">
                             {move || match active_tab() {
                                 RightTab::Chat => "Chat",
+                                RightTab::Users => "Connected Users",
                                 RightTab::Ai => "Field Notes",
                                 RightTab::Trace => "Trace Detail",
                                 RightTab::Boards => "Boards",
@@ -190,6 +207,7 @@ pub fn RightPanel() -> impl IntoView {
                     <div class="right-panel__content">
                         {move || match active_tab() {
                             RightTab::Chat => view! { <ChatPanel/> }.into_any(),
+                            RightTab::Users => view! { <UserListPanel/> }.into_any(),
                             RightTab::Ai => view! { <AiPanel/> }.into_any(),
                             RightTab::Trace => view! { <TraceInspector/> }.into_any(),
                             RightTab::Boards => view! { <MissionControl/> }.into_any(),

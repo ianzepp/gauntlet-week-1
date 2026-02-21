@@ -463,6 +463,12 @@ fn handle_board_frame(
                 board.update(|b| {
                     b.presence.remove(client_id);
                     b.cursor_updated_at.remove(client_id);
+                    if b.follow_client_id.as_deref() == Some(client_id) {
+                        b.follow_client_id = None;
+                    }
+                    if b.jump_to_client_id.as_deref() == Some(client_id) {
+                        b.jump_to_client_id = None;
+                    }
                 });
             }
             true
