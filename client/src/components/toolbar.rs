@@ -69,7 +69,7 @@ pub fn Toolbar() -> impl IntoView {
             {
                 use wasm_bindgen::JsCast;
 
-                let sender = _sender;
+                let sender = sender;
                 let board = board;
                 leptos::task::spawn_local(async move {
                     let Some(input) = _ev

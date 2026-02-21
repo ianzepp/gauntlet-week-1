@@ -1900,8 +1900,8 @@ pub fn CanvasHost() -> impl IntoView {
                 on_pointer_move=on_zoom_pointer_move
                 on_pointer_up=on_zoom_pointer_up
                 on_readout_pointer_down=on_zoom_readout_pointer_down
-                on_readout_click=on_zoom_reset
-                on_readout_dblclick=on_zoom_reset
+                on_readout_click=on_zoom_reset.clone()
+                on_readout_dblclick=on_zoom_reset.clone()
                 on_reset_click=on_zoom_reset
             />
             <ColorDial
