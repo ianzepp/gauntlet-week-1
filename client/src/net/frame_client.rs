@@ -469,6 +469,21 @@ fn handle_board_frame(
         Some("join") if frame.status == FrameStatus::Done => {
             flush_join_items(board);
             board.update(|b| {
+                if let (Some(parent_id), Some(pending_id), Some(started_ms)) = (
+                    frame.parent_id.as_deref(),
+                    b.pending_join_request_id.as_deref(),
+                    b.pending_join_started_ms,
+                )
+                    && parent_id == pending_id
+                {
+                    #[cfg(feature = "hydrate")]
+                    {
+                        b.join_round_trip_ms = Some((js_sys::Date::now() - started_ms).max(0.0));
+                    }
+                }
+                b.pending_join_request_id = None;
+                b.pending_join_started_ms = None;
+
                 if let Some(objs) = parse_board_objects(&frame.data) {
                     b.objects.clear();
                     b.drag_objects.clear();

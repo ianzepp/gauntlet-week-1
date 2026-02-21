@@ -25,6 +25,8 @@ pub struct CanvasViewState {
     pub fps: Option<f64>,
     /// Timestamp of the last FPS sample in milliseconds.
     pub fps_last_sample_ms: Option<f64>,
+    /// Most recent canvas render duration in milliseconds.
+    pub last_render_ms: Option<f64>,
     /// Camera pan offset along the x-axis in CSS pixels.
     pub pan_x: f64,
     /// Camera pan offset along the y-axis in CSS pixels.
@@ -45,6 +47,7 @@ impl Default for CanvasViewState {
             zoom: 1.0,
             fps: None,
             fps_last_sample_ms: None,
+            last_render_ms: None,
             pan_x: 0.0,
             pan_y: 0.0,
             view_rotation_deg: 0.0,

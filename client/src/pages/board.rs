@@ -40,6 +40,8 @@ use crate::state::board::BoardState;
 use crate::state::ui::{RightTab, UiState, ViewMode};
 use crate::util::auth::install_unauth_redirect;
 use crate::util::frame::request_frame;
+#[cfg(feature = "hydrate")]
+use js_sys::Date;
 
 fn build_board_membership_frame(syscall: &str, board_id: String) -> crate::net::types::Frame {
     request_frame(syscall, Some(board_id), serde_json::json!({}))
@@ -61,6 +63,8 @@ fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<St
     board.join_streaming = false;
     board.selection.clear();
     board.presence.clear();
+    board.pending_join_request_id = None;
+    board.pending_join_started_ms = None;
 }
 
 /// Board page — composes toolbar, panels, canvas placeholder, and status bar
@@ -134,9 +138,19 @@ pub fn BoardPage() -> impl IntoView {
             return;
         }
 
-        sender
-            .get()
-            .send(&build_board_membership_frame("board:join", board_id));
+        let frame = build_board_membership_frame("board:join", board_id);
+        board.update(|b| {
+            b.pending_join_request_id = Some(frame.id.clone());
+            #[cfg(feature = "hydrate")]
+            {
+                b.pending_join_started_ms = Some(Date::now());
+            }
+            #[cfg(not(feature = "hydrate"))]
+            {
+                b.pending_join_started_ms = None;
+            }
+        });
+        sender.get().send(&frame);
         last_join_key.set(Some(key));
     });
 
@@ -162,6 +176,8 @@ pub fn BoardPage() -> impl IntoView {
             b.join_streaming = false;
             b.selection.clear();
             b.presence.clear();
+            b.pending_join_request_id = None;
+            b.pending_join_started_ms = None;
         });
     });
 

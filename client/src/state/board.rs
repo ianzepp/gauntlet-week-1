@@ -48,6 +48,12 @@ pub struct BoardState {
     pub join_streaming: bool,
     /// Access code generated for sharing, if any.
     pub generated_access_code: Option<String>,
+    /// Most recent board:join round-trip latency in milliseconds.
+    pub join_round_trip_ms: Option<f64>,
+    /// Outbound board:join request ID awaiting completion.
+    pub pending_join_request_id: Option<String>,
+    /// Client-side timestamp (ms) when pending board:join was sent.
+    pub pending_join_started_ms: Option<f64>,
 }
 
 /// WebSocket connection status.

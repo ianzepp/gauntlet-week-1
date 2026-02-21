@@ -21,36 +21,21 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
     let ui = expect_context::<RwSignal<UiState>>();
     let trace = expect_context::<RwSignal<TraceState>>();
 
-    let status_class = move || {
-        let status = board.get().connection_status;
-        match status {
-            ConnectionStatus::Connected => "status-bar__dot status-bar__dot--connected",
-            ConnectionStatus::Connecting => "status-bar__dot status-bar__dot--connecting",
-            ConnectionStatus::Disconnected => "status-bar__dot status-bar__dot--disconnected",
-        }
-    };
+    let status_class = move || connection_status_class(board.get().connection_status);
 
-    let object_count = move || board.get().objects.len();
-    let camera_locked = move || board.get().follow_client_id.is_some();
-    let cursor = move || canvas_view.get().cursor_world;
-    let camera_center = move || canvas_view.get().camera_center_world.clone();
-    let fps = move || canvas_view.get().fps;
+    let object_count = move || board_object_count(&board.get());
+    let join_round_trip_ms = move || board_join_ms(&board.get());
+    let camera_locked = move || board_camera_locked(&board.get());
+    let cursor = move || canvas_cursor(&canvas_view.get());
+    let camera_center = move || canvas_center(&canvas_view.get());
+    let fps = move || canvas_fps(&canvas_view.get());
+    let render_ms = move || canvas_render_ms(&canvas_view.get());
 
-    let is_trace_mode = move || ui.get().view_mode == ViewMode::Trace;
+    let is_trace_mode = move || ui_is_trace_mode(&ui.get());
 
-    let trace_frame_count = move || trace.get().total_frames();
-    let trace_filter_label = move || {
-        let state = trace.get();
-        let prefixes = state.filter.active_prefixes();
-        if prefixes.len() >= 5 {
-            "ALL".to_owned()
-        } else {
-            prefixes.join("+")
-        }
-    };
-    let trace_mode_label = move || {
-        if trace.get().paused { "PAUSED" } else { "LIVE ●" }
-    };
+    let trace_frame_count = move || trace_frame_total(&trace.get());
+    let trace_filter_label = move || trace_filter_display(&trace.get());
+    let trace_mode_label = move || trace_mode_display(&trace.get());
     let on_help_click = move |_| on_help.run(());
 
     view! {
@@ -70,6 +55,14 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
                             <span class="status-bar__divider"></span>
                             <span class="status-bar__item">
                                 {move || format!("{} objs", object_count())}
+                            </span>
+                            <span class="status-bar__divider"></span>
+                            <span class="status-bar__item">
+                                {move || format_join_ms(join_round_trip_ms())}
+                            </span>
+                            <span class="status-bar__divider"></span>
+                            <span class="status-bar__item">
+                                {move || format_render_ms(render_ms())}
                             </span>
                             <Show when=camera_locked>
                                 <span class="status-bar__divider"></span>
@@ -125,6 +118,80 @@ fn format_fps(fps: Option<f64>) -> String {
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn format_join_ms(ms: Option<f64>) -> String {
+    match ms {
+        Some(value) => format!("join {}ms", value.round() as i64),
+        None => "join --ms".to_owned(),
+    }
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn format_render_ms(ms: Option<f64>) -> String {
+    match ms {
+        Some(value) => format!("render {}ms", value.round() as i64),
+        None => "render --ms".to_owned(),
+    }
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn round_coord(value: f64) -> i64 {
     value.round() as i64
+}
+
+fn connection_status_class(status: ConnectionStatus) -> &'static str {
+    match status {
+        ConnectionStatus::Connected => "status-bar__dot status-bar__dot--connected",
+        ConnectionStatus::Connecting => "status-bar__dot status-bar__dot--connecting",
+        ConnectionStatus::Disconnected => "status-bar__dot status-bar__dot--disconnected",
+    }
+}
+
+fn board_object_count(board: &BoardState) -> usize {
+    board.objects.len()
+}
+
+fn board_join_ms(board: &BoardState) -> Option<f64> {
+    board.join_round_trip_ms
+}
+
+fn board_camera_locked(board: &BoardState) -> bool {
+    board.follow_client_id.is_some()
+}
+
+fn canvas_cursor(view: &CanvasViewState) -> Option<Point> {
+    view.cursor_world.clone()
+}
+
+fn canvas_center(view: &CanvasViewState) -> Point {
+    view.camera_center_world.clone()
+}
+
+fn canvas_fps(view: &CanvasViewState) -> Option<f64> {
+    view.fps
+}
+
+fn canvas_render_ms(view: &CanvasViewState) -> Option<f64> {
+    view.last_render_ms
+}
+
+fn ui_is_trace_mode(ui: &UiState) -> bool {
+    ui.view_mode == ViewMode::Trace
+}
+
+fn trace_frame_total(trace: &TraceState) -> usize {
+    trace.total_frames()
+}
+
+fn trace_filter_display(trace: &TraceState) -> String {
+    let prefixes = trace.filter.active_prefixes();
+    if prefixes.len() >= 5 {
+        "ALL".to_owned()
+    } else {
+        prefixes.join("+")
+    }
+}
+
+fn trace_mode_display(trace: &TraceState) -> &'static str {
+    if trace.paused { "PAUSED" } else { "LIVE ●" }
 }

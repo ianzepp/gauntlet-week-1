@@ -73,6 +73,18 @@ use canvas::doc::{BoardObject as CanvasObject, ObjectKind as CanvasKind};
 use canvas::engine::{Action, Engine};
 #[cfg(feature = "hydrate")]
 use canvas::input::{InputState as CanvasInputState, Key as CanvasKey, WheelDelta};
+#[cfg(feature = "hydrate")]
+use js_sys::Date;
+
+#[cfg(feature = "hydrate")]
+fn render_and_track(engine: &mut Engine, canvas_view: RwSignal<CanvasViewState>) {
+    let started_ms = Date::now();
+    let _ = engine.render();
+    let elapsed_ms = (Date::now() - started_ms).max(0.0);
+    canvas_view.update(|view| {
+        view.last_render_ms = Some(elapsed_ms);
+    });
+}
 
 /// Canvas host component.
 ///
@@ -158,7 +170,7 @@ pub fn CanvasHost() -> impl IntoView {
                 None,
                 true,
             );
-            let _ = instance.render();
+            render_and_track(&mut instance, canvas_view);
             *engine.borrow_mut() = Some(instance);
         });
     }
@@ -238,7 +250,7 @@ pub fn CanvasHost() -> impl IntoView {
                     );
                 }
                 sync_canvas_view_state(engine, canvas_view, None);
-                let _ = engine.render();
+                render_and_track(engine, canvas_view);
             }
         });
     }
@@ -266,7 +278,7 @@ pub fn CanvasHost() -> impl IntoView {
                     None,
                     true,
                 );
-                let _ = engine.render();
+                render_and_track(engine, canvas_view);
             }
             last_home_viewport_seq.set(seq);
         });
@@ -303,7 +315,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
             last_zoom_override_seq.set(seq);
@@ -339,7 +351,7 @@ pub fn CanvasHost() -> impl IntoView {
                     None,
                     true,
                 );
-                let _ = engine.render();
+                render_and_track(engine, canvas_view);
             }
             last_center_override_seq.set(seq);
         });
@@ -371,7 +383,7 @@ pub fn CanvasHost() -> impl IntoView {
                 sync_viewport(engine, &canvas_ref_follow);
                 set_camera_view(engine, center.x, center.y, zoom, rotation);
                 sync_canvas_view_state(engine, canvas_view, None);
-                let _ = engine.render();
+                render_and_track(engine, canvas_view);
                 if board.get_untracked().jump_to_client_id.as_deref() == Some(target_client.as_str()) {
                     board.update(|b| b.jump_to_client_id = None);
                 }
@@ -395,11 +407,16 @@ pub fn CanvasHost() -> impl IntoView {
                 }
                 let point = pointer_point(&ev);
                 if let Some((kind, width, height, props)) = placement_shape(_ui.get().active_tool) {
-                    if let Some(engine) = engine.borrow().as_ref() {
-                        place_shape_at_cursor(point, kind, width, height, props, engine, board, sender);
+                    {
+                        let engine_ref = engine.borrow();
+                        if let Some(engine) = engine_ref.as_ref() {
+                            place_shape_at_cursor(point, kind, width, height, props, engine, board, sender);
+                        }
+                    }
+                    if let Some(engine) = engine.borrow_mut().as_mut() {
                         _ui.update(|u| u.active_tool = ToolType::Select);
                         preview_cursor.set(None);
-                        let _ = engine.render();
+                        render_and_track(engine, canvas_view);
                     }
                     return;
                 }
@@ -421,7 +438,7 @@ pub fn CanvasHost() -> impl IntoView {
                         Some(point),
                         false,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -509,7 +526,7 @@ pub fn CanvasHost() -> impl IntoView {
                         false,
                     );
                     send_object_drag_if_needed(engine, board, sender, last_drag_sent_ms);
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -553,7 +570,7 @@ pub fn CanvasHost() -> impl IntoView {
                     );
                     last_drag_sent_ms.set(0.0);
                     send_object_drag_end(active_transform, board, sender);
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -591,7 +608,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         false,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -676,7 +693,7 @@ pub fn CanvasHost() -> impl IntoView {
                     if key == "Escape" {
                         send_object_drag_end(active_transform, board, sender);
                     }
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -720,7 +737,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -759,7 +776,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         false,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -818,7 +835,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -850,7 +867,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -882,7 +899,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -914,7 +931,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -962,7 +979,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         false,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -1001,7 +1018,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         false,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
@@ -1060,7 +1077,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    let _ = engine.render();
+                    render_and_track(engine, canvas_view);
                 }
             }
         }
