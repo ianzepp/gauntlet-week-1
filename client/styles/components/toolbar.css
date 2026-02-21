@@ -155,7 +155,21 @@
 }
 
 .toolbar__info-btn {
-    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: var(--text-nav);
+    line-height: 1;
+}
+
+.toolbar__info-btn svg {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 .toolbar__logout {
@@ -180,4 +194,3 @@
     color: var(--text-nav-active);
     background: transparent;
 }
-

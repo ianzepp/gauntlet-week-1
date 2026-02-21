@@ -1877,6 +1877,24 @@ a:hover {
     color: color-mix(in oklab, var(--text-secondary) 72%, transparent);
 }
 
+.toolbar__info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: var(--text-nav);
+    line-height: 1;
+}
+
+.toolbar__info-btn svg {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
 .toolbar__logout {
     width: auto;
     padding: 0 var(--space-sm);
