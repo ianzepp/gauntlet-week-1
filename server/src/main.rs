@@ -1,4 +1,4 @@
-//! Server entrypoint for CollabBoard backend runtime.
+//! Server entrypoint for `CollabBoard` backend runtime.
 //!
 //! ARCHITECTURE
 //! ============
@@ -130,22 +130,30 @@ async fn main() {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
     ensure_leptos_env_defaults();
+
+    if let Err(e) = run().await {
+        tracing::error!("fatal: {e}");
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<(), String> {
     let migrate_only = has_flag("--migrate-only");
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL required");
+    let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL required")?;
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "3000".into())
         .parse()
-        .expect("invalid PORT");
+        .map_err(|_| "invalid PORT")?;
     log_startup_env_config(port);
 
     let pool = db::init_pool(&database_url)
         .await
-        .expect("database init failed");
+        .map_err(|e| format!("database init failed: {e}"))?;
     if migrate_only {
         tracing::info!("migrations completed in --migrate-only mode; exiting");
         drop(pool);
-        return;
+        return Ok(());
     }
 
     // Initialize LLM client (non-fatal: AI features disabled if config missing).
@@ -177,13 +185,15 @@ async fn main() {
     let _persistence = services::persistence::spawn_persistence_task(app_state.clone());
 
     // Leptos SSR frontend: API + SSR on PORT
-    let leptos = routes::leptos_app(app_state);
+    let leptos = routes::leptos_app(app_state)?;
     let leptos_listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
-        .expect("failed to bind port");
+        .map_err(|e| format!("failed to bind port: {e}"))?;
     tracing::info!(%port, "Leptos server listening");
 
     axum::serve(leptos_listener, leptos)
         .await
-        .expect("server failed");
+        .map_err(|e| format!("server failed: {e}"))?;
+
+    Ok(())
 }

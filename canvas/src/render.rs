@@ -253,17 +253,17 @@ fn draw_youtube(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props
 
     // Play button
     let play_r = obj.width.min(obj.height) * 0.12;
-    let play_cx = 0.0;
-    let play_cy = screen_y + (screen_h * 0.5);
+    let play_center_x = 0.0;
+    let play_center_y = screen_y + (screen_h * 0.5);
     ctx.set_fill_style_str("#fff");
     ctx.begin_path();
-    ctx.arc(play_cx, play_cy, play_r, 0.0, 2.0 * PI)?;
+    ctx.arc(play_center_x, play_center_y, play_r, 0.0, 2.0 * PI)?;
     ctx.fill();
     ctx.set_fill_style_str("#d12b2b");
     ctx.begin_path();
-    ctx.move_to(play_cx - (play_r * 0.30), play_cy - (play_r * 0.45));
-    ctx.line_to(play_cx + (play_r * 0.50), play_cy);
-    ctx.line_to(play_cx - (play_r * 0.30), play_cy + (play_r * 0.45));
+    ctx.move_to(play_center_x - (play_r * 0.30), play_center_y - (play_r * 0.45));
+    ctx.line_to(play_center_x + (play_r * 0.50), play_center_y);
+    ctx.line_to(play_center_x - (play_r * 0.30), play_center_y + (play_r * 0.45));
     ctx.close_path();
     ctx.fill();
 
@@ -389,7 +389,12 @@ fn draw_arrowhead(ctx: &CanvasRenderingContext2d, tip_x: f64, tip_y: f64, angle:
 // Text
 // =============================================================
 
-#[allow(clippy::similar_names)]
+#[allow(
+    clippy::similar_names,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
 fn draw_text(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
     let head = props.head();
     let text = props.text();
@@ -479,7 +484,7 @@ fn wrap_text_lines(ctx: &CanvasRenderingContext2d, text: &str, max_w: f64) -> Ve
             } else {
                 out.push(std::mem::take(&mut current));
                 if measured_text_width(ctx, word) <= max_w {
-                    current = word.to_owned();
+                    word.clone_into(&mut current);
                 } else {
                     let mut chunks = break_long_word(ctx, word, max_w);
                     if let Some(last) = chunks.pop() {

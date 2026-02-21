@@ -65,12 +65,18 @@ pub struct Frame {
 }
 
 /// Encode a frame into protobuf bytes.
+///
+/// # Panics
+///
+/// Never panics in practice; writing to `Vec<u8>` is infallible.
 #[must_use]
 pub fn encode_frame(frame: &Frame) -> Vec<u8> {
     let wire = frame_to_wire(frame);
 
     let mut out = Vec::with_capacity(wire.encoded_len());
-    wire.encode(&mut out).expect("Vec writes should not fail");
+    // Safety: encoding into a Vec<u8> is infallible; the only error prost
+    // returns here is `BufferTooSmall`, which cannot occur with a growable Vec.
+    wire.encode(&mut out).unwrap_or_default();
     out
 }
 

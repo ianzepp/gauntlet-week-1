@@ -16,8 +16,9 @@ use crate::util::dial_math::{BORDER_WIDTH_MAX, BORDER_WIDTH_MIN, TEXT_SIZE_MAX, 
 
 /// Coerce a JSON value to `f64`, accepting both floating-point and integer JSON numbers.
 ///
-/// Necessary because serde_json serialises integers as `Value::Number` without an `as_f64`
+/// Necessary because `serde_json` serialises integers as `Value::Number` without an `as_f64`
 /// shortcut when the original type was `i64`.
+#[allow(clippy::cast_precision_loss)]
 pub fn value_as_f64(v: &serde_json::Value) -> Option<f64> {
     v.as_f64().or_else(|| v.as_i64().map(|n| n as f64))
 }
@@ -71,7 +72,7 @@ pub fn upsert_object_scale_props(obj: &mut BoardObject, scale: f64, base_width: 
 /// Reset the scale baseline of a props map so that the current `width`/`height` become
 /// the new reference dimensions and the effective scale returns to 1.0.
 ///
-/// Setting `"scale"` to `null` signals that the scale should be derived from width/base_width
+/// Setting `"scale"` to `null` signals that the scale should be derived from `width/base_width`
 /// rather than read from the stored value. Call this after a resize commit to prevent drift.
 pub fn reset_scale_props_baseline(props: &mut serde_json::Value, width: f64, height: f64) {
     if !props.is_object() {
@@ -125,8 +126,7 @@ pub fn object_fill_hex(obj: &BoardObject) -> String {
         .and_then(|v| v.as_str())
         .or_else(|| obj.props.get("backgroundColor").and_then(|v| v.as_str()))
         .or_else(|| obj.props.get("borderColor").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s, "#D94B4B"))
-        .unwrap_or_else(|| "#D94B4B".to_owned())
+        .map_or_else(|| "#D94B4B".to_owned(), |s| normalize_hex_color(s, "#D94B4B"))
 }
 
 /// Read the base fill color (before lightness shift) from an object's props.
@@ -137,8 +137,7 @@ pub fn object_base_fill_hex(obj: &BoardObject) -> String {
     obj.props
         .get("baseFill")
         .and_then(|v| v.as_str())
-        .map(|s| normalize_hex_color(s, "#D94B4B"))
-        .unwrap_or_else(|| object_fill_hex(obj))
+        .map_or_else(|| object_fill_hex(obj), |s| normalize_hex_color(s, "#D94B4B"))
 }
 
 /// Read the lightness shift value from an object's props, clamped to [-1, 1].
@@ -169,7 +168,10 @@ pub fn apply_lightness_shift_to_hex(base_hex: &str, shift: f64) -> String {
         } else {
             current * (1.0 + shift)
         };
-        adjusted.round().clamp(0.0, 255.0) as u8
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        {
+            adjusted.round().clamp(0.0, 255.0) as u8
+        }
     };
     format!("#{:02x}{:02x}{:02x}", scale(r), scale(g), scale(b))
 }
@@ -205,8 +207,7 @@ pub fn object_border_color_hex(obj: &BoardObject) -> String {
         .and_then(|v| v.as_str())
         .or_else(|| obj.props.get("stroke").and_then(|v| v.as_str()))
         .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s, "#1F1A17"))
-        .unwrap_or_else(|| "#1F1A17".to_owned())
+        .map_or_else(|| "#1F1A17".to_owned(), |s| normalize_hex_color(s, "#1F1A17"))
 }
 
 /// Read the border width from an object's props, clamped to [`BORDER_WIDTH_MIN`]..=[`BORDER_WIDTH_MAX`].
@@ -247,8 +248,7 @@ pub fn object_text_color_hex(obj: &BoardObject) -> String {
         .and_then(|v| v.as_str())
         .or_else(|| obj.props.get("color").and_then(|v| v.as_str()))
         .or_else(|| obj.props.get("fill").and_then(|v| v.as_str()))
-        .map(|s| normalize_hex_color(s, "#1F1A17"))
-        .unwrap_or_else(|| "#1F1A17".to_owned())
+        .map_or_else(|| "#1F1A17".to_owned(), |s| normalize_hex_color(s, "#1F1A17"))
 }
 
 /// Read the font size from an object's props, clamped to [`TEXT_SIZE_MIN`]..=[`TEXT_SIZE_MAX`].

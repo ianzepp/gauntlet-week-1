@@ -67,7 +67,7 @@ pub fn LoginPage() -> impl IntoView {
         });
     };
 
-    let submit_verify = Callback::new(move |_| {
+    let submit_verify = Callback::new(move |()| {
         if busy.get() {
             return;
         }
@@ -99,7 +99,6 @@ pub fn LoginPage() -> impl IntoView {
     });
 
     let on_verify_code = {
-        let submit_verify = submit_verify.clone();
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
             submit_verify.run(());
@@ -147,7 +146,6 @@ pub fn LoginPage() -> impl IntoView {
                                 .map(|idx| {
                                     let code_refs_input = code_refs.clone();
                                     let code_refs_keydown = code_refs.clone();
-                                    let submit_verify = submit_verify.clone();
                                     view! {
                                         <input
                                             class="login-code-input login-input--code"
@@ -155,13 +153,13 @@ pub fn LoginPage() -> impl IntoView {
                                             maxlength="1"
                                             inputmode="text"
                                             autocomplete=if idx == 0 { "one-time-code" } else { "off" }
-                                            node_ref=code_refs[idx].clone()
+                                            node_ref=code_refs[idx]
                                             prop:value=move || code_slots.with(|slots| slots[idx].clone())
                                             on:input=move |ev| {
                                                 let normalized = normalize_code_input(&event_target_value(&ev));
                                                 let chars = normalized
                                                     .chars()
-                                                    .filter(|ch| ch.is_ascii_alphanumeric())
+                                                    .filter(char::is_ascii_alphanumeric)
                                                     .collect::<Vec<_>>();
 
                                                 if chars.is_empty() {
@@ -188,7 +186,7 @@ pub fn LoginPage() -> impl IntoView {
                                                         .and_then(NodeRef::get)
                                                 {
                                                     let _ = next.focus();
-                                                    let _ = next.select();
+                                                    next.select();
                                                 }
                                             }
                                             on:keydown=move |ev: leptos::ev::KeyboardEvent| {
@@ -211,7 +209,7 @@ pub fn LoginPage() -> impl IntoView {
                                                     .and_then(NodeRef::get)
                                                 {
                                                     let _ = prev.focus();
-                                                    let _ = prev.select();
+                                                    prev.select();
                                                 }
                                             }
                                         />

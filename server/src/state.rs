@@ -21,6 +21,9 @@ use crate::llm::types::Message;
 use crate::rate_limit::RateLimiter;
 use crate::services::auth::GitHubConfig;
 
+/// AI conversation history keyed by `(session_id, board_id)`.
+pub type AiSessionMessages = Arc<RwLock<HashMap<(Uuid, Uuid), Vec<Message>>>>;
+
 // =============================================================================
 // BOARD OBJECT
 // =============================================================================
@@ -101,7 +104,7 @@ pub struct AppState {
     /// In-memory rate limiter for AI requests.
     pub rate_limiter: RateLimiter,
     /// AI conversation memory scoped to active websocket session and board.
-    pub ai_session_messages: Arc<RwLock<HashMap<(Uuid, Uuid), Vec<Message>>>>,
+    pub ai_session_messages: AiSessionMessages,
     /// Optional GitHub OAuth config. `None` disables OAuth endpoints.
     pub github: Option<GitHubConfig>,
 }

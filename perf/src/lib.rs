@@ -66,7 +66,7 @@ pub enum PerfError {
     #[error("invalid header value: {0}")]
     InvalidHeader(#[from] reqwest::header::InvalidHeaderValue),
     #[error("websocket connect failed: {0}")]
-    WsConnect(#[from] tokio_tungstenite::tungstenite::Error),
+    WsConnect(Box<tokio_tungstenite::tungstenite::Error>),
     #[error("websocket closed")]
     WsClosed,
     #[error("frame decode failed: {0}")]
@@ -97,6 +97,7 @@ pub struct LatencyMetrics {
 impl LatencyMetrics {
     /// Build latency metrics from operation durations.
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn from_durations(durations: &[Duration]) -> Self {
         if durations.is_empty() {
             return Self {
@@ -155,7 +156,9 @@ impl WsPerfClient {
     /// Returns an error if URL conversion or websocket handshake fails.
     pub async fn connect(base_url: &str, ticket: &str) -> Result<Self, PerfError> {
         let ws_url = ws_url(base_url, ticket)?;
-        let (stream, _) = connect_async(ws_url).await?;
+        let (stream, _) = connect_async(ws_url)
+            .await
+            .map_err(|e| PerfError::WsConnect(Box::new(e)))?;
         Ok(Self { stream })
     }
 
@@ -166,7 +169,10 @@ impl WsPerfClient {
     /// Returns an error if socket send fails.
     pub async fn send(&mut self, frame: &Frame) -> Result<(), PerfError> {
         let bytes = frames::encode_frame(frame);
-        self.stream.send(Message::Binary(bytes.into())).await?;
+        self.stream
+            .send(Message::Binary(bytes.into()))
+            .await
+            .map_err(|e| PerfError::WsConnect(Box::new(e)))?;
         Ok(())
     }
 
@@ -183,7 +189,7 @@ impl WsPerfClient {
                 let Some(msg) = self.stream.next().await else {
                     return Err(PerfError::WsClosed);
                 };
-                match msg? {
+                match msg.map_err(|e| PerfError::WsConnect(Box::new(e)))? {
                     Message::Binary(bytes) => {
                         return frames::decode_frame(&bytes).map_err(PerfError::from);
                     }
@@ -409,6 +415,11 @@ fn env_usize_list(key: &str, default: &[usize]) -> Vec<usize> {
     }
 }
 
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 fn percentile(sorted_values: &[f64], p: f64) -> f64 {
     if sorted_values.is_empty() {
         return 0.0;

@@ -1,10 +1,11 @@
 //! Column 1 — TRACE SUMMARY panel.
 //!
 //! Renders live aggregate metrics, per-prefix frame counts, connection
-//! status, and a scrollable TRACE_INDEX list of available trace sessions.
+//! status, and a scrollable `TRACE_INDEX` list of available trace sessions.
 
 use leptos::prelude::*;
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::trace::TraceState;
@@ -51,12 +52,12 @@ fn session_activity_summary(session: &traces::TraceSession) -> String {
 
     let errors = session.error_count();
     if errors > 0 {
-        summary.push_str(&format!(" · err:{errors}"));
+        let _ = write!(summary, " · err:{errors}");
     }
 
     let tokens = session.total_tokens();
     if tokens > 0 {
-        summary.push_str(&format!(" · tok:{tokens}"));
+        let _ = write!(summary, " · tok:{tokens}");
     }
 
     summary
@@ -154,8 +155,7 @@ pub fn TraceSummary() -> impl IntoView {
                     {move || {
                         let sel = selected_session_id();
                         let root = sel.as_deref()
-                            .map(|id| &id[..id.len().min(8)])
-                            .unwrap_or("—")
+                            .map_or("—", |id| &id[..id.len().min(8)])
                             .to_owned();
                         view! {
                             <div class="trace-summary__kv">
@@ -184,12 +184,12 @@ pub fn TraceSummary() -> impl IntoView {
                             let id_short = id.chars().take(8).collect::<String>();
                             let is_active = sel.as_deref() == Some(id.as_str());
                             let frame_count = session.total_frames();
+                            #[allow(clippy::cast_precision_loss)]
                             let duration_label = session.ended_at
-                                .map(|end| {
+                                .map_or_else(|| "live".to_owned(), |end| {
                                     let ms = end - session.started_at;
                                     format!("{:.1}s", ms as f64 / 1000.0)
-                                })
-                                .unwrap_or_else(|| "live".to_owned());
+                                });
                             let summary = session_activity_summary(&session);
                             let id_clone = id.clone();
                             view! {

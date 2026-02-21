@@ -3,7 +3,7 @@
 //! LAYOUT
 //! ======
 //! Replaces the canvas area when the toolbar TRACE toggle is active.
-//! Mirrors the CollabBoard inspector's visual vocabulary (dark theme,
+//! Mirrors the `CollabBoard` inspector's visual vocabulary (dark theme,
 //! monospace labels) applied to the LangSmith-style three-column layout
 //! described in `collabboard-observability-design.md`.
 //!

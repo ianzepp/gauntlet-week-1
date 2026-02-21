@@ -758,8 +758,7 @@ async fn execute_create_shape(
         .get("borderColor")
         .or_else(|| input.get("stroke"))
         .and_then(|v| v.as_str())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| fill.clone());
+        .map_or_else(|| fill.clone(), ToOwned::to_owned);
     let stroke_width = input
         .get("borderWidth")
         .and_then(serde_json::Value::as_f64)
@@ -805,7 +804,7 @@ async fn execute_create_shape(
 
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
-    Ok(format!("created {} shape {id}", requested_kind))
+    Ok(format!("created {requested_kind} shape {id}"))
 }
 
 async fn execute_create_frame(
@@ -1186,12 +1185,9 @@ async fn execute_apply_changes_yaml(
     }
 
     for change in doc.changes.update {
-        let object_id = match change.id.parse::<Uuid>() {
-            Ok(id) => id,
-            Err(_) => {
-                errors.push(format!("update.id invalid uuid: {}", change.id));
-                continue;
-            }
+        let Ok(object_id) = change.id.parse::<Uuid>() else {
+            errors.push(format!("update.id invalid uuid: {}", change.id));
+            continue;
         };
         let x = match optional_yaml_number(change.x.as_ref(), "update.x") {
             Ok(v) => v,
@@ -1268,24 +1264,21 @@ async fn execute_apply_changes_yaml(
                 updated += 1;
                 mutations.push(AiMutation::Updated(obj));
             }
-            Err(err) => errors.push(format!("update {} failed: {err}", object_id)),
+            Err(err) => errors.push(format!("update {object_id} failed: {err}")),
         }
     }
 
     for change in doc.changes.delete {
-        let object_id = match change.id.parse::<Uuid>() {
-            Ok(id) => id,
-            Err(_) => {
-                errors.push(format!("delete.id invalid uuid: {}", change.id));
-                continue;
-            }
+        let Ok(object_id) = change.id.parse::<Uuid>() else {
+            errors.push(format!("delete.id invalid uuid: {}", change.id));
+            continue;
         };
         match super::object::delete_object(state, board_id, object_id).await {
             Ok(()) => {
                 deleted += 1;
                 mutations.push(AiMutation::Deleted(object_id));
             }
-            Err(err) => errors.push(format!("delete {} failed: {err}", object_id)),
+            Err(err) => errors.push(format!("delete {object_id} failed: {err}")),
         }
     }
 

@@ -139,6 +139,7 @@ where
             if let Some(int) = number.as_i64() {
                 return Ok(int);
             }
+            #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
             if let Some(float) = number.as_f64()
                 && float.is_finite()
                 && float.fract() == 0.0

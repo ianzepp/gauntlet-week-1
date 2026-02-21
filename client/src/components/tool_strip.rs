@@ -75,7 +75,7 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
             width: Some(shape.width),
             height: Some(shape.height),
             rotation: 0.0,
-            z_index: board.get().objects.len() as i32,
+            z_index: i32::try_from(board.get().objects.len()).unwrap_or(i32::MAX),
             props: props.clone(),
             created_by: Some("local".to_owned()),
             version: 1,

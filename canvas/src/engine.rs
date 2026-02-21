@@ -968,10 +968,10 @@ impl EngineCore {
     }
 
     fn rect_intersects_object(&self, x: f64, y: f64, width: f64, height: f64, obj: &BoardObject) -> bool {
-        let rx2 = x + width;
-        let ry2 = y + height;
+        let rect_right = x + width;
+        let rect_bottom = y + height;
 
-        let (ox1, oy1, ox2, oy2) = match obj.kind {
+        let (obj_left, obj_top, obj_right, obj_bottom) = match obj.kind {
             ObjectKind::Line | ObjectKind::Arrow => {
                 let a = hit::edge_endpoint_a_resolved(obj, &self.doc);
                 let b = hit::edge_endpoint_b_resolved(obj, &self.doc);
@@ -995,7 +995,7 @@ impl EngineCore {
             }
         };
 
-        ox1 <= rx2 && ox2 >= x && oy1 <= ry2 && oy2 >= y
+        obj_left <= rect_right && obj_right >= x && obj_top <= rect_bottom && obj_bottom >= y
     }
 }
 

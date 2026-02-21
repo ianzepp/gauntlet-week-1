@@ -22,7 +22,7 @@ pub fn Toolbar() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
     let boards = expect_context::<RwSignal<BoardsState>>();
-    let _sender = expect_context::<RwSignal<FrameSender>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
     let ui = expect_context::<RwSignal<UiState>>();
     let location = use_location();
     let navigate = use_navigate();
@@ -50,12 +50,11 @@ pub fn Toolbar() -> impl IntoView {
         }
     };
     let on_import_click = {
-        let _import_file_ref = import_file_ref.clone();
         move |_| {
             #[cfg(feature = "hydrate")]
             {
                 use wasm_bindgen::JsCast;
-                if let Some(input) = _import_file_ref.get()
+                if let Some(input) = import_file_ref.get()
                     && let Some(element) = input.dyn_ref::<web_sys::HtmlElement>()
                 {
                     input.set_value("");
@@ -123,8 +122,7 @@ pub fn Toolbar() -> impl IntoView {
     let self_identity = move || {
         auth.get()
             .user
-            .map(|user| (user.name, user.auth_method))
-            .unwrap_or_else(|| ("me".to_owned(), "session".to_owned()))
+            .map_or_else(|| ("me".to_owned(), "session".to_owned()), |user| (user.name, user.auth_method))
     };
     let can_toggle_visibility = move || {
         let Some(board_id) = board.get().board_id else {
@@ -153,7 +151,7 @@ pub fn Toolbar() -> impl IntoView {
                 "is_public": is_public
             }),
         );
-        let _ = _sender.get().send(&frame);
+        let _ = sender.get().send(&frame);
         board.update(|b| b.is_public = is_public);
         boards.update(|s| {
             if let Some(item) = s.items.iter_mut().find(|item| item.id == board_id) {
@@ -180,13 +178,13 @@ pub fn Toolbar() -> impl IntoView {
         show_share.set(true);
     };
 
-    let on_share_cancel = Callback::new(move |_| show_share.set(false));
-    let on_back = Callback::new(move |_| {
+    let on_share_cancel = Callback::new(move |()| show_share.set(false));
+    let on_back = Callback::new(move |()| {
         navigate("/", leptos_router::NavigateOptions::default());
     });
 
-    let set_visibility_public = set_visibility.clone();
-    let set_visibility_private = set_visibility.clone();
+    let set_visibility_public = set_visibility;
+    let set_visibility_private = set_visibility;
 
     view! {
         <div class="toolbar">

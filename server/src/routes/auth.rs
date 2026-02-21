@@ -249,9 +249,8 @@ pub async fn request_email_code(
 ) -> Result<Json<RequestEmailCodeResponse>, StatusCode> {
     let code = match email_auth::request_access_code(&state.pool, &body.email).await {
         Ok(code) => code,
-        Err(email_auth::EmailAuthError::InvalidEmail) => return Err(StatusCode::BAD_REQUEST),
         Err(email_auth::EmailAuthError::Db(_)) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-        Err(_) => return Err(StatusCode::BAD_REQUEST),
+        Err(email_auth::EmailAuthError::InvalidEmail | _) => return Err(StatusCode::BAD_REQUEST),
     };
 
     let include_code = include_email_code_in_response();
@@ -280,8 +279,9 @@ pub async fn verify_email_code(
             return Err(StatusCode::BAD_REQUEST);
         }
         Err(email_auth::EmailAuthError::VerificationFailed) => return Err(StatusCode::UNAUTHORIZED),
-        Err(email_auth::EmailAuthError::EmailDelivery(_)) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-        Err(email_auth::EmailAuthError::Db(_)) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(email_auth::EmailAuthError::EmailDelivery(_) | email_auth::EmailAuthError::Db(_)) => {
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
     };
 
     let token = session::create_session(&state.pool, user_id)

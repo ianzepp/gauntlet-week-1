@@ -70,7 +70,11 @@ pub fn hash_access_code(code: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(code.as_bytes());
     let bytes = hasher.finalize();
-    bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    bytes.iter().fold(String::with_capacity(64), |mut s, b| {
+        use std::fmt::Write as _;
+        let _ = write!(s, "{b:02x}");
+        s
+    })
 }
 
 fn name_from_email(email: &str) -> String {

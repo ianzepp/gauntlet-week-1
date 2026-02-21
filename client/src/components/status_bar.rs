@@ -109,15 +109,14 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
 }
 
 fn format_cursor(point: Option<Point>) -> String {
-    point
-        .map(format_point)
-        .unwrap_or_else(|| "(-, -)".to_owned())
+    point.map_or_else(|| "(-, -)".to_owned(), format_point)
 }
 
 fn format_point(point: Point) -> String {
     format!("({}, {})", round_coord(point.x), round_coord(point.y))
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn format_fps(fps: Option<f64>) -> String {
     match fps {
         Some(value) => format!("{} fps", value.round() as i64),
@@ -125,6 +124,7 @@ fn format_fps(fps: Option<f64>) -> String {
     }
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn round_coord(value: f64) -> i64 {
     value.round() as i64
 }

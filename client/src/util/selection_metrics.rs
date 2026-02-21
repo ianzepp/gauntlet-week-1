@@ -1,4 +1,5 @@
 //! Selection aggregate helpers for board objects.
+#![allow(clippy::cast_precision_loss)]
 //!
 //! Each function reduces the set of currently selected objects to a single representative value
 //! that is displayed in the inspector panel. "Representative" follows a consistent strategy:

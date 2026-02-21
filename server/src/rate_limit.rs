@@ -123,7 +123,10 @@ impl RateLimiter {
 
     /// Internal: check + record with explicit timestamp (for testing).
     fn check_and_record_at(&self, client_id: Uuid, now: Instant) -> Result<(), RateLimitError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = self.config;
 
         // Prune and check global first (no borrow conflict).
@@ -175,7 +178,10 @@ impl RateLimiter {
         reserved_tokens: u64,
         now: Instant,
     ) -> Result<(), RateLimitError> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = self.config;
         let used_tokens: u64 = {
             let token_deque = inner.client_tokens.entry(client_id).or_default();
@@ -226,7 +232,10 @@ impl RateLimiter {
     }
 
     fn record_tokens_at(&self, client_id: Uuid, tokens: u64, reserved_tokens: u64, now: Instant) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = self.config;
         {
             let reservation_deque = inner
@@ -249,7 +258,10 @@ impl RateLimiter {
     }
 
     fn release_reserved_tokens_at(&self, client_id: Uuid, reserved_tokens: u64, now: Instant) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cfg = self.config;
         let reservation_deque = inner
             .client_token_reservations

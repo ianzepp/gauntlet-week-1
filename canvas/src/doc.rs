@@ -41,7 +41,7 @@ pub enum ObjectKind {
     Line,
     /// Directed arrow (line with an arrowhead) between two endpoints stored in `props`.
     Arrow,
-    /// Embedded YouTube tile rendered as a retro TV shell.
+    /// Embedded `YouTube` tile rendered as a retro TV shell.
     Youtube,
 }
 
@@ -167,6 +167,7 @@ impl<'a> Props<'a> {
 
     /// Font size in pixels, if explicitly set by props.
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn font_size(&self) -> Option<f64> {
         self.value
             .get("fontSize")
@@ -217,32 +218,26 @@ fn parse_css_rgb(raw: &str) -> Option<(u8, u8, u8)> {
     if let Some(hex) = s.strip_prefix('#') {
         return match hex.len() {
             3 => {
-                let r = match u8::from_str_radix(&hex[0..1].repeat(2), 16) {
-                    Ok(v) => v,
-                    Err(_) => return None,
+                let Ok(r) = u8::from_str_radix(&hex[0..1].repeat(2), 16) else {
+                    return None;
                 };
-                let g = match u8::from_str_radix(&hex[1..2].repeat(2), 16) {
-                    Ok(v) => v,
-                    Err(_) => return None,
+                let Ok(g) = u8::from_str_radix(&hex[1..2].repeat(2), 16) else {
+                    return None;
                 };
-                let b = match u8::from_str_radix(&hex[2..3].repeat(2), 16) {
-                    Ok(v) => v,
-                    Err(_) => return None,
+                let Ok(b) = u8::from_str_radix(&hex[2..3].repeat(2), 16) else {
+                    return None;
                 };
                 Some((r, g, b))
             }
             6 => {
-                let r = match u8::from_str_radix(&hex[0..2], 16) {
-                    Ok(v) => v,
-                    Err(_) => return None,
+                let Ok(r) = u8::from_str_radix(&hex[0..2], 16) else {
+                    return None;
                 };
-                let g = match u8::from_str_radix(&hex[2..4], 16) {
-                    Ok(v) => v,
-                    Err(_) => return None,
+                let Ok(g) = u8::from_str_radix(&hex[2..4], 16) else {
+                    return None;
                 };
-                let b = match u8::from_str_radix(&hex[4..6], 16) {
-                    Ok(v) => v,
-                    Err(_) => return None,
+                let Ok(b) = u8::from_str_radix(&hex[4..6], 16) else {
+                    return None;
                 };
                 Some((r, g, b))
             }
@@ -258,17 +253,14 @@ fn parse_css_rgb(raw: &str) -> Option<(u8, u8, u8)> {
     }
     let body = &s[open + 1..close];
     let mut parts = body.split(',').map(str::trim);
-    let r = match parts.next()?.parse::<u8>() {
-        Ok(v) => v,
-        Err(_) => return None,
+    let Ok(r) = parts.next()?.parse::<u8>() else {
+        return None;
     };
-    let g = match parts.next()?.parse::<u8>() {
-        Ok(v) => v,
-        Err(_) => return None,
+    let Ok(g) = parts.next()?.parse::<u8>() else {
+        return None;
     };
-    let b = match parts.next()?.parse::<u8>() {
-        Ok(v) => v,
-        Err(_) => return None,
+    let Ok(b) = parts.next()?.parse::<u8>() else {
+        return None;
     };
     Some((r, g, b))
 }

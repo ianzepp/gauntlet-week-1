@@ -25,9 +25,8 @@ pub fn BoardCard(
     let preview_ref = NodeRef::<leptos::html::Canvas>::new();
     let snapshot_count = snapshot.len();
     let on_delete_click = Callback::new({
-        let on_delete = on_delete.clone();
         let id = id.clone();
-        move |_| {
+        move |()| {
             if let Some(on_delete) = on_delete.as_ref() {
                 on_delete.run(id.clone());
             }

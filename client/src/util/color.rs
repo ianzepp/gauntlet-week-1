@@ -40,7 +40,5 @@ pub fn normalize_hex_color(value: &str, fallback: &str) -> String {
 
 /// Normalize an optional color value to canonical lowercase `#rrggbb`.
 pub fn normalize_hex_color_optional(value: Option<&str>, fallback: &str) -> String {
-    value
-        .map(|v| normalize_hex_color(v, fallback))
-        .unwrap_or_else(|| normalize_hex_color(fallback, fallback))
+    value.map_or_else(|| normalize_hex_color(fallback, fallback), |v| normalize_hex_color(v, fallback))
 }

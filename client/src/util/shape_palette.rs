@@ -135,8 +135,7 @@ pub fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
         ToolType::Frame => Some((520.0, 320.0, "rgba(154, 163, 173, 0.20)")),
         ToolType::Ellipse => Some((120.0, 120.0, "rgba(59, 130, 246, 0.5)")),
         ToolType::Youtube => Some((320.0, 220.0, "rgba(217, 75, 75, 0.45)")),
-        ToolType::Line => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
-        ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
+        ToolType::Line | ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         ToolType::Text => Some((220.0, 56.0, "rgba(217, 75, 75, 0.22)")),
         _ => None,
     }

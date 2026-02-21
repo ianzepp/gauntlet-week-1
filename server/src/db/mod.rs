@@ -2,7 +2,7 @@
 //!
 //! SYSTEM CONTEXT
 //! ==============
-//! Startup uses this module to create the shared SQLx pool and enforce schema
+//! Startup uses this module to create the shared `SQLx` pool and enforce schema
 //! migrations before accepting websocket/API traffic.
 
 use sqlx::PgPool;

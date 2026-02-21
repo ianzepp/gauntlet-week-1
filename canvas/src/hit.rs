@@ -287,6 +287,7 @@ pub fn edge_endpoint_b_resolved(obj: &BoardObject, doc: &DocStore) -> Option<Poi
     resolve_edge_endpoint(obj, "b", doc)
 }
 
+#[allow(clippy::manual_ok_err)] // dot-ok is banned by canvas hygiene; match form is intentional
 fn resolve_edge_endpoint(obj: &BoardObject, key: &str, doc: &DocStore) -> Option<Point> {
     let endpoint = obj.props.get(key)?;
     if endpoint.get("type").and_then(serde_json::Value::as_str) == Some("attached") {
@@ -445,14 +446,7 @@ fn hit_test_handles(world_pt: Point, obj: &BoardObject, doc: &DocStore, radius: 
 /// Test the body/interior of a single object.
 fn hit_test_body(world_pt: Point, obj: &BoardObject, doc: &DocStore, edge_radius: f64) -> Option<HitPart> {
     match obj.kind {
-        ObjectKind::Rect | ObjectKind::Text => {
-            if point_in_rect(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
-                Some(HitPart::Body)
-            } else {
-                None
-            }
-        }
-        ObjectKind::Frame => {
+        ObjectKind::Rect | ObjectKind::Text | ObjectKind::Frame | ObjectKind::Youtube => {
             if point_in_rect(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
                 Some(HitPart::Body)
             } else {
@@ -475,13 +469,6 @@ fn hit_test_body(world_pt: Point, obj: &BoardObject, doc: &DocStore, edge_radius
         }
         ObjectKind::Star => {
             if point_in_star(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
-                Some(HitPart::Body)
-            } else {
-                None
-            }
-        }
-        ObjectKind::Youtube => {
-            if point_in_rect(world_pt, obj.x, obj.y, obj.width, obj.height, obj.rotation) {
                 Some(HitPart::Body)
             } else {
                 None

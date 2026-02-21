@@ -58,20 +58,20 @@ pub fn DashboardPage() -> impl IntoView {
     let show_join = RwSignal::new(false);
     let join_code = RwSignal::new(String::new());
 
-    let on_create = Callback::new(move |_| {
+    let on_create = Callback::new(move |()| {
         show_create.set(true);
         new_board_name.set(String::new());
     });
 
-    let on_cancel = Callback::new(move |_| show_create.set(false));
-    let on_delete_cancel = Callback::new(move |_| delete_board_id.set(None));
+    let on_cancel = Callback::new(move |()| show_create.set(false));
+    let on_delete_cancel = Callback::new(move |()| delete_board_id.set(None));
     let on_board_delete_request = Callback::new(move |id: String| delete_board_id.set(Some(id)));
 
-    let on_join = Callback::new(move |_| {
+    let on_join = Callback::new(move |()| {
         show_join.set(true);
         join_code.set(String::new());
     });
-    let on_join_cancel = Callback::new(move |_| show_join.set(false));
+    let on_join_cancel = Callback::new(move |()| show_join.set(false));
 
     let navigate_to_board = navigate.clone();
     Effect::new(move || {
@@ -90,7 +90,7 @@ pub fn DashboardPage() -> impl IntoView {
         }
     });
 
-    let on_logout = Callback::new(move |_| {
+    let on_logout = Callback::new(move |()| {
         #[cfg(feature = "hydrate")]
         {
             leptos::task::spawn_local(async move {
@@ -156,14 +156,12 @@ fn DashboardHeader(
     let self_name = move || {
         auth.get()
             .user
-            .map(|user| user.name)
-            .unwrap_or_else(|| "me".to_owned())
+            .map_or_else(|| "me".to_owned(), |user| user.name)
     };
     let self_method = move || {
         auth.get()
             .user
-            .map(|user| user.auth_method)
-            .unwrap_or_else(|| "session".to_owned())
+            .map_or_else(|| "session".to_owned(), |user| user.auth_method)
     };
 
     view! {
@@ -234,8 +232,13 @@ fn DashboardGrid(
                 boards
                     .get()
                     .error
-                    .map(|error| view! { <p class="dashboard-page__error">{error}</p> }.into_any())
-                    .unwrap_or_else(|| view! { <></> }.into_any())
+                    .map_or_else(
+                        || {
+                            let _: () = view! { <></> };
+                            ().into_any()
+                        },
+                        |error| view! { <p class="dashboard-page__error">{error}</p> }.into_any(),
+                    )
             }}
             {move || {
                 if boards.get().loading {
@@ -273,9 +276,9 @@ fn BoardSections(
                 <BoardSection
                     title="My Boards"
                     items=my_boards
-                    on_delete=on_board_delete_request.clone()
+                    on_delete=on_board_delete_request
                 />
-                <BoardSection title="Shared Boards" items=shared_boards on_delete=on_board_delete_request.clone() />
+                <BoardSection title="Shared Boards" items=shared_boards on_delete=on_board_delete_request />
             }
         }}
     }
@@ -329,7 +332,8 @@ fn DashboardDialogs(
                 view! { <CreateBoardDialog name=new_board_name on_cancel=on_cancel boards=boards sender=sender /> }
                     .into_any()
             } else {
-                view! { <></> }.into_any()
+                let _: () = view! { <></> };
+                ().into_any()
             }
         }}
         {move || {
@@ -337,14 +341,16 @@ fn DashboardDialogs(
                 view! { <DeleteBoardDialog board_id=delete_board_id on_cancel=on_delete_cancel boards=boards sender=sender /> }
                     .into_any()
             } else {
-                view! { <></> }.into_any()
+                let _: () = view! { <></> };
+                ().into_any()
             }
         }}
         {move || {
             if show_join.get() {
                 view! { <JoinBoardDialog code=join_code on_cancel=on_join_cancel sender=sender /> }.into_any()
             } else {
-                view! { <></> }.into_any()
+                let _: () = view! { <></> };
+                ().into_any()
             }
         }}
     }
@@ -358,7 +364,7 @@ fn CreateBoardDialog(
     boards: RwSignal<BoardsState>,
     sender: RwSignal<FrameSender>,
 ) -> impl IntoView {
-    let submit = Callback::new(move |_| {
+    let submit = Callback::new(move |()| {
         let board_name = name.get();
         if board_name.trim().is_empty() {
             return;
@@ -452,7 +458,7 @@ fn DeleteBoardDialog(
     boards: RwSignal<BoardsState>,
     sender: RwSignal<FrameSender>,
 ) -> impl IntoView {
-    let submit = Callback::new(move |_| {
+    let submit = Callback::new(move |()| {
         let Some(id) = board_id.get_untracked() else {
             return;
         };
@@ -484,7 +490,7 @@ fn DeleteBoardDialog(
 /// Modal dialog for entering a board access code to join.
 #[component]
 fn JoinBoardDialog(code: RwSignal<String>, on_cancel: Callback<()>, sender: RwSignal<FrameSender>) -> impl IntoView {
-    let submit = Callback::new(move |_| {
+    let submit = Callback::new(move |()| {
         let value = code.get();
         if value.trim().is_empty() {
             return;

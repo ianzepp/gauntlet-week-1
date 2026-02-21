@@ -44,13 +44,12 @@ pub fn AiPanel() -> impl IntoView {
         let seq = ui.get().ai_focus_seq;
         let ui_state = ui.get();
         let _ = seq;
-        if !ui_state.right_panel_expanded || ui_state.right_tab != RightTab::Ai {
-            return;
-        }
-        #[cfg(feature = "hydrate")]
-        {
-            if let Some(input_el) = input_ref.get() {
-                let _ = input_el.focus();
+        if ui_state.right_panel_expanded && ui_state.right_tab == RightTab::Ai {
+            #[cfg(feature = "hydrate")]
+            {
+                if let Some(input_el) = input_ref.get() {
+                    let _ = input_el.focus();
+                }
             }
         }
     });
@@ -152,7 +151,7 @@ pub fn AiPanel() -> impl IntoView {
                                         .filter(|count| *count > 0)
                                         .map(|count| {
                                             view! {
-                                                <span class="ai-panel__mutations">{format!("{} objects modified", count)}</span>
+                                                <span class="ai-panel__mutations">{format!("{count} objects modified")}</span>
                                             }
                                         })}
                                 </div>

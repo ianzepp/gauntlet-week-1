@@ -81,9 +81,9 @@ use canvas::input::{InputState as CanvasInputState, Key as CanvasKey, WheelDelta
 #[component]
 pub fn CanvasHost() -> impl IntoView {
     let _auth = expect_context::<RwSignal<AuthState>>();
-    let _board = expect_context::<RwSignal<BoardState>>();
-    let _canvas_view = expect_context::<RwSignal<CanvasViewState>>();
-    let _sender = expect_context::<RwSignal<FrameSender>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
     let _ui = expect_context::<RwSignal<UiState>>();
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
     let compass_ref = NodeRef::<leptos::html::Div>::new();
@@ -147,12 +147,12 @@ pub fn CanvasHost() -> impl IntoView {
             let mut instance = Engine::new(canvas);
             sync_viewport(&mut instance, &canvas_ref_mount);
             center_world_origin(&mut instance);
-            sync_canvas_view_state(&instance, _canvas_view, None);
+            sync_canvas_view_state(&instance, canvas_view, None);
             send_cursor_presence_if_needed(
                 &instance,
-                _board,
+                board,
                 _auth,
-                _sender,
+                sender,
                 last_presence_sent_ms,
                 last_presence_sent,
                 None,
@@ -168,7 +168,7 @@ pub fn CanvasHost() -> impl IntoView {
         let engine = Rc::clone(&engine);
         let canvas_ref_bootstrap = canvas_ref.clone();
         Effect::new(move || {
-            let state = _board.get();
+            let state = board.get();
             if state.connection_status != crate::state::board::ConnectionStatus::Connected {
                 return;
             }
@@ -186,9 +186,9 @@ pub fn CanvasHost() -> impl IntoView {
                 sync_viewport(engine, &canvas_ref_bootstrap);
                 send_cursor_presence_if_needed(
                     engine,
-                    _board,
+                    board,
                     _auth,
-                    _sender,
+                    sender,
                     last_presence_sent_ms,
                     last_presence_sent,
                     None,
@@ -205,7 +205,7 @@ pub fn CanvasHost() -> impl IntoView {
         let canvas_ref_sync = canvas_ref.clone();
         Effect::new(move || {
             let mut snapshot = Vec::new();
-            let state = _board.get();
+            let state = board.get();
             let board_id = state.board_id.clone();
             for (id, obj) in &state.objects {
                 let source = state.drag_objects.get(id).unwrap_or(obj);
@@ -224,16 +224,16 @@ pub fn CanvasHost() -> impl IntoView {
                     last_centered_board.set(board_id.clone());
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
                         true,
                     );
                 }
-                sync_canvas_view_state(engine, _canvas_view, None);
+                sync_canvas_view_state(engine, canvas_view, None);
                 let _ = engine.render();
             }
         });
@@ -251,12 +251,12 @@ pub fn CanvasHost() -> impl IntoView {
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 sync_viewport(engine, &canvas_ref_home);
                 center_world_origin(engine);
-                sync_canvas_view_state(engine, _canvas_view, None);
+                sync_canvas_view_state(engine, canvas_view, None);
                 send_cursor_presence_if_needed(
                     engine,
-                    _board,
+                    board,
                     _auth,
-                    _sender,
+                    sender,
                     last_presence_sent_ms,
                     last_presence_sent,
                     None,
@@ -288,12 +288,12 @@ pub fn CanvasHost() -> impl IntoView {
                         .screen_to_world(center_screen, center_screen);
                     let rotation = engine.view_rotation_deg();
                     set_camera_view(engine, center_world.x, center_world.y, zoom, rotation);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -324,12 +324,12 @@ pub fn CanvasHost() -> impl IntoView {
                 let zoom = engine.camera().zoom;
                 let rotation = engine.view_rotation_deg();
                 set_camera_view(engine, center_x, center_y, zoom, rotation);
-                sync_canvas_view_state(engine, _canvas_view, None);
+                sync_canvas_view_state(engine, canvas_view, None);
                 send_cursor_presence_if_needed(
                     engine,
-                    _board,
+                    board,
                     _auth,
-                    _sender,
+                    sender,
                     last_presence_sent_ms,
                     last_presence_sent,
                     None,
@@ -346,13 +346,13 @@ pub fn CanvasHost() -> impl IntoView {
         let engine = Rc::clone(&engine);
         let canvas_ref_follow = canvas_ref.clone();
         Effect::new(move || {
-            let follow_client = _board.get().follow_client_id.clone();
-            let jump_client = _board.get().jump_to_client_id.clone();
+            let follow_client = board.get().follow_client_id.clone();
+            let jump_client = board.get().jump_to_client_id.clone();
             let target_client = jump_client.or(follow_client);
             let Some(target_client) = target_client else {
                 return;
             };
-            let target_view = _board.get().presence.get(&target_client).cloned();
+            let target_view = board.get().presence.get(&target_client).cloned();
             let Some(target) = target_view else {
                 return;
             };
@@ -366,10 +366,10 @@ pub fn CanvasHost() -> impl IntoView {
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 sync_viewport(engine, &canvas_ref_follow);
                 set_camera_view(engine, center.x, center.y, zoom, rotation);
-                sync_canvas_view_state(engine, _canvas_view, None);
+                sync_canvas_view_state(engine, canvas_view, None);
                 let _ = engine.render();
-                if _board.get_untracked().jump_to_client_id.as_deref() == Some(target_client.as_str()) {
-                    _board.update(|b| b.jump_to_client_id = None);
+                if board.get_untracked().jump_to_client_id.as_deref() == Some(target_client.as_str()) {
+                    board.update(|b| b.jump_to_client_id = None);
                 }
             }
         });
@@ -386,13 +386,13 @@ pub fn CanvasHost() -> impl IntoView {
                     let _ = canvas.focus();
                     let _ = canvas.set_pointer_capture(ev.pointer_id());
                 }
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 let point = pointer_point(&ev);
                 if let Some((kind, width, height, props)) = placement_shape(_ui.get().active_tool) {
                     if let Some(engine) = engine.borrow().as_ref() {
-                        place_shape_at_cursor(point, kind, width, height, props, engine, _board, _sender);
+                        place_shape_at_cursor(point, kind, width, height, props, engine, board, sender);
                         _ui.update(|u| u.active_tool = ToolType::Select);
                         preview_cursor.set(None);
                         let _ = engine.render();
@@ -404,14 +404,14 @@ pub fn CanvasHost() -> impl IntoView {
                     let button = map_button(ev.button());
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_down(point, button, modifiers);
-                    process_actions(actions, engine, _board, _sender);
+                    process_actions(actions, engine, board, sender);
                     update_youtube_overlay_from_click(engine, point, &ev, active_youtube);
-                    sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    sync_canvas_view_state(engine, canvas_view, Some(point));
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         Some(point),
@@ -434,7 +434,7 @@ pub fn CanvasHost() -> impl IntoView {
                 if ev.button() != 0 {
                     return;
                 }
-                if _board.get().selection.is_empty() {
+                if board.get().selection.is_empty() {
                     return;
                 }
                 _ui.update(|u| {
@@ -455,14 +455,14 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
                 let point = pointer_point(&ev);
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     if let Some(engine) = engine.borrow().as_ref() {
-                        sync_canvas_view_state(engine, _canvas_view, Some(point));
+                        sync_canvas_view_state(engine, canvas_view, Some(point));
                         send_cursor_presence_if_needed(
                             engine,
-                            _board,
+                            board,
                             _auth,
-                            _sender,
+                            sender,
                             last_presence_sent_ms,
                             last_presence_sent,
                             Some(point),
@@ -476,15 +476,15 @@ pub fn CanvasHost() -> impl IntoView {
                     if let Some(engine) = engine.borrow().as_ref() {
                         send_cursor_presence_if_needed(
                             engine,
-                            _board,
+                            board,
                             _auth,
-                            _sender,
+                            sender,
                             last_presence_sent_ms,
                             last_presence_sent,
                             Some(point),
                             false,
                         );
-                        sync_canvas_view_state(engine, _canvas_view, Some(point));
+                        sync_canvas_view_state(engine, canvas_view, Some(point));
                     }
                     return;
                 }
@@ -492,19 +492,19 @@ pub fn CanvasHost() -> impl IntoView {
                     sync_viewport(engine, &canvas_ref);
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_move(point, modifiers);
-                    process_actions(actions, engine, _board, _sender);
-                    sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    process_actions(actions, engine, board, sender);
+                    sync_canvas_view_state(engine, canvas_view, Some(point));
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         Some(point),
                         false,
                     );
-                    send_object_drag_if_needed(engine, _board, _sender, last_drag_sent_ms);
+                    send_object_drag_if_needed(engine, board, sender, last_drag_sent_ms);
                     let _ = engine.render();
                 }
             }
@@ -524,7 +524,7 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(canvas) = canvas_ref.get() {
                     let _ = canvas.release_pointer_capture(ev.pointer_id());
                 }
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
@@ -534,21 +534,21 @@ pub fn CanvasHost() -> impl IntoView {
                     let button = map_button(ev.button());
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_pointer_up(point, button, modifiers);
-                    process_actions(actions, engine, _board, _sender);
-                    sync_selection_from_engine(engine, _board);
-                    sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    process_actions(actions, engine, board, sender);
+                    sync_selection_from_engine(engine, board);
+                    sync_canvas_view_state(engine, canvas_view, Some(point));
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         Some(point),
                         false,
                     );
                     last_drag_sent_ms.set(0.0);
-                    send_object_drag_end(active_transform, _board, _sender);
+                    send_object_drag_end(active_transform, board, sender);
                     let _ = engine.render();
                 }
             }
@@ -566,7 +566,7 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::WheelEvent| {
                 ev.prevent_default();
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
@@ -575,13 +575,13 @@ pub fn CanvasHost() -> impl IntoView {
                     let delta = WheelDelta { dx: ev.delta_x(), dy: ev.delta_y() };
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_wheel(point, delta, modifiers);
-                    process_actions(actions, engine, _board, _sender);
-                    sync_canvas_view_state(engine, _canvas_view, Some(point));
+                    process_actions(actions, engine, board, sender);
+                    sync_canvas_view_state(engine, canvas_view, Some(point));
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -604,19 +604,19 @@ pub fn CanvasHost() -> impl IntoView {
             move |_ev: leptos::ev::PointerEvent| {
                 preview_cursor.set(None);
                 if let Some(engine) = engine.borrow().as_ref() {
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
                         false,
                     );
                 }
-                send_cursor_clear(_board, _sender);
+                send_cursor_clear(board, sender);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -632,7 +632,7 @@ pub fn CanvasHost() -> impl IntoView {
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::KeyboardEvent| {
                 let key = ev.key();
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     if key == "Escape" {
                         active_youtube.set(None);
                     }
@@ -656,21 +656,21 @@ pub fn CanvasHost() -> impl IntoView {
                     let key_for_engine = key.clone();
                     let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
                     let actions = engine.on_key_down(CanvasKey(key_for_engine), modifiers);
-                    process_actions(actions, engine, _board, _sender);
-                    sync_selection_from_engine(engine, _board);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    process_actions(actions, engine, board, sender);
+                    sync_selection_from_engine(engine, board);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
                         false,
                     );
                     if key == "Escape" {
-                        send_object_drag_end(active_transform, _board, _sender);
+                        send_object_drag_end(active_transform, board, sender);
                     }
                     let _ = engine.render();
                 }
@@ -691,7 +691,7 @@ pub fn CanvasHost() -> impl IntoView {
             move |ev: leptos::ev::PointerEvent| {
                 ev.prevent_default();
                 ev.stop_propagation();
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 let Some(compass) = compass_ref.get() else {
@@ -705,12 +705,12 @@ pub fn CanvasHost() -> impl IntoView {
                 {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(apply_compass_drag_snapping(angle, ev.shift_key()));
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -733,7 +733,7 @@ pub fn CanvasHost() -> impl IntoView {
             let compass_ref = compass_ref.clone();
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
-                if !_compass_drag_active.get_untracked() || _board.get().follow_client_id.is_some() {
+                if !_compass_drag_active.get_untracked() || board.get().follow_client_id.is_some() {
                     return;
                 }
                 let Some(compass) = compass_ref.get() else {
@@ -744,12 +744,12 @@ pub fn CanvasHost() -> impl IntoView {
                 {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(apply_compass_drag_snapping(angle, ev.shift_key()));
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -774,9 +774,9 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(engine) = engine.borrow().as_ref() {
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -797,18 +797,18 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::MouseEvent| {
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(0.0);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -829,18 +829,18 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::MouseEvent| {
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(90.0);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -861,18 +861,18 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::MouseEvent| {
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(180.0);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -893,18 +893,18 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::MouseEvent| {
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
                     engine.set_view_rotation_deg(270.0);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -934,7 +934,7 @@ pub fn CanvasHost() -> impl IntoView {
             move |ev: leptos::ev::PointerEvent| {
                 ev.prevent_default();
                 ev.stop_propagation();
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 let Some(zoom) = zoom_ref.get() else {
@@ -947,12 +947,12 @@ pub fn CanvasHost() -> impl IntoView {
                 {
                     sync_viewport(engine, &canvas_ref);
                     zoom_view_preserving_center(engine, zoom_from_dial_angle(angle));
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -975,7 +975,7 @@ pub fn CanvasHost() -> impl IntoView {
             let zoom_ref = zoom_ref.clone();
             let engine = Rc::clone(&engine);
             move |ev: leptos::ev::PointerEvent| {
-                if !_zoom_drag_active.get_untracked() || _board.get().follow_client_id.is_some() {
+                if !_zoom_drag_active.get_untracked() || board.get().follow_client_id.is_some() {
                     return;
                 }
                 let Some(zoom) = zoom_ref.get() else {
@@ -986,12 +986,12 @@ pub fn CanvasHost() -> impl IntoView {
                 {
                     sync_viewport(engine, &canvas_ref);
                     zoom_view_preserving_center(engine, zoom_from_dial_angle(angle));
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -1016,9 +1016,9 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(engine) = engine.borrow().as_ref() {
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -1039,18 +1039,18 @@ pub fn CanvasHost() -> impl IntoView {
             let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
             move |_ev: leptos::ev::MouseEvent| {
-                if _board.get().follow_client_id.is_some() {
+                if board.get().follow_client_id.is_some() {
                     return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     sync_viewport(engine, &canvas_ref);
                     zoom_view_preserving_center(engine, 1.0);
-                    sync_canvas_view_state(engine, _canvas_view, None);
+                    sync_canvas_view_state(engine, canvas_view, None);
                     send_cursor_presence_if_needed(
                         engine,
-                        _board,
+                        board,
                         _auth,
-                        _sender,
+                        sender,
                         last_presence_sent_ms,
                         last_presence_sent,
                         None,
@@ -1081,7 +1081,7 @@ pub fn CanvasHost() -> impl IntoView {
                 }
                 ev.prevent_default();
                 ev.stop_propagation();
-                if !has_selection(_board) {
+                if !has_selection(board) {
                     return;
                 }
                 let Some(dial) = object_color_ref.get() else {
@@ -1090,13 +1090,13 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                let Some(drag_state) = selection_color_seed(_board) else {
+                let Some(drag_state) = selection_color_seed(board) else {
                     return;
                 };
                 let _ = dial.set_pointer_capture(ev.pointer_id());
                 object_color_drag_state.set(Some(drag_state));
                 _object_color_drag_active.set(true);
-                apply_selection_color_shift(_board, object_color_drag_state, color_shift_from_dial_angle(angle));
+                apply_selection_color_shift(board, object_color_drag_state, color_shift_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1119,7 +1119,7 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                apply_selection_color_shift(_board, object_color_drag_state, color_shift_from_dial_angle(angle));
+                apply_selection_color_shift(board, object_color_drag_state, color_shift_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1133,7 +1133,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             move |_ev: leptos::ev::PointerEvent| {
                 _object_color_drag_active.set(false);
-                commit_selection_color_updates(_board, _sender, object_color_drag_state);
+                commit_selection_color_updates(board, sender, object_color_drag_state);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1159,7 +1159,7 @@ pub fn CanvasHost() -> impl IntoView {
                 else {
                     return;
                 };
-                apply_group_base_color_target(_board, _sender, input.value());
+                apply_group_base_color_target(board, sender, input.value());
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1178,7 +1178,7 @@ pub fn CanvasHost() -> impl IntoView {
                 }
                 ev.prevent_default();
                 ev.stop_propagation();
-                if !has_selection(_board) {
+                if !has_selection(board) {
                     return;
                 }
                 let Some(dial) = object_border_ref.get() else {
@@ -1187,13 +1187,13 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                let Some(drag_state) = selection_border_seed(_board) else {
+                let Some(drag_state) = selection_border_seed(board) else {
                     return;
                 };
                 let _ = dial.set_pointer_capture(ev.pointer_id());
                 object_border_drag_state.set(Some(drag_state));
                 _object_border_drag_active.set(true);
-                apply_selection_border_width(_board, object_border_drag_state, border_width_from_dial_angle(angle));
+                apply_selection_border_width(board, object_border_drag_state, border_width_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1216,7 +1216,7 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                apply_selection_border_width(_board, object_border_drag_state, border_width_from_dial_angle(angle));
+                apply_selection_border_width(board, object_border_drag_state, border_width_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1230,7 +1230,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             move |_ev: leptos::ev::PointerEvent| {
                 _object_border_drag_active.set(false);
-                commit_selection_border_updates(_board, _sender, object_border_drag_state);
+                commit_selection_border_updates(board, sender, object_border_drag_state);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1256,7 +1256,7 @@ pub fn CanvasHost() -> impl IntoView {
                 else {
                     return;
                 };
-                apply_group_border_color_target(_board, _sender, input.value());
+                apply_group_border_color_target(board, sender, input.value());
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1267,7 +1267,7 @@ pub fn CanvasHost() -> impl IntoView {
     let on_object_color_reset = {
         #[cfg(feature = "hydrate")]
         {
-            move |_ev: leptos::ev::MouseEvent| apply_group_background_defaults_target(_board, _sender)
+            move |_ev: leptos::ev::MouseEvent| apply_group_background_defaults_target(board, sender)
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -1277,7 +1277,7 @@ pub fn CanvasHost() -> impl IntoView {
     let on_object_border_reset = {
         #[cfg(feature = "hydrate")]
         {
-            move |_ev: leptos::ev::MouseEvent| apply_group_border_defaults_target(_board, _sender)
+            move |_ev: leptos::ev::MouseEvent| apply_group_border_defaults_target(board, sender)
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -1294,7 +1294,7 @@ pub fn CanvasHost() -> impl IntoView {
                 }
                 ev.prevent_default();
                 ev.stop_propagation();
-                if !has_selection(_board) {
+                if !has_selection(board) {
                     return;
                 }
                 let Some(dial) = object_text_style_ref.get() else {
@@ -1303,13 +1303,13 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                let Some(drag_state) = selection_text_style_seed(_board) else {
+                let Some(drag_state) = selection_text_style_seed(board) else {
                     return;
                 };
                 let _ = dial.set_pointer_capture(ev.pointer_id());
                 object_text_style_drag_state.set(Some(drag_state));
                 _object_text_style_drag_active.set(true);
-                apply_selection_font_size(_board, object_text_style_drag_state, font_size_from_dial_angle(angle));
+                apply_selection_font_size(board, object_text_style_drag_state, font_size_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1331,7 +1331,7 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                apply_selection_font_size(_board, object_text_style_drag_state, font_size_from_dial_angle(angle));
+                apply_selection_font_size(board, object_text_style_drag_state, font_size_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1344,7 +1344,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             move |_ev: leptos::ev::PointerEvent| {
                 _object_text_style_drag_active.set(false);
-                commit_selection_text_style_updates(_board, _sender, object_text_style_drag_state);
+                commit_selection_text_style_updates(board, sender, object_text_style_drag_state);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1368,7 +1368,7 @@ pub fn CanvasHost() -> impl IntoView {
                 else {
                     return;
                 };
-                apply_group_text_color_target(_board, _sender, input.value());
+                apply_group_text_color_target(board, sender, input.value());
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1379,7 +1379,7 @@ pub fn CanvasHost() -> impl IntoView {
     let on_object_text_style_reset = {
         #[cfg(feature = "hydrate")]
         {
-            move |_ev: leptos::ev::MouseEvent| apply_group_text_style_defaults_target(_board, _sender)
+            move |_ev: leptos::ev::MouseEvent| apply_group_text_style_defaults_target(board, sender)
         }
         #[cfg(not(feature = "hydrate"))]
         {
@@ -1397,7 +1397,7 @@ pub fn CanvasHost() -> impl IntoView {
                 }
                 ev.prevent_default();
                 ev.stop_propagation();
-                if !has_selection(_board) {
+                if !has_selection(board) {
                     return;
                 }
                 let Some(dial) = object_zoom_ref.get() else {
@@ -1406,13 +1406,13 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                let Some(drag_state) = selection_scale_seed(_board) else {
+                let Some(drag_state) = selection_scale_seed(board) else {
                     return;
                 };
                 let _ = dial.set_pointer_capture(ev.pointer_id());
                 object_zoom_drag_state.set(Some(drag_state));
                 _object_zoom_drag_active.set(true);
-                apply_selection_scale_drag(_board, object_zoom_drag_state, zoom_from_dial_angle(angle));
+                apply_selection_scale_drag(board, object_zoom_drag_state, zoom_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1435,7 +1435,7 @@ pub fn CanvasHost() -> impl IntoView {
                 let Some(angle) = zoom_angle_from_pointer(&ev, &dial) else {
                     return;
                 };
-                apply_selection_scale_drag(_board, object_zoom_drag_state, zoom_from_dial_angle(angle));
+                apply_selection_scale_drag(board, object_zoom_drag_state, zoom_from_dial_angle(angle));
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1449,7 +1449,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             move |_ev: leptos::ev::PointerEvent| {
                 _object_zoom_drag_active.set(false);
-                commit_selection_scale_updates(_board, _sender, object_zoom_drag_state);
+                commit_selection_scale_updates(board, sender, object_zoom_drag_state);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1463,26 +1463,26 @@ pub fn CanvasHost() -> impl IntoView {
         ev.stop_propagation();
     };
 
-    let object_color_base = move || representative_base_color_hex(&_board.get());
-    let object_color_shift = move || representative_lightness_shift(&_board.get());
+    let object_color_base = move || representative_base_color_hex(&board.get());
+    let object_color_shift = move || representative_lightness_shift(&board.get());
     let object_color_knob_style = move || {
         let angle = dial_angle_from_color_shift(object_color_shift());
         format!("transform: rotate({angle:.2}deg);")
     };
-    let object_border_color = move || representative_border_color_hex(&_board.get());
-    let object_border_width = move || representative_border_width(&_board.get());
+    let object_border_color = move || representative_border_color_hex(&board.get());
+    let object_border_width = move || representative_border_width(&board.get());
     let object_border_knob_style = move || {
         let angle = dial_angle_from_border_width(object_border_width());
         format!("transform: rotate({angle:.2}deg);")
     };
-    let object_text_color = move || representative_text_color_hex(&_board.get());
-    let object_text_size = move || representative_font_size(&_board.get());
+    let object_text_color = move || representative_text_color_hex(&board.get());
+    let object_text_size = move || representative_font_size(&board.get());
     let object_text_knob_style = move || {
         let angle = dial_angle_from_font_size(object_text_size());
         format!("transform: rotate({angle:.2}deg);")
     };
 
-    let object_zoom_scale = move || representative_scale_factor(&_board.get());
+    let object_zoom_scale = move || representative_scale_factor(&board.get());
     let object_zoom_knob_style = move || {
         let angle = dial_angle_from_zoom(object_zoom_scale());
         format!("transform: rotate({angle:.2}deg);")
@@ -1502,7 +1502,7 @@ pub fn CanvasHost() -> impl IntoView {
                     return;
                 };
 
-                let start_rotations = selected_object_rotations(_board);
+                let start_rotations = selected_object_rotations(board);
                 if start_rotations.is_empty() {
                     return;
                 }
@@ -1536,7 +1536,7 @@ pub fn CanvasHost() -> impl IntoView {
                     return;
                 };
                 apply_selection_rotation_drag(
-                    _board,
+                    board,
                     object_rotate_drag_state,
                     angle,
                     ev.shift_key(),
@@ -1557,7 +1557,7 @@ pub fn CanvasHost() -> impl IntoView {
         {
             move |_ev: leptos::ev::PointerEvent| {
                 _object_rotate_drag_active.set(false);
-                commit_selection_rotation_updates(_board, _sender, object_rotate_drag_state, angular_delta_deg);
+                commit_selection_rotation_updates(board, sender, object_rotate_drag_state, angular_delta_deg);
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1574,7 +1574,7 @@ pub fn CanvasHost() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         {
             move |_ev: leptos::ev::MouseEvent| {
-                apply_group_rotation_target(_board, _sender, 0.0, signed_angle_delta_deg, normalize_degrees_360)
+                apply_group_rotation_target(board, sender, 0.0, signed_angle_delta_deg, normalize_degrees_360)
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1586,7 +1586,7 @@ pub fn CanvasHost() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         {
             move |_ev: leptos::ev::MouseEvent| {
-                apply_group_rotation_target(_board, _sender, 90.0, signed_angle_delta_deg, normalize_degrees_360)
+                apply_group_rotation_target(board, sender, 90.0, signed_angle_delta_deg, normalize_degrees_360)
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1598,7 +1598,7 @@ pub fn CanvasHost() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         {
             move |_ev: leptos::ev::MouseEvent| {
-                apply_group_rotation_target(_board, _sender, 180.0, signed_angle_delta_deg, normalize_degrees_360)
+                apply_group_rotation_target(board, sender, 180.0, signed_angle_delta_deg, normalize_degrees_360)
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1610,7 +1610,7 @@ pub fn CanvasHost() -> impl IntoView {
         #[cfg(feature = "hydrate")]
         {
             move |_ev: leptos::ev::MouseEvent| {
-                apply_group_rotation_target(_board, _sender, 270.0, signed_angle_delta_deg, normalize_degrees_360)
+                apply_group_rotation_target(board, sender, 270.0, signed_angle_delta_deg, normalize_degrees_360)
             }
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1620,23 +1620,23 @@ pub fn CanvasHost() -> impl IntoView {
     };
     let on_object_rotate_center_click = move |_ev: leptos::ev::MouseEvent| {};
 
-    let object_rotation_angle_deg = move || representative_rotation_deg(&_board.get());
+    let object_rotation_angle_deg = move || representative_rotation_deg(&board.get());
     let object_rotation_knob_style = move || {
         let angle = object_rotation_angle_deg();
         format!("transform: rotate({angle:.2}deg);")
     };
-    let has_selected_objects = move || !_board.get().selection.is_empty();
+    let has_selected_objects = move || !board.get().selection.is_empty();
 
-    let compass_angle_deg = move || normalize_degrees_360(_canvas_view.get().view_rotation_deg);
+    let compass_angle_deg = move || normalize_degrees_360(canvas_view.get().view_rotation_deg);
     let compass_knob_style = move || {
         let angle = compass_angle_deg();
         format!("transform: rotate({angle:.2}deg);")
     };
-    let zoom_percent = move || _canvas_view.get().zoom * 100.0;
+    let zoom_percent = move || canvas_view.get().zoom * 100.0;
     let zoom_knob_style = move || {
         #[cfg(feature = "hydrate")]
         {
-            let angle = dial_angle_from_zoom(_canvas_view.get().zoom);
+            let angle = dial_angle_from_zoom(canvas_view.get().zoom);
             return format!("transform: rotate({angle:.2}deg);");
         }
         #[cfg(not(feature = "hydrate"))]
@@ -1646,7 +1646,7 @@ pub fn CanvasHost() -> impl IntoView {
     };
 
     let canvas_world_overlay_style = move || {
-        let view = _canvas_view.get();
+        let view = canvas_view.get();
         let cx = view.viewport_width * 0.5;
         let cy = view.viewport_height * 0.5;
         format!(
@@ -1658,11 +1658,11 @@ pub fn CanvasHost() -> impl IntoView {
     let remote_cursors = move || {
         #[cfg(feature = "hydrate")]
         {
-            let view = _canvas_view.get();
+            let view = canvas_view.get();
             let pan_x = view.pan_x;
             let pan_y = view.pan_y;
             let zoom = view.zoom;
-            return _board
+            return board
                 .get()
                 .presence
                 .values()
@@ -1706,8 +1706,8 @@ pub fn CanvasHost() -> impl IntoView {
             let Some((object_id, _video_id)) = active_youtube.get() else {
                 return String::new();
             };
-            let view = _canvas_view.get();
-            let Some(obj) = _board.get().objects.get(&object_id).cloned() else {
+            let view = canvas_view.get();
+            let Some(obj) = board.get().objects.get(&object_id).cloned() else {
                 return String::new();
             };
             let left = (obj.x * view.zoom) + view.pan_x;
@@ -1749,8 +1749,8 @@ pub fn CanvasHost() -> impl IntoView {
             let Some((object_id, _video_id)) = active_youtube.get() else {
                 return String::new();
             };
-            let view = _canvas_view.get();
-            let Some(obj) = _board.get().objects.get(&object_id).cloned() else {
+            let view = canvas_view.get();
+            let Some(obj) = board.get().objects.get(&object_id).cloned() else {
                 return String::new();
             };
             let width = obj.width.unwrap_or(320.0) * view.zoom;
@@ -1839,9 +1839,9 @@ pub fn CanvasHost() -> impl IntoView {
                 on_pointer_move=on_object_zoom_pointer_move
                 on_pointer_up=on_object_zoom_pointer_up
                 on_readout_pointer_down=on_object_zoom_readout_pointer_down
-                on_readout_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
-                on_readout_dblclick=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
-                on_reset_click=move |_ev| apply_group_scale_target(_board, _sender, 1.0)
+                on_readout_click=move |_ev| apply_group_scale_target(board, sender, 1.0)
+                on_readout_dblclick=move |_ev| apply_group_scale_target(board, sender, 1.0)
+                on_reset_click=move |_ev| apply_group_scale_target(board, sender, 1.0)
             />
             <CompassDial
                 class="canvas-object-rotate"
@@ -1900,8 +1900,8 @@ pub fn CanvasHost() -> impl IntoView {
                 on_pointer_move=on_zoom_pointer_move
                 on_pointer_up=on_zoom_pointer_up
                 on_readout_pointer_down=on_zoom_readout_pointer_down
-                on_readout_click=on_zoom_reset.clone()
-                on_readout_dblclick=on_zoom_reset.clone()
+                on_readout_click=on_zoom_reset
+                on_readout_dblclick=on_zoom_reset
                 on_reset_click=on_zoom_reset
             />
             <ColorDial

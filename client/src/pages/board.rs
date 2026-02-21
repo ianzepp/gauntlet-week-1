@@ -296,9 +296,9 @@ pub fn BoardPage() -> impl IntoView {
         }
     };
 
-    let on_prompt_submit = Callback::new(move |_| send_prompt());
+    let on_prompt_submit = Callback::new(move |()| send_prompt());
 
-    let on_prompt_read_more = Callback::new(move |_| {
+    let on_prompt_read_more = Callback::new(move |()| {
         ui.update(|u| {
             u.right_panel_expanded = true;
             u.right_tab = RightTab::Ai;
@@ -306,7 +306,7 @@ pub fn BoardPage() -> impl IntoView {
         });
     });
 
-    let on_object_text_cancel = Callback::new(move |_| {
+    let on_object_text_cancel = Callback::new(move |()| {
         object_text_dialog_open.set(false);
         object_text_dialog_id.set(None);
     });
@@ -318,7 +318,7 @@ pub fn BoardPage() -> impl IntoView {
         }
     });
 
-    let on_object_text_save = Callback::new(move |_| {
+    let on_object_text_save = Callback::new(move |()| {
         let Some(id) = object_text_dialog_id.get() else {
             object_text_dialog_open.set(false);
             return;
@@ -355,8 +355,8 @@ pub fn BoardPage() -> impl IntoView {
         object_text_dialog_id.set(None);
     });
 
-    let on_help_open = Callback::new(move |_| help_modal_open.set(true));
-    let on_help_close = Callback::new(move |_| help_modal_open.set(false));
+    let on_help_open = Callback::new(move |()| help_modal_open.set(true));
+    let on_help_close = Callback::new(move |()| help_modal_open.set(false));
     let on_board_keydown = move |ev: leptos::ev::KeyboardEvent| {
         let key = ev.key();
         if key == "?" || (key == "/" && ev.shift_key()) || (key == "Escape" && help_modal_open.get_untracked()) {
@@ -395,7 +395,8 @@ pub fn BoardPage() -> impl IntoView {
                     }
                         .into_any()
                 } else {
-                    view! { <></> }.into_any()
+                    let _: () = view! { <></> };
+                    ().into_any()
                 }
             }}
             <div class="board-page__canvas">
@@ -441,7 +442,8 @@ pub fn BoardPage() -> impl IntoView {
                     }
                         .into_any()
                 } else {
-                    view! { <></> }.into_any()
+                    let _: () = view! { <></> };
+                    ().into_any()
                 }
             }}
             <Show when=move || help_modal_open.get()>

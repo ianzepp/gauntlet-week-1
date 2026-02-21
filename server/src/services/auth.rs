@@ -33,16 +33,14 @@ impl GitHubConfig {
     }
 
     /// Build the GitHub authorization URL.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the hardcoded GitHub OAuth base URL is somehow invalid
-    /// (this cannot happen in practice since the URL is a compile-time
-    /// constant).
     #[must_use]
     pub fn authorize_url(&self, state: &str) -> String {
-        let mut url = reqwest::Url::parse("https://github.com/login/oauth/authorize")
-            .expect("static GitHub OAuth URL must be valid");
+        // The base URL is a known-valid constant; treat a parse failure as a
+        // configuration bug and return a best-effort fallback so callers get a
+        // predictable string type rather than a panic.
+        let Ok(mut url) = reqwest::Url::parse("https://github.com/login/oauth/authorize") else {
+            return String::from("https://github.com/login/oauth/authorize");
+        };
         url.query_pairs_mut()
             .append_pair("client_id", &self.client_id)
             .append_pair("redirect_uri", &self.redirect_uri)

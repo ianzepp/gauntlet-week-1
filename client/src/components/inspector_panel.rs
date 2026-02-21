@@ -72,6 +72,7 @@ pub fn InspectorPanel() -> impl IntoView {
         sender.get().send(&frame);
     };
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss, clippy::float_cmp)]
     let commit_dimension = move |key: &'static str, value: String| {
         let Some(obj) = selected_object() else {
             return;
@@ -252,7 +253,7 @@ pub fn InspectorPanel() -> impl IntoView {
                 let Some(obj) = selected_object() else {
                     return view! {
                         <div class="inspector-panel__section">
-                            <span class="inspector-panel__kind">{format!("{} objects selected", selected_count)}</span>
+                            <span class="inspector-panel__kind">{format!("{selected_count} objects selected")}</span>
                         </div>
                     }
                         .into_any();
@@ -441,6 +442,7 @@ fn read_prop_str(obj: &BoardObject, key: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn read_prop_int(obj: &BoardObject, key: &str, fallback: i64) -> i64 {
     obj.props
         .get(key)

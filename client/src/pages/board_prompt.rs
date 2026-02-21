@@ -96,7 +96,7 @@ fn starts_with_markdown_numbered_list(text: &str) -> bool {
         if (ch == '.' || ch == ')') && saw_digit {
             return text
                 .chars()
-                .skip_while(|c| c.is_ascii_digit())
+                .skip_while(char::is_ascii_digit)
                 .nth(1)
                 .is_some_and(char::is_whitespace);
         }

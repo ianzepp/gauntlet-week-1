@@ -68,8 +68,7 @@ pub fn UserListPanel() -> impl IntoView {
                                         let short_client = shorten_client_id(&presence.client_id);
                                         let follow_client_id = presence.client_id.clone();
                                         let on_follow = Callback::new({
-                                            let board = board;
-                                            move |_| {
+                                            move |()| {
                                                 board.update(|b| {
                                                     let next_follow = match b.follow_client_id.as_deref() {
                                                         Some(current) if current == follow_client_id.as_str() => None,

@@ -150,7 +150,6 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                         )
                         .await;
                     }
-                    Message::Text(_) => {}
                     Message::Close(_) => break,
                     _ => {}
                 }
@@ -545,11 +544,11 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
                 .map(uuid::Uuid::to_string)
                 .collect::<Vec<_>>()
                 .join(",");
-            let rev = format!("{}:{}:{}:{}", boards.len(), object_agg.0, object_agg.1, board_id_fingerprint);
-            if since_rev.as_deref() == Some(rev.as_str()) {
+            let board_list_rev = format!("{}:{}:{}:{}", boards.len(), object_agg.0, object_agg.1, board_id_fingerprint);
+            if since_rev.as_deref() == Some(board_list_rev.as_str()) {
                 let mut data = Data::new();
                 data.insert("noop".into(), serde_json::json!(true));
-                data.insert("rev".into(), serde_json::json!(rev));
+                data.insert("rev".into(), serde_json::json!(board_list_rev));
                 return Ok(Outcome::Reply(data));
             }
 
@@ -623,7 +622,7 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
                 .collect();
             let mut data = Data::new();
             data.insert("boards".into(), serde_json::json!(list));
-            data.insert("rev".into(), serde_json::json!(rev));
+            data.insert("rev".into(), serde_json::json!(board_list_rev));
             Ok(Outcome::Reply(data))
         }
         Err(e) => Err(req.error_from(&e)),
@@ -695,7 +694,11 @@ async fn handle_board_visibility_set(
     let Some(board_id) = board_id_from_frame(req, current_board) else {
         return Err(req.error("board_id required"));
     };
-    let Some(is_public) = req.data.get("is_public").and_then(|v| v.as_bool()) else {
+    let Some(is_public) = req
+        .data
+        .get("is_public")
+        .and_then(serde_json::Value::as_bool)
+    else {
         return Err(req.error("is_public boolean required"));
     };
 
@@ -964,6 +967,7 @@ async fn handle_object(
                 .get("version")
                 .and_then(|value| {
                     value.as_i64().or_else(|| {
+                        #[allow(clippy::cast_possible_truncation)]
                         value
                             .as_f64()
                             .filter(|v| v.fract() == 0.0)
@@ -1051,58 +1055,55 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
     }
 
     let op = req.syscall.split_once(':').map_or("moved", |(_, op)| op);
-    match op {
-        "clear" => {
-            let mut data = Data::new();
-            data.insert("client_id".into(), serde_json::json!(client_id));
-            Outcome::BroadcastExcludeSender(data)
+    if op == "clear" {
+        let mut data = Data::new();
+        data.insert("client_id".into(), serde_json::json!(client_id));
+        Outcome::BroadcastExcludeSender(data)
+    } else {
+        let mut data = Data::new();
+        data.insert("client_id".into(), serde_json::json!(client_id));
+        if let Some(x) = req.data.get("x").and_then(serde_json::Value::as_f64) {
+            data.insert("x".into(), serde_json::json!(x));
         }
-        _ => {
-            let mut data = Data::new();
-            data.insert("client_id".into(), serde_json::json!(client_id));
-            if let Some(x) = req.data.get("x").and_then(serde_json::Value::as_f64) {
-                data.insert("x".into(), serde_json::json!(x));
-            }
-            if let Some(y) = req.data.get("y").and_then(serde_json::Value::as_f64) {
-                data.insert("y".into(), serde_json::json!(y));
-            }
-            if let Some(center_x) = req
-                .data
-                .get("camera_center_x")
-                .and_then(serde_json::Value::as_f64)
-            {
-                data.insert("camera_center_x".into(), serde_json::json!(center_x));
-            }
-            if let Some(center_y) = req
-                .data
-                .get("camera_center_y")
-                .and_then(serde_json::Value::as_f64)
-            {
-                data.insert("camera_center_y".into(), serde_json::json!(center_y));
-            }
-            if let Some(zoom) = req
-                .data
-                .get("camera_zoom")
-                .and_then(serde_json::Value::as_f64)
-            {
-                data.insert("camera_zoom".into(), serde_json::json!(zoom));
-            }
-            if let Some(rotation) = req
-                .data
-                .get("camera_rotation")
-                .and_then(serde_json::Value::as_f64)
-            {
-                data.insert("camera_rotation".into(), serde_json::json!(rotation));
-            }
-            if let Some(name) = req.data.get("name").and_then(serde_json::Value::as_str) {
-                data.insert("name".into(), serde_json::json!(name));
-            }
-            if let Some(color) = req.data.get("color").and_then(serde_json::Value::as_str) {
-                data.insert("color".into(), serde_json::json!(color));
-            }
+        if let Some(y) = req.data.get("y").and_then(serde_json::Value::as_f64) {
+            data.insert("y".into(), serde_json::json!(y));
+        }
+        if let Some(center_x) = req
+            .data
+            .get("camera_center_x")
+            .and_then(serde_json::Value::as_f64)
+        {
+            data.insert("camera_center_x".into(), serde_json::json!(center_x));
+        }
+        if let Some(center_y) = req
+            .data
+            .get("camera_center_y")
+            .and_then(serde_json::Value::as_f64)
+        {
+            data.insert("camera_center_y".into(), serde_json::json!(center_y));
+        }
+        if let Some(zoom) = req
+            .data
+            .get("camera_zoom")
+            .and_then(serde_json::Value::as_f64)
+        {
+            data.insert("camera_zoom".into(), serde_json::json!(zoom));
+        }
+        if let Some(rotation) = req
+            .data
+            .get("camera_rotation")
+            .and_then(serde_json::Value::as_f64)
+        {
+            data.insert("camera_rotation".into(), serde_json::json!(rotation));
+        }
+        if let Some(name) = req.data.get("name").and_then(serde_json::Value::as_str) {
+            data.insert("name".into(), serde_json::json!(name));
+        }
+        if let Some(color) = req.data.get("color").and_then(serde_json::Value::as_str) {
+            data.insert("color".into(), serde_json::json!(color));
+        }
 
-            Outcome::BroadcastExcludeSender(data)
-        }
+        Outcome::BroadcastExcludeSender(data)
     }
 }
 

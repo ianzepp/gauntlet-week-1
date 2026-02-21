@@ -138,6 +138,7 @@ pub async fn update_object(
     if let Some(r) = updates.get("rotation").and_then(serde_json::Value::as_f64) {
         obj.rotation = r;
     }
+    #[allow(clippy::cast_possible_truncation)]
     if let Some(z) = updates.get("z_index").and_then(|value| {
         value.as_i64().or_else(|| {
             value

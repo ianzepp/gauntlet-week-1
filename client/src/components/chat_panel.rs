@@ -93,8 +93,7 @@ pub fn ChatPanel() -> impl IntoView {
         let username = auth
             .get()
             .user
-            .map(|u| u.name)
-            .unwrap_or_else(|| "unknown".to_owned());
+            .map_or_else(|| "unknown".to_owned(), |u| u.name);
         format!("Message as {username}...")
     };
 

@@ -136,7 +136,7 @@ pub fn zoom_from_dial_angle(angle: f64) -> f64 {
 
 /// Map a lightness shift value in [-1, 1] to a dial angle.
 ///
-/// The full [-1, 1] range maps linearly onto [MIN_ANGLE, MAX_ANGLE], placing 0 (no shift)
+/// The full [-1, 1] range maps linearly onto [`MIN_ANGLE`, `MAX_ANGLE`], placing 0 (no shift)
 /// at 0° and extremes at the dial stops.
 pub fn dial_angle_from_color_shift(shift: f64) -> f64 {
     (shift.clamp(-1.0, 1.0) * ZOOM_DIAL_MAX_ANGLE_DEG).clamp(ZOOM_DIAL_MIN_ANGLE_DEG, ZOOM_DIAL_MAX_ANGLE_DEG)
@@ -199,6 +199,7 @@ pub fn font_size_from_dial_angle(angle: f64) -> f64 {
 ///
 /// Emits an integer label (e.g. `"2px"`) when the value rounds cleanly, otherwise one decimal
 /// place (e.g. `"1.5px"`).
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn format_border_width_label(width: f64) -> String {
     let rounded = width.round();
     if (width - rounded).abs() < 0.05 {
@@ -214,6 +215,7 @@ pub fn snap_border_width_to_px(width: f64) -> f64 {
 }
 
 /// Format a font size as a human-readable pixel label using the snapped integer value.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn format_text_size_label(size: f64) -> String {
     format!("{}px", snap_font_size_to_px(size) as i64)
 }

@@ -157,7 +157,7 @@ struct CcRequest<'a> {
 }
 
 #[derive(Serialize)]
-struct CcMessage {
+pub(crate) struct CcMessage {
     role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     content: Option<String>,
@@ -287,7 +287,7 @@ struct RespRequest<'a> {
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
-enum RespInputItem {
+pub(crate) enum RespInputItem {
     #[serde(rename = "message")]
     Message {
         role: String,
@@ -306,7 +306,7 @@ enum RespInputItem {
 }
 
 #[derive(Serialize)]
-struct RespTextContent {
+pub(crate) struct RespTextContent {
     #[serde(rename = "type")]
     content_type: &'static str,
     text: String,

@@ -1,7 +1,7 @@
 //! Column 3 — DETAIL INSPECTOR for the selected frame.
 //!
 //! Shows the OVERVIEW tab by default: frame metadata key-value grid plus a
-//! JSON data preview.  Mirrors the CollabBoard inspector panel's visual
+//! JSON data preview.  Mirrors the `CollabBoard` inspector panel's visual
 //! vocabulary (monospace, uppercase section labels, dark inset backgrounds).
 
 use leptos::prelude::*;
@@ -49,9 +49,7 @@ pub fn TraceInspector() -> impl IntoView {
     // Look up the selected frame from the buffer.
     let selected_frame = move || {
         let state = trace.get();
-        let Some(ref frame_id) = state.selected_frame_id else {
-            return None;
-        };
+        let frame_id = state.selected_frame_id.as_ref()?;
         state.frames.iter().find(|f| &f.id == frame_id).cloned()
     };
 
@@ -66,7 +64,10 @@ pub fn TraceInspector() -> impl IntoView {
                 fallback=|| view! { <div class="trace-inspector__empty">"Select a frame."</div> }
             >
                 {move || {
-                    let Some(frame) = selected_frame() else { return view! { <></> }.into_any(); };
+                    let Some(frame) = selected_frame() else {
+                        let _: () = view! { <></> };
+                        return ().into_any();
+                    };
                     let display = traces::prefix_display(&frame.syscall);
                     let sub = traces::sub_label(&frame);
                     let status_lbl = status_label(frame.status);

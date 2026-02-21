@@ -1,4 +1,4 @@
-//! Observability data models and derivation helpers for CollabBoard traces.
+//! Observability data models and derivation helpers for `CollabBoard` traces.
 //!
 //! This crate is UI-framework agnostic so client crates can consume it directly
 //! for rendering trace/session views.
@@ -442,7 +442,10 @@ pub fn pair_request_spans(frames: &[Frame]) -> Vec<SpanTiming> {
 /// Walks the `parent_id` chain through `by_id` until a frame without a parent is reached.
 /// A cycle-detection set prevents infinite loops on malformed data. Returns 0 for root frames.
 #[must_use]
-pub fn tree_depth(frame_id: &str, by_id: &HashMap<String, Frame>) -> usize {
+pub fn tree_depth<S: ::std::hash::BuildHasher>(
+    frame_id: &str,
+    by_id: &HashMap<String, Frame, S>,
+) -> usize {
     let mut depth = 0usize;
     let mut current = frame_id;
     let mut seen = HashSet::<String>::new();
@@ -526,7 +529,7 @@ fn find_root_frame_id(
             return current;
         }
 
-        let next = parents.get(&current).and_then(|parent| parent.clone());
+        let next = parents.get(&current).and_then(std::clone::Clone::clone);
         match next {
             Some(parent) if valid_ids.contains(&parent) => current = parent,
             _ => return current,

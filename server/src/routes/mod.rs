@@ -54,12 +54,12 @@ fn api_routes(state: AppState) -> Router {
 
 /// Leptos SSR frontend: API routes + Leptos SSR routes.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the Leptos configuration cannot be loaded (missing or
-/// malformed `Cargo.toml` [package.metadata.leptos] section).
-pub fn leptos_app(state: AppState) -> Router {
-    let conf = get_configuration(None).expect("leptos configuration");
+/// Returns an error if the Leptos configuration cannot be loaded (missing or
+/// malformed `Cargo.toml` `[package.metadata.leptos]` section).
+pub fn leptos_app(state: AppState) -> Result<Router, String> {
+    let conf = get_configuration(None).map_err(|e| format!("leptos configuration: {e}"))?;
     let leptos_options = conf.leptos_options;
     let routes = generate_route_list(client::app::App);
 
@@ -71,7 +71,7 @@ pub fn leptos_app(state: AppState) -> Router {
         .fallback(leptos_axum::file_and_error_handler(client::app::shell))
         .with_state(leptos_options);
 
-    api_routes(state).merge(leptos_router)
+    Ok(api_routes(state).merge(leptos_router))
 }
 
 async fn healthz() -> StatusCode {

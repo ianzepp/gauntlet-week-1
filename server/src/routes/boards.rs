@@ -207,6 +207,7 @@ fn now_ms_i64() -> i64 {
     i64::try_from(duration.as_millis()).unwrap_or(0)
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub(crate) fn parse_import_object_line(
     line: &str,
     board_id: Uuid,

@@ -125,6 +125,10 @@ struct RequestEmailCodeResponse {
 /// Request a 6-character email login code via `POST /api/auth/email/request-code`.
 ///
 /// Returns an optional code string when the server is configured to echo codes.
+///
+/// # Errors
+///
+/// Returns an error string if the HTTP request fails or the server responds with a non-OK status.
 pub async fn request_email_login_code(email: &str) -> Result<Option<String>, String> {
     #[cfg(feature = "hydrate")]
     {
@@ -158,6 +162,11 @@ struct VerifyEmailCodeResponse {
 }
 
 /// Verify an email login code via `POST /api/auth/email/verify-code`.
+///
+/// # Errors
+///
+/// Returns an error string if the HTTP request fails, the server responds with a non-OK status,
+/// or the verification code is rejected.
 pub async fn verify_email_login_code(email: &str, code: &str) -> Result<(), String> {
     #[cfg(feature = "hydrate")]
     {

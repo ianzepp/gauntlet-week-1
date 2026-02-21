@@ -17,7 +17,7 @@ use traces::TraceFilter;
 pub const TRACE_BUFFER_CAP: usize = 2000;
 
 /// Live trace buffer and selection state for the observability view.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TraceState {
     /// All frames received this session, ordered by arrival, bounded by
     /// [`TRACE_BUFFER_CAP`].
@@ -30,18 +30,6 @@ pub struct TraceState {
     pub filter: TraceFilter,
     /// When `true`, new frames are no longer appended (freeze the view).
     pub paused: bool,
-}
-
-impl Default for TraceState {
-    fn default() -> Self {
-        Self {
-            frames: Vec::new(),
-            selected_session_id: None,
-            selected_frame_id: None,
-            filter: TraceFilter::default(),
-            paused: false,
-        }
-    }
 }
 
 impl TraceState {
