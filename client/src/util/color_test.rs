@@ -31,3 +31,23 @@ fn normalize_hex_color_optional_handles_none() {
     assert_eq!(normalize_hex_color_optional(None, "#ff0000"), "#ff0000");
     assert_eq!(normalize_hex_color_optional(None, "invalid"), "#d94b4b");
 }
+
+#[test]
+fn normalize_hex_color_optional_some_valid() {
+    assert_eq!(normalize_hex_color_optional(Some("#ABC"), "#000000"), "#aabbcc");
+}
+
+#[test]
+fn parse_hex_rgb_empty_string() {
+    assert_eq!(parse_hex_rgb(""), None);
+}
+
+#[test]
+fn parse_hex_rgb_hash_only() {
+    assert_eq!(parse_hex_rgb("#"), None);
+}
+
+#[test]
+fn parse_hex_rgb_non_ascii_after_hash() {
+    assert_eq!(parse_hex_rgb("#\u{00e9}\u{00e9}\u{00e9}"), None);
+}

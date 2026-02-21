@@ -133,6 +133,82 @@ fn representative_scale_factor_averages_scales_from_props_and_geometry() {
 }
 
 #[test]
+fn representative_lightness_shift_empty_selection_set() {
+    let state = BoardState::default();
+    // Empty selection (no IDs at all)
+    assert_eq!(representative_lightness_shift(&state), 0.0);
+}
+
+#[test]
+fn representative_values_single_object() {
+    let mut state = BoardState::default();
+    state.objects.insert(
+        "only".to_owned(),
+        make_obj(
+            "only",
+            45.0,
+            Some(200.0),
+            Some(100.0),
+            serde_json::json!({
+                "baseFill": "#ff0000",
+                "lightnessShift": 0.5,
+                "borderColor": "#00ff00",
+                "borderWidth": 4,
+                "textColor": "#0000ff",
+                "fontSize": 32,
+                "baseWidth": 200.0,
+                "baseHeight": 100.0,
+                "scale": 1.0
+            }),
+        ),
+    );
+    state.selection = selection(&["only"]);
+
+    assert_eq!(representative_base_color_hex(&state), "#ff0000");
+    assert_eq!(representative_lightness_shift(&state), 0.5);
+    assert_eq!(representative_border_color_hex(&state), "#00ff00");
+    assert_eq!(representative_border_width(&state), 4.0);
+    assert_eq!(representative_text_color_hex(&state), "#0000ff");
+    assert_eq!(representative_font_size(&state), 32.0);
+    assert!((representative_rotation_deg(&state) - 45.0).abs() < 0.01);
+    assert!((representative_scale_factor(&state) - 1.0).abs() < 0.01);
+}
+
+#[test]
+fn representative_rotation_all_same_angle() {
+    let mut state = BoardState::default();
+    state
+        .objects
+        .insert("a".to_owned(), make_obj("a", 90.0, None, None, serde_json::json!({})));
+    state
+        .objects
+        .insert("b".to_owned(), make_obj("b", 90.0, None, None, serde_json::json!({})));
+    state
+        .objects
+        .insert("c".to_owned(), make_obj("c", 90.0, None, None, serde_json::json!({})));
+    state.selection = selection(&["a", "b", "c"]);
+
+    assert!((representative_rotation_deg(&state) - 90.0).abs() < 0.01);
+}
+
+#[test]
+fn representative_rotation_opposite_angles() {
+    let mut state = BoardState::default();
+    state
+        .objects
+        .insert("a".to_owned(), make_obj("a", 0.0, None, None, serde_json::json!({})));
+    state
+        .objects
+        .insert("b".to_owned(), make_obj("b", 180.0, None, None, serde_json::json!({})));
+    state.selection = selection(&["a", "b"]);
+
+    // 0 and 180 are opposite; atan2 of (sin(0)+sin(180), cos(0)+cos(180)) = atan2(0, 0) = 0
+    // The circular mean of 0 and 180 is ambiguous but atan2(~0, ~0) returns 0 or near 0/90.
+    let rotation = representative_rotation_deg(&state);
+    assert!(rotation.is_finite());
+}
+
+#[test]
 fn representative_functions_return_defaults_without_selected_objects() {
     let mut state = BoardState::default();
     state.selection = selection(&["missing"]);

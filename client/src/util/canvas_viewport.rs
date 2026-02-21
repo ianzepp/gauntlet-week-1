@@ -1,4 +1,8 @@
 //! Canvas viewport/camera synchronization helpers shared by canvas host.
+//!
+//! These helpers bridge the Leptos reactive world and the imperative canvas engine. They are all
+//! `#[cfg(feature = "hydrate")]` because they depend on `web_sys` and Leptos signals that only
+//! exist in the browser.
 
 #[cfg(feature = "hydrate")]
 use leptos::prelude::*;
@@ -19,6 +23,11 @@ use canvas::camera::Point as CanvasPoint;
 #[cfg(feature = "hydrate")]
 use canvas::engine::Engine;
 
+/// Read the canvas element's CSS dimensions and device pixel ratio, then push them to the engine.
+///
+/// Must be called on every resize event so that coordinate transforms stay accurate. Uses CSS
+/// pixel dimensions (`client_width` / `client_height`) rather than backing-store pixels; the
+/// engine multiplies by DPR internally when sizing the canvas backing store.
 #[cfg(feature = "hydrate")]
 pub fn sync_viewport(engine: &mut Engine, canvas_ref: &NodeRef<leptos::html::Canvas>) {
     let Some(window) = web_sys::window() else {
@@ -33,12 +42,20 @@ pub fn sync_viewport(engine: &mut Engine, canvas_ref: &NodeRef<leptos::html::Can
     engine.set_viewport(width, height, dpr);
 }
 
+/// Pan the camera so that world origin (0, 0) is centred in the viewport.
+///
+/// Useful during board initialisation before any objects are loaded, giving users a clean
+/// starting point rather than landing at the world origin in the top-left corner.
 #[cfg(feature = "hydrate")]
 pub fn center_world_origin(engine: &mut Engine) {
     engine.core.camera.pan_x = engine.core.viewport_width * 0.5;
     engine.core.camera.pan_y = engine.core.viewport_height * 0.5;
 }
 
+/// Position the camera so that `(center_x, center_y)` in world space is centred on screen.
+///
+/// Sets zoom and rotation at the same time. The pan offsets are derived from the world centre
+/// and zoom so that the visible centre matches the requested world point exactly.
 #[cfg(feature = "hydrate")]
 pub fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: f64, rotation_deg: f64) {
     let clamped_zoom = zoom.clamp(0.1, 10.0);
@@ -48,6 +65,11 @@ pub fn set_camera_view(engine: &mut Engine, center_x: f64, center_y: f64, zoom: 
     engine.core.camera.pan_y = (engine.core.viewport_height * 0.5) - (center_y * clamped_zoom);
 }
 
+/// Change zoom level while keeping the world point currently at the viewport centre fixed.
+///
+/// First converts the screen centre to world space at the current zoom, then calls
+/// [`set_camera_view`] with that world point, ensuring the visible area shrinks/expands
+/// concentrically rather than anchoring to the world origin.
 #[cfg(feature = "hydrate")]
 pub fn zoom_view_preserving_center(engine: &mut Engine, zoom: f64) {
     let center_screen = viewport_center_screen(engine);
@@ -58,11 +80,25 @@ pub fn zoom_view_preserving_center(engine: &mut Engine, zoom: f64) {
     set_camera_view(engine, center_world.x, center_world.y, zoom, rotation);
 }
 
+/// Return the screen-space point at the centre of the current viewport.
 #[cfg(feature = "hydrate")]
 pub fn viewport_center_screen(engine: &Engine) -> CanvasPoint {
     CanvasPoint::new(engine.core.viewport_width * 0.5, engine.core.viewport_height * 0.5)
 }
 
+/// Emit a `cursor:moved` presence frame when the camera or cursor has changed enough to warrant it.
+///
+/// This function implements two complementary throttle strategies:
+/// - **Time throttle**: camera-only updates (no cursor point) are rate-limited to one per
+///   `CAMERA_ONLY_MIN_INTERVAL_MS` (40 ms) to avoid flooding the server during smooth panning.
+/// - **Deadband**: camera-only updates are further suppressed when the camera centre has not
+///   moved by more than `CAMERA_CENTER_DEADBAND_WORLD` (0.2 world units), zoom has not changed
+///   by more than `CAMERA_ZOOM_DEADBAND` (0.001), and rotation has not changed by more than
+///   `CAMERA_ROTATION_DEADBAND_DEG` (0.1°). This prevents repeated identical frames.
+///
+/// Both strategies are bypassed when `force` is true (e.g. on connection establishment) or when
+/// a cursor point is provided (every pointer-move is forwarded immediately for smooth multiplayer).
+/// The function is a no-op when not connected or when the user's identity is unavailable.
 #[cfg(feature = "hydrate")]
 pub fn send_cursor_presence_if_needed(
     engine: &Engine,
@@ -149,6 +185,13 @@ pub fn send_cursor_presence_if_needed(
     }
 }
 
+/// Update the reactive `CanvasViewState` signal from the current engine camera state.
+///
+/// Also advances the exponential moving average (EMA) FPS counter. The EMA is computed with
+/// alpha = 0.2, meaning the most recent frame contributes 20% and history contributes 80%.
+/// Samples outside the window [5 ms, 2000 ms] are discarded to ignore tab-hidden pauses and
+/// spurious zero-length frames. Both world cursor and camera centre are converted from engine
+/// coordinates to the wire `Point` type for UI consumption.
 #[cfg(feature = "hydrate")]
 pub fn sync_canvas_view_state(
     engine: &Engine,
@@ -184,6 +227,7 @@ pub fn sync_canvas_view_state(
     });
 }
 
+/// Return the current wall-clock time in milliseconds via the JS `Date.now()` API.
 #[cfg(feature = "hydrate")]
 pub fn now_ms() -> f64 {
     js_sys::Date::now()

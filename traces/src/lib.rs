@@ -8,13 +8,21 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use frames::{Frame, Status};
 use serde::{Deserialize, Serialize};
 
+/// Display metadata for a syscall prefix, used to colour-code frames in the trace UI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrefixDisplay {
+    /// Single uppercase letter shown in compact/icon views.
     pub letter: &'static str,
+    /// Full label shown in expanded views (e.g. `"OBJECT"`, `"AI"`).
     pub label: &'static str,
+    /// CSS hex color assigned to this prefix category.
     pub color: &'static str,
 }
 
+/// Return the display metadata for the prefix of a syscall string.
+///
+/// Extracts the prefix via [`syscall_prefix`] and maps it to a fixed colour scheme.
+/// Unknown or empty prefixes fall back to a neutral grey `"OTHER"` entry.
 #[must_use]
 pub fn prefix_display(syscall: &str) -> PrefixDisplay {
     match syscall_prefix(syscall) {
@@ -61,11 +69,20 @@ pub fn prefix_display(syscall: &str) -> PrefixDisplay {
     }
 }
 
+/// Extract the namespace prefix from a `"prefix:operation"` syscall string.
+///
+/// Returns the part before the first colon, or an empty string when no colon is present.
 #[must_use]
 pub fn syscall_prefix(syscall: &str) -> &str {
     syscall.split(':').next().unwrap_or_default()
 }
 
+/// A live-configurable filter controlling which frames are visible in the trace panel.
+///
+/// Maintains two independent allow-sets: one for syscall prefixes and one for frame statuses.
+/// A frame passes the filter only when both its prefix and status are in their respective sets.
+/// The default configuration excludes `cursor` frames (high frequency / low value) and `Item`
+/// streaming frames to reduce noise.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TraceFilter {
     include_prefixes: BTreeSet<String>,
@@ -91,6 +108,7 @@ impl Default for TraceFilter {
 }
 
 impl TraceFilter {
+    /// Construct a filter that allows every known prefix and every status — useful in debug views.
     #[must_use]
     pub fn include_all() -> Self {
         let include_prefixes = [
@@ -116,6 +134,10 @@ impl TraceFilter {
         }
     }
 
+    /// Return `true` if `frame` passes both the prefix and status allow-sets.
+    ///
+    /// Frames with an empty prefix are treated as belonging to the `"other"` bucket for
+    /// allow-set lookup purposes.
     #[must_use]
     pub fn allows(&self, frame: &Frame) -> bool {
         let prefix = syscall_prefix(&frame.syscall);
@@ -127,6 +149,7 @@ impl TraceFilter {
         prefix_allowed && status_allowed
     }
 
+    /// Enable or disable a syscall prefix in the filter.
     pub fn set_prefix_enabled(&mut self, prefix: &str, enabled: bool) {
         if enabled {
             self.include_prefixes.insert(prefix.to_owned());
@@ -135,6 +158,7 @@ impl TraceFilter {
         }
     }
 
+    /// Enable or disable a frame status in the filter.
     pub fn set_status_enabled(&mut self, status: Status, enabled: bool) {
         if enabled {
             self.include_statuses.insert(StatusKey::from(status));
@@ -143,11 +167,13 @@ impl TraceFilter {
         }
     }
 
+    /// Return the currently enabled prefixes in sorted order.
     #[must_use]
     pub fn active_prefixes(&self) -> Vec<String> {
         self.include_prefixes.iter().cloned().collect()
     }
 
+    /// Return the currently enabled statuses in sorted order.
     #[must_use]
     pub fn active_statuses(&self) -> Vec<Status> {
         self.include_statuses
@@ -158,6 +184,9 @@ impl TraceFilter {
     }
 }
 
+/// An `Ord`-compatible wrapper for `Status` so it can be stored in a `BTreeSet`.
+///
+/// `Status` itself does not implement `Ord`; this newtype assigns a stable u8 ordinal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct StatusKey(u8);
 
@@ -185,21 +214,35 @@ impl From<StatusKey> for Status {
     }
 }
 
+/// A group of causally related frames that together represent a single user or AI action.
+///
+/// Sessions are formed by tracing `parent_id` links to their root frame and grouping all
+/// descendants together. `ended_at` is `None` while the session is still in flight (its last
+/// frame is a `Request` or `Item`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TraceSession {
+    /// The ID of the root (parentless) frame in this session.
     pub root_frame_id: String,
+    /// Board the session belongs to, if any.
     pub board_id: Option<String>,
+    /// All frames in the session, sorted by timestamp then ID.
     pub frames: Vec<Frame>,
+    /// Timestamp of the first frame in milliseconds since the Unix epoch.
     pub started_at: i64,
+    /// Timestamp of the last terminal frame, or `None` if still in progress.
     pub ended_at: Option<i64>,
 }
 
 impl TraceSession {
+    /// Return the total number of frames in this session.
     #[must_use]
     pub fn total_frames(&self) -> usize {
         self.frames.len()
     }
 
+    /// Return the sum of token counts from all completed AI frames in this session.
+    ///
+    /// Reads the `trace.tokens` field from each `ai:*` Done frame.
     #[must_use]
     pub fn total_tokens(&self) -> u64 {
         self.frames
@@ -209,6 +252,9 @@ impl TraceSession {
             .sum()
     }
 
+    /// Return the total USD cost across all completed AI frames in this session.
+    ///
+    /// Reads the `trace.cost_usd` field from each `ai:*` Done frame.
     #[must_use]
     pub fn total_cost(&self) -> f64 {
         self.frames
@@ -218,6 +264,7 @@ impl TraceSession {
             .sum()
     }
 
+    /// Return the number of Error-status frames in this session.
     #[must_use]
     pub fn error_count(&self) -> usize {
         self.frames
@@ -227,23 +274,41 @@ impl TraceSession {
     }
 }
 
+/// The measured latency of a single request/response pair.
+///
+/// Produced by [`pair_request_spans`]. `request_frame_id` is `None` when a terminal frame
+/// arrived without a matching request (e.g. the request was emitted before tracing began).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpanTiming {
+    /// ID of the originating Request frame, or `None` if the request was not observed.
     pub request_frame_id: Option<String>,
+    /// ID of the terminal (Done, Error, or Cancel) frame that closed this span.
     pub terminal_frame_id: String,
+    /// Timestamp of the request, or of the terminal frame when no request was observed.
     pub started_at: i64,
+    /// Timestamp of the terminal frame.
     pub ended_at: i64,
+    /// `ended_at - started_at` in milliseconds.
     pub duration_ms: i64,
 }
 
+/// Aggregate counts derived from a flat list of frames.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TraceMetrics {
+    /// Total frame count.
     pub total: usize,
+    /// Number of frames with Error status.
     pub errors: usize,
+    /// Number of Request frames that have not yet received a terminal response.
     pub pending_requests: usize,
+    /// Frame count broken down by syscall prefix (e.g. `"object"`, `"ai"`).
     pub by_prefix: BTreeMap<String, usize>,
 }
 
+/// Compute summary metrics from a flat list of frames.
+///
+/// Counts total frames, errors, per-prefix totals, and open requests. Frames with an empty
+/// prefix are counted under the `"other"` key in `by_prefix`.
 #[must_use]
 pub fn compute_metrics(frames: &[Frame]) -> TraceMetrics {
     let mut by_prefix = BTreeMap::<String, usize>::new();
@@ -271,6 +336,12 @@ pub fn compute_metrics(frames: &[Frame]) -> TraceMetrics {
     }
 }
 
+/// Group a flat list of frames into causally related [`TraceSession`] instances.
+///
+/// Each frame is traced to its root (the ancestor with no parent in the given set), and all
+/// frames sharing the same root are placed into one session. Sessions are sorted by their
+/// first frame's timestamp. A session's `ended_at` is `None` when its last frame is still
+/// `Request` or `Item`, indicating an in-progress operation.
 #[must_use]
 pub fn build_trace_sessions(frames: &[Frame]) -> Vec<TraceSession> {
     if frames.is_empty() {
@@ -323,6 +394,11 @@ pub fn build_trace_sessions(frames: &[Frame]) -> Vec<TraceSession> {
     sessions
 }
 
+/// Pair Request frames with their terminal responses to produce latency spans.
+///
+/// Frames are matched by `(parent_id, syscall)` in FIFO order — the first pending request for
+/// a given key is matched to the first terminal frame with the same key. Items (`Status::Item`)
+/// are ignored because they are intermediate streaming frames, not terminals.
 #[must_use]
 pub fn pair_request_spans(frames: &[Frame]) -> Vec<SpanTiming> {
     let ordered = sort_frames(frames);
@@ -361,6 +437,10 @@ pub fn pair_request_spans(frames: &[Frame]) -> Vec<SpanTiming> {
     spans
 }
 
+/// Count how many ancestors separate `frame_id` from the root of its causal tree.
+///
+/// Walks the `parent_id` chain through `by_id` until a frame without a parent is reached.
+/// A cycle-detection set prevents infinite loops on malformed data. Returns 0 for root frames.
 #[must_use]
 pub fn tree_depth(frame_id: &str, by_id: &HashMap<String, Frame>) -> usize {
     let mut depth = 0usize;
@@ -383,6 +463,10 @@ pub fn tree_depth(frame_id: &str, by_id: &HashMap<String, Frame>) -> usize {
     depth
 }
 
+/// Extract the human-readable sub-label from a frame's `trace.label` field, if present.
+///
+/// Sub-labels are short strings (e.g. a tool name or model identifier) attached by the server
+/// for display alongside the syscall name in the trace panel.
 #[must_use]
 pub fn sub_label(frame: &Frame) -> Option<String> {
     trace_field(frame, "label")
@@ -390,6 +474,7 @@ pub fn sub_label(frame: &Frame) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Read a value from the `frame.data.trace` object by key.
 fn trace_field<'a>(frame: &'a Frame, key: &str) -> Option<&'a serde_json::Value> {
     frame
         .data
@@ -398,6 +483,9 @@ fn trace_field<'a>(frame: &'a Frame, key: &str) -> Option<&'a serde_json::Value>
         .and_then(|trace| trace.get(key))
 }
 
+/// Count how many Request frames in `frames` have not yet received a terminal response.
+///
+/// Uses the same `(parent_id, syscall)` keying as [`pair_request_spans`].
 fn count_open_requests(frames: &[Frame]) -> usize {
     let mut pending = HashMap::<(Option<String>, String), usize>::new();
 
@@ -421,6 +509,10 @@ fn count_open_requests(frames: &[Frame]) -> usize {
     pending.values().sum()
 }
 
+/// Walk the `parent_id` chain for `frame_id` to find the topmost ancestor present in `valid_ids`.
+///
+/// Stops and returns `current` when the parent is absent from `valid_ids` (indicating the root
+/// was not observed in the current frame set) or when a cycle is detected.
 fn find_root_frame_id(
     frame_id: &str,
     parents: &HashMap<String, Option<String>>,
@@ -442,6 +534,7 @@ fn find_root_frame_id(
     }
 }
 
+/// Return a copy of `frames` sorted by timestamp ascending, with frame ID as a tiebreaker.
 fn sort_frames(frames: &[Frame]) -> Vec<Frame> {
     let mut ordered = frames.to_vec();
     ordered.sort_by_key(|f| (f.ts, f.id.clone()));

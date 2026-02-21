@@ -145,6 +145,63 @@ async fn part_board_keeps_dirty_board_loaded_if_flush_fails() {
     assert!(board.dirty.contains(&object_id));
 }
 
+#[test]
+fn role_satisfies_viewer_allows_view_only() {
+    assert!(role_satisfies(BoardRole::Viewer, BoardPermission::View));
+    assert!(!role_satisfies(BoardRole::Viewer, BoardPermission::Edit));
+    assert!(!role_satisfies(BoardRole::Viewer, BoardPermission::Admin));
+}
+
+#[test]
+fn role_satisfies_editor_allows_view_and_edit() {
+    assert!(role_satisfies(BoardRole::Editor, BoardPermission::View));
+    assert!(role_satisfies(BoardRole::Editor, BoardPermission::Edit));
+    assert!(!role_satisfies(BoardRole::Editor, BoardPermission::Admin));
+}
+
+#[test]
+fn role_satisfies_admin_allows_all() {
+    assert!(role_satisfies(BoardRole::Admin, BoardPermission::View));
+    assert!(role_satisfies(BoardRole::Admin, BoardPermission::Edit));
+    assert!(role_satisfies(BoardRole::Admin, BoardPermission::Admin));
+}
+
+#[test]
+fn board_role_roundtrip_str() {
+    for role in [BoardRole::Viewer, BoardRole::Editor, BoardRole::Admin] {
+        let s = role.as_str();
+        let back = BoardRole::from_str(s).unwrap();
+        assert_eq!(back, role);
+    }
+}
+
+#[test]
+fn board_role_from_str_invalid_returns_none() {
+    assert_eq!(BoardRole::from_str("owner"), None);
+    assert_eq!(BoardRole::from_str(""), None);
+    assert_eq!(BoardRole::from_str("ADMIN"), None);
+}
+
+#[tokio::test]
+async fn broadcast_empty_board_is_noop() {
+    let state = test_helpers::test_app_state();
+    let board_id = Uuid::new_v4();
+    // Board doesn't even exist in state — broadcast should not panic.
+    let frame = Frame::request("test:ping", Data::new()).with_board_id(board_id);
+    broadcast(&state, board_id, &frame, None).await;
+}
+
+#[test]
+fn board_error_code_variants() {
+    use crate::frame::ErrorCode;
+
+    let not_found = BoardError::NotFound(Uuid::nil());
+    assert_eq!(not_found.error_code(), "E_BOARD_NOT_FOUND");
+
+    let forbidden = BoardError::Forbidden(Uuid::nil());
+    assert_eq!(forbidden.error_code(), "E_BOARD_FORBIDDEN");
+}
+
 #[cfg(feature = "live-db-tests")]
 async fn integration_pool() -> sqlx::PgPool {
     let database_url = std::env::var("TEST_DATABASE_URL")

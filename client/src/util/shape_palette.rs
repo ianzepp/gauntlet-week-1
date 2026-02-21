@@ -1,4 +1,9 @@
 //! Tool placement defaults and preview helpers.
+//!
+//! When the user selects a tool and clicks to place an object, two pieces of information are
+//! needed: the default geometry and props for the new object, and a semi-transparent preview
+//! overlay that follows the cursor before the click. Both are keyed by `ToolType` to keep all
+//! per-shape defaults co-located and easy to update.
 
 #[cfg(test)]
 #[path = "shape_palette_test.rs"]
@@ -6,6 +11,18 @@ mod shape_palette_test;
 
 use crate::state::ui::ToolType;
 
+/// Return the default placement data for the given tool, if it is a placeable shape.
+///
+/// Returns `None` for non-placing tools (Select, Draw, Eraser).
+///
+/// The returned tuple is `(kind, default_width, default_height, default_props)` where:
+/// - `kind` is the server-side object kind string (e.g. `"sticky_note"`, `"rectangle"`).
+/// - `default_width` / `default_height` are the initial pixel dimensions in world space.
+/// - `default_props` is the JSON props object used when creating the board object.
+///
+/// For line and arrow shapes the width encodes the initial endpoint distance (height is always
+/// 0). The actual `"a"` and `"b"` endpoint props are not included here because they depend on
+/// the placement position; use [`materialize_shape_props`] to inject them.
 pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_json::Value)> {
     match tool {
         ToolType::Sticky => Some((
@@ -104,6 +121,13 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
     }
 }
 
+/// Return the placement preview dimensions and fill color for the given tool.
+///
+/// The preview is a translucent overlay rendered at the cursor while the tool is active,
+/// before the user clicks to place. Returns `None` for non-placing tools.
+///
+/// The returned tuple is `(width, height, css_color)` where `css_color` is an `rgba(…)` string
+/// chosen to visually suggest the shape type and default color without being distracting.
 pub fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
     match tool {
         ToolType::Sticky => Some((120.0, 120.0, "rgba(255, 235, 59, 0.55)")),
@@ -118,6 +142,13 @@ pub fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
     }
 }
 
+/// Inject concrete endpoint props into line/arrow props for a given placement position.
+///
+/// For all shapes other than `"line"` and `"arrow"` the props are returned unchanged, since
+/// those shapes use x/y/width/height geometry rather than explicit endpoints. For lines and
+/// arrows, endpoint `"a"` is set to `(x, y)` and endpoint `"b"` to `(x + width, y)`, producing
+/// a horizontal segment of the requested length pointing to the right. The caller is responsible
+/// for rotating or repositioning after placement if needed.
 pub fn materialize_shape_props(
     kind: &str,
     x: f64,

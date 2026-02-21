@@ -29,3 +29,19 @@ fn validate_verify_code_input_trims_and_requires_both_fields() {
         Err("Enter both email and 6-char code.")
     );
 }
+
+#[test]
+fn validate_verify_code_input_code_too_short() {
+    assert_eq!(
+        validate_verify_code_input("a@b.com", "ABCDE"),
+        Err("Enter both email and 6-char code.")
+    );
+}
+
+#[test]
+fn validate_verify_code_input_code_too_long() {
+    assert_eq!(
+        validate_verify_code_input("a@b.com", "ABCDEFG"),
+        Err("Enter both email and 6-char code.")
+    );
+}

@@ -73,3 +73,47 @@ fn font_size_conversion_and_formatting_cover_edges() {
     assert_eq!(font_size_from_dial_angle(ZOOM_DIAL_MAX_ANGLE_DEG), TEXT_SIZE_MAX);
     assert_eq!(format_text_size_label(24.2), "24px");
 }
+
+#[test]
+fn signed_angle_delta_deg_non_finite_returns_zero() {
+    assert_eq!(signed_angle_delta_deg(f64::INFINITY, 0.0), 0.0);
+    assert_eq!(signed_angle_delta_deg(f64::NEG_INFINITY, 0.0), 0.0);
+    assert_eq!(signed_angle_delta_deg(f64::NAN, 0.0), 0.0);
+    assert_eq!(signed_angle_delta_deg(0.0, f64::NAN), 0.0);
+    assert_eq!(signed_angle_delta_deg(f64::INFINITY, f64::INFINITY), 0.0);
+}
+
+#[test]
+fn border_width_angle_roundtrip() {
+    for width in [0, 1, 5, 12, 24] {
+        let w = width as f64;
+        let angle = dial_angle_from_border_width(w);
+        let back = border_width_from_dial_angle(angle);
+        assert!((w - back).abs() < 1.0, "border width {w} roundtripped to {back}");
+    }
+}
+
+#[test]
+fn font_size_angle_roundtrip() {
+    for size in [8, 12, 24, 48, 96] {
+        let s = size as f64;
+        let angle = dial_angle_from_font_size(s);
+        let back = font_size_from_dial_angle(angle);
+        assert!((s - back).abs() < 1.0, "font size {s} roundtripped to {back}");
+    }
+}
+
+#[test]
+fn compass_snap_at_exact_epsilon_boundary() {
+    // 6.0 degrees from cardinal 0 should snap to 0
+    let snapped = apply_compass_drag_snapping(6.0, false);
+    assert_eq!(snapped, 0.0);
+
+    // 6.0 degrees from cardinal 90 should snap to 90
+    let snapped = apply_compass_drag_snapping(84.0, false);
+    assert_eq!(snapped, 90.0);
+
+    // 6.0 degrees from 270 should snap to 270
+    let snapped = apply_compass_drag_snapping(276.0, false);
+    assert_eq!(snapped, 270.0);
+}
