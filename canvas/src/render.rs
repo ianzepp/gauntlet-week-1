@@ -56,12 +56,24 @@ pub fn draw(
     ctx.translate(camera.pan_x, camera.pan_y)?;
     ctx.scale(camera.zoom, camera.zoom)?;
 
-    // Layer 2: objects in z-order (bottom first).
+    // Layer 2: non-selected objects in z-order.
     for obj in doc.sorted_objects() {
+        if ui.selected_ids.contains(&obj.id) {
+            continue;
+        }
         draw_object(ctx, obj, doc)?;
     }
 
-    // Layer 3: selection UI.
+    // Layer 3: selected objects in z-order.
+    // Multi-select is naturally supported because selected_ids is a set.
+    for obj in doc.sorted_objects() {
+        if !ui.selected_ids.contains(&obj.id) {
+            continue;
+        }
+        draw_object(ctx, obj, doc)?;
+    }
+
+    // Layer 4: selection UI overlays.
     let selected = ui.selected_ids.iter().copied().collect::<Vec<_>>();
     let show_handles = selected.len() == 1;
     for sel_id in selected {
