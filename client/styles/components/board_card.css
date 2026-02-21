@@ -27,6 +27,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: calc(100% - 64px);
+}
+
+.board-card__visibility {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+    padding: 1px 5px;
+}
+
+.board-card__visibility--public {
+    border-color: color-mix(in oklab, var(--accent-green) 55%, var(--border-default));
+    color: color-mix(in oklab, var(--accent-green) 70%, var(--text-primary));
 }
 
 .board-card__id {
@@ -54,13 +75,41 @@
     pointer-events: none;
 }
 
+.board-card__visibility-toggle {
+    position: absolute;
+    top: 6px;
+    right: 32px;
+    height: 22px;
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0 5px;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .board-card:hover .board-card__delete {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.board-card:hover .board-card__visibility-toggle {
     opacity: 1;
     pointer-events: auto;
 }
 
 .board-card__delete:hover {
     border-color: var(--accent-error);
+}
+
+.board-card__visibility-toggle:hover {
+    border-color: var(--border-default);
+    color: var(--text-primary);
 }
 
 .board-card__preview {
@@ -112,7 +161,8 @@
 
 .board-card--mini .board-card__id,
 .board-card--mini .board-card__preview,
-.board-card--mini .board-card__delete {
+.board-card--mini .board-card__delete,
+.board-card--mini .board-card__visibility,
+.board-card--mini .board-card__visibility-toggle {
     display: none;
 }
-

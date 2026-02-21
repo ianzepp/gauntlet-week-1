@@ -372,8 +372,10 @@ a:hover {
 /* Login */
 .login-page {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--space-sm);
     width: 100vw;
     height: 100vh;
     height: 100dvh;
@@ -447,6 +449,69 @@ a:hover {
     text-transform: uppercase;
 }
 
+.login-code-inputs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-xs);
+}
+
+.login-code-input {
+    width: 100%;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--border-default);
+    background: var(--bg-primary);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.login-code-input:focus {
+    border-color: var(--accent-green);
+}
+
+.login-dev-code {
+    width: 100%;
+    margin-top: var(--space-xs);
+    padding: var(--space-sm);
+    border: 1px solid var(--border-default);
+    background: var(--bg-primary);
+}
+
+.login-dev-code__title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+}
+
+.login-dev-code__letters {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-xs);
+}
+
+.login-dev-code__char {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-secondary);
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent-green);
+    line-height: 1;
+    text-transform: uppercase;
+}
+
 .login-message {
     width: 100%;
     font-family: var(--font-mono);
@@ -464,6 +529,43 @@ a:hover {
     width: 100%;
     height: 1px;
     background: var(--border-default);
+}
+
+.login-repo-link {
+    width: min(420px, calc(100vw - 48px));
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-sm);
+    border: 1px solid var(--border-default);
+    background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+    text-decoration: none;
+    transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.login-repo-link__label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-secondary);
+}
+
+.login-repo-link__url {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.login-repo-link:hover {
+    border-color: var(--accent-green);
+    background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+}
+
+.login-repo-link:hover .login-repo-link__label,
+.login-repo-link:hover .login-repo-link__url {
+    color: var(--accent-green);
 }
 
 

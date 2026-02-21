@@ -268,6 +268,7 @@ fn parse_board_list_items_keeps_snapshot_geometry() {
             {
                 "id": "b-1",
                 "name": "Alpha",
+                "is_public": true,
                 "snapshot": [
                     {
                         "kind": "sticky_note",
@@ -287,6 +288,7 @@ fn parse_board_list_items_keeps_snapshot_geometry() {
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].id, "b-1");
     assert_eq!(items[0].name, "Alpha");
+    assert!(items[0].is_public);
     assert_eq!(items[0].snapshot.len(), 1);
     assert_eq!(items[0].snapshot[0].kind, "sticky_note");
     assert_eq!(items[0].snapshot[0].z_index, 3);
@@ -316,6 +318,7 @@ fn parse_board_list_items_tolerates_partial_snapshot_rows() {
 
     let items = parse_board_list_items(&data);
     assert_eq!(items.len(), 1);
+    assert!(!items[0].is_public);
     assert_eq!(items[0].snapshot.len(), 1);
 }
 

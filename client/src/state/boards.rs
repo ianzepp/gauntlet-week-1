@@ -17,6 +17,8 @@ pub struct BoardListItem {
     #[serde(default)]
     pub owner_id: Option<String>,
     #[serde(default)]
+    pub is_public: bool,
+    #[serde(default)]
     pub snapshot: Vec<BoardListPreviewObject>,
 }
 

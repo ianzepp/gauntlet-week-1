@@ -27,6 +27,10 @@ pub(super) fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListI
                 .get("owner_id")
                 .and_then(serde_json::Value::as_str)
                 .map(str::to_owned);
+            let is_public = row
+                .get("is_public")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
             let snapshot = row
                 .get("snapshot")
                 .and_then(serde_json::Value::as_array)
@@ -37,7 +41,7 @@ pub(super) fn parse_board_list_items(data: &serde_json::Value) -> Vec<BoardListI
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
-            Some(BoardListItem { id, name, owner_id, snapshot })
+            Some(BoardListItem { id, name, owner_id, is_public, snapshot })
         })
         .collect()
 }

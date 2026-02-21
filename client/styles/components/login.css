@@ -76,6 +76,46 @@
     text-transform: uppercase;
 }
 
+.login-dev-code {
+    width: 100%;
+    margin-top: var(--space-xs);
+    padding: var(--space-sm);
+    border: 1px solid var(--border-default);
+    background: var(--bg-primary);
+}
+
+.login-dev-code__title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+}
+
+.login-dev-code__letters {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-xs);
+}
+
+.login-dev-code__char {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-secondary);
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent-green);
+    line-height: 1;
+    text-transform: uppercase;
+}
+
 .login-message {
     width: 100%;
     font-family: var(--font-mono);
@@ -94,4 +134,3 @@
     height: 1px;
     background: var(--border-default);
 }
-

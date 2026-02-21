@@ -53,6 +53,7 @@ pub struct BoardRow {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Option<Uuid>,
+    pub is_public: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,14 +145,14 @@ pub struct BoardExportObject {
 /// Returns a database error if the insert fails.
 pub async fn create_board(pool: &PgPool, name: &str, owner_id: Uuid) -> Result<BoardRow, BoardError> {
     let id = Uuid::new_v4();
-    sqlx::query("INSERT INTO boards (id, name, owner_id) VALUES ($1, $2, $3)")
+    sqlx::query("INSERT INTO boards (id, name, owner_id, is_public) VALUES ($1, $2, $3, false)")
         .bind(id)
         .bind(name)
         .bind(owner_id)
         .execute(pool)
         .await?;
 
-    Ok(BoardRow { id, name: name.to_string(), owner_id: Some(owner_id) })
+    Ok(BoardRow { id, name: name.to_string(), owner_id: Some(owner_id), is_public: false })
 }
 
 /// List all boards.
@@ -160,11 +161,12 @@ pub async fn create_board(pool: &PgPool, name: &str, owner_id: Uuid) -> Result<B
 ///
 /// Returns a database error if the query fails.
 pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, BoardError> {
-    let rows = sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
-        "SELECT id, name, owner_id
+    let rows = sqlx::query_as::<_, (Uuid, String, Option<Uuid>, bool)>(
+        "SELECT id, name, owner_id, is_public
          FROM boards
          WHERE owner_id = $1
             OR owner_id IS NULL
+            OR is_public = true
             OR EXISTS (
                 SELECT 1 FROM board_members bm
                 WHERE bm.board_id = boards.id AND bm.user_id = $1
@@ -177,7 +179,7 @@ pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, 
 
     Ok(rows
         .into_iter()
-        .map(|(id, name, owner_id)| BoardRow { id, name, owner_id })
+        .map(|(id, name, owner_id, is_public)| BoardRow { id, name, owner_id, is_public })
         .collect())
 }
 
@@ -198,12 +200,12 @@ pub async fn ensure_board_permission(
     user_id: Uuid,
     permission: BoardPermission,
 ) -> Result<(), BoardError> {
-    let board_row = sqlx::query_as::<_, (Option<Uuid>,)>("SELECT owner_id FROM boards WHERE id = $1")
+    let board_row = sqlx::query_as::<_, (Option<Uuid>, bool)>("SELECT owner_id, is_public FROM boards WHERE id = $1")
         .bind(board_id)
         .fetch_optional(pool)
         .await?;
 
-    let Some((owner_id,)) = board_row else {
+    let Some((owner_id, is_public)) = board_row else {
         return Err(BoardError::NotFound(board_id));
     };
 
@@ -212,6 +214,10 @@ pub async fn ensure_board_permission(
     }
 
     if owner_id.is_none() {
+        return Ok(());
+    }
+
+    if permission == BoardPermission::View && is_public {
         return Ok(());
     }
 
@@ -580,6 +586,26 @@ pub async fn delete_board(pool: &PgPool, board_id: Uuid, user_id: Uuid) -> Resul
 
     let result = sqlx::query("DELETE FROM boards WHERE id = $1")
         .bind(board_id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(BoardError::NotFound(board_id));
+    }
+    Ok(())
+}
+
+pub async fn set_board_visibility(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+    is_public: bool,
+) -> Result<(), BoardError> {
+    ensure_board_permission(pool, board_id, user_id, BoardPermission::Admin).await?;
+
+    let result = sqlx::query("UPDATE boards SET is_public = $2 WHERE id = $1")
+        .bind(board_id)
+        .bind(is_public)
         .execute(pool)
         .await?;
 

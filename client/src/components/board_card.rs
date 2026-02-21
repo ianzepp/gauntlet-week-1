@@ -33,7 +33,6 @@ pub fn BoardCard(
             }
         }
     });
-
     #[cfg(feature = "hydrate")]
     {
         let preview_ref = preview_ref.clone();

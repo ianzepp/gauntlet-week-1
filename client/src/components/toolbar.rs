@@ -12,13 +12,16 @@ use crate::app::FrameSender;
 use crate::net::types::{Frame, FrameStatus};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
+use crate::state::boards::BoardsState;
 use crate::state::ui::{UiState, ViewMode};
+use crate::util::frame::request_frame;
 
 /// Top toolbar for the board page.
 #[component]
 pub fn Toolbar() -> impl IntoView {
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
+    let boards = expect_context::<RwSignal<BoardsState>>();
     let _sender = expect_context::<RwSignal<FrameSender>>();
     let ui = expect_context::<RwSignal<UiState>>();
     let location = use_location();
@@ -123,6 +126,41 @@ pub fn Toolbar() -> impl IntoView {
             .map(|user| (user.name, user.auth_method))
             .unwrap_or_else(|| ("me".to_owned(), "session".to_owned()))
     };
+    let can_toggle_visibility = move || {
+        let Some(board_id) = board.get().board_id else {
+            return false;
+        };
+        let Some(user_id) = auth.get().user.map(|u| u.id) else {
+            return false;
+        };
+        boards
+            .get()
+            .items
+            .iter()
+            .find(|item| item.id == board_id)
+            .and_then(|item| item.owner_id.as_deref())
+            == Some(user_id.as_str())
+    };
+    let set_visibility = Callback::new(move |is_public: bool| {
+        let Some(board_id) = board.get().board_id else {
+            return;
+        };
+        let frame = request_frame(
+            "board:visibility:set",
+            Some(board_id.clone()),
+            serde_json::json!({
+                "board_id": board_id,
+                "is_public": is_public
+            }),
+        );
+        let _ = _sender.get().send(&frame);
+        board.update(|b| b.is_public = is_public);
+        boards.update(|s| {
+            if let Some(item) = s.items.iter_mut().find(|item| item.id == board_id) {
+                item.is_public = is_public;
+            }
+        });
+    });
 
     let on_logout = move |_| {
         #[cfg(feature = "hydrate")]
@@ -146,6 +184,9 @@ pub fn Toolbar() -> impl IntoView {
     let on_back = Callback::new(move |_| {
         navigate("/", leptos_router::NavigateOptions::default());
     });
+
+    let set_visibility_public = set_visibility.clone();
+    let set_visibility_private = set_visibility.clone();
 
     view! {
         <div class="toolbar">
@@ -211,6 +252,26 @@ pub fn Toolbar() -> impl IntoView {
                         title="Trace view"
                     >
                         "Traces"
+                    </button>
+                </div>
+            </Show>
+            <Show when=move || location.pathname.get().starts_with("/board/") && can_toggle_visibility()>
+                <div class="toolbar__segment" role="group" aria-label="Board visibility mode">
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || board.get().is_public
+                        on:click=move |_| set_visibility_public.run(true)
+                        title="Visible to all users"
+                    >
+                        "Public"
+                    </button>
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || !board.get().is_public
+                        on:click=move |_| set_visibility_private.run(false)
+                        title="Visible only to members"
+                    >
+                        "Private"
                     </button>
                 </div>
             </Show>

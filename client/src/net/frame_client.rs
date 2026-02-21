@@ -344,6 +344,11 @@ fn handle_board_frame(
                     b.drag_updated_at.clear();
                 }
                 b.join_streaming = false;
+                b.is_public = frame
+                    .data
+                    .get("is_public")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
             });
             if let Some(name) = frame.data.get("name").and_then(|n| n.as_str()) {
                 board.update(|b| b.board_name = Some(name.to_owned()));
@@ -474,6 +479,29 @@ fn handle_board_frame(
             }
             true
         }
+        Some("visibility:set") if frame.status == FrameStatus::Done => {
+            let is_public = frame
+                .data
+                .get("is_public")
+                .and_then(serde_json::Value::as_bool);
+            let board_id = frame
+                .data
+                .get("board_id")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+                .or_else(|| frame.board_id.clone());
+            if let (Some(board_id), Some(is_public)) = (board_id, is_public) {
+                boards.update(|s| {
+                    if let Some(item) = s.items.iter_mut().find(|item| item.id == board_id) {
+                        item.is_public = is_public;
+                    }
+                });
+                if board.get_untracked().board_id.as_deref() == Some(board_id.as_str()) {
+                    board.update(|b| b.is_public = is_public);
+                }
+            }
+            true
+        }
         _ => false,
     }
 }
@@ -486,6 +514,7 @@ fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<Bo
         board.update(|b| {
             b.board_id = None;
             b.board_name = None;
+            b.is_public = false;
             b.follow_client_id = None;
             b.jump_to_client_id = None;
             b.objects.clear();

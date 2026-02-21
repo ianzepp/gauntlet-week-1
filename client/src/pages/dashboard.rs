@@ -109,7 +109,11 @@ pub fn DashboardPage() -> impl IntoView {
                 view! {
                     <div class="dashboard-page">
                         <DashboardHeader ui=ui auth=auth on_create=on_create on_join=on_join on_logout=on_logout />
-                        <DashboardGrid boards=boards auth=auth on_board_delete_request=on_board_delete_request />
+                        <DashboardGrid
+                            boards=boards
+                            auth=auth
+                            on_board_delete_request=on_board_delete_request
+                        />
                         <DashboardDialogs
                             show_create=show_create
                             new_board_name=new_board_name
@@ -237,7 +241,13 @@ fn DashboardGrid(
                 if boards.get().loading {
                     view! { <p>"Loading boards..."</p> }.into_any()
                 } else {
-                    view! { <BoardSections boards=boards auth=auth on_board_delete_request=on_board_delete_request /> }
+                    view! {
+                        <BoardSections
+                            boards=boards
+                            auth=auth
+                            on_board_delete_request=on_board_delete_request
+                        />
+                    }
                         .into_any()
                 }
             }}
@@ -260,7 +270,11 @@ fn BoardSections(
                 .into_iter()
                 .partition(|b| b.owner_id.as_deref() == Some(my_user_id.as_str()));
             view! {
-                <BoardSection title="My Boards" items=my_boards on_delete=on_board_delete_request.clone() />
+                <BoardSection
+                    title="My Boards"
+                    items=my_boards
+                    on_delete=on_board_delete_request.clone()
+                />
                 <BoardSection title="Shared Boards" items=shared_boards on_delete=on_board_delete_request.clone() />
             }
         }}
@@ -268,7 +282,11 @@ fn BoardSections(
 }
 
 #[component]
-fn BoardSection(title: &'static str, items: Vec<BoardListItem>, on_delete: Callback<String>) -> impl IntoView {
+fn BoardSection(
+    title: &'static str,
+    items: Vec<BoardListItem>,
+    on_delete: Callback<String>,
+) -> impl IntoView {
     let count = items.len();
     view! {
         <section class="dashboard-page__section">
@@ -281,8 +299,14 @@ fn BoardSection(title: &'static str, items: Vec<BoardListItem>, on_delete: Callb
                     .into_iter()
                     .map(|b| {
                         view! {
-                            <BoardCard id=b.id name=b.name snapshot=b.snapshot on_delete=on_delete />
+                            <BoardCard
+                                id=b.id
+                                name=b.name
+                                snapshot=b.snapshot
+                                on_delete=on_delete
+                            />
                         }
+                            .into_any()
                     })
                     .collect::<Vec<_>>()}
             </div>

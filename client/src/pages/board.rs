@@ -47,6 +47,7 @@ fn build_board_membership_frame(syscall: &str, board_id: String) -> crate::net::
 fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<String>) {
     board.board_id = next_board_id;
     board.board_name = None;
+    board.is_public = false;
     // WHY: websocket session identity is stable across board route changes.
     // Clearing this breaks subsequent board:join transitions.
     board.follow_client_id = None;
@@ -148,6 +149,7 @@ pub fn BoardPage() -> impl IntoView {
         board.update(|b| {
             b.board_id = None;
             b.board_name = None;
+            b.is_public = false;
             b.follow_client_id = None;
             b.jump_to_client_id = None;
             b.objects.clear();

@@ -376,6 +376,7 @@ async fn handle_board(
         "list" => handle_board_list(state, user_id, req).await,
         "users:list" => handle_board_users_list(state, *current_board, req).await,
         "delete" => handle_board_delete(state, user_id, req).await,
+        "visibility:set" => handle_board_visibility_set(state, *current_board, user_id, req).await,
         "savepoint:create" => handle_board_savepoint_create(state, *current_board, user_id, req).await,
         "savepoint:list" => handle_board_savepoint_list(state, *current_board, user_id, req).await,
         "access:generate" => handle_board_access_generate(state, *current_board, user_id, req).await,
@@ -443,12 +444,14 @@ async fn handle_board_join(
             let item_payloads = objects.iter().map(object_to_data).collect::<Vec<_>>();
             let mut done = Data::new();
             done.insert("count".into(), serde_json::json!(item_payloads.len()));
-            if let Ok(Some(name)) = sqlx::query_scalar::<_, String>("SELECT name FROM boards WHERE id = $1")
+            if let Ok(Some((name, is_public))) =
+                sqlx::query_as::<_, (String, bool)>("SELECT name, is_public FROM boards WHERE id = $1")
                 .bind(board_id)
                 .fetch_optional(&state.pool)
                 .await
             {
                 done.insert("name".into(), serde_json::json!(name));
+                done.insert("is_public".into(), serde_json::json!(is_public));
             }
 
             let mut broadcast = Data::new();
@@ -613,6 +616,7 @@ async fn handle_board_list(state: &AppState, user_id: Uuid, req: &Frame) -> Resu
                         "id": b.id,
                         "name": b.name,
                         "owner_id": b.owner_id,
+                        "is_public": b.is_public,
                         "snapshot": previews.remove(&b.id).unwrap_or_default(),
                     })
                 })
@@ -677,6 +681,31 @@ async fn handle_board_delete(state: &AppState, user_id: Uuid, req: &Frame) -> Re
             }
             broadcast_board_list_refresh(state).await;
             Ok(Outcome::Done)
+        }
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
+
+async fn handle_board_visibility_set(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    user_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, current_board) else {
+        return Err(req.error("board_id required"));
+    };
+    let Some(is_public) = req.data.get("is_public").and_then(|v| v.as_bool()) else {
+        return Err(req.error("is_public boolean required"));
+    };
+
+    match services::board::set_board_visibility(&state.pool, board_id, user_id, is_public).await {
+        Ok(()) => {
+            broadcast_board_list_refresh(state).await;
+            let mut data = Data::new();
+            data.insert("board_id".into(), serde_json::json!(board_id));
+            data.insert("is_public".into(), serde_json::json!(is_public));
+            Ok(Outcome::Reply(data))
         }
         Err(e) => Err(req.error_from(&e)),
     }

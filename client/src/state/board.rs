@@ -18,6 +18,7 @@ use crate::net::types::{BoardObject, Presence, Savepoint};
 pub struct BoardState {
     pub board_id: Option<String>,
     pub board_name: Option<String>,
+    pub is_public: bool,
     pub self_client_id: Option<String>,
     pub follow_client_id: Option<String>,
     pub jump_to_client_id: Option<String>,
