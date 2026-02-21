@@ -28,7 +28,7 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 gloo-net = { version = "0.6", optional = true }
 gloo-timers = { version = "0.3", optional = true, features = ["futures"] }
 futures = { version = "0.3", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Window", "Document", "Element", "DomRect", "HtmlElement", "HtmlDivElement", "HtmlCanvasElement", "HtmlInputElement", "CanvasRenderingContext2d", "Storage", "Location", "MediaQueryList", "FileList", "File", "Blob"] }
+web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Clipboard", "Document", "Element", "DomRect", "HtmlElement", "HtmlDivElement", "HtmlCanvasElement", "HtmlInputElement", "CanvasRenderingContext2d", "Storage", "Location", "MediaQueryList", "FileList", "File", "Blob"] }
 js-sys = { version = "0.3", optional = true }
 canvas = { path = "../canvas", optional = true }
 
