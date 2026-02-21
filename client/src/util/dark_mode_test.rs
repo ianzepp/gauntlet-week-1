@@ -1,3 +1,5 @@
+#![cfg(not(feature = "hydrate"))]
+
 use super::*;
 
 #[test]

@@ -74,4 +74,3 @@ pub fn HelpShortcutsModal(on_close: Callback<()>) -> impl IntoView {
         </div>
     }
 }
-

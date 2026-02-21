@@ -233,7 +233,7 @@ async fn join_board_hydrates_objects_from_database() {
     let client_id = Uuid::new_v4();
     let (tx, _rx) = mpsc::channel(8);
 
-    let hydrated = join_board(&state, board.id, owner_id, client_id, tx)
+    let hydrated = join_board(&state, board.id, owner_id, "owner", "#22c55e", client_id, tx)
         .await
         .expect("join_board should hydrate objects");
 

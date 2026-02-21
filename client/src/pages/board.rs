@@ -359,10 +359,7 @@ pub fn BoardPage() -> impl IntoView {
     let on_help_close = Callback::new(move |_| help_modal_open.set(false));
     let on_board_keydown = move |ev: leptos::ev::KeyboardEvent| {
         let key = ev.key();
-        if key == "?"
-            || (key == "/" && ev.shift_key())
-            || (key == "Escape" && help_modal_open.get_untracked())
-        {
+        if key == "?" || (key == "/" && ev.shift_key()) || (key == "Escape" && help_modal_open.get_untracked()) {
             #[cfg(feature = "hydrate")]
             {
                 if is_text_input_target(&ev) {
