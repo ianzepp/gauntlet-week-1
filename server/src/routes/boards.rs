@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::routes::auth::AuthUser;
 use crate::services::board::{self, BoardMemberRow, BoardRole};
-use crate::state::AppState;
+use crate::state::{AppState, BoardObject};
 
 #[derive(Serialize)]
 pub struct BoardMemberResponse {
@@ -120,6 +120,522 @@ pub(crate) fn board_error_to_status(err: board::BoardError) -> StatusCode {
         board::BoardError::Forbidden(_) => StatusCode::FORBIDDEN,
         board::BoardError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
+}
+
+#[derive(Serialize)]
+pub struct BoardRestResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub owner_id: Option<Uuid>,
+    pub is_public: bool,
+}
+
+#[derive(Deserialize)]
+pub struct CreateBoardBody {
+    pub name: Option<String>,
+}
+
+/// `POST /api/board` — create a new board.
+pub async fn create_board_rest(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(body): Json<CreateBoardBody>,
+) -> Result<(StatusCode, Json<BoardRestResponse>), StatusCode> {
+    let name = body.name.as_deref().unwrap_or("Untitled Board");
+    let row = board::create_board(&state.pool, name, auth.user.id)
+        .await
+        .map_err(board_error_to_status)?;
+    Ok((
+        StatusCode::CREATED,
+        Json(BoardRestResponse {
+            id: row.id,
+            name: row.name,
+            owner_id: row.owner_id,
+            is_public: row.is_public,
+        }),
+    ))
+}
+
+/// `GET /api/board` — list accessible boards.
+pub async fn list_boards_rest(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<Vec<BoardRestResponse>>, StatusCode> {
+    let rows = board::list_boards(&state.pool, auth.user.id)
+        .await
+        .map_err(board_error_to_status)?;
+    Ok(Json(
+        rows.into_iter()
+            .map(|row| BoardRestResponse {
+                id: row.id,
+                name: row.name,
+                owner_id: row.owner_id,
+                is_public: row.is_public,
+            })
+            .collect(),
+    ))
+}
+
+/// `GET /api/board/:id` — fetch one board.
+pub async fn get_board(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+) -> Result<Json<BoardRestResponse>, StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::View)
+        .await
+        .map_err(board_error_to_status)?;
+
+    let row = sqlx::query_as::<_, (Uuid, String, Option<Uuid>, bool)>(
+        "SELECT id, name, owner_id, is_public FROM boards WHERE id = $1",
+    )
+    .bind(board_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok(Json(BoardRestResponse {
+        id: row.0,
+        name: row.1,
+        owner_id: row.2,
+        is_public: row.3,
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct UpdateBoardBody {
+    pub name: Option<String>,
+    pub is_public: Option<bool>,
+}
+
+/// `PATCH /api/board/:id` — update board metadata.
+pub async fn update_board_rest(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+    Json(body): Json<UpdateBoardBody>,
+) -> Result<Json<BoardRestResponse>, StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::Admin)
+        .await
+        .map_err(board_error_to_status)?;
+
+    if let Some(name) = body.name.as_deref() {
+        sqlx::query("UPDATE boards SET name = $2 WHERE id = $1")
+            .bind(board_id)
+            .bind(name)
+            .execute(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+    if let Some(is_public) = body.is_public {
+        board::set_board_visibility(&state.pool, board_id, auth.user.id, is_public)
+            .await
+            .map_err(board_error_to_status)?;
+    }
+
+    let row = sqlx::query_as::<_, (Uuid, String, Option<Uuid>, bool)>(
+        "SELECT id, name, owner_id, is_public FROM boards WHERE id = $1",
+    )
+    .bind(board_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok(Json(BoardRestResponse {
+        id: row.0,
+        name: row.1,
+        owner_id: row.2,
+        is_public: row.3,
+    }))
+}
+
+/// `DELETE /api/board/:id` — delete a board.
+pub async fn delete_board_rest(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    board::delete_board(&state.pool, board_id, auth.user.id)
+        .await
+        .map_err(board_error_to_status)?;
+
+    {
+        let mut boards = state.boards.write().await;
+        boards.remove(&board_id);
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// `GET /api/board/:id/objects` — list all objects on a board.
+pub async fn list_objects(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+) -> Result<Json<Vec<BoardObject>>, StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::View)
+        .await
+        .map_err(board_error_to_status)?;
+
+    {
+        let boards = state.boards.read().await;
+        if let Some(board_state) = boards.get(&board_id) {
+            let mut objects = board_state.objects.values().cloned().collect::<Vec<_>>();
+            objects.sort_by_key(|obj| obj.z_index);
+            return Ok(Json(objects));
+        }
+    }
+
+    let mut objects = load_objects_from_db(&state.pool, board_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    objects.sort_by_key(|obj| obj.z_index);
+    Ok(Json(objects))
+}
+
+#[derive(Deserialize)]
+pub struct CreateObjectBody {
+    pub kind: Option<String>,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: Option<f64>,
+    pub z_index: Option<i32>,
+    pub props: Option<serde_json::Value>,
+    pub group_id: Option<Uuid>,
+}
+
+/// `POST /api/board/:id/objects` — create one object.
+pub async fn create_object_rest(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+    Json(body): Json<CreateObjectBody>,
+) -> Result<(StatusCode, Json<BoardObject>), StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::Edit)
+        .await
+        .map_err(board_error_to_status)?;
+
+    let z_index = match body.z_index {
+        Some(value) => value,
+        None => next_z_index(&state, board_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+    };
+
+    let object = BoardObject {
+        id: Uuid::new_v4(),
+        board_id,
+        kind: body.kind.unwrap_or_else(|| "sticky_note".to_owned()),
+        x: body.x.unwrap_or(0.0),
+        y: body.y.unwrap_or(0.0),
+        width: body.width,
+        height: body.height,
+        rotation: body.rotation.unwrap_or(0.0),
+        z_index,
+        props: body.props.unwrap_or_else(|| serde_json::json!({})),
+        created_by: Some(auth.user.id),
+        version: 1,
+        group_id: body.group_id,
+    };
+
+    board::flush_objects(&state.pool, &[object.clone()])
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    {
+        let mut boards = state.boards.write().await;
+        if let Some(board_state) = boards.get_mut(&board_id) {
+            board_state.objects.insert(object.id, object.clone());
+            board_state.dirty.remove(&object.id);
+        }
+    }
+
+    broadcast_object_frame(&state, board_id, "object:create", object_to_data(&object)).await;
+    Ok((StatusCode::CREATED, Json(object)))
+}
+
+/// `GET /api/board/:id/objects/:object_id` — fetch one object.
+pub async fn get_object(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((board_id, object_id)): Path<(Uuid, Uuid)>,
+) -> Result<Json<BoardObject>, StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::View)
+        .await
+        .map_err(board_error_to_status)?;
+
+    {
+        let boards = state.boards.read().await;
+        if let Some(board_state) = boards.get(&board_id)
+            && let Some(object) = board_state.objects.get(&object_id)
+        {
+            return Ok(Json(object.clone()));
+        }
+    }
+
+    let object = load_object_from_db(&state.pool, board_id, object_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(object))
+}
+
+#[derive(Deserialize)]
+pub struct PatchObjectBody {
+    pub kind: Option<String>,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub width: Option<Option<f64>>,
+    pub height: Option<Option<f64>>,
+    pub rotation: Option<f64>,
+    pub z_index: Option<i32>,
+    pub props: Option<serde_json::Value>,
+    pub group_id: Option<Option<Uuid>>,
+}
+
+/// `PATCH /api/board/:id/objects/:object_id` — update one object.
+pub async fn patch_object(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((board_id, object_id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<PatchObjectBody>,
+) -> Result<Json<BoardObject>, StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::Edit)
+        .await
+        .map_err(board_error_to_status)?;
+
+    let mut object = {
+        let boards = state.boards.read().await;
+        boards
+            .get(&board_id)
+            .and_then(|board_state| board_state.objects.get(&object_id).cloned())
+    }
+    .or(
+        load_object_from_db(&state.pool, board_id, object_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+    )
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    if let Some(kind) = body.kind {
+        object.kind = kind;
+    }
+    if let Some(x) = body.x {
+        object.x = x;
+    }
+    if let Some(y) = body.y {
+        object.y = y;
+    }
+    if let Some(width) = body.width {
+        object.width = width;
+    }
+    if let Some(height) = body.height {
+        object.height = height;
+    }
+    if let Some(rotation) = body.rotation {
+        object.rotation = rotation;
+    }
+    if let Some(z_index) = body.z_index {
+        object.z_index = z_index;
+    }
+    if let Some(props) = body.props {
+        object.props = props;
+    }
+    if let Some(group_id) = body.group_id {
+        object.group_id = group_id;
+    }
+    object.version = object.version.saturating_add(1);
+
+    board::flush_objects(&state.pool, &[object.clone()])
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    {
+        let mut boards = state.boards.write().await;
+        if let Some(board_state) = boards.get_mut(&board_id) {
+            board_state.objects.insert(object.id, object.clone());
+            board_state.dirty.remove(&object.id);
+        }
+    }
+
+    broadcast_object_frame(&state, board_id, "object:update", object_to_data(&object)).await;
+    Ok(Json(object))
+}
+
+/// `DELETE /api/board/:id/objects/:object_id` — delete one object.
+pub async fn delete_object_rest(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path((board_id, object_id)): Path<(Uuid, Uuid)>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    board::ensure_board_permission(&state.pool, board_id, auth.user.id, board::BoardPermission::Edit)
+        .await
+        .map_err(board_error_to_status)?;
+
+    let result = sqlx::query("DELETE FROM board_objects WHERE board_id = $1 AND id = $2")
+        .bind(board_id)
+        .bind(object_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    {
+        let mut boards = state.boards.write().await;
+        if let Some(board_state) = boards.get_mut(&board_id) {
+            board_state.objects.remove(&object_id);
+            board_state.dirty.remove(&object_id);
+        }
+    }
+
+    let mut data = crate::frame::Data::new();
+    data.insert("object_id".into(), serde_json::json!(object_id));
+    broadcast_object_frame(&state, board_id, "object:delete", data).await;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+fn object_to_data(object: &BoardObject) -> crate::frame::Data {
+    match serde_json::to_value(object) {
+        Ok(serde_json::Value::Object(map)) => map.into_iter().collect(),
+        _ => crate::frame::Data::new(),
+    }
+}
+
+async fn broadcast_object_frame(state: &AppState, board_id: Uuid, syscall: &str, data: crate::frame::Data) {
+    let frame = crate::frame::Frame {
+        id: Uuid::new_v4(),
+        parent_id: None,
+        ts: now_ms_i64(),
+        board_id: Some(board_id),
+        from: None,
+        syscall: syscall.to_owned(),
+        status: crate::frame::Status::Done,
+        data,
+    };
+    board::broadcast(state, board_id, &frame, None).await;
+}
+
+async fn next_z_index(state: &AppState, board_id: Uuid) -> Result<i32, sqlx::Error> {
+    {
+        let boards = state.boards.read().await;
+        if let Some(board_state) = boards.get(&board_id) {
+            return Ok(board_state.objects.values().map(|obj| obj.z_index).max().unwrap_or(-1) + 1);
+        }
+    }
+
+    let max_z = sqlx::query_scalar::<_, Option<i32>>("SELECT MAX(z_index) FROM board_objects WHERE board_id = $1")
+        .bind(board_id)
+        .fetch_one(&state.pool)
+        .await?;
+    Ok(max_z.unwrap_or(-1) + 1)
+}
+
+async fn load_objects_from_db(pool: &sqlx::PgPool, board_id: Uuid) -> Result<Vec<BoardObject>, sqlx::Error> {
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            String,
+            f64,
+            f64,
+            Option<f64>,
+            Option<f64>,
+            f64,
+            i32,
+            serde_json::Value,
+            Option<Uuid>,
+            i32,
+            Option<Uuid>,
+        ),
+    >(
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id \
+         FROM board_objects WHERE board_id = $1 ORDER BY z_index ASC, id ASC",
+    )
+    .bind(board_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(
+            |(id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id)| {
+                BoardObject {
+                    id,
+                    board_id,
+                    kind,
+                    x,
+                    y,
+                    width,
+                    height,
+                    rotation,
+                    z_index,
+                    props,
+                    created_by,
+                    version,
+                    group_id,
+                }
+            },
+        )
+        .collect())
+}
+
+async fn load_object_from_db(
+    pool: &sqlx::PgPool,
+    board_id: Uuid,
+    object_id: Uuid,
+) -> Result<Option<BoardObject>, sqlx::Error> {
+    let row = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            String,
+            f64,
+            f64,
+            Option<f64>,
+            Option<f64>,
+            f64,
+            i32,
+            serde_json::Value,
+            Option<Uuid>,
+            i32,
+            Option<Uuid>,
+        ),
+    >(
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id \
+         FROM board_objects WHERE board_id = $1 AND id = $2",
+    )
+    .bind(board_id)
+    .bind(object_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(
+        |(id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, group_id)| {
+            BoardObject {
+                id,
+                board_id,
+                kind,
+                x,
+                y,
+                width,
+                height,
+                rotation,
+                z_index,
+                props,
+                created_by,
+                version,
+                group_id,
+            }
+        },
+    ))
 }
 
 #[derive(Serialize)]

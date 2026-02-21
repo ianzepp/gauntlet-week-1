@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use clap::{Args, Parser, Subcommand};
@@ -60,6 +62,7 @@ struct CliContext {
 
 #[derive(Subcommand, Debug)]
 enum Command {
+    Ping,
     Api(ApiCommand),
     Ws(WsCommand),
 }
@@ -85,7 +88,21 @@ struct BoardCommand {
 #[derive(Subcommand, Debug)]
 enum BoardSubcommand {
     List,
-    Get {
+    Read {
+        board_id: Uuid,
+    },
+    Create {
+        #[arg(long, default_value = "Untitled Board")]
+        name: String,
+    },
+    Update {
+        board_id: Uuid,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        is_public: Option<bool>,
+    },
+    Delete {
         board_id: Uuid,
     },
 }
@@ -106,7 +123,7 @@ enum ObjectSubcommand {
         #[arg(long)]
         data: String,
     },
-    Get {
+    Read {
         board_id: Uuid,
         object_id: Uuid,
     },
@@ -130,7 +147,44 @@ struct WsCommand {
 
 #[derive(Subcommand, Debug)]
 enum WsSubcommand {
+    Object(WsObjectCommand),
+    #[command(hide = true)]
     StreamCreate(StreamCreateArgs),
+}
+
+#[derive(Args, Debug)]
+struct WsObjectCommand {
+    #[command(subcommand)]
+    command: WsObjectSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+enum WsObjectSubcommand {
+    Create(WsObjectCreateArgs),
+}
+
+#[derive(Args, Debug)]
+struct WsObjectCreateArgs {
+    #[arg(long, required_unless_present = "create_board")]
+    board_id: Option<Uuid>,
+
+    #[arg(long, default_value_t = false)]
+    create_board: bool,
+
+    #[arg(long, default_value = "CLI Stream Board")]
+    board_name: String,
+
+    #[arg(long, default_value = "-", help = "Input file path, or - for stdin")]
+    input: String,
+
+    #[arg(long, default_value_t = true)]
+    wait_for_ack: bool,
+
+    #[arg(long, help = "Stop after this many created objects")]
+    max_objects: Option<usize>,
+
+    #[arg(long, default_value_t = 1000)]
+    progress_every: usize,
 }
 
 #[derive(Args, Debug)]
@@ -140,39 +194,6 @@ struct StreamCreateArgs {
 
     #[arg(long, default_value_t = 100)]
     count: usize,
-
-    #[arg(long, default_value = "sticky_note")]
-    kind: String,
-
-    #[arg(long, default_value_t = 0.0)]
-    start_x: f64,
-
-    #[arg(long, default_value_t = 0.0)]
-    start_y: f64,
-
-    #[arg(long, default_value_t = 60.0)]
-    step_x: f64,
-
-    #[arg(long, default_value_t = 60.0)]
-    step_y: f64,
-
-    #[arg(long, default_value_t = 40)]
-    columns: usize,
-
-    #[arg(long, default_value_t = 160.0)]
-    width: f64,
-
-    #[arg(long, default_value_t = 100.0)]
-    height: f64,
-
-    #[arg(long, default_value_t = 0.0)]
-    rotation: f64,
-
-    #[arg(long)]
-    props: Option<String>,
-
-    #[arg(long, default_value_t = true)]
-    wait_for_ack: bool,
 }
 
 #[tokio::main]
@@ -185,9 +206,25 @@ async fn main() -> Result<(), CliError> {
     };
 
     match cli.command {
+        Command::Ping => run_ping(&ctx).await,
         Command::Api(api) => run_api(&ctx, api).await,
         Command::Ws(ws) => run_ws(&ctx, ws).await,
     }
+}
+
+async fn run_ping(cli: &CliContext) -> Result<(), CliError> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/healthz", cli.base_url.trim_end_matches('/'));
+    let response = client.get(url).send().await?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(CliError::ServerError {
+            syscall: format!("HTTP {}", status.as_u16()),
+            message: "health check failed".to_owned(),
+        });
+    }
+    println!("ok");
+    Ok(())
 }
 
 async fn run_api(cli: &CliContext, api: ApiCommand) -> Result<(), CliError> {
@@ -204,9 +241,43 @@ async fn run_api_board(cli: &CliContext, board: BoardCommand) -> Result<(), CliE
             print_json(&json)?;
             Ok(())
         }
-        BoardSubcommand::Get { board_id } => {
+        BoardSubcommand::Read { board_id } => {
             let path = format!("/api/board/{board_id}");
             let json = api_request(cli, reqwest::Method::GET, &path, None).await?;
+            print_json(&json)?;
+            Ok(())
+        }
+        BoardSubcommand::Create { name } => {
+            let json = api_request(
+                cli,
+                reqwest::Method::POST,
+                "/api/board",
+                Some(serde_json::json!({ "name": name })),
+            )
+            .await?;
+            print_json(&json)?;
+            Ok(())
+        }
+        BoardSubcommand::Update {
+            board_id,
+            name,
+            is_public,
+        } => {
+            let mut body = Map::new();
+            if let Some(name) = name {
+                body.insert("name".to_owned(), Value::String(name));
+            }
+            if let Some(is_public) = is_public {
+                body.insert("is_public".to_owned(), Value::Bool(is_public));
+            }
+            let path = format!("/api/board/{board_id}");
+            let json = api_request(cli, reqwest::Method::PATCH, &path, Some(Value::Object(body))).await?;
+            print_json(&json)?;
+            Ok(())
+        }
+        BoardSubcommand::Delete { board_id } => {
+            let path = format!("/api/board/{board_id}");
+            let json = api_request(cli, reqwest::Method::DELETE, &path, None).await?;
             print_json(&json)?;
             Ok(())
         }
@@ -228,7 +299,7 @@ async fn run_api_object(cli: &CliContext, object: ObjectCommand) -> Result<(), C
             print_json(&json)?;
             Ok(())
         }
-        ObjectSubcommand::Get { board_id, object_id } => {
+        ObjectSubcommand::Read { board_id, object_id } => {
             let path = format!("/api/board/{board_id}/objects/{object_id}");
             let json = api_request(cli, reqwest::Method::GET, &path, None).await?;
             print_json(&json)?;
@@ -259,11 +330,33 @@ async fn run_api_object(cli: &CliContext, object: ObjectCommand) -> Result<(), C
 
 async fn run_ws(cli: &CliContext, ws: WsCommand) -> Result<(), CliError> {
     match ws.command {
-        WsSubcommand::StreamCreate(args) => stream_create(cli, args).await,
+        WsSubcommand::Object(command) => match command.command {
+            WsObjectSubcommand::Create(args) => ws_object_create(cli, args).await,
+        },
+        WsSubcommand::StreamCreate(args) => stream_create_legacy(cli, args).await,
     }
 }
 
-async fn stream_create(cli: &CliContext, args: StreamCreateArgs) -> Result<(), CliError> {
+async fn ws_object_create(cli: &CliContext, args: WsObjectCreateArgs) -> Result<(), CliError> {
+    let board_id = if args.create_board {
+        let created = api_request(
+            cli,
+            reqwest::Method::POST,
+            "/api/board",
+            Some(serde_json::json!({ "name": args.board_name })),
+        )
+        .await?;
+        let id = created
+            .get("id")
+            .and_then(Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok())
+            .ok_or(CliError::MissingField("id"))?;
+        eprintln!("created board: {id}");
+        id
+    } else {
+        args.board_id.ok_or(CliError::MissingField("board_id"))?
+    };
+
     let ticket = match &cli.ws_ticket {
         Some(ticket) => ticket.clone(),
         None => fetch_ws_ticket(cli).await?,
@@ -276,7 +369,7 @@ async fn stream_create(cli: &CliContext, args: StreamCreateArgs) -> Result<(), C
 
     wait_for_session_connected(&mut stream).await?;
 
-    let join = request_frame("board:join", Some(args.board_id), Value::Object(Map::new()));
+    let join = request_frame("board:join", Some(board_id), Value::Object(Map::new()));
     let join_id = join.id.clone();
     stream
         .send(Message::Binary(frames::encode_frame(&join).into()))
@@ -284,37 +377,35 @@ async fn stream_create(cli: &CliContext, args: StreamCreateArgs) -> Result<(), C
         .map_err(|error| CliError::WsConnect(Box::new(error)))?;
     wait_for_terminal_response(&mut stream, &join_id, "board:join").await?;
 
-    let base_props = args
-        .props
-        .as_deref()
-        .map(serde_json::from_str::<Value>)
-        .transpose()?
-        .unwrap_or_else(|| Value::Object(Map::new()));
+    let mut sent = 0_usize;
+    let mut skipped = 0_usize;
+    let mut reader: Box<dyn BufRead> = if args.input == "-" {
+        Box::new(BufReader::new(io::stdin()))
+    } else {
+        let file = File::open(&args.input).map_err(|error| CliError::ServerError {
+            syscall: "open input".to_owned(),
+            message: error.to_string(),
+        })?;
+        Box::new(BufReader::new(file))
+    };
 
-    for index in 0..args.count {
-        let col = index % args.columns.max(1);
-        let row = index / args.columns.max(1);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let bytes = reader.read_line(&mut line).map_err(|error| CliError::ServerError {
+            syscall: "read input".to_owned(),
+            message: error.to_string(),
+        })?;
+        if bytes == 0 {
+            break;
+        }
 
-        let x = args.start_x + (col as f64 * args.step_x);
-        let y = args.start_y + (row as f64 * args.step_y);
-
-        let mut props_obj = match &base_props {
-            Value::Object(map) => map.clone(),
-            _ => Map::new(),
+        let Some(payload) = parse_jsonl_object_line(&line)? else {
+            skipped = skipped.saturating_add(1);
+            continue;
         };
-        props_obj.insert("text".to_owned(), Value::String(format!("stream-{index}")));
 
-        let payload = serde_json::json!({
-            "kind": args.kind,
-            "x": x,
-            "y": y,
-            "width": args.width,
-            "height": args.height,
-            "rotation": args.rotation,
-            "props": props_obj,
-        });
-
-        let req = request_frame("object:create", Some(args.board_id), payload);
+        let req = request_frame("object:create", Some(board_id), payload);
         let req_id = req.id.clone();
         stream
             .send(Message::Binary(frames::encode_frame(&req).into()))
@@ -324,11 +415,66 @@ async fn stream_create(cli: &CliContext, args: StreamCreateArgs) -> Result<(), C
         if args.wait_for_ack {
             wait_for_terminal_response(&mut stream, &req_id, "object:create").await?;
         }
+
+        sent = sent.saturating_add(1);
+        if args.progress_every > 0 && sent.is_multiple_of(args.progress_every) {
+            eprintln!("streamed {sent} objects...");
+        }
+        if args.max_objects.is_some_and(|limit| sent >= limit) {
+            break;
+        }
     }
 
     eprintln!(
-        "stream_create complete: board_id={} count={} wait_for_ack={}",
-        args.board_id, args.count, args.wait_for_ack
+        "ws object create complete: board_id={} created={} skipped={} wait_for_ack={}",
+        board_id, sent, skipped, args.wait_for_ack
+    );
+    Ok(())
+}
+
+async fn stream_create_legacy(cli: &CliContext, args: StreamCreateArgs) -> Result<(), CliError> {
+    let ticket = match &cli.ws_ticket {
+        Some(ticket) => ticket.clone(),
+        None => fetch_ws_ticket(cli).await?,
+    };
+
+    let ws_url = ws_url(&cli.base_url, &ticket)?;
+    let (mut stream, _) = connect_async(ws_url)
+        .await
+        .map_err(|error| CliError::WsConnect(Box::new(error)))?;
+
+    wait_for_session_connected(&mut stream).await?;
+    let join = request_frame("board:join", Some(args.board_id), Value::Object(Map::new()));
+    let join_id = join.id.clone();
+    stream
+        .send(Message::Binary(frames::encode_frame(&join).into()))
+        .await
+        .map_err(|error| CliError::WsConnect(Box::new(error)))?;
+    wait_for_terminal_response(&mut stream, &join_id, "board:join").await?;
+
+    for index in 0..args.count {
+        let payload = serde_json::json!({
+            "kind": "sticky_note",
+            "x": index as f64,
+            "y": index as f64,
+            "width": 160.0,
+            "height": 100.0,
+            "rotation": 0.0,
+            "props": { "text": format!("stream-{index}") },
+        });
+
+        let req = request_frame("object:create", Some(args.board_id), payload);
+        let req_id = req.id.clone();
+        stream
+            .send(Message::Binary(frames::encode_frame(&req).into()))
+            .await
+            .map_err(|error| CliError::WsConnect(Box::new(error)))?;
+        wait_for_terminal_response(&mut stream, &req_id, "object:create").await?;
+    }
+
+    eprintln!(
+        "legacy stream-create complete: board_id={} count={}",
+        args.board_id, args.count
     );
     Ok(())
 }
@@ -489,4 +635,37 @@ fn print_json(value: &Value) -> Result<(), CliError> {
     let rendered = serde_json::to_string_pretty(value)?;
     println!("{rendered}");
     Ok(())
+}
+
+fn parse_jsonl_object_line(line: &str) -> Result<Option<Value>, CliError> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+
+    let mut value = serde_json::from_str::<Value>(trimmed)?;
+    let Some(map) = value.as_object_mut() else {
+        return Ok(None);
+    };
+
+    if let Some(line_type) = map.get("type").and_then(Value::as_str) {
+        if line_type == "board_export_meta" {
+            return Ok(None);
+        }
+        if line_type != "object" {
+            return Ok(None);
+        }
+        map.remove("type");
+    }
+
+    map.remove("id");
+    map.remove("board_id");
+    map.remove("created_by");
+    map.remove("version");
+    map.remove("z_index");
+
+    if !map.contains_key("kind") {
+        return Ok(None);
+    }
+    Ok(Some(value))
 }
