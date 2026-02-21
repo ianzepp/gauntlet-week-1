@@ -23,7 +23,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::frame::{Data, Frame};
@@ -259,7 +259,7 @@ async fn process_inbound_bytes(
 
     // Persist inbound request (skip ephemeral frames).
     if !is_ephemeral {
-        info!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
+        debug!(%client_id, id = %req.id, syscall = %req.syscall, status = ?req.status, "ws: recv frame");
         services::persistence::enqueue_frame(state, &req);
     }
 
@@ -1383,7 +1383,7 @@ async fn send_frame(socket: &mut WebSocket, frame: &Frame) -> Result<(), ()> {
                 .unwrap_or("-");
             warn!(id = %frame.id, syscall = %frame.syscall, code, message, "ws: send frame status=Error");
         } else {
-            info!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
+            debug!(id = %frame.id, syscall = %frame.syscall, status = ?frame.status, "ws: send frame");
         }
     }
     socket
