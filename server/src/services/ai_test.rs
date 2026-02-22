@@ -151,33 +151,15 @@ async fn tool_create_sticky_note_without_coordinates_uses_viewport_anchor() {
 }
 
 #[tokio::test]
-async fn tool_create_sticky_note_coordinates_are_viewport_relative() {
+async fn tool_create_sticky_note_coordinates_are_world_space() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
-    let viewer_id = Uuid::new_v4();
-    {
-        let mut boards = state.boards.write().await;
-        let board = boards.get_mut(&board_id).expect("board should exist");
-        board.viewports.insert(
-            viewer_id,
-            crate::state::ClientViewport {
-                camera_center_x: Some(100.0),
-                camera_center_y: Some(200.0),
-                camera_zoom: Some(2.0),
-                camera_rotation: Some(0.0),
-                camera_viewport_width: Some(1000.0),
-                camera_viewport_height: Some(600.0),
-                ..Default::default()
-            },
-        );
-    }
 
     let mut mutations = Vec::new();
     let input = json!({
-        "text": "viewport relative",
-        "x": 0,
-        "y": 0,
-        "_viewer_client_id": viewer_id.to_string()
+        "text": "world coords",
+        "x": 500,
+        "y": 300
     });
     let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
         .await
@@ -185,8 +167,8 @@ async fn tool_create_sticky_note_coordinates_are_viewport_relative() {
     assert!(result.contains("created sticky note"));
     assert_eq!(mutations.len(), 1);
     if let AiMutation::Created(obj) = &mutations[0] {
-        assert!((obj.x - (-150.0)).abs() < f64::EPSILON);
-        assert!((obj.y - 50.0).abs() < f64::EPSILON);
+        assert!((obj.x - 500.0).abs() < f64::EPSILON);
+        assert!((obj.y - 300.0).abs() < f64::EPSILON);
     } else {
         panic!("expected Created mutation");
     }

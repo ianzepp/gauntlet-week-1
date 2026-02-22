@@ -23,7 +23,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "createStickyNote".into(),
-            description: "Create a sticky note on the board.".into(),
+            description: "Create a sticky note with text content.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -31,11 +31,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "text": { "type": "string", "description": "Text content of the sticky note" },
                     "x": {
                         "type": "number",
-                        "description": "X position in viewport coordinates where 0 is the visible left edge"
+                        "description": "X position in world coordinates"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
+                        "description": "Y position in world coordinates"
                     },
                     "fontSize": { "type": "number", "description": "Text font size in pixels" },
                     "textColor": { "type": "string", "description": "Text color hex" },
@@ -49,7 +49,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "createShape".into(),
-            description: "Create a shape on the board.".into(),
+            description: "Create a primitive shape (rectangle, ellipse, text, line, or arrow).".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -60,11 +60,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     },
                     "x": {
                         "type": "number",
-                        "description": "X position in viewport coordinates where 0 is the visible left edge"
+                        "description": "X position in world coordinates"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
+                        "description": "Y position in world coordinates"
                     },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
@@ -88,11 +88,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "title": { "type": "string", "description": "Frame title displayed at the top" },
                     "x": {
                         "type": "number",
-                        "description": "X position in viewport coordinates where 0 is the visible left edge"
+                        "description": "X position in world coordinates"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
+                        "description": "Y position in world coordinates"
                     },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
@@ -105,7 +105,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "createConnector".into(),
-            description: "Create a connector line/arrow between two objects.".into(),
+            description: "Create a connector that links two existing objects by ID.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -118,18 +118,18 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "createSvgObject".into(),
-            description: "Create an SVG object on the board.".into(),
+            description: "Create one SVG object from raw SVG markup with explicit size.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "svg": { "type": "string", "description": "Raw SVG markup string" },
                     "x": {
                         "type": "number",
-                        "description": "X position in viewport coordinates where 0 is the visible left edge"
+                        "description": "X position in world coordinates"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
+                        "description": "Y position in world coordinates"
                     },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
@@ -146,7 +146,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "updateSvgContent".into(),
-            description: "Replace the SVG content for an existing SVG object.".into(),
+            description: "Replace raw SVG markup on an existing SVG object.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -158,18 +158,18 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "importSvg".into(),
-            description: "Import raw SVG into the board.".into(),
+            description: "Import raw SVG into the board as a single SVG object with optional scaling.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "svg": { "type": "string", "description": "Raw SVG markup string" },
                     "x": {
                         "type": "number",
-                        "description": "Optional X in viewport coordinates where 0 is the visible left edge"
+                        "description": "Optional X position in world coordinates"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Optional Y in viewport coordinates where 0 is the visible top edge"
+                        "description": "Optional Y position in world coordinates"
                     },
                     "scale": { "type": "number", "description": "Optional uniform import scale factor" },
                     "allowOverlap": { "type": "boolean", "description": "Whether this object may overlap existing objects (default false)" },
@@ -222,13 +222,15 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "moveObject".into(),
-            description: "Move an object to a new position.".into(),
+            description:
+                "Move an existing object to a new position in world coordinates."
+                    .into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to move" },
-                    "x": { "type": "number", "description": "New X position" },
-                    "y": { "type": "number", "description": "New Y position" }
+                    "x": { "type": "number", "description": "New X position in world coordinates" },
+                    "y": { "type": "number", "description": "New Y position in world coordinates" }
                 },
                 "required": ["objectId", "x", "y"]
             }),
@@ -302,11 +304,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "properties": {
                     "x": {
                         "type": "number",
-                        "description": "Top-left X position in viewport coordinates where 0 is the visible left edge"
+                        "description": "Top-left X position in world coordinates"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Top-left Y position in viewport coordinates where 0 is the visible top edge"
+                        "description": "Top-left Y position in world coordinates"
                     },
                     "width": {
                         "type": "number",
@@ -338,11 +340,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "mermaid": { "type": "string", "description": "Mermaid sequenceDiagram syntax" },
                     "x": {
                         "type": "number",
-                        "description": "X origin for diagram placement (default: near viewer center, not assumed top-left)"
+                        "description": "Optional X origin in world coordinates (board-space)"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y origin for diagram placement (default: near viewer center, not assumed top-left)"
+                        "description": "Optional Y origin in world coordinates (board-space)"
                     },
                     "scale": { "type": "number", "description": "Scale factor 0.5-3.0 (default 1.0)" }
                 },
@@ -385,8 +387,8 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                         "description": "Optional existing object ID to store props.animation on"
                     },
                     "title": { "type": "string", "description": "Optional host frame title (when creating a new host)" },
-                    "x": { "type": "number", "description": "Optional host frame X position when hostObjectId is omitted" },
-                    "y": { "type": "number", "description": "Optional host frame Y position when hostObjectId is omitted" },
+                    "x": { "type": "number", "description": "Optional host frame X position in world coordinates when hostObjectId is omitted" },
+                    "y": { "type": "number", "description": "Optional host frame Y position in world coordinates when hostObjectId is omitted" },
                     "width": { "type": "number", "description": "Optional host frame width (default 480)" },
                     "height": { "type": "number", "description": "Optional host frame height (default 280)" }
                 },

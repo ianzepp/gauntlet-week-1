@@ -399,7 +399,6 @@ pub async fn handle_prompt_with_parent(
             let result = execute_tool_via_syscall(
                 state,
                 board_id,
-                client_id,
                 user_id,
                 iteration,
                 tool_id,
@@ -471,9 +470,7 @@ pub async fn handle_prompt_with_parent(
         "ai: prompt complete"
     );
 
-    if session_memory_enabled
-        && let Some(text) = final_text.clone()
-    {
+    if session_memory_enabled && let Some(text) = final_text.clone() {
         append_session_messages(state, session_key, prompt_message, text).await;
     }
 
@@ -497,7 +494,6 @@ pub async fn handle_prompt_with_parent(
 async fn execute_tool_via_syscall(
     state: &AppState,
     board_id: Uuid,
-    client_id: Uuid,
     user_id: Uuid,
     iteration: usize,
     tool_use_id: &str,
@@ -513,11 +509,7 @@ async fn execute_tool_via_syscall(
     let syscall = format!("tool:{tool_name}");
     let mut req_data = Data::new();
     req_data.insert("tool_use_id".into(), json!(tool_use_id));
-    let mut tool_input = input.clone();
-    if let Some(obj) = tool_input.as_object_mut() {
-        obj.insert("_viewer_client_id".into(), json!(client_id.to_string()));
-    }
-    req_data.insert("input".into(), tool_input);
+    req_data.insert("input".into(), input.clone());
 
     let mut req = Frame::request(syscall, req_data)
         .with_board_id(board_id)
@@ -623,17 +615,17 @@ fn truncate_text_for_session(text: &str) -> String {
     if text.chars().count() <= MAX_SESSION_MESSAGE_CHARS {
         return text.to_owned();
     }
-    let mut truncated = text.chars().take(MAX_SESSION_MESSAGE_CHARS).collect::<String>();
+    let mut truncated = text
+        .chars()
+        .take(MAX_SESSION_MESSAGE_CHARS)
+        .collect::<String>();
     truncated.push_str("...");
     truncated
 }
 
 fn truncate_message_for_session(message: Message) -> Message {
     match message.content {
-        Content::Text(text) => Message {
-            role: message.role,
-            content: Content::Text(truncate_text_for_session(&text)),
-        },
+        Content::Text(text) => Message { role: message.role, content: Content::Text(truncate_text_for_session(&text)) },
         other => Message { role: message.role, content: other },
     }
 }
@@ -865,53 +857,6 @@ fn object_dimensions(obj: &BoardObject) -> (f64, f64) {
     (obj.width.unwrap_or(dw).max(1.0), obj.height.unwrap_or(dh).max(1.0))
 }
 
-fn viewer_top_left_world(view: &ClientViewport) -> Option<(f64, f64)> {
-    let center_x = view.camera_center_x?;
-    let center_y = view.camera_center_y?;
-    let zoom = view.camera_zoom?.max(0.001);
-    let rotation_deg = view.camera_rotation?;
-    let viewport_w = view.camera_viewport_width?;
-    let viewport_h = view.camera_viewport_height?;
-
-    let world_w = viewport_w / zoom;
-    let world_h = viewport_h / zoom;
-    let dx = -world_w * 0.5;
-    let dy = -world_h * 0.5;
-    let radians = rotation_deg.to_radians();
-    let cos = radians.cos();
-    let sin = radians.sin();
-
-    let x = center_x + (dx * cos) - (dy * sin);
-    let y = center_y + (dx * sin) + (dy * cos);
-    Some((x, y))
-}
-
-async fn ai_viewport_origin_from_input(
-    state: &AppState,
-    board_id: Uuid,
-    input: &serde_json::Value,
-) -> Option<(f64, f64)> {
-    let client_id = input
-        .get("_viewer_client_id")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|raw| raw.parse::<Uuid>().ok())?;
-    let boards = state.boards.read().await;
-    let board = boards.get(&board_id)?;
-    let viewport = board.viewports.get(&client_id)?;
-    viewer_top_left_world(viewport)
-}
-
-fn map_ai_coords_to_world(
-    x_opt: Option<f64>,
-    y_opt: Option<f64>,
-    origin: Option<(f64, f64)>,
-) -> (Option<f64>, Option<f64>) {
-    match origin {
-        Some((ox, oy)) => (x_opt.map(|x| ox + x), y_opt.map(|y| oy + y)),
-        None => (x_opt, y_opt),
-    }
-}
-
 fn intersects_with_padding(
     x: f64,
     y: f64,
@@ -1000,9 +945,9 @@ async fn find_non_overlapping_position(
             (origin_x + (col * step_x), origin_y + (row * step_y))
         };
 
-        let overlaps = objects.iter().any(|(ox, oy, ow, oh)| {
-            intersects_with_padding(x, y, width, height, *ox, *oy, *ow, *oh, padding)
-        });
+        let overlaps = objects
+            .iter()
+            .any(|(ox, oy, ow, oh)| intersects_with_padding(x, y, width, height, *ox, *oy, *ow, *oh, padding));
         if !overlaps {
             return (x, y);
         }
@@ -1039,8 +984,7 @@ async fn execute_create_sticky_note(
     let text = input.get("text").and_then(|v| v.as_str()).unwrap_or("");
     let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
+    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
     let fill = input
         .get("fill")
         .and_then(|v| v.as_str())
@@ -1095,8 +1039,7 @@ async fn execute_create_shape(
     };
     let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
+    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
     let fill = input
         .get("fill")
         .and_then(|v| v.as_str())
@@ -1138,8 +1081,7 @@ async fn execute_create_shape(
     };
     let create_w = w.unwrap_or(default_w);
     let create_h = h.unwrap_or(placement_h);
-    let (x, y) =
-        resolve_create_position(state, board_id, x_opt, y_opt, create_w, create_h, allow_overlap).await;
+    let (x, y) = resolve_create_position(state, board_id, x_opt, y_opt, create_w, create_h, allow_overlap).await;
 
     let props = if kind == "text" {
         let text_color = input
@@ -1206,8 +1148,7 @@ async fn execute_create_frame(
         .unwrap_or("Untitled");
     let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
+    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
     let stroke = input
         .get("stroke")
         .and_then(|v| v.as_str())
@@ -1343,8 +1284,7 @@ async fn execute_create_svg_object(
     };
     let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
+    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
     let Some(width) = input.get("width").and_then(serde_json::Value::as_f64) else {
         return Ok("error: missing width".into());
     };
@@ -1358,16 +1298,8 @@ async fn execute_create_svg_object(
         .get("allowOverlap")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
-    let (x, y) = resolve_create_position(
-        state,
-        board_id,
-        x_opt,
-        y_opt,
-        width.max(1.0),
-        height.max(1.0),
-        allow_overlap,
-    )
-    .await;
+    let (x, y) =
+        resolve_create_position(state, board_id, x_opt, y_opt, width.max(1.0), height.max(1.0), allow_overlap).await;
 
     let mut props = serde_json::Map::new();
     props.insert("svg".into(), json!(svg));
@@ -1485,8 +1417,7 @@ async fn execute_import_svg(
 
     let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
+    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
     let scale = input
         .get("scale")
         .and_then(serde_json::Value::as_f64)
@@ -1739,10 +1670,8 @@ async fn execute_move_object(
 
     let raw_x = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (mapped_x, mapped_y) = map_ai_coords_to_world(raw_x, raw_y, ai_origin);
-    let x = mapped_x.map(|v| json!(v));
-    let y = mapped_y.map(|v| json!(v));
+    let x = raw_x.map(|v| json!(v));
+    let y = raw_y.map(|v| json!(v));
 
     match update_object_with_retry(state, board_id, id, |_| {
         let mut data = Data::new();
@@ -1976,8 +1905,7 @@ async fn execute_create_swot(
 ) -> Result<String, AiError> {
     let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
     let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
-    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
+    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
     let width = input
         .get("width")
         .and_then(serde_json::Value::as_f64)
@@ -2107,10 +2035,7 @@ async fn execute_create_swot(
         mutations.push(AiMutation::Created(label_obj));
     }
 
-    Ok(format!(
-        "created SWOT analysis template with 4 quadrants in frame {}",
-        frame.id
-    ))
+    Ok(format!("created SWOT analysis template with 4 quadrants in frame {}", frame.id))
 }
 
 async fn execute_create_mermaid_diagram(
