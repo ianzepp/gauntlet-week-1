@@ -18,6 +18,8 @@ use crate::state::canvas_view::CanvasViewState;
 use crate::state::ui::ToolType;
 use crate::state::ui::UiState;
 #[cfg(feature = "hydrate")]
+use crate::util::animation::{project_clip_scene, resolve_active_clip};
+#[cfg(feature = "hydrate")]
 use crate::util::canvas_input::{
     compass_angle_from_pointer, map_button, map_modifiers, map_tool, pointer_event_hits_control, pointer_point,
     should_prevent_default_key, wheel_point, zoom_angle_from_pointer,
@@ -61,7 +63,11 @@ use crate::util::selection_metrics::{
 use crate::util::shape_palette::{materialize_shape_props, placement_shape};
 
 #[cfg(feature = "hydrate")]
+use gloo_timers::callback::Interval;
+#[cfg(feature = "hydrate")]
 use std::cell::RefCell;
+#[cfg(feature = "hydrate")]
+use std::collections::HashMap;
 #[cfg(feature = "hydrate")]
 use std::rc::Rc;
 
@@ -182,9 +188,11 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_center_override_seq = RwSignal::new(0_u64);
     #[cfg(feature = "hydrate")]
-    let last_scene_sync_key = RwSignal::new((None::<String>, 0_u64));
+    let last_scene_sync_key = RwSignal::new((None::<String>, 0_u64, None::<String>, 0_i64));
     #[cfg(feature = "hydrate")]
     let render_raf_pending = RwSignal::new(false);
+    #[cfg(feature = "hydrate")]
+    let animation_tick = Rc::new(RefCell::new(None::<Interval>));
     #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     #[cfg(feature = "hydrate")]
@@ -288,15 +296,80 @@ pub fn CanvasHost() -> impl IntoView {
 
     #[cfg(feature = "hydrate")]
     {
+        let animation_tick = Rc::clone(&animation_tick);
+        let engine = Rc::clone(&engine);
+        let render_raf_pending = render_raf_pending;
+        Effect::new(move || {
+            let ui_state = _ui.get();
+            let maybe_clip = board.with(|state| resolve_active_clip(state, &ui_state));
+            if !ui_state.animation_playing {
+                animation_tick.borrow_mut().take();
+                return;
+            }
+            let Some((_clip_id, clip)) = maybe_clip else {
+                animation_tick.borrow_mut().take();
+                _ui.update(|u| u.animation_playing = false);
+                return;
+            };
+            if clip.duration_ms <= 0.0 {
+                animation_tick.borrow_mut().take();
+                _ui.update(|u| u.animation_playing = false);
+                return;
+            }
+            if animation_tick.borrow().is_some() {
+                return;
+            }
+
+            let engine_for_tick = Rc::clone(&engine);
+            let board_for_tick = board;
+            let ui_for_tick = _ui;
+            let canvas_view_for_tick = canvas_view;
+            let render_raf_pending_for_tick = render_raf_pending;
+            let tick = Interval::new(33, move || {
+                let maybe_clip = board_for_tick.with(|state| resolve_active_clip(state, &ui_for_tick.get_untracked()));
+                ui_for_tick.update(|u| {
+                    if !u.animation_playing {
+                        return;
+                    }
+                    let Some((_clip_id, clip)) = maybe_clip.as_ref() else {
+                        u.animation_playing = false;
+                        return;
+                    };
+                    let mut next = u.animation_playhead_ms + 33.0;
+                    if next > clip.duration_ms {
+                        if clip.looped {
+                            next = if clip.duration_ms > 0.0 {
+                                next % clip.duration_ms
+                            } else {
+                                0.0
+                            };
+                        } else {
+                            next = clip.duration_ms;
+                            u.animation_playing = false;
+                        }
+                    }
+                    u.animation_playhead_ms = next.max(0.0);
+                });
+                request_render(&engine_for_tick, canvas_view_for_tick, render_raf_pending_for_tick);
+            });
+            *animation_tick.borrow_mut() = Some(tick);
+        });
+    }
+
+    #[cfg(feature = "hydrate")]
+    {
         let engine = Rc::clone(&engine);
         let canvas_ref_sync = canvas_ref.clone();
         let render_raf_pending = render_raf_pending;
         Effect::new(move || {
+            let ui_state = _ui.get();
             let Some(scene_key) = board.with(|state| {
                 if state.join_streaming {
                     None
                 } else {
-                    Some((state.board_id.clone(), state.scene_rev))
+                    let active_clip = resolve_active_clip(state, &ui_state).map(|(id, _)| id);
+                    let playhead = ui_state.animation_playhead_ms.round() as i64;
+                    Some((state.board_id.clone(), state.scene_rev, active_clip, playhead))
                 }
             }) else {
                 return;
@@ -307,10 +380,18 @@ pub fn CanvasHost() -> impl IntoView {
 
             let snapshot = board.with(|state| {
                 let board_id = state.board_id.clone();
-                let mut snapshot = Vec::with_capacity(state.objects.len());
+                let mut scene_objects = HashMap::with_capacity(state.objects.len());
                 for (id, obj) in &state.objects {
-                    let source = state.drag_objects.get(id).unwrap_or(obj);
-                    if let Some(mapped) = to_canvas_object(source, board_id.as_deref()) {
+                    scene_objects.insert(id.clone(), state.drag_objects.get(id).unwrap_or(obj).clone());
+                }
+                if let Some((_id, clip)) = resolve_active_clip(state, &ui_state) {
+                    scene_objects =
+                        project_clip_scene(&scene_objects, board_id.as_deref(), &clip, ui_state.animation_playhead_ms);
+                }
+
+                let mut snapshot = Vec::with_capacity(scene_objects.len());
+                for obj in scene_objects.values() {
+                    if let Some(mapped) = to_canvas_object(obj, board_id.as_deref()) {
                         snapshot.push(mapped);
                     }
                 }

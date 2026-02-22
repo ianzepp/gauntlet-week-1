@@ -121,6 +121,11 @@ pub fn BoardPage() -> impl IntoView {
         // WHY: board data is board-id scoped, but websocket client identity is
         // connection-scoped and intentionally preserved.
         board.update(|b| reset_board_for_route_change(b, next_id.clone()));
+        ui.update(|u| {
+            u.animation_clip_object_id = None;
+            u.animation_playing = false;
+            u.animation_playhead_ms = 0.0;
+        });
         canvas_view.set(CanvasViewState::default());
         last_join_key.set(None);
         last_route_board_id.set(next_id);
@@ -185,6 +190,11 @@ pub fn BoardPage() -> impl IntoView {
             b.pending_join_request_id = None;
             b.pending_join_started_ms = None;
             b.scene_rev = 0;
+        });
+        ui.update(|u| {
+            u.animation_clip_object_id = None;
+            u.animation_playing = false;
+            u.animation_playhead_ms = 0.0;
         });
         canvas_view.set(CanvasViewState::default());
     });

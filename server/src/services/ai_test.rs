@@ -622,6 +622,89 @@ async fn tool_get_board_state_with_objects() {
 }
 
 // =========================================================================
+// execute_tool — createAnimationClip
+// =========================================================================
+
+#[tokio::test]
+async fn tool_create_animation_clip_creates_host_frame() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "title": "Pulse Demo",
+        "x": 100,
+        "y": 120,
+        "stream": [
+            { "tMs": 0, "op": "create", "object": {
+                "id": Uuid::new_v4(),
+                "board_id": board_id,
+                "kind": "rectangle",
+                "x": 100.0,
+                "y": 100.0,
+                "width": 120.0,
+                "height": 80.0,
+                "rotation": 0.0,
+                "z_index": 1,
+                "props": {"fill": "#4CAF50"},
+                "created_by": serde_json::Value::Null,
+                "version": 1,
+                "group_id": serde_json::Value::Null
+            }},
+            { "tMs": 200, "op": "update", "targetId": "rect-1", "patch": {"x": 160, "y": 140} }
+        ]
+    });
+    let result = execute_tool(&state, board_id, "createAnimationClip", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created animation clip host"));
+    assert_eq!(mutations.len(), 1);
+    match &mutations[0] {
+        AiMutation::Created(obj) => {
+            assert_eq!(obj.kind, "frame");
+            assert!(obj.props.get("animation").is_some());
+        }
+        _ => panic!("expected Created mutation"),
+    }
+}
+
+#[tokio::test]
+async fn tool_create_animation_clip_updates_existing_host() {
+    let state = test_helpers::test_app_state();
+    let host = test_helpers::dummy_object();
+    let host_id = host.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![host]).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "hostObjectId": host_id,
+        "durationMs": 1000,
+        "stream": [
+            { "tMs": 0, "op": "update", "targetId": host_id.to_string(), "patch": {"x": 200} }
+        ]
+    });
+    let result = execute_tool(&state, board_id, "createAnimationClip", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("stored animation clip on object"));
+    assert_eq!(mutations.len(), 1);
+    match &mutations[0] {
+        AiMutation::Updated(obj) => {
+            let animation = obj
+                .props
+                .get("animation")
+                .expect("animation should be stored");
+            assert_eq!(
+                animation
+                    .get("events")
+                    .and_then(serde_json::Value::as_array)
+                    .map_or(0, Vec::len),
+                1
+            );
+        }
+        _ => panic!("expected Updated mutation"),
+    }
+}
+
+// =========================================================================
 // execute_tool — unknown
 // =========================================================================
 

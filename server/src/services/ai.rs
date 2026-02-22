@@ -9,7 +9,7 @@
 //! Tool names match the G4 Week 1 spec exactly (issue #19):
 //! createStickyNote, createShape, createFrame, createConnector,
 //! createSvgObject, updateSvgContent, importSvg, exportSelectionToSvg, deleteObject,
-//! moveObject, resizeObject, updateText, changeColor, getBoardState.
+//! moveObject, resizeObject, updateText, changeColor, createAnimationClip, getBoardState.
 
 use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
@@ -727,6 +727,7 @@ pub(crate) async fn execute_tool(
         "updateTextStyle" => execute_update_text_style(state, board_id, input, mutations).await,
         "changeColor" => execute_change_color(state, board_id, input, mutations).await,
         "createMermaidDiagram" => execute_create_mermaid_diagram(state, board_id, input, mutations).await,
+        "createAnimationClip" => execute_create_animation_clip(state, board_id, input, mutations).await,
         "getBoardState" => execute_get_board_state(state, board_id).await,
         _ => Ok(format!("unknown tool: {tool_name}")),
     }
@@ -1763,6 +1764,196 @@ async fn execute_create_mermaid_diagram(
     Ok(format!(
         "created {created_count} objects from Mermaid diagram ({participant_count} participants, {message_count} messages)"
     ))
+}
+
+async fn execute_create_animation_clip(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let Some(stream) = input.get("stream").and_then(serde_json::Value::as_array) else {
+        return Ok("error: missing stream array".into());
+    };
+    let mut events = Vec::<serde_json::Value>::new();
+    let mut max_t = 0.0_f64;
+    for item in stream {
+        let Some(ev) = item.as_object() else {
+            continue;
+        };
+        let Some(t_ms) = ev
+            .get("tMs")
+            .or_else(|| ev.get("t_ms"))
+            .and_then(serde_json::Value::as_f64)
+        else {
+            continue;
+        };
+        let Some(op) = ev.get("op").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let t_ms = t_ms.max(0.0);
+        let op = op.trim().to_ascii_lowercase();
+        max_t = max_t.max(t_ms);
+
+        match op.as_str() {
+            "create" => {
+                let Some(object) = ev.get("object").and_then(serde_json::Value::as_object) else {
+                    continue;
+                };
+                events.push(json!({
+                    "tMs": t_ms,
+                    "op": "create",
+                    "object": serde_json::Value::Object(object.clone()),
+                }));
+            }
+            "update" => {
+                let Some(target_id) = ev
+                    .get("targetId")
+                    .or_else(|| ev.get("target_id"))
+                    .and_then(serde_json::Value::as_str)
+                else {
+                    continue;
+                };
+                let patch = ev.get("patch").cloned().unwrap_or_else(|| json!({}));
+                events.push(json!({
+                    "tMs": t_ms,
+                    "op": "update",
+                    "targetId": target_id,
+                    "patch": patch,
+                }));
+            }
+            "delete" => {
+                let Some(target_id) = ev
+                    .get("targetId")
+                    .or_else(|| ev.get("target_id"))
+                    .and_then(serde_json::Value::as_str)
+                else {
+                    continue;
+                };
+                events.push(json!({
+                    "tMs": t_ms,
+                    "op": "delete",
+                    "targetId": target_id,
+                }));
+            }
+            _ => {}
+        }
+    }
+    if events.is_empty() {
+        return Ok("error: stream did not contain valid events".into());
+    }
+    events.sort_by(|a, b| {
+        let ta = a
+            .get("tMs")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        let tb = b
+            .get("tMs")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        ta.total_cmp(&tb)
+    });
+
+    let duration_ms = input
+        .get("durationMs")
+        .or_else(|| input.get("duration_ms"))
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(max_t + 100.0)
+        .max(max_t);
+    let looped = input
+        .get("loop")
+        .or_else(|| input.get("looped"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let scope_object_ids = input
+        .get("scopeObjectIds")
+        .or_else(|| input.get("scope_object_ids"))
+        .and_then(serde_json::Value::as_array)
+        .map(|ids| {
+            ids.iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect::<Vec<_>>()
+        })
+        .filter(|ids| !ids.is_empty());
+
+    let animation = json!({
+        "durationMs": duration_ms,
+        "loop": looped,
+        "scopeObjectIds": scope_object_ids,
+        "events": events,
+    });
+
+    if let Some(host_object_id) = input
+        .get("hostObjectId")
+        .and_then(serde_json::Value::as_str)
+    {
+        let Ok(id) = Uuid::parse_str(host_object_id) else {
+            return Ok("error: hostObjectId must be a UUID".into());
+        };
+        match update_object_with_retry(state, board_id, id, |snapshot| {
+            let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
+            props.insert("animation".into(), animation.clone());
+            let mut data = Data::new();
+            data.insert("props".into(), serde_json::Value::Object(props));
+            data
+        })
+        .await
+        {
+            Ok(obj) => {
+                mutations.push(AiMutation::Updated(obj));
+                return Ok(format!(
+                    "stored animation clip on object {host_object_id} with {} events",
+                    events.len()
+                ));
+            }
+            Err(e) => return Ok(format!("error: failed to update host object {host_object_id}: {e}")),
+        }
+    }
+
+    let title = input
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Animation Clip");
+    let x = input
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let y = input
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let width = input
+        .get("width")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(480.0)
+        .max(40.0);
+    let height = input
+        .get("height")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(280.0)
+        .max(40.0);
+    let props = json!({
+        "title": title,
+        "stroke": "#1F1A17",
+        "strokeWidth": 0.0,
+        "animation": animation,
+    });
+    let host = super::object::create_object(
+        state,
+        board_id,
+        "frame",
+        x,
+        y,
+        Some(width),
+        Some(height),
+        0.0,
+        props,
+        None,
+        None,
+    )
+    .await?;
+    mutations.push(AiMutation::Created(host.clone()));
+    Ok(format!("created animation clip host {} with {} events", host.id, events.len()))
 }
 
 async fn execute_get_board_state(state: &AppState, board_id: Uuid) -> Result<String, AiError> {

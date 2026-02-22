@@ -312,6 +312,50 @@ pub(crate) fn board_tools() -> Vec<Tool> {
             }),
         },
         Tool {
+            name: "createAnimationClip".into(),
+            description: "Create an animation clip in one pass from a timed object stream. \
+                          The tool stores normalized animation data in `props.animation` on a host object."
+                .into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "stream": {
+                        "type": "array",
+                        "description": "Timed object operations. Each item: { tMs, op: create|update|delete, object?, targetId?, patch? }",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tMs": { "type": "number", "description": "Event timestamp in milliseconds from clip start" },
+                                "op": { "type": "string", "enum": ["create", "update", "delete"] },
+                                "object": { "type": "object", "description": "Required for create; full BoardObject payload" },
+                                "targetId": { "type": "string", "description": "Required for update/delete" },
+                                "patch": { "type": "object", "description": "Required for update; object delta payload" }
+                            },
+                            "required": ["tMs", "op"]
+                        }
+                    },
+                    "durationMs": { "type": "number", "description": "Optional clip duration. Defaults to max event time + 100ms." },
+                    "loop": { "type": "boolean", "description": "Whether playback loops" },
+                    "scopeObjectIds": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional object IDs that define clip scope"
+                    },
+                    "hostObjectId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Optional existing object ID to store props.animation on"
+                    },
+                    "title": { "type": "string", "description": "Optional host frame title (when creating a new host)" },
+                    "x": { "type": "number", "description": "Optional host frame X position when hostObjectId is omitted" },
+                    "y": { "type": "number", "description": "Optional host frame Y position when hostObjectId is omitted" },
+                    "width": { "type": "number", "description": "Optional host frame width (default 480)" },
+                    "height": { "type": "number", "description": "Optional host frame height (default 280)" }
+                },
+                "required": ["stream"]
+            }),
+        },
+        Tool {
             name: "getBoardState".into(),
             description: "Retrieve the current state of all objects on the board. Use this to understand \
                           what's on the board before making changes."

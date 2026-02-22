@@ -74,6 +74,10 @@
     color: var(--text-primary);
 }
 
+.status-bar__control {
+    letter-spacing: 0.04em;
+}
+
 .status-bar__user-chip {
     display: flex;
     align-items: center;

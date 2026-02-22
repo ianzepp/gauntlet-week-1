@@ -41,6 +41,10 @@ pub struct UiState {
     pub right_tab: RightTab,
     pub ai_focus_seq: u64,
     pub object_text_dialog_seq: u64,
+    pub animation_clip_object_id: Option<String>,
+    pub animation_playing: bool,
+    pub animation_playhead_ms: f64,
+    pub animation_scrub_step_ms: f64,
 }
 
 impl Default for UiState {
@@ -62,6 +66,10 @@ impl Default for UiState {
             right_tab: RightTab::Chat,
             ai_focus_seq: 0,
             object_text_dialog_seq: 0,
+            animation_clip_object_id: None,
+            animation_playing: false,
+            animation_playhead_ms: 0.0,
+            animation_scrub_step_ms: 100.0,
         }
     }
 }

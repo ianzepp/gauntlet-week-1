@@ -5,6 +5,7 @@
 //! Utility modules isolate browser/environment concerns from page and component
 //! logic to improve reuse and testability.
 
+pub mod animation;
 pub mod auth;
 pub mod canvas_input;
 pub mod canvas_viewport;

@@ -22,6 +22,7 @@ fn gauntlet_tools_match_board_tools() {
     assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
     assert!(names.contains(&"createMermaidDiagram"));
+    assert!(names.contains(&"createAnimationClip"));
     assert!(names.contains(&"getBoardState"));
 }
 
@@ -39,9 +40,9 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn board_tools_returns_all_seventeen_tools() {
+fn board_tools_returns_all_eighteen_tools() {
     let tools = board_tools();
-    assert_eq!(tools.len(), 17);
+    assert_eq!(tools.len(), 18);
 }
 
 #[test]
@@ -64,6 +65,7 @@ fn board_tools_names_are_correct() {
     assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
     assert!(names.contains(&"createMermaidDiagram"));
+    assert!(names.contains(&"createAnimationClip"));
     assert!(names.contains(&"getBoardState"));
 }
 

@@ -6,12 +6,14 @@
 //! viewport state without opening additional panels.
 
 use leptos::prelude::*;
+use leptos::tachys::view::any_view::IntoAny;
 
 use crate::net::types::Point;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::canvas_view::CanvasViewState;
 use crate::state::trace::TraceState;
 use crate::state::ui::{UiState, ViewMode};
+use crate::util::animation::resolve_active_clip;
 
 /// Status bar at the bottom of the board page.
 #[component]
@@ -32,6 +34,59 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
     let render_ms = move || canvas_render_ms(&canvas_view.get());
 
     let is_trace_mode = move || ui_is_trace_mode(&ui.get());
+    let clip_summary = move || {
+        let board_state = board.get();
+        let ui_state = ui.get();
+        resolve_active_clip(&board_state, &ui_state).map(|(id, clip)| (id, clip.duration_ms))
+    };
+    let clip_playhead = move || ui.get().animation_playhead_ms.max(0.0);
+    let clip_is_playing = move || ui.get().animation_playing;
+
+    let on_anim_bind = move |_| {
+        let selected = board.get().selection.iter().next().cloned();
+        if let Some(id) = selected {
+            ui.update(|u| {
+                u.animation_clip_object_id = Some(id);
+                u.animation_playhead_ms = 0.0;
+                u.animation_playing = false;
+            });
+        }
+    };
+    let on_anim_play_pause = move |_| {
+        let board_state = board.get();
+        let ui_state = ui.get();
+        if let Some((id, clip)) = resolve_active_clip(&board_state, &ui_state) {
+            ui.update(|u| {
+                if u.animation_clip_object_id.as_deref() != Some(id.as_str()) {
+                    u.animation_clip_object_id = Some(id.clone());
+                    u.animation_playhead_ms = 0.0;
+                }
+                if u.animation_playhead_ms >= clip.duration_ms {
+                    u.animation_playhead_ms = 0.0;
+                }
+                u.animation_playing = !u.animation_playing;
+            });
+        }
+    };
+    let on_anim_back = move |_| {
+        let step = ui.get().animation_scrub_step_ms.max(1.0);
+        ui.update(|u| {
+            u.animation_playing = false;
+            u.animation_playhead_ms = (u.animation_playhead_ms - step).max(0.0);
+        });
+    };
+    let on_anim_fwd = move |_| {
+        let board_state = board.get();
+        let ui_state = ui.get();
+        let duration = resolve_active_clip(&board_state, &ui_state)
+            .map(|(_, clip)| clip.duration_ms)
+            .unwrap_or(0.0);
+        let step = ui_state.animation_scrub_step_ms.max(1.0);
+        ui.update(|u| {
+            u.animation_playing = false;
+            u.animation_playhead_ms = (u.animation_playhead_ms + step).min(duration.max(0.0));
+        });
+    };
 
     let trace_frame_count = move || trace_frame_total(&trace.get());
     let trace_filter_label = move || trace_filter_display(&trace.get());
@@ -64,6 +119,39 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
                             <span class="status-bar__item">
                                 {move || format_render_ms(render_ms())}
                             </span>
+                            {move || {
+                                if clip_summary().is_some() {
+                                    view! {
+                                        <>
+                                            <span class="status-bar__divider"></span>
+                                            <button class="status-bar__help status-bar__control" on:click=on_anim_bind title="Bind selected object as active animation clip">
+                                                "[ANIM]"
+                                            </button>
+                                            <button class="status-bar__help status-bar__control" on:click=on_anim_back title="Step backward">
+                                                "[<<]"
+                                            </button>
+                                            <button class="status-bar__help status-bar__control" on:click=on_anim_play_pause title="Play or pause animation">
+                                                {move || if clip_is_playing() { "[PAUSE]" } else { "[PLAY]" }}
+                                            </button>
+                                            <button class="status-bar__help status-bar__control" on:click=on_anim_fwd title="Step forward">
+                                                "[>>]"
+                                            </button>
+                                            <span class="status-bar__item">
+                                                {move || {
+                                                    if let Some((_id, duration_ms)) = clip_summary() {
+                                                        format_anim_time(clip_playhead(), duration_ms)
+                                                    } else {
+                                                        "anim --/--".to_owned()
+                                                    }
+                                                }}
+                                            </span>
+                                        </>
+                                    }
+                                    .into_any()
+                                } else {
+                                    view! { <></> }.into_any()
+                                }
+                            }}
                             <Show when=camera_locked>
                                 <span class="status-bar__divider"></span>
                                 <span class="status-bar__item status-bar__item--locked">"LOCKED"</span>
@@ -132,6 +220,13 @@ fn format_render_ms(ms: Option<f64>) -> String {
         Some(value) => format!("render {}ms", value.round() as i64),
         None => "render --ms".to_owned(),
     }
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn format_anim_time(playhead_ms: f64, duration_ms: f64) -> String {
+    let playhead = playhead_ms.round() as i64;
+    let duration = duration_ms.round() as i64;
+    format!("anim {playhead}/{duration}ms")
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
