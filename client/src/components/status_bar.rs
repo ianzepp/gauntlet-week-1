@@ -9,6 +9,7 @@ use leptos::prelude::*;
 use leptos::tachys::view::any_view::IntoAny;
 
 use crate::net::types::Point;
+use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::canvas_view::CanvasViewState;
 use crate::state::trace::TraceState;
@@ -18,6 +19,7 @@ use crate::util::animation::resolve_active_clip;
 /// Status bar at the bottom of the board page.
 #[component]
 pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
+    let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
     let ui = expect_context::<RwSignal<UiState>>();
@@ -91,6 +93,11 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
     let trace_frame_count = move || trace_frame_total(&trace.get());
     let trace_filter_label = move || trace_filter_display(&trace.get());
     let trace_mode_label = move || trace_mode_display(&trace.get());
+    let self_identity = move || {
+        auth.get()
+            .user
+            .map_or_else(|| "me (session)".to_owned(), |user| format!("{} ({})", user.name, user.auth_method))
+    };
     let on_help_click = move |_| on_help.run(());
 
     view! {
@@ -99,6 +106,10 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
             <div class="status-bar__section">
                 <span class="status-bar__item">
                     <span class=status_class></span>
+                </span>
+                <span class="status-bar__divider"></span>
+                <span class="status-bar__item status-bar__item--identity">
+                    {self_identity}
                 </span>
                 <span class="status-bar__divider"></span>
                 <button class="status-bar__help" on:click=on_help_click title="Open help">"[?] HELP"</button>

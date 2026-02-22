@@ -2888,6 +2888,10 @@ a:hover {
     gap: var(--space-xs);
 }
 
+.status-bar__item--identity {
+    color: var(--text-secondary);
+}
+
 .status-bar__help {
     border: 0;
     background: transparent;

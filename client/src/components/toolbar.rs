@@ -122,11 +122,6 @@ pub fn Toolbar() -> impl IntoView {
         }
     };
 
-    let self_identity = move || {
-        auth.get()
-            .user
-            .map_or_else(|| ("me".to_owned(), "session".to_owned()), |user| (user.name, user.auth_method))
-    };
     let can_toggle_visibility = move || {
         let Some(board_id) = board.get().board_id else {
             return false;
@@ -272,14 +267,6 @@ pub fn Toolbar() -> impl IntoView {
                 }
             }}
 
-            <span class="toolbar__self">
-                {move || self_identity().0}
-            </span>
-            <span class="toolbar__self-method">
-                {"("}
-                {move || self_identity().1}
-                {")"}
-            </span>
             <button class="btn toolbar__info-btn" on:click=move |_| show_profile.set(true) title="View profile">
                 "Profile"
             </button>
