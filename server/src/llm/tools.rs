@@ -118,7 +118,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "createSvgObject".into(),
-            description: "Create one SVG object from raw SVG markup with explicit size.".into(),
+            description: "Create an SVG object for artistic, creative, or visual content (drawings, sketches, illustrations, icons, diagrams). Use this when the user says \"draw\", \"sketch\", \"illustrate\", \"paint\", \"design\", \"depict\", or \"render\".".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {

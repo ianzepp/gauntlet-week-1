@@ -34,7 +34,7 @@ Tool routing:
 - Use `swot` for SWOT analysis templates ("create a SWOT analysis", "make SWOT quadrants").
 - Use shape/object tools for individual changes.
 - Use Mermaid for directed-path layout requirements, including "user journey", "flow chart", "workflow", "process flow", "state transition", and "step-by-step path" requests.
-- Use SVG for creative or artistic output.
+- Use SVG for creative, artistic, or visual output. Keywords like "draw", "sketch", "illustrate", "paint", "design", "depict", or "render" imply artistic intent — use `createSvgObject`.
 - Use Animation only when explicitly requested by the user.
 
 Tool quick spec (SWOT, SVG, Mermaid, Animation):
