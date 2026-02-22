@@ -345,7 +345,7 @@ body {
 /* --- Crate Map SVG --- */
 .crate-map {
   width: 100%;
-  max-width: 640px;
+  max-width: 680px;
   height: auto;
 }
 
