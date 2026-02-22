@@ -387,8 +387,8 @@ fn apply_cursor_moved_supports_server_shape() {
             "client_id": "c-1",
             "x": 12.5,
             "y": -7.25,
-            "name": "Alice",
-            "color": "#22c55e"
+            "user_name": "Alice",
+            "user_color": "#22c55e"
         }),
         100,
     );
@@ -414,8 +414,8 @@ fn apply_cursor_moved_updates_existing_presence_by_name_and_color() {
             "client_id": "c-1",
             "x": 50.0,
             "y": 60.0,
-            "name": "Alice",
-            "color": "#22c55e"
+            "user_name": "Alice",
+            "user_color": "#22c55e"
         }),
         120,
     );
@@ -435,8 +435,8 @@ fn apply_cursor_clear_removes_cursor_for_client_presence() {
             "client_id": "c-9",
             "x": 1.0,
             "y": 2.0,
-            "name": "Agent",
-            "color": "#fff"
+            "user_name": "Agent",
+            "user_color": "#fff"
         }),
         100,
     );
@@ -456,8 +456,8 @@ fn cleanup_stale_cursors_clears_old_cursor_points() {
             "client_id": "c-2",
             "x": 10.0,
             "y": 20.0,
-            "name": "Agent",
-            "color": "#fff"
+            "user_name": "Agent",
+            "user_color": "#fff"
         }),
         100,
     );

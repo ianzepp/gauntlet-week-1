@@ -171,8 +171,8 @@ pub fn send_cursor_presence_if_needed(
         data: serde_json::json!({
             "x": cursor_world.as_ref().map(|p| p.x),
             "y": cursor_world.as_ref().map(|p| p.y),
-            "name": user.name,
-            "color": user.color,
+            "user_name": user.name,
+            "user_color": user.color,
             "camera_center_x": center_x,
             "camera_center_y": center_y,
             "camera_zoom": zoom,

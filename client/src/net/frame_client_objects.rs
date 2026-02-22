@@ -303,12 +303,10 @@ pub(super) fn upsert_presence_from_payload(board: &mut BoardState, data: &serde_
         .unwrap_or(client_id);
     let user_name = data
         .get("user_name")
-        .or_else(|| data.get("name"))
         .and_then(|v| v.as_str())
         .unwrap_or("Agent");
     let user_color = data
         .get("user_color")
-        .or_else(|| data.get("color"))
         .and_then(|v| v.as_str())
         .unwrap_or("#8a8178");
 

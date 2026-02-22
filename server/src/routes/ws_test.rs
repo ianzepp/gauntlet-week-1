@@ -120,12 +120,12 @@ async fn process_inbound_bytes(
         .and_then(|wire| Frame::try_from(wire).ok());
     let user_name = parsed
         .as_ref()
-        .and_then(|f| f.data.get("name"))
+        .and_then(|f| f.data.get("user_name"))
         .and_then(serde_json::Value::as_str)
         .unwrap_or("Test User");
     let user_color = parsed
         .as_ref()
-        .and_then(|f| f.data.get("color"))
+        .and_then(|f| f.data.get("user_color"))
         .and_then(serde_json::Value::as_str)
         .unwrap_or("#8a8178");
 
@@ -359,7 +359,7 @@ async fn chat_message_broadcasts_to_peers_and_replies_with_trimmed_message() {
 }
 
 #[tokio::test]
-async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
+async fn cursor_moved_broadcasts_to_peers_with_user_name_and_user_color() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
     let (sender_client_id, sender_tx, mut sender_rx, _peer_client_id, _peer_tx, mut peer_rx) =
@@ -371,8 +371,8 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
     data.insert("x".into(), json!(321.5));
     data.insert("y".into(), json!(654.25));
     data.insert("camera_rotation".into(), json!(33.0));
-    data.insert("name".into(), json!("Alice"));
-    data.insert("color".into(), json!("#22c55e"));
+    data.insert("user_name".into(), json!("Alice"));
+    data.insert("user_color".into(), json!("#22c55e"));
     let text = request_bytes(board_id, "cursor:moved", data);
 
     let sender_frames =
@@ -401,8 +401,20 @@ async fn cursor_moved_broadcasts_to_peers_with_name_and_color() {
             .and_then(|v| v.as_f64()),
         Some(33.0)
     );
-    assert_eq!(peer_broadcast.data.get("name").and_then(|v| v.as_str()), Some("Alice"));
-    assert_eq!(peer_broadcast.data.get("color").and_then(|v| v.as_str()), Some("#22c55e"));
+    assert_eq!(
+        peer_broadcast
+            .data
+            .get("user_name")
+            .and_then(|v| v.as_str()),
+        Some("Alice")
+    );
+    assert_eq!(
+        peer_broadcast
+            .data
+            .get("user_color")
+            .and_then(|v| v.as_str()),
+        Some("#22c55e")
+    );
 }
 
 #[tokio::test]
