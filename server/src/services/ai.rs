@@ -507,9 +507,11 @@ pub(crate) async fn execute_tool(
         "createShape" => execute_create_shape(state, board_id, input, mutations).await,
         "createFrame" => execute_create_frame(state, board_id, input, mutations).await,
         "createConnector" => execute_create_connector(state, board_id, input, mutations).await,
+        "rotateObject" => execute_rotate_object(state, board_id, input, mutations).await,
         "moveObject" => execute_move_object(state, board_id, input, mutations).await,
         "resizeObject" => execute_resize_object(state, board_id, input, mutations).await,
         "updateText" => execute_update_text(state, board_id, input, mutations).await,
+        "updateTextStyle" => execute_update_text_style(state, board_id, input, mutations).await,
         "changeColor" => execute_change_color(state, board_id, input, mutations).await,
         "getBoardState" => execute_get_board_state(state, board_id).await,
         _ => Ok(format!("unknown tool: {tool_name}")),
@@ -563,6 +565,7 @@ async fn execute_create_sticky_note(
     input: &serde_json::Value,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
+    let title = input.get("title").and_then(|v| v.as_str()).unwrap_or("");
     let text = input.get("text").and_then(|v| v.as_str()).unwrap_or("");
     let x = input
         .get("x")
@@ -593,6 +596,7 @@ async fn execute_create_sticky_note(
         .unwrap_or(0.0);
 
     let props = json!({
+        "title": title,
         "text": text,
         "backgroundColor": fill,
         "fill": fill,
@@ -649,9 +653,42 @@ async fn execute_create_shape(
         .unwrap_or(0.0);
 
     let props = if kind == "text" {
+        let text_color = input
+            .get("textColor")
+            .and_then(|v| v.as_str())
+            .unwrap_or("#1F1A17");
         json!({
             "text": input.get("text").and_then(|v| v.as_str()).unwrap_or("Text"),
-            "fontSize": input.get("fontSize").and_then(serde_json::Value::as_f64).unwrap_or(24.0)
+            "fontSize": input.get("fontSize").and_then(serde_json::Value::as_f64).unwrap_or(24.0),
+            "textColor": text_color
+        })
+    } else if kind == "line" || kind == "arrow" {
+        let width = input
+            .get("width")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(180.0);
+        let height = input
+            .get("height")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        let a = json!({ "x": x, "y": y });
+        let b = json!({ "x": x + width, "y": y + height });
+        json!({
+            "a": a,
+            "b": b,
+            "stroke": stroke,
+            "stroke_width": stroke_width
+        })
+    } else if kind == "youtube_embed" {
+        json!({
+            "video_id": input
+                .get("video_id")
+                .or_else(|| input.get("videoId"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+            "title": input.get("title").and_then(|v| v.as_str()).unwrap_or("YouTube"),
+            "stroke": stroke,
+            "stroke_width": stroke_width.max(1.0)
         })
     } else {
         json!({
@@ -665,8 +702,24 @@ async fn execute_create_shape(
     };
     let w = input.get("width").and_then(serde_json::Value::as_f64);
     let h = input.get("height").and_then(serde_json::Value::as_f64);
-    let default_w = if kind == "text" { 220.0 } else { 160.0 };
-    let default_h = if kind == "text" { 56.0 } else { 100.0 };
+    let default_w = if kind == "text" {
+        220.0
+    } else if kind == "line" || kind == "arrow" {
+        180.0
+    } else if kind == "youtube_embed" {
+        320.0
+    } else {
+        160.0
+    };
+    let default_h = if kind == "text" {
+        56.0
+    } else if kind == "line" || kind == "arrow" {
+        0.0
+    } else if kind == "youtube_embed" {
+        220.0
+    } else {
+        100.0
+    };
     let mut obj = super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None, None).await?;
 
     // Update the in-memory object with dimensions.
@@ -732,20 +785,113 @@ async fn execute_create_connector(
     input: &serde_json::Value,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
-    let from_id = input.get("fromId").and_then(|v| v.as_str()).unwrap_or("");
-    let to_id = input.get("toId").and_then(|v| v.as_str()).unwrap_or("");
+    let from_id_raw = input.get("fromId").and_then(|v| v.as_str()).unwrap_or("");
+    let to_id_raw = input.get("toId").and_then(|v| v.as_str()).unwrap_or("");
     let style = input
         .get("style")
         .and_then(|v| v.as_str())
         .unwrap_or("arrow");
+    let from_id = match from_id_raw.parse::<Uuid>() {
+        Ok(id) => id,
+        Err(_) => return Ok("error: missing or invalid fromId".into()),
+    };
+    let to_id = match to_id_raw.parse::<Uuid>() {
+        Ok(id) => id,
+        Err(_) => return Ok("error: missing or invalid toId".into()),
+    };
 
-    let props = json!({"source_id": from_id, "target_id": to_id, "style": style});
-    // Place connector at origin — rendering uses source/target positions.
-    let obj = super::object::create_object(state, board_id, "connector", 0.0, 0.0, None, None, 0.0, props, None, None)
-        .await?;
+    let kind = if style.eq_ignore_ascii_case("line") || style.eq_ignore_ascii_case("dashed") {
+        "line"
+    } else {
+        "arrow"
+    };
+    let (ax, ay) = object_center(state, board_id, from_id).await?;
+    let (bx, by) = object_center(state, board_id, to_id).await?;
+    let mut props = serde_json::Map::new();
+    props.insert(
+        "a".into(),
+        json!({
+            "type": "attached",
+            "object_id": from_id,
+            "ux": 0.5,
+            "uy": 0.5,
+            "x": ax,
+            "y": ay
+        }),
+    );
+    props.insert(
+        "b".into(),
+        json!({
+            "type": "attached",
+            "object_id": to_id,
+            "ux": 0.5,
+            "uy": 0.5,
+            "x": bx,
+            "y": by
+        }),
+    );
+    props.insert("style".into(), json!(style));
+    props.insert("stroke".into(), json!("#D94B4B"));
+    props.insert("stroke_width".into(), json!(2.0));
+    if style.eq_ignore_ascii_case("dashed") {
+        props.insert("dash".into(), json!([8.0, 6.0]));
+    }
+
+    let width = (bx - ax).abs().max(1.0);
+    let height = (by - ay).abs();
+    let obj = super::object::create_object(
+        state,
+        board_id,
+        kind,
+        ax.min(bx),
+        ay.min(by),
+        Some(width),
+        Some(height),
+        0.0,
+        serde_json::Value::Object(props),
+        None,
+        None,
+    )
+    .await?;
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created connector {id} from {from_id} to {to_id}"))
+}
+
+async fn execute_rotate_object(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let Some(id) = input
+        .get("objectId")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
+    else {
+        return Ok("error: missing or invalid objectId".into());
+    };
+
+    let Some(rotation) = input.get("rotation").and_then(serde_json::Value::as_f64) else {
+        return Ok("error: missing rotation".into());
+    };
+
+    match update_object_with_retry(state, board_id, id, |_| {
+        let mut data = Data::new();
+        data.insert("rotation".into(), json!(rotation));
+        data
+    })
+    .await
+    {
+        Ok(obj) => {
+            mutations.push(AiMutation::Updated(obj));
+            Ok(format!("rotated object {id}"))
+        }
+        Err(e) => {
+            warn!(error = %e, %id, "ai: rotateObject failed");
+            Ok(format!("error rotating {id}: {e}"))
+        }
+    }
 }
 
 async fn execute_move_object(
@@ -847,10 +993,18 @@ async fn execute_update_text(
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let field = input
+        .get("field")
+        .and_then(|v| v.as_str())
+        .unwrap_or("text")
+        .to_string();
+    if !matches!(field.as_str(), "text" | "title" | "head" | "foot") {
+        return Ok("error: field must be one of text/title/head/foot".into());
+    }
 
     match update_object_with_retry(state, board_id, id, |snapshot| {
         let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
-        props.insert("text".into(), json!(new_text));
+        props.insert(field.clone(), json!(new_text));
         let mut data = Data::new();
         data.insert("props".into(), json!(props));
         data
@@ -864,6 +1018,54 @@ async fn execute_update_text(
         Err(e) => {
             warn!(error = %e, %id, "ai: updateText failed");
             Ok(format!("error updating text on {id}: {e}"))
+        }
+    }
+}
+
+async fn execute_update_text_style(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let Some(id) = input
+        .get("objectId")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
+    else {
+        return Ok("error: missing or invalid objectId".into());
+    };
+
+    let text_color = input
+        .get("textColor")
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned);
+    let font_size = input.get("fontSize").and_then(serde_json::Value::as_f64);
+    if text_color.is_none() && font_size.is_none() {
+        return Ok("error: provide textColor and/or fontSize".into());
+    }
+
+    match update_object_with_retry(state, board_id, id, |snapshot| {
+        let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
+        if let Some(color) = &text_color {
+            props.insert("textColor".into(), json!(color));
+        }
+        if let Some(size) = font_size {
+            props.insert("fontSize".into(), json!(size));
+        }
+        let mut data = Data::new();
+        data.insert("props".into(), json!(props));
+        data
+    })
+    .await
+    {
+        Ok(obj) => {
+            mutations.push(AiMutation::Updated(obj));
+            Ok(format!("updated text style on {id}"))
+        }
+        Err(e) => {
+            warn!(error = %e, %id, "ai: updateTextStyle failed");
+            Ok(format!("error updating text style on {id}: {e}"))
         }
     }
 }
@@ -900,9 +1102,15 @@ async fn execute_change_color(
                 .get("stroke_width")
                 .and_then(serde_json::Value::as_f64)
         });
+    let text_color = input
+        .get("textColor")
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned);
 
-    if background.is_none() && border.is_none() && border_width.is_none() {
-        return Ok("error: provide one of backgroundColor/fill/borderColor/stroke/borderWidth/stroke_width".into());
+    if background.is_none() && border.is_none() && border_width.is_none() && text_color.is_none() {
+        return Ok(
+            "error: provide one of backgroundColor/fill/borderColor/stroke/borderWidth/stroke_width/textColor".into(),
+        );
     }
 
     match update_object_with_retry(state, board_id, id, |snapshot| {
@@ -922,6 +1130,9 @@ async fn execute_change_color(
         if let Some(stroke) = effective_stroke {
             props.insert("borderColor".into(), json!(stroke.clone()));
             props.insert("stroke".into(), json!(stroke));
+        }
+        if let Some(color) = text_color.clone() {
+            props.insert("textColor".into(), json!(color));
         }
         let mut data = Data::new();
         data.insert("props".into(), json!(props));
@@ -973,9 +1184,19 @@ fn canonical_kind(kind: &str) -> String {
         "rect" => "rectangle".to_owned(),
         "circle" => "ellipse".to_owned(),
         "textbox" | "text_box" | "label" => "text".to_owned(),
-        "connector" | "arrow" | "line" => "connector".to_owned(),
+        "connector" => "arrow".to_owned(),
+        "arrow" => "arrow".to_owned(),
+        "line" => "line".to_owned(),
+        "youtube" => "youtube_embed".to_owned(),
         other => other.to_owned(),
     }
+}
+
+async fn object_center(state: &AppState, board_id: Uuid, object_id: Uuid) -> Result<(f64, f64), AiError> {
+    let obj = get_object_snapshot(state, board_id, object_id).await?;
+    let width = obj.width.unwrap_or(0.0).max(0.0);
+    let height = obj.height.unwrap_or(0.0).max(0.0);
+    Ok((obj.x + (width * 0.5), obj.y + (height * 0.5)))
 }
 
 #[cfg(test)]

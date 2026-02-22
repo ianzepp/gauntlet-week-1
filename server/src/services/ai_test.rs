@@ -167,17 +167,58 @@ async fn tool_create_frame() {
 #[tokio::test]
 async fn tool_create_connector() {
     let state = test_helpers::test_app_state();
-    let board_id = test_helpers::seed_board(&state).await;
+    let mut from_obj = test_helpers::dummy_object();
+    from_obj.version = 2;
+    let from = from_obj.id;
+    let mut to_obj = test_helpers::dummy_object();
+    to_obj.id = Uuid::new_v4();
+    to_obj.x = 360.0;
+    to_obj.y = 220.0;
+    to_obj.version = 2;
+    let to = to_obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![from_obj, to_obj]).await;
     let mut mutations = Vec::new();
-    let from = Uuid::new_v4();
-    let to = Uuid::new_v4();
     let input = json!({ "fromId": from.to_string(), "toId": to.to_string(), "style": "arrow" });
     let result = execute_tool(&state, board_id, "createConnector", &input, &mut mutations)
         .await
         .unwrap();
     assert!(result.contains("created connector"));
     assert_eq!(mutations.len(), 1);
-    assert!(matches!(&mutations[0], AiMutation::Created(obj) if obj.kind == "connector"));
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "arrow");
+        assert_eq!(
+            obj.props
+                .get("a")
+                .and_then(|a| a.get("type"))
+                .and_then(serde_json::Value::as_str),
+            Some("attached")
+        );
+        assert_eq!(
+            obj.props
+                .get("b")
+                .and_then(|b| b.get("type"))
+                .and_then(serde_json::Value::as_str),
+            Some("attached")
+        );
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_rotate_object() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectId": obj_id.to_string(), "rotation": 45.0 });
+    let result = execute_tool(&state, board_id, "rotateObject", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("rotated object"));
+    assert!(matches!(&mutations[0], AiMutation::Updated(u) if (u.rotation - 45.0).abs() < f64::EPSILON));
 }
 
 // =========================================================================
@@ -247,6 +288,47 @@ async fn tool_update_text() {
     }
 }
 
+#[tokio::test]
+async fn tool_update_text_title_field() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectId": obj_id.to_string(), "field": "title", "newText": "New title" });
+    let result = execute_tool(&state, board_id, "updateText", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("updated text"));
+    if let AiMutation::Updated(obj) = &mutations[0] {
+        assert_eq!(obj.props.get("title").and_then(|v| v.as_str()), Some("New title"));
+    } else {
+        panic!("expected Updated mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_update_text_style() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectId": obj_id.to_string(), "textColor": "#334455", "fontSize": 28 });
+    let result = execute_tool(&state, board_id, "updateTextStyle", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("updated text style"));
+    if let AiMutation::Updated(obj) = &mutations[0] {
+        assert_eq!(obj.props.get("textColor").and_then(|v| v.as_str()), Some("#334455"));
+        assert_eq!(obj.props.get("fontSize").and_then(|v| v.as_f64()), Some(28.0));
+    } else {
+        panic!("expected Updated mutation");
+    }
+}
+
 // =========================================================================
 // execute_tool — changeColor
 // =========================================================================
@@ -298,6 +380,26 @@ async fn tool_change_color_accepts_explicit_style_fields() {
         assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#0000FF"));
         assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(3.0));
         assert_eq!(obj.props.get("stroke_width").and_then(|v| v.as_f64()), Some(3.0));
+    } else {
+        panic!("expected Updated mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_change_color_updates_text_color() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectId": obj_id.to_string(), "textColor": "#112233" });
+    let result = execute_tool(&state, board_id, "changeColor", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("changed style"));
+    if let AiMutation::Updated(obj) = &mutations[0] {
+        assert_eq!(obj.props.get("textColor").and_then(|v| v.as_str()), Some("#112233"));
     } else {
         panic!("expected Updated mutation");
     }

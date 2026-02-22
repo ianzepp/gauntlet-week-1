@@ -27,6 +27,7 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
+                    "title": { "type": "string", "description": "Optional sticky note title" },
                     "text": { "type": "string", "description": "Text content of the sticky note" },
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
@@ -42,16 +43,24 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
         },
         Tool {
             name: "createShape".into(),
-            description: "Create a shape (rectangle, ellipse, or text) on the board.".into(),
+            description: "Create a shape on the board.".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "type": { "type": "string", "enum": ["rectangle", "ellipse", "text"], "description": "Shape type" },
+                    "type": {
+                        "type": "string",
+                        "enum": ["rectangle", "ellipse", "text", "line", "arrow", "youtube_embed"],
+                        "description": "Shape type"
+                    },
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
                     "text": { "type": "string", "description": "Text content (used when type is text)" },
+                    "fontSize": { "type": "number", "description": "Text font size in pixels (type=text)" },
+                    "textColor": { "type": "string", "description": "Text color hex (type=text)" },
+                    "video_id": { "type": "string", "description": "YouTube URL or video ID (type=youtube_embed)" },
+                    "title": { "type": "string", "description": "Title label (type=youtube_embed)" },
                     "backgroundColor": { "type": "string", "description": "Background color (hex)" },
                     "fill": { "type": "string", "description": "Canvas fill color (hex)" },
                     "borderColor": { "type": "string", "description": "Border color (hex)" },
@@ -91,6 +100,18 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
             }),
         },
         Tool {
+            name: "rotateObject".into(),
+            description: "Rotate an object to an absolute angle in degrees.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to rotate" },
+                    "rotation": { "type": "number", "description": "Clockwise rotation in degrees" }
+                },
+                "required": ["objectId", "rotation"]
+            }),
+        },
+        Tool {
             name: "moveObject".into(),
             description: "Move an object to a new position.".into(),
             input_schema: serde_json::json!({
@@ -118,14 +139,32 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
         },
         Tool {
             name: "updateText".into(),
-            description: "Update the text content of an object (sticky note, frame title, etc).".into(),
+            description: "Update a text field on an object (text/title/head/foot).".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to update" },
-                    "newText": { "type": "string", "description": "New text content" }
+                    "newText": { "type": "string", "description": "New text content" },
+                    "field": {
+                        "type": "string",
+                        "enum": ["text", "title", "head", "foot"],
+                        "description": "Which text field to update (default: text)"
+                    }
                 },
                 "required": ["objectId", "newText"]
+            }),
+        },
+        Tool {
+            name: "updateTextStyle".into(),
+            description: "Update text style properties (textColor and/or fontSize) on an object.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to update" },
+                    "textColor": { "type": "string", "description": "Text color hex" },
+                    "fontSize": { "type": "number", "description": "Font size in pixels" }
+                },
+                "required": ["objectId"]
             }),
         },
         Tool {
@@ -141,7 +180,8 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
                     "borderColor": { "type": "string", "description": "New border color (hex)" },
                     "stroke": { "type": "string", "description": "New canvas stroke color (hex)" },
                     "borderWidth": { "type": "number", "description": "New border width in pixels" },
-                    "stroke_width": { "type": "number", "description": "New canvas stroke width in pixels" }
+                    "stroke_width": { "type": "number", "description": "New canvas stroke width in pixels" },
+                    "textColor": { "type": "string", "description": "New text color hex" }
                 },
                 "required": ["objectId"]
             }),

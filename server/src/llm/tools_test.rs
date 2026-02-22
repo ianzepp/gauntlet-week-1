@@ -10,9 +10,11 @@ fn gauntlet_tools_match_legacy_tools() {
     assert!(names.contains(&"createShape"));
     assert!(names.contains(&"createFrame"));
     assert!(names.contains(&"createConnector"));
+    assert!(names.contains(&"rotateObject"));
     assert!(names.contains(&"moveObject"));
     assert!(names.contains(&"resizeObject"));
     assert!(names.contains(&"updateText"));
+    assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
     assert!(names.contains(&"getBoardState"));
 }
@@ -31,9 +33,9 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn legacy_tools_returns_all_nine_tools() {
+fn legacy_tools_returns_all_eleven_tools() {
     let tools = legacy_tools();
-    assert_eq!(tools.len(), 9);
+    assert_eq!(tools.len(), 11);
 }
 
 #[test]
@@ -44,9 +46,11 @@ fn legacy_tools_names_are_correct() {
     assert!(names.contains(&"createShape"));
     assert!(names.contains(&"createFrame"));
     assert!(names.contains(&"createConnector"));
+    assert!(names.contains(&"rotateObject"));
     assert!(names.contains(&"moveObject"));
     assert!(names.contains(&"resizeObject"));
     assert!(names.contains(&"updateText"));
+    assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
     assert!(names.contains(&"getBoardState"));
 }
