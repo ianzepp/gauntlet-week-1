@@ -908,23 +908,27 @@
       txCount.textContent = dayData.sessions.length + ' SESSIONS';
       txPagination.textContent = 'DAY ' + dayData.day + ' OF 7';
 
-      var html = '';
+      /* Split sessions into interactive vs agent tasks */
+      var interactive = [];
+      var agentTasks = [];
       for (var i = 0; i < dayData.sessions.length; i++) {
         var s = dayData.sessions[i];
-        var estTime = formatTranscriptTime(s.started);
-        var agentClass = s.agent === 'codex' ? ' codex' : '';
-        var metaParts = [];
-        if (s.model) metaParts.push(s.model);
-        if (s.duration) metaParts.push(s.duration);
-        if (s.messages) metaParts.push(s.messages);
+        var userCount = parseUserCount(s.messages);
+        if (userCount === 1) {
+          agentTasks.push(s);
+        } else {
+          interactive.push(s);
+        }
+      }
 
-        html += '<div class="tx-session" data-day="' + dayData.day + '" data-file="' + s.file + '">'
-          + '<div class="tx-session-time">' + estTime + '</div>'
-          + '<div class="tx-session-body">'
-          + '<div class="tx-session-agent' + agentClass + '">' + s.agent.toUpperCase() + '</div>'
-          + '<div class="tx-session-summary">' + escapeHtml(s.summary || '(no summary)') + '</div>'
-          + '<div class="tx-session-meta">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</div>'
-          + '</div></div>';
+      var html = '';
+      if (interactive.length > 0) {
+        html += '<div class="tx-section-header">INTERACTIVE &mdash; ' + interactive.length + ' SESSIONS</div>';
+        html += renderSessionList(interactive, dayData.day);
+      }
+      if (agentTasks.length > 0) {
+        html += '<div class="tx-section-header">AGENT_TASKS &mdash; ' + agentTasks.length + ' SESSIONS</div>';
+        html += renderSessionList(agentTasks, dayData.day);
       }
       txList.innerHTML = html;
       txList.scrollTop = 0;
@@ -941,6 +945,34 @@
 
       /* Reset viewer */
       txViewer.innerHTML = '<div class="tx-empty-state">SELECT A SESSION FROM THE LOG</div>';
+    }
+
+    function parseUserCount(messages) {
+      if (!messages) return 0;
+      var match = messages.match(/^(\d+)\s+user/);
+      return match ? parseInt(match[1], 10) : 0;
+    }
+
+    function renderSessionList(sessions, dayNum) {
+      var html = '';
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        var estTime = formatTranscriptTime(s.started);
+        var agentClass = s.agent === 'codex' ? ' codex' : '';
+        var durationPill = s.duration ? '<span class="tx-session-duration">' + escapeHtml(s.duration) + '</span>' : '';
+        var metaParts = [];
+        if (s.model) metaParts.push(s.model);
+        if (s.messages) metaParts.push(s.messages);
+
+        html += '<div class="tx-session" data-day="' + dayNum + '" data-file="' + s.file + '">'
+          + '<div class="tx-session-time">' + estTime + '</div>'
+          + '<div class="tx-session-body">'
+          + '<div class="tx-session-header"><span class="tx-session-agent' + agentClass + '">' + s.agent.toUpperCase() + '</span>' + durationPill + '</div>'
+          + '<div class="tx-session-summary">' + escapeHtml(s.summary || '(no summary)') + '</div>'
+          + '<div class="tx-session-meta">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</div>'
+          + '</div></div>';
+      }
+      return html;
     }
 
     function formatTranscriptTime(started) {

@@ -1145,6 +1145,21 @@ body {
   padding: var(--gap-sm) var(--gap-lg);
 }
 
+.tx-section-header {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: var(--gap-sm) var(--gap-md);
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-card-alt);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .tx-session {
   display: flex;
   gap: var(--gap-sm);
@@ -1175,6 +1190,25 @@ body {
 .tx-session-body {
   flex: 1;
   min-width: 0;
+}
+
+.tx-session-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+}
+
+.tx-session-duration {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  background: var(--bg-card-inset);
+  border: 1px solid var(--border-faint);
+  border-radius: 3px;
+  padding: 0 5px;
+  line-height: 1.6;
 }
 
 .tx-session-agent {
