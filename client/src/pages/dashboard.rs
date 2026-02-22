@@ -15,6 +15,7 @@ use leptos_router::hooks::use_navigate;
 
 use crate::app::FrameSender;
 use crate::components::board_card::BoardCard;
+use crate::components::user_profile_modal::UserProfileModal;
 use crate::state::auth::AuthState;
 use crate::state::board::{BoardState, ConnectionStatus};
 use crate::state::boards::BoardListItem;
@@ -153,70 +154,82 @@ fn DashboardHeader(
     on_join: Callback<()>,
     on_logout: Callback<()>,
 ) -> impl IntoView {
-    let self_name = move || {
-        auth.get()
-            .user
-            .map_or_else(|| "me".to_owned(), |user| user.name)
-    };
-    let self_method = move || {
-        auth.get()
-            .user
-            .map_or_else(|| "session".to_owned(), |user| user.auth_method)
+    let show_profile = RwSignal::new(false);
+    let on_home = Callback::new(move |()| {
+        #[cfg(feature = "hydrate")]
+        {
+            if let Some(window) = web_sys::window() {
+                let _ = window.location().set_href("/");
+            }
+        }
+    });
+    let show_profile_dialog = move || {
+        if show_profile.get() {
+            view! {
+                <UserProfileModal auth=auth on_close=Callback::new(move |()| show_profile.set(false)) />
+            }
+            .into_any()
+        } else {
+            ().into_any()
+        }
     };
 
     view! {
         <header class="dashboard-page__header toolbar">
-            <span class="toolbar__board-name">"Boards"</span>
-
-            <div class="toolbar__segment" role="group" aria-label="Theme mode">
-                <button
-                    class="btn toolbar__segment-btn"
-                    class:toolbar__segment-btn--active=move || !ui.get().dark_mode
-                    on:click=move |_| {
-                        if ui.get().dark_mode {
-                            let next = crate::util::dark_mode::toggle(true);
-                            ui.update(|u| u.dark_mode = next);
-                        }
-                    }
-                    title="Light mode"
-                >
-                    "Light"
+            <nav class="toolbar__breadcrumb" aria-label="Breadcrumb">
+                <button class="toolbar__crumb-btn" title="Go to Home" on:click=move |_| on_home.run(())>
+                    "Home"
                 </button>
-                <button
-                    class="btn toolbar__segment-btn"
-                    class:toolbar__segment-btn--active=move || ui.get().dark_mode
-                    on:click=move |_| {
-                        if !ui.get().dark_mode {
-                            let next = crate::util::dark_mode::toggle(false);
-                            ui.update(|u| u.dark_mode = next);
-                        }
-                    }
-                    title="Dark mode"
-                >
-                    "Dark"
-                </button>
-            </div>
-
-            <button class="btn toolbar__join-board" on:click=move |_| on_create.run(())>
-                "+ New Board"
-            </button>
-            <button class="btn toolbar__join-board" on:click=move |_| on_join.run(())>
-                "Join Board"
-            </button>
+                <span class="toolbar__crumb-sep">"›"</span>
+                <span class="toolbar__crumb-current">"Boards"</span>
+            </nav>
 
             <span class="toolbar__spacer"></span>
 
-            <span class="toolbar__self">
-                {self_name}
-                " ("
-                <span class="toolbar__self-method">{self_method}</span>
-                ")"
-            </span>
-
-            <button class="btn toolbar__logout" on:click=move |_| on_logout.run(()) title="Logout">
-                "Logout"
-            </button>
+            <div class="toolbar__right-controls">
+                <button class="btn toolbar__action-btn" on:click=move |_| on_create.run(()) title="Create a board">
+                    "+ New Board"
+                </button>
+                <button class="btn toolbar__action-btn" on:click=move |_| on_join.run(()) title="Join with access code">
+                    "Join Board"
+                </button>
+                <div class="toolbar__segment" role="group" aria-label="Theme mode">
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || !ui.get().dark_mode
+                        on:click=move |_| {
+                            if ui.get().dark_mode {
+                                let next = crate::util::dark_mode::toggle(true);
+                                ui.update(|u| u.dark_mode = next);
+                            }
+                        }
+                        title="Light mode"
+                    >
+                        "Light"
+                    </button>
+                    <button
+                        class="btn toolbar__segment-btn"
+                        class:toolbar__segment-btn--active=move || ui.get().dark_mode
+                        on:click=move |_| {
+                            if !ui.get().dark_mode {
+                                let next = crate::util::dark_mode::toggle(false);
+                                ui.update(|u| u.dark_mode = next);
+                            }
+                        }
+                        title="Dark mode"
+                    >
+                        "Dark"
+                    </button>
+                </div>
+                <button class="btn toolbar__action-btn" on:click=move |_| show_profile.set(true) title="View session">
+                    "Session"
+                </button>
+                <button class="btn toolbar__logout" on:click=move |_| on_logout.run(()) title="Logout">
+                    "Logout"
+                </button>
+            </div>
         </header>
+        {show_profile_dialog}
     }
 }
 

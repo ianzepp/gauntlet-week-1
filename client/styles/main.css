@@ -602,10 +602,6 @@ a:hover {
     padding: 0;
 }
 
-.toolbar__join-board {
-    margin-left: 3em;
-}
-
 .dashboard-page__grid {
     flex: 1;
     overflow-y: auto;
