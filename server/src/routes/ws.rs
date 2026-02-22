@@ -1321,7 +1321,6 @@ async fn handle_tool(
             let trace_id = req
                 .trace
                 .as_ref()
-                .or_else(|| req.data.get("trace"))
                 .and_then(serde_json::Value::as_object)
                 .and_then(|trace| trace.get("trace_id"))
                 .and_then(serde_json::Value::as_str)

@@ -314,7 +314,7 @@ fn tree_depth_breaks_on_cycle() {
 #[test]
 fn sub_label_reads_trace_label_only() {
     let mut tool = frame("1", None, 1, "tool:applyChangesYaml", Status::Done);
-    tool.data = json!({ "trace": { "label": "yaml_apply" } });
+    tool.trace = Some(json!({ "label": "yaml_apply" }));
     assert_eq!(sub_label(&tool).as_deref(), Some("yaml_apply"));
 
     let mut legacy = frame("2", None, 2, "ai:llm_request", Status::Done);
@@ -323,11 +323,10 @@ fn sub_label_reads_trace_label_only() {
 }
 
 #[test]
-fn sub_label_prefers_top_level_trace_over_legacy_data_trace() {
+fn sub_label_ignores_legacy_data_trace_without_top_level_trace() {
     let mut frame = frame("3", None, 3, "tool:createStickyNote", Status::Done);
-    frame.trace = Some(json!({ "label": "top_level" }));
     frame.data = json!({ "trace": { "label": "legacy" } });
-    assert_eq!(sub_label(&frame).as_deref(), Some("top_level"));
+    assert_eq!(sub_label(&frame), None);
 }
 
 #[test]
@@ -342,9 +341,9 @@ fn sub_label_missing_or_unknown_payload_returns_none() {
 #[test]
 fn trace_session_aggregate_methods_sum_ai_done_values_only() {
     let mut done_ai = frame("1", None, 1, "ai:prompt", Status::Done);
-    done_ai.data = json!({"trace": {"tokens": 10_u64, "cost_usd": 0.001_f64}});
+    done_ai.trace = Some(json!({"tokens": 10_u64, "cost_usd": 0.001_f64}));
     let mut item_ai = frame("2", None, 2, "ai:prompt", Status::Item);
-    item_ai.data = json!({"trace": {"tokens": 100_u64, "cost_usd": 1.0_f64}});
+    item_ai.trace = Some(json!({"tokens": 100_u64, "cost_usd": 1.0_f64}));
     let err = frame("3", None, 3, "ai:prompt", Status::Error);
 
     let session = TraceSession {
