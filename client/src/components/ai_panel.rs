@@ -8,23 +8,13 @@
 use leptos::prelude::*;
 use pulldown_cmark::{Event, Options, Parser, html};
 
-use crate::app::FrameSender;
-use crate::net::types::{Frame, FrameStatus};
 use crate::state::ai::AiState;
-use crate::state::board::BoardState;
-use crate::state::ui::{RightTab, UiState};
 
 /// AI panel showing conversation history and a prompt input.
 #[component]
 pub fn AiPanel() -> impl IntoView {
     let ai = expect_context::<RwSignal<AiState>>();
-    let board = expect_context::<RwSignal<BoardState>>();
-    let sender = expect_context::<RwSignal<FrameSender>>();
-    let ui = expect_context::<RwSignal<UiState>>();
-
-    let input = RwSignal::new(String::new());
     let messages_ref = NodeRef::<leptos::html::Div>::new();
-    let input_ref = NodeRef::<leptos::html::Input>::new();
 
     Effect::new(move || {
         let state = ai.get();
@@ -39,76 +29,6 @@ pub fn AiPanel() -> impl IntoView {
             }
         }
     });
-
-    Effect::new(move || {
-        let seq = ui.get().ai_focus_seq;
-        let ui_state = ui.get();
-        let _ = seq;
-        if ui_state.right_panel_expanded && ui_state.right_tab == RightTab::Ai {
-            #[cfg(feature = "hydrate")]
-            {
-                if let Some(input_el) = input_ref.get() {
-                    let _ = input_el.focus();
-                }
-            }
-        }
-    });
-
-    let do_send = move || {
-        let text = input.get();
-        if text.trim().is_empty() || ai.get().loading {
-            return;
-        }
-
-        let prompt = text.trim().to_owned();
-        let frame_id = uuid::Uuid::new_v4().to_string();
-        let frame = Frame {
-            id: frame_id.clone(),
-            parent_id: None,
-            ts: 0,
-            board_id: board.get().board_id.clone(),
-            from: None,
-            syscall: "ai:prompt".to_owned(),
-            status: FrameStatus::Request,
-            trace: None,
-            data: serde_json::json!({ "prompt": prompt }),
-        };
-        if sender.get().send(&frame) {
-            ai.update(|a| {
-                a.messages.push(crate::state::ai::AiMessage {
-                    id: frame_id,
-                    role: "user".to_owned(),
-                    content: prompt,
-                    timestamp: 0.0,
-                    mutations: None,
-                });
-                a.loading = true;
-            });
-            input.set(String::new());
-        } else {
-            ai.update(|a| {
-                a.messages.push(crate::state::ai::AiMessage {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    role: "error".to_owned(),
-                    content: "AI request failed: not connected".to_owned(),
-                    timestamp: 0.0,
-                    mutations: None,
-                });
-                a.loading = false;
-            });
-        }
-    };
-
-    let on_click = move |_| do_send();
-
-    let on_keydown = move |ev: leptos::ev::KeyboardEvent| {
-        if ev.key() == "Enter" && !ev.shift_key() {
-            ev.prevent_default();
-            do_send();
-        }
-    };
-
-    let can_send = move || !input.get().trim().is_empty() && !ai.get().loading;
 
     view! {
         <div class="ai-panel">
@@ -167,22 +87,6 @@ pub fn AiPanel() -> impl IntoView {
                         .loading
                         .then(|| view! { <div class="ai-panel__loading">"Thinking..."</div> })
                 }}
-            </div>
-
-            <div class="ai-panel__input-row">
-                <input
-                    class="ai-panel__input"
-                    type="text"
-                    placeholder="Ask the AI..."
-                    node_ref=input_ref
-                    disabled=move || ai.get().loading
-                    prop:value=move || input.get()
-                    on:input=move |ev| input.set(event_target_value(&ev))
-                    on:keydown=on_keydown
-                />
-                <button class="btn btn--primary ai-panel__send" on:click=on_click disabled=move || !can_send()>
-                    "Send"
-                </button>
             </div>
         </div>
     }
