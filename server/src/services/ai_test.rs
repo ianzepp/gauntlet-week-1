@@ -69,6 +69,7 @@ fn system_prompt_mentions_frames_and_connectors() {
     let prompt = build_system_prompt(&[], None, None);
     assert!(prompt.contains("frame"));
     assert!(prompt.contains("Connectors"));
+    assert!(prompt.contains("swot"));
     assert!(prompt.contains("getBoardState"));
 }
 
@@ -619,6 +620,44 @@ async fn tool_get_board_state_with_objects() {
     assert_eq!(parsed.get("count").and_then(serde_json::Value::as_u64), Some(1));
     // getBoardState should not produce mutations.
     assert!(mutations.is_empty());
+}
+
+// =========================================================================
+// execute_tool — swot
+// =========================================================================
+
+#[tokio::test]
+async fn tool_swot_creates_template() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let result = execute_tool(&state, board_id, "swot", &json!({ "x": 120, "y": 80 }), &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created SWOT analysis template"));
+    assert_eq!(mutations.len(), 7);
+
+    let created: Vec<&crate::state::BoardObject> = mutations
+        .iter()
+        .filter_map(|m| match m {
+            AiMutation::Created(obj) => Some(obj),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(created.len(), 7);
+    assert_eq!(created.iter().filter(|obj| obj.kind == "frame").count(), 1);
+    assert_eq!(created.iter().filter(|obj| obj.kind == "line").count(), 2);
+    assert_eq!(created.iter().filter(|obj| obj.kind == "text").count(), 4);
+
+    let labels: Vec<&str> = created
+        .iter()
+        .filter(|obj| obj.kind == "text")
+        .filter_map(|obj| obj.props.get("text").and_then(serde_json::Value::as_str))
+        .collect();
+    assert!(labels.contains(&"Strengths"));
+    assert!(labels.contains(&"Weaknesses"));
+    assert!(labels.contains(&"Opportunities"));
+    assert!(labels.contains(&"Threats"));
 }
 
 // =========================================================================

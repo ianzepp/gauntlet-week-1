@@ -21,6 +21,7 @@ fn gauntlet_tools_match_board_tools() {
     assert!(names.contains(&"updateText"));
     assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
+    assert!(names.contains(&"swot"));
     assert!(names.contains(&"createMermaidDiagram"));
     assert!(names.contains(&"createAnimationClip"));
     assert!(names.contains(&"getBoardState"));
@@ -40,9 +41,9 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn board_tools_returns_all_eighteen_tools() {
+fn board_tools_returns_all_nineteen_tools() {
     let tools = board_tools();
-    assert_eq!(tools.len(), 18);
+    assert_eq!(tools.len(), 19);
 }
 
 #[test]
@@ -64,6 +65,7 @@ fn board_tools_names_are_correct() {
     assert!(names.contains(&"updateText"));
     assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
+    assert!(names.contains(&"swot"));
     assert!(names.contains(&"createMermaidDiagram"));
     assert!(names.contains(&"createAnimationClip"));
     assert!(names.contains(&"getBoardState"));
@@ -145,6 +147,19 @@ fn get_board_state_requires_nothing() {
     let tools = board_tools();
     let tool = tools.iter().find(|t| t.name == "getBoardState").unwrap();
     assert!(tool.input_schema.get("required").is_none());
+}
+
+#[test]
+fn swot_requires_nothing_and_exposes_layout_fields() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "swot").unwrap();
+    assert!(tool.input_schema.get("required").is_none());
+    let props = tool.input_schema.get("properties").unwrap();
+    assert!(props.get("x").is_some());
+    assert!(props.get("y").is_some());
+    assert!(props.get("width").is_some());
+    assert!(props.get("height").is_some());
+    assert!(props.get("title").is_some());
 }
 
 #[test]

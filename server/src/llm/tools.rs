@@ -288,6 +288,37 @@ pub(crate) fn board_tools() -> Vec<Tool> {
             }),
         },
         Tool {
+            name: "swot".into(),
+            description:
+                "Create a SWOT analysis template with four labeled quadrants (Strengths, Weaknesses, Opportunities, Threats)."
+                    .into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "Top-left X position of the SWOT template"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Top-left Y position of the SWOT template"
+                    },
+                    "width": {
+                        "type": "number",
+                        "description": "Overall template width in pixels (default 900)"
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "Overall template height in pixels (default 620)"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Optional frame title (default: SWOT Analysis)"
+                    }
+                }
+            }),
+        },
+        Tool {
             name: "createMermaidDiagram".into(),
             description: "Parse Mermaid sequence diagram syntax and render it as native board objects (rectangles, \
                           arrows, text, connectors, frames). Supports participants, messages (solid/dashed/open/cross \

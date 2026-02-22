@@ -9,7 +9,7 @@
 //! Tool names match the G4 Week 1 spec exactly (issue #19):
 //! createStickyNote, createShape, createFrame, createConnector,
 //! createSvgObject, updateSvgContent, importSvg, exportSelectionToSvg, deleteObject,
-//! moveObject, resizeObject, updateText, changeColor, createAnimationClip, getBoardState.
+//! moveObject, resizeObject, updateText, changeColor, swot, createAnimationClip, getBoardState.
 
 use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
@@ -726,6 +726,7 @@ pub(crate) async fn execute_tool(
         "updateText" => execute_update_text(state, board_id, input, mutations).await,
         "updateTextStyle" => execute_update_text_style(state, board_id, input, mutations).await,
         "changeColor" => execute_change_color(state, board_id, input, mutations).await,
+        "swot" => execute_create_swot(state, board_id, input, mutations).await,
         "createMermaidDiagram" => execute_create_mermaid_diagram(state, board_id, input, mutations).await,
         "createAnimationClip" => execute_create_animation_clip(state, board_id, input, mutations).await,
         "getBoardState" => execute_get_board_state(state, board_id).await,
@@ -1682,6 +1683,150 @@ async fn execute_change_color(
             Ok(format!("error changing color on {id}: {e}"))
         }
     }
+}
+
+async fn execute_create_swot(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let x = input
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let y = input
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let width = input
+        .get("width")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(900.0)
+        .max(360.0);
+    let height = input
+        .get("height")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(620.0)
+        .max(280.0);
+    let title = input
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("SWOT Analysis");
+
+    let frame_props = json!({
+        "title": title,
+        "stroke": "#1F1A17",
+        "strokeWidth": 2.0
+    });
+    let frame = super::object::create_object(
+        state,
+        board_id,
+        "frame",
+        x,
+        y,
+        Some(width),
+        Some(height),
+        0.0,
+        frame_props,
+        None,
+        None,
+    )
+    .await?;
+    mutations.push(AiMutation::Created(frame.clone()));
+
+    let inner_margin_x = 24.0;
+    let inner_margin_bottom = 24.0;
+    let header_h = 72.0;
+    let inner_x = x + inner_margin_x;
+    let inner_y = y + header_h;
+    let inner_width = (width - (inner_margin_x * 2.0)).max(200.0);
+    let inner_height = (height - header_h - inner_margin_bottom).max(140.0);
+    let mid_x = inner_x + (inner_width * 0.5);
+    let mid_y = inner_y + (inner_height * 0.5);
+
+    let vertical_line_props = json!({
+        "a": { "x": mid_x, "y": inner_y },
+        "b": { "x": mid_x, "y": inner_y + inner_height },
+        "stroke": "#1F1A17",
+        "strokeWidth": 2.0
+    });
+    let vertical_line = super::object::create_object(
+        state,
+        board_id,
+        "line",
+        mid_x,
+        inner_y,
+        Some(1.0),
+        Some(inner_height.max(1.0)),
+        0.0,
+        vertical_line_props,
+        None,
+        None,
+    )
+    .await?;
+    mutations.push(AiMutation::Created(vertical_line));
+
+    let horizontal_line_props = json!({
+        "a": { "x": inner_x, "y": mid_y },
+        "b": { "x": inner_x + inner_width, "y": mid_y },
+        "stroke": "#1F1A17",
+        "strokeWidth": 2.0
+    });
+    let horizontal_line = super::object::create_object(
+        state,
+        board_id,
+        "line",
+        inner_x,
+        mid_y,
+        Some(inner_width.max(1.0)),
+        Some(1.0),
+        0.0,
+        horizontal_line_props,
+        None,
+        None,
+    )
+    .await?;
+    mutations.push(AiMutation::Created(horizontal_line));
+
+    let label_width = (inner_width * 0.5 - 20.0).max(100.0);
+    let label_height = 44.0;
+    let font_size = 28.0;
+    let label_color = "#1F1A17";
+    let labels = [
+        ("Strengths", inner_x + 12.0, inner_y + 12.0),
+        ("Weaknesses", mid_x + 12.0, inner_y + 12.0),
+        ("Opportunities", inner_x + 12.0, mid_y + 12.0),
+        ("Threats", mid_x + 12.0, mid_y + 12.0),
+    ];
+
+    for (label, label_x, label_y) in labels {
+        let label_props = json!({
+            "text": label,
+            "fontSize": font_size,
+            "textColor": label_color
+        });
+        let label_obj = super::object::create_object(
+            state,
+            board_id,
+            "text",
+            label_x,
+            label_y,
+            Some(label_width),
+            Some(label_height),
+            0.0,
+            label_props,
+            None,
+            None,
+        )
+        .await?;
+        mutations.push(AiMutation::Created(label_obj));
+    }
+
+    Ok(format!(
+        "created SWOT analysis template with 4 quadrants in frame {}",
+        frame.id
+    ))
 }
 
 async fn execute_create_mermaid_diagram(
