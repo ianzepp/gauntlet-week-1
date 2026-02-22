@@ -21,6 +21,7 @@
 use leptos::prelude::*;
 use leptos::tachys::view::any_view::IntoAny;
 use leptos_router::hooks::use_params_map;
+use serde::{Deserialize, Serialize};
 
 use crate::app::FrameSender;
 use crate::components::board_stamp::BoardStamp;
@@ -43,6 +44,21 @@ use crate::util::auth::install_unauth_redirect;
 use crate::util::frame::request_frame;
 #[cfg(feature = "hydrate")]
 use js_sys::Date;
+
+const BOARD_UI_DRAFT_STORAGE_PREFIX: &str = "gauntlet_week_1_board_ui:";
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct BoardUiDraft {
+    prompt_input: String,
+    help_modal_open: bool,
+    object_text_dialog_open: bool,
+    object_text_dialog_id: Option<String>,
+    object_text_dialog_value: String,
+}
+
+fn board_ui_draft_key(board_id: &str) -> String {
+    format!("{BOARD_UI_DRAFT_STORAGE_PREFIX}{board_id}")
+}
 
 fn build_board_membership_frame(syscall: &str, board_id: String) -> crate::net::types::Frame {
     request_frame(syscall, Some(board_id), serde_json::json!({}))
@@ -97,6 +113,7 @@ pub fn BoardPage() -> impl IntoView {
     let object_text_dialog_value = RwSignal::new(String::new());
     let last_object_text_dialog_seq = RwSignal::new(0_u64);
     let help_modal_open = RwSignal::new(false);
+    let restored_draft_board_id = RwSignal::new(None::<String>);
 
     // Extract board ID from route.
     let board_id = move || params.read().get("id");
@@ -130,6 +147,39 @@ pub fn BoardPage() -> impl IntoView {
         canvas_view.set(CanvasViewState::default());
         last_join_key.set(None);
         last_route_board_id.set(next_id);
+    });
+
+    Effect::new(move || {
+        let Some(active_board_id) = board_id() else {
+            restored_draft_board_id.set(None);
+            return;
+        };
+        if restored_draft_board_id.get().as_deref() == Some(active_board_id.as_str()) {
+            return;
+        }
+
+        let draft = crate::util::ui_persistence::load_json::<BoardUiDraft>(&board_ui_draft_key(&active_board_id))
+            .unwrap_or_default();
+        prompt_input.set(draft.prompt_input);
+        help_modal_open.set(draft.help_modal_open);
+        object_text_dialog_open.set(draft.object_text_dialog_open);
+        object_text_dialog_id.set(draft.object_text_dialog_id);
+        object_text_dialog_value.set(draft.object_text_dialog_value);
+        restored_draft_board_id.set(Some(active_board_id));
+    });
+
+    Effect::new(move || {
+        let Some(active_board_id) = board_id() else {
+            return;
+        };
+        let draft = BoardUiDraft {
+            prompt_input: prompt_input.get(),
+            help_modal_open: help_modal_open.get(),
+            object_text_dialog_open: object_text_dialog_open.get(),
+            object_text_dialog_id: object_text_dialog_id.get(),
+            object_text_dialog_value: object_text_dialog_value.get(),
+        };
+        crate::util::ui_persistence::save_json(&board_ui_draft_key(&active_board_id), &draft);
     });
 
     // Send board:join once per (board_id, websocket client_id), including reconnects.

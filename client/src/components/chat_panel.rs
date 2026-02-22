@@ -13,6 +13,12 @@ use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
 use crate::state::chat::ChatState;
 
+const CHAT_DRAFT_STORAGE_PREFIX: &str = "gauntlet_week_1_chat_draft:";
+
+fn chat_draft_key(board_id: &str) -> String {
+    format!("{CHAT_DRAFT_STORAGE_PREFIX}{board_id}")
+}
+
 /// Chat panel showing message history and an input for sending new messages.
 #[component]
 pub fn ChatPanel() -> impl IntoView {
@@ -23,6 +29,7 @@ pub fn ChatPanel() -> impl IntoView {
 
     let input = RwSignal::new(String::new());
     let last_history_board = RwSignal::new(None::<String>);
+    let restored_chat_draft_board = RwSignal::new(None::<String>);
     let messages_ref = NodeRef::<leptos::html::Div>::new();
 
     Effect::new(move || {
@@ -47,6 +54,27 @@ pub fn ChatPanel() -> impl IntoView {
         };
         sender.get().send(&frame);
         last_history_board.set(Some(board_id));
+    });
+
+    Effect::new(move || {
+        let Some(board_id) = board.get().board_id else {
+            restored_chat_draft_board.set(None);
+            input.set(String::new());
+            return;
+        };
+        if restored_chat_draft_board.get().as_deref() == Some(board_id.as_str()) {
+            return;
+        }
+        let draft = crate::util::ui_persistence::load_json::<String>(&chat_draft_key(&board_id)).unwrap_or_default();
+        input.set(draft);
+        restored_chat_draft_board.set(Some(board_id));
+    });
+
+    Effect::new(move || {
+        let Some(board_id) = board.get().board_id else {
+            return;
+        };
+        crate::util::ui_persistence::save_json(&chat_draft_key(&board_id), &input.get());
     });
 
     Effect::new(move || {

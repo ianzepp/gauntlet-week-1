@@ -12,6 +12,7 @@ mod dashboard_test;
 use leptos::prelude::*;
 use leptos::tachys::view::any_view::IntoAny;
 use leptos_router::hooks::use_navigate;
+use serde::{Deserialize, Serialize};
 
 use crate::app::FrameSender;
 use crate::components::board_card::BoardCard;
@@ -23,6 +24,18 @@ use crate::state::boards::BoardsState;
 use crate::state::ui::UiState;
 use crate::util::auth::install_unauth_redirect;
 use crate::util::frame::request_frame;
+
+const DASHBOARD_UI_DRAFT_STORAGE_KEY: &str = "gauntlet_week_1_dashboard_ui";
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct DashboardUiDraft {
+    show_create: bool,
+    new_board_name: String,
+    delete_board_id: Option<String>,
+    show_join: bool,
+    join_code: String,
+    show_profile: bool,
+}
 
 /// Dashboard page — shows a board list and a create-board button.
 /// Redirects to `/login` if the user is not authenticated.
@@ -54,10 +67,34 @@ pub fn DashboardPage() -> impl IntoView {
     let show_create = RwSignal::new(false);
     let new_board_name = RwSignal::new(String::new());
     let delete_board_id = RwSignal::new(None::<String>);
+    let show_profile = RwSignal::new(false);
 
     // Join-board dialog state.
     let show_join = RwSignal::new(false);
     let join_code = RwSignal::new(String::new());
+
+    Effect::new(move || {
+        let draft = crate::util::ui_persistence::load_json::<DashboardUiDraft>(DASHBOARD_UI_DRAFT_STORAGE_KEY)
+            .unwrap_or_default();
+        show_create.set(draft.show_create);
+        new_board_name.set(draft.new_board_name);
+        delete_board_id.set(draft.delete_board_id);
+        show_join.set(draft.show_join);
+        join_code.set(draft.join_code);
+        show_profile.set(draft.show_profile);
+    });
+
+    Effect::new(move || {
+        let draft = DashboardUiDraft {
+            show_create: show_create.get(),
+            new_board_name: new_board_name.get(),
+            delete_board_id: delete_board_id.get(),
+            show_join: show_join.get(),
+            join_code: join_code.get(),
+            show_profile: show_profile.get(),
+        };
+        crate::util::ui_persistence::save_json(DASHBOARD_UI_DRAFT_STORAGE_KEY, &draft);
+    });
 
     let on_create = Callback::new(move |()| {
         show_create.set(true);
@@ -109,7 +146,14 @@ pub fn DashboardPage() -> impl IntoView {
             if !auth.get().loading && auth.get().user.is_some() {
                 view! {
                     <div class="dashboard-page">
-                        <DashboardHeader ui=ui auth=auth on_create=on_create on_join=on_join on_logout=on_logout />
+                        <DashboardHeader
+                            ui=ui
+                            auth=auth
+                            show_profile=show_profile
+                            on_create=on_create
+                            on_join=on_join
+                            on_logout=on_logout
+                        />
                         <DashboardGrid
                             boards=boards
                             auth=auth
@@ -150,11 +194,11 @@ fn DashboardAuthFallback(auth: RwSignal<AuthState>) -> impl IntoView {
 fn DashboardHeader(
     ui: RwSignal<UiState>,
     auth: RwSignal<AuthState>,
+    show_profile: RwSignal<bool>,
     on_create: Callback<()>,
     on_join: Callback<()>,
     on_logout: Callback<()>,
 ) -> impl IntoView {
-    let show_profile = RwSignal::new(false);
     let on_home = Callback::new(move |()| {
         #[cfg(feature = "hydrate")]
         {

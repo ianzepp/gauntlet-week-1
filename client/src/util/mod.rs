@@ -18,3 +18,4 @@ pub mod object_props;
 pub mod selection_actions;
 pub mod selection_metrics;
 pub mod shape_palette;
+pub mod ui_persistence;
