@@ -31,16 +31,15 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn legacy_tools_returns_all_ten_tools() {
+fn legacy_tools_returns_all_nine_tools() {
     let tools = legacy_tools();
-    assert_eq!(tools.len(), 10);
+    assert_eq!(tools.len(), 9);
 }
 
 #[test]
 fn legacy_tools_names_are_correct() {
     let tools = legacy_tools();
     let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-    assert!(names.contains(&"batch"));
     assert!(names.contains(&"createStickyNote"));
     assert!(names.contains(&"createShape"));
     assert!(names.contains(&"createFrame"));

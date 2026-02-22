@@ -14,8 +14,6 @@ use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
-use futures::future::join_all;
-use serde::Deserialize;
 use serde_json::json;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -29,7 +27,6 @@ use crate::state::{AppState, BoardObject};
 const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
 const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
 const MAX_SESSION_CONVERSATION_MESSAGES: usize = 20;
-const MAX_YAML_CHANGE_OPS: usize = 500;
 const BASE_SYSTEM_PROMPT: &str = include_str!("../llm/system.md");
 
 fn env_parse<T>(key: &str, default: T) -> T
@@ -129,52 +126,6 @@ pub enum AiMutation {
     Created(BoardObject),
     Updated(BoardObject),
     Deleted(Uuid),
-}
-
-#[derive(Debug, Deserialize)]
-struct YamlChangeDocument {
-    changes: YamlChanges,
-}
-
-#[derive(Debug, Deserialize, Default)]
-struct YamlChanges {
-    #[serde(default)]
-    create: Vec<YamlCreateChange>,
-    #[serde(default)]
-    update: Vec<YamlUpdateChange>,
-    #[serde(default)]
-    delete: Vec<YamlDeleteChange>,
-}
-
-#[derive(Debug, Deserialize)]
-struct YamlCreateChange {
-    kind: String,
-    x: serde_yaml::Value,
-    y: serde_yaml::Value,
-    width: Option<serde_yaml::Value>,
-    height: Option<serde_yaml::Value>,
-    rotation: Option<serde_yaml::Value>,
-    z: Option<serde_yaml::Value>,
-    #[serde(default)]
-    props: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct YamlUpdateChange {
-    id: String,
-    x: Option<serde_yaml::Value>,
-    y: Option<serde_yaml::Value>,
-    width: Option<serde_yaml::Value>,
-    height: Option<serde_yaml::Value>,
-    rotation: Option<serde_yaml::Value>,
-    z: Option<serde_yaml::Value>,
-    #[serde(default)]
-    props: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct YamlDeleteChange {
-    id: String,
 }
 
 // =============================================================================
@@ -552,7 +503,6 @@ pub(crate) async fn execute_tool(
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
     match tool_name {
-        "batch" => execute_batch(state, board_id, input, mutations).await,
         "createStickyNote" => execute_create_sticky_note(state, board_id, input, mutations).await,
         "createShape" => execute_create_shape(state, board_id, input, mutations).await,
         "createFrame" => execute_create_frame(state, board_id, input, mutations).await,
@@ -562,79 +512,8 @@ pub(crate) async fn execute_tool(
         "updateText" => execute_update_text(state, board_id, input, mutations).await,
         "changeColor" => execute_change_color(state, board_id, input, mutations).await,
         "getBoardState" => execute_get_board_state(state, board_id).await,
-        "applyChangesYaml" => execute_apply_changes_yaml(state, board_id, input, mutations).await,
         _ => Ok(format!("unknown tool: {tool_name}")),
     }
-}
-
-async fn execute_batch(
-    state: &AppState,
-    board_id: Uuid,
-    input: &serde_json::Value,
-    mutations: &mut Vec<AiMutation>,
-) -> Result<String, AiError> {
-    let Some(calls) = input.get("calls").and_then(serde_json::Value::as_array) else {
-        return Ok("error: missing calls array".into());
-    };
-
-    let tasks = calls.iter().enumerate().map(|(index, call)| {
-        let tool = call
-            .get("tool")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("")
-            .to_owned();
-        let call_input = call.get("input").cloned().unwrap_or_else(|| json!({}));
-
-        async move {
-            if tool.is_empty() {
-                return (
-                    json!({
-                        "index": index,
-                        "tool": "",
-                        "ok": false,
-                        "result": "error: missing tool"
-                    }),
-                    Vec::new(),
-                );
-            }
-            if tool == "batch" {
-                return (
-                    json!({
-                        "index": index,
-                        "tool": tool,
-                        "ok": false,
-                        "result": "error: nested batch is not allowed"
-                    }),
-                    Vec::new(),
-                );
-            }
-
-            let mut local_mutations = Vec::new();
-            let (ok, result) = match execute_tool(state, board_id, &tool, &call_input, &mut local_mutations).await {
-                Ok(text) => (true, text),
-                Err(error) => (false, error.to_string()),
-            };
-
-            (
-                json!({
-                    "index": index,
-                    "tool": tool,
-                    "ok": ok,
-                    "result": result
-                }),
-                local_mutations,
-            )
-        }
-    });
-
-    let settled = join_all(tasks).await;
-    let mut results = Vec::with_capacity(settled.len());
-    for (result, local_mutations) in settled {
-        mutations.extend(local_mutations);
-        results.push(result);
-    }
-
-    Ok(json!({ "count": results.len(), "results": results }).to_string())
 }
 
 async fn get_object_snapshot(
@@ -1089,212 +968,6 @@ async fn execute_get_board_state(state: &AppState, board_id: Uuid) -> Result<Str
     Ok(json!({ "objects": objects, "count": objects.len() }).to_string())
 }
 
-async fn execute_apply_changes_yaml(
-    state: &AppState,
-    board_id: Uuid,
-    input: &serde_json::Value,
-    mutations: &mut Vec<AiMutation>,
-) -> Result<String, AiError> {
-    let Some(yaml_text) = input.get("yaml").and_then(serde_json::Value::as_str) else {
-        return Ok("error: missing yaml".into());
-    };
-
-    let doc = match parse_yaml_change_document(yaml_text) {
-        Ok(doc) => doc,
-        Err(err) => return Ok(format!("error: invalid yaml changes document: {err}")),
-    };
-
-    let total_ops = doc.changes.create.len() + doc.changes.update.len() + doc.changes.delete.len();
-    if total_ops > MAX_YAML_CHANGE_OPS {
-        return Ok(format!(
-            "error: too many operations ({total_ops}); max is {MAX_YAML_CHANGE_OPS}"
-        ));
-    }
-
-    let mut created = 0_usize;
-    let mut updated = 0_usize;
-    let mut deleted = 0_usize;
-    let mut errors = Vec::new();
-
-    for change in doc.changes.create {
-        let x = match yaml_number(&change.x, "create.x") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let y = match yaml_number(&change.y, "create.y") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let width = match optional_yaml_number(change.width.as_ref(), "create.width") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let height = match optional_yaml_number(change.height.as_ref(), "create.height") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let rotation = match optional_yaml_number(change.rotation.as_ref(), "create.rotation") {
-            Ok(v) => v.unwrap_or(0.0),
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let z = match optional_yaml_integer(change.z.as_ref(), "create.z") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-
-        let kind = canonical_kind(&change.kind);
-        let props = change.props.unwrap_or_else(|| json!({}));
-        match super::object::create_object(state, board_id, &kind, x, y, width, height, rotation, props, None, None)
-            .await
-        {
-            Ok(mut obj) => {
-                if let Some(z_index) = z {
-                    let mut update = Data::new();
-                    update.insert("z_index".into(), json!(z_index));
-                    match super::object::update_object(state, board_id, obj.id, &update, obj.version).await {
-                        Ok(updated_obj) => obj = updated_obj,
-                        Err(err) => {
-                            errors.push(format!("create {} z update failed: {err}", obj.id));
-                            continue;
-                        }
-                    }
-                }
-                created += 1;
-                mutations.push(AiMutation::Created(obj));
-            }
-            Err(err) => errors.push(format!("create failed: {err}")),
-        }
-    }
-
-    for change in doc.changes.update {
-        let Ok(object_id) = change.id.parse::<Uuid>() else {
-            errors.push(format!("update.id invalid uuid: {}", change.id));
-            continue;
-        };
-        let x = match optional_yaml_number(change.x.as_ref(), "update.x") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let y = match optional_yaml_number(change.y.as_ref(), "update.y") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let width = match optional_yaml_number(change.width.as_ref(), "update.width") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let height = match optional_yaml_number(change.height.as_ref(), "update.height") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let rotation = match optional_yaml_number(change.rotation.as_ref(), "update.rotation") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let z = match optional_yaml_integer(change.z.as_ref(), "update.z") {
-            Ok(v) => v,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let props = change.props.clone();
-
-        match update_object_with_retry(state, board_id, object_id, move |_| {
-            let mut data = Data::new();
-            if let Some(v) = x {
-                data.insert("x".into(), json!(v));
-            }
-            if let Some(v) = y {
-                data.insert("y".into(), json!(v));
-            }
-            if let Some(v) = width {
-                data.insert("width".into(), json!(v));
-            }
-            if let Some(v) = height {
-                data.insert("height".into(), json!(v));
-            }
-            if let Some(v) = rotation {
-                data.insert("rotation".into(), json!(v));
-            }
-            if let Some(v) = z {
-                data.insert("z_index".into(), json!(v));
-            }
-            if let Some(v) = props.clone() {
-                data.insert("props".into(), v);
-            }
-            data
-        })
-        .await
-        {
-            Ok(obj) => {
-                updated += 1;
-                mutations.push(AiMutation::Updated(obj));
-            }
-            Err(err) => errors.push(format!("update {object_id} failed: {err}")),
-        }
-    }
-
-    for change in doc.changes.delete {
-        let Ok(object_id) = change.id.parse::<Uuid>() else {
-            errors.push(format!("delete.id invalid uuid: {}", change.id));
-            continue;
-        };
-        match super::object::delete_object(state, board_id, object_id).await {
-            Ok(()) => {
-                deleted += 1;
-                mutations.push(AiMutation::Deleted(object_id));
-            }
-            Err(err) => errors.push(format!("delete {object_id} failed: {err}")),
-        }
-    }
-
-    Ok(json!({
-        "created": created,
-        "updated": updated,
-        "deleted": deleted,
-        "errors": errors,
-    })
-    .to_string())
-}
-
-fn parse_yaml_change_document(yaml_text: &str) -> Result<YamlChangeDocument, serde_yaml::Error> {
-    serde_yaml::from_str::<YamlChangeDocument>(yaml_text)
-}
-
 fn canonical_kind(kind: &str) -> String {
     match kind.trim().to_ascii_lowercase().as_str() {
         "rect" => "rectangle".to_owned(),
@@ -1302,38 +975,6 @@ fn canonical_kind(kind: &str) -> String {
         "textbox" | "text_box" | "label" => "text".to_owned(),
         "connector" | "arrow" | "line" => "connector".to_owned(),
         other => other.to_owned(),
-    }
-}
-
-fn optional_yaml_number(value: Option<&serde_yaml::Value>, field: &str) -> Result<Option<f64>, String> {
-    value.map(|v| yaml_number(v, field)).transpose()
-}
-
-fn yaml_number(value: &serde_yaml::Value, field: &str) -> Result<f64, String> {
-    match value {
-        serde_yaml::Value::Number(n) => n
-            .as_f64()
-            .ok_or_else(|| format!("{field} is not a finite number")),
-        serde_yaml::Value::String(s) => s
-            .trim()
-            .parse::<f64>()
-            .map_err(|_| format!("{field} must parse as number")),
-        _ => Err(format!("{field} must be number or quoted numeric string")),
-    }
-}
-
-fn optional_yaml_integer(value: Option<&serde_yaml::Value>, field: &str) -> Result<Option<i64>, String> {
-    value.map(|v| yaml_integer(v, field)).transpose()
-}
-
-fn yaml_integer(value: &serde_yaml::Value, field: &str) -> Result<i64, String> {
-    match value {
-        serde_yaml::Value::Number(n) => n.as_i64().ok_or_else(|| format!("{field} must be integer")),
-        serde_yaml::Value::String(s) => s
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| format!("{field} must parse as integer")),
-        _ => Err(format!("{field} must be integer or quoted integer string")),
     }
 }
 
