@@ -11,6 +11,15 @@ fn build_board_list_request_frame_sets_since_rev_payload() {
 }
 
 #[test]
+fn build_trace_config_request_frame_sets_enabled_payload() {
+    let frame = build_trace_config_request_frame(true);
+    assert_eq!(frame.syscall, "trace:config");
+    assert_eq!(frame.status, FrameStatus::Request);
+    assert_eq!(frame.board_id, None);
+    assert_eq!(frame.data, serde_json::json!({ "enabled": true }));
+}
+
+#[test]
 fn build_board_savepoint_list_request_frame_sets_board_id() {
     let frame = build_board_savepoint_list_request_frame("b1".to_owned());
     assert_eq!(frame.syscall, "board:savepoint:list");

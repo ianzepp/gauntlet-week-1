@@ -29,6 +29,23 @@ pub(super) fn build_board_list_request_frame(since_rev: Option<String>) -> Frame
 }
 
 #[cfg(any(test, feature = "hydrate"))]
+pub(super) fn build_trace_config_request_frame(enabled: bool) -> Frame {
+    Frame {
+        id: uuid::Uuid::new_v4().to_string(),
+        parent_id: None,
+        ts: 0,
+        board_id: None,
+        from: None,
+        syscall: "trace:config".to_owned(),
+        status: crate::net::types::FrameStatus::Request,
+        trace: None,
+        data: serde_json::json!({
+            "enabled": enabled
+        }),
+    }
+}
+
+#[cfg(any(test, feature = "hydrate"))]
 pub(super) fn build_board_savepoint_list_request_frame(board_id: String) -> Frame {
     Frame {
         id: uuid::Uuid::new_v4().to_string(),
@@ -65,6 +82,8 @@ pub(super) fn send_board_list_request(
 ) {
     use leptos::prelude::GetUntracked;
 
+    let trace_cfg = build_trace_config_request_frame(true);
+    let _ = super::send_frame(tx, &trace_cfg);
     let frame = build_board_list_request_frame(boards.get_untracked().list_rev.clone());
     let _ = super::send_frame(tx, &frame);
 }
