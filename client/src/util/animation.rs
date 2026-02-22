@@ -143,6 +143,7 @@ pub fn project_clip_scene(
         }
         apply_event(&mut projected, active_board_id, scope.as_ref(), event);
     }
+    apply_interpolated_motion(&mut projected, clip, capped_playhead, scope.as_ref());
 
     projected
 }
@@ -300,5 +301,111 @@ fn apply_patch(obj: &mut BoardObject, patch: &serde_json::Value) {
                 }
             }
         }
+    }
+}
+
+fn apply_interpolated_motion(
+    projected: &mut HashMap<String, BoardObject>,
+    clip: &AnimationClip,
+    playhead_ms: f64,
+    scope: Option<&HashSet<String>>,
+) {
+    for (id, obj) in projected.iter_mut() {
+        if !in_scope(scope, id) {
+            continue;
+        }
+        interpolate_field(obj, clip, playhead_ms, id, NumericField::X);
+        interpolate_field(obj, clip, playhead_ms, id, NumericField::Y);
+        interpolate_field(obj, clip, playhead_ms, id, NumericField::Width);
+        interpolate_field(obj, clip, playhead_ms, id, NumericField::Height);
+        interpolate_field(obj, clip, playhead_ms, id, NumericField::Rotation);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum NumericField {
+    X,
+    Y,
+    Width,
+    Height,
+    Rotation,
+}
+
+fn interpolate_field(
+    obj: &mut BoardObject,
+    clip: &AnimationClip,
+    playhead_ms: f64,
+    object_id: &str,
+    field: NumericField,
+) {
+    let mut prev: Option<(f64, f64)> = None;
+    let mut next: Option<(f64, f64)> = None;
+    let mut create: Option<(f64, f64)> = None;
+
+    for event in &clip.events {
+        match &event.op {
+            AnimationOp::Create { object } if object.id == object_id => {
+                if let Some(value) = object_numeric_field(object, field) {
+                    create = Some((event.t_ms, value));
+                }
+            }
+            AnimationOp::Update { target_id, patch } if target_id == object_id => {
+                let Some(value) = patch_numeric_field(patch, field) else {
+                    continue;
+                };
+                if event.t_ms <= playhead_ms {
+                    prev = Some((event.t_ms, value));
+                } else {
+                    next = Some((event.t_ms, value));
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let prev = prev.or(create);
+    let Some((t0, v0)) = prev else {
+        return;
+    };
+    let Some((t1, v1)) = next else {
+        return;
+    };
+    if t1 <= t0 {
+        return;
+    }
+    let alpha = ((playhead_ms - t0) / (t1 - t0)).clamp(0.0, 1.0);
+    let value = v0 + ((v1 - v0) * alpha);
+    set_object_numeric_field(obj, field, value);
+}
+
+fn patch_numeric_field(patch: &serde_json::Value, field: NumericField) -> Option<f64> {
+    let key = match field {
+        NumericField::X => "x",
+        NumericField::Y => "y",
+        NumericField::Width => "width",
+        NumericField::Height => "height",
+        NumericField::Rotation => "rotation",
+    };
+    patch.get(key).and_then(serde_json::Value::as_f64)
+}
+
+fn object_numeric_field(obj: &BoardObject, field: NumericField) -> Option<f64> {
+    match field {
+        NumericField::X => Some(obj.x),
+        NumericField::Y => Some(obj.y),
+        NumericField::Width => obj.width,
+        NumericField::Height => obj.height,
+        NumericField::Rotation => Some(obj.rotation),
+    }
+}
+
+fn set_object_numeric_field(obj: &mut BoardObject, field: NumericField, value: f64) {
+    match field {
+        NumericField::X => obj.x = value,
+        NumericField::Y => obj.y = value,
+        NumericField::Width => obj.width = Some(value),
+        NumericField::Height => obj.height = Some(value),
+        NumericField::Rotation => obj.rotation = value,
     }
 }

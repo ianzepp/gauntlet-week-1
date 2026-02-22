@@ -704,6 +704,108 @@ async fn tool_create_animation_clip_updates_existing_host() {
     }
 }
 
+#[tokio::test]
+async fn tool_create_animation_clip_normalizes_shorthand_create_object() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "stream": [
+            { "tMs": 0, "op": "create", "object": {
+                "type": "ellipse",
+                "x": 400,
+                "y": 300,
+                "width": 60,
+                "height": 60,
+                "fill": "#FF5722"
+            }},
+            { "tMs": 200, "op": "update", "targetId": "ball1", "patch": {"y": 200} }
+        ]
+    });
+    let result = execute_tool(&state, board_id, "createAnimationClip", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created animation clip host"));
+    let host = match &mutations[0] {
+        AiMutation::Created(obj) => obj,
+        _ => panic!("expected Created mutation"),
+    };
+    let animation = host
+        .props
+        .get("animation")
+        .expect("animation should be set");
+    let events = animation
+        .get("events")
+        .and_then(serde_json::Value::as_array)
+        .expect("events should be array");
+    let created = events[0]
+        .get("object")
+        .and_then(serde_json::Value::as_object)
+        .expect("create object should be normalized");
+    assert_eq!(
+        created
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .expect("normalized object id"),
+        "ball1"
+    );
+    assert_eq!(
+        created
+            .get("kind")
+            .and_then(serde_json::Value::as_str)
+            .expect("kind"),
+        "ellipse"
+    );
+    assert_eq!(
+        created
+            .get("props")
+            .and_then(|v| v.get("fill"))
+            .and_then(serde_json::Value::as_str),
+        Some("#FF5722")
+    );
+}
+
+#[tokio::test]
+async fn tool_create_animation_clip_assigns_ordered_ids_for_multiple_shorthand_creates() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "stream": [
+            { "tMs": 0, "op": "create", "object": { "type": "ellipse", "x": 100, "y": 100, "width": 40, "height": 40, "fill": "#f00" }},
+            { "tMs": 0, "op": "create", "object": { "type": "ellipse", "x": 200, "y": 100, "width": 40, "height": 40, "fill": "#0f0" }},
+            { "tMs": 200, "op": "update", "targetId": "ball1", "patch": { "y": 180 }},
+            { "tMs": 220, "op": "update", "targetId": "ball2", "patch": { "y": 180 }}
+        ]
+    });
+    let result = execute_tool(&state, board_id, "createAnimationClip", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created animation clip host"));
+    let host = match &mutations[0] {
+        AiMutation::Created(obj) => obj,
+        _ => panic!("expected Created mutation"),
+    };
+    let events = host
+        .props
+        .get("animation")
+        .and_then(|v| v.get("events"))
+        .and_then(serde_json::Value::as_array)
+        .expect("events");
+    let create0 = events[0]
+        .get("object")
+        .and_then(|v| v.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .expect("create0 id");
+    let create1 = events[1]
+        .get("object")
+        .and_then(|v| v.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .expect("create1 id");
+    assert_eq!(create0, "ball1");
+    assert_eq!(create1, "ball2");
+}
+
 // =========================================================================
 // execute_tool — unknown
 // =========================================================================

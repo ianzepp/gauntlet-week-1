@@ -1775,9 +1775,47 @@ async fn execute_create_animation_clip(
     let Some(stream) = input.get("stream").and_then(serde_json::Value::as_array) else {
         return Ok("error: missing stream array".into());
     };
+    let target_id_hints: std::collections::HashSet<String> = stream
+        .iter()
+        .filter_map(|item| item.as_object())
+        .filter_map(|ev| {
+            let op = ev.get("op").and_then(serde_json::Value::as_str)?;
+            let op = op.trim().to_ascii_lowercase();
+            if op != "update" && op != "delete" {
+                return None;
+            }
+            ev.get("targetId")
+                .or_else(|| ev.get("target_id"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .collect();
+    let ordered_target_hints: Vec<String> = stream
+        .iter()
+        .filter_map(|item| item.as_object())
+        .filter_map(|ev| {
+            let op = ev.get("op").and_then(serde_json::Value::as_str)?;
+            let op = op.trim().to_ascii_lowercase();
+            if op != "update" && op != "delete" {
+                return None;
+            }
+            ev.get("targetId")
+                .or_else(|| ev.get("target_id"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .collect();
+    let single_target_hint = if target_id_hints.len() == 1 {
+        target_id_hints.iter().next().cloned()
+    } else {
+        None
+    };
+
     let mut events = Vec::<serde_json::Value>::new();
+    let mut used_create_ids = std::collections::HashSet::<String>::new();
+    let mut ordered_target_cursor = 0_usize;
     let mut max_t = 0.0_f64;
-    for item in stream {
+    for (index, item) in stream.iter().enumerate() {
         let Some(ev) = item.as_object() else {
             continue;
         };
@@ -1797,13 +1835,25 @@ async fn execute_create_animation_clip(
 
         match op.as_str() {
             "create" => {
-                let Some(object) = ev.get("object").and_then(serde_json::Value::as_object) else {
+                let Some(object) = ev.get("object") else {
+                    continue;
+                };
+                let Some(object) = normalize_animation_create_object(
+                    board_id,
+                    object,
+                    ev,
+                    index,
+                    single_target_hint.as_deref(),
+                    &ordered_target_hints,
+                    &mut ordered_target_cursor,
+                    &mut used_create_ids,
+                ) else {
                     continue;
                 };
                 events.push(json!({
                     "tMs": t_ms,
                     "op": "create",
-                    "object": serde_json::Value::Object(object.clone()),
+                    "object": object,
                 }));
             }
             "update" => {
@@ -1954,6 +2004,158 @@ async fn execute_create_animation_clip(
     .await?;
     mutations.push(AiMutation::Created(host.clone()));
     Ok(format!("created animation clip host {} with {} events", host.id, events.len()))
+}
+
+fn normalize_animation_create_object(
+    board_id: Uuid,
+    raw_object: &serde_json::Value,
+    event: &serde_json::Map<String, serde_json::Value>,
+    index: usize,
+    single_target_hint: Option<&str>,
+    ordered_target_hints: &[String],
+    ordered_target_cursor: &mut usize,
+    used_ids: &mut std::collections::HashSet<String>,
+) -> Option<serde_json::Value> {
+    let source = raw_object.as_object()?;
+
+    let mut id = source
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| {
+            event
+                .get("targetId")
+                .or_else(|| event.get("target_id"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .or_else(|| single_target_hint.map(str::to_owned))
+        .or_else(|| next_unclaimed_target_hint(ordered_target_hints, ordered_target_cursor, used_ids))
+        .unwrap_or_else(|| format!("anim_obj_{}_{}", index, Uuid::new_v4().simple()));
+    if used_ids.contains(&id) {
+        id = format!("{id}_{index}");
+    }
+    used_ids.insert(id.clone());
+
+    let kind = source
+        .get("kind")
+        .or_else(|| source.get("type"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("rectangle")
+        .to_owned();
+    let x = source
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let y = source
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let width = source
+        .get("width")
+        .and_then(serde_json::Value::as_f64)
+        .map_or(serde_json::Value::Null, |v| json!(v));
+    let height = source
+        .get("height")
+        .and_then(serde_json::Value::as_f64)
+        .map_or(serde_json::Value::Null, |v| json!(v));
+    let rotation = source
+        .get("rotation")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let z_index = source
+        .get("z_index")
+        .or_else(|| source.get("zIndex"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let version = source
+        .get("version")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(1);
+    let group_id = source
+        .get("group_id")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let created_by = source
+        .get("created_by")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let object_board_id = source
+        .get("board_id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| board_id.to_string());
+
+    let props = if let Some(props) = source.get("props").and_then(serde_json::Value::as_object) {
+        serde_json::Value::Object(props.clone())
+    } else {
+        let mut props = serde_json::Map::new();
+        for key in [
+            "fill",
+            "stroke",
+            "strokeWidth",
+            "text",
+            "title",
+            "fontSize",
+            "textColor",
+            "svg",
+            "viewBox",
+            "preserveAspectRatio",
+            "a",
+            "b",
+            "fromId",
+            "toId",
+            "style",
+        ] {
+            if let Some(v) = source.get(key) {
+                props.insert(key.to_owned(), v.clone());
+            }
+        }
+        if (kind == "line" || kind == "arrow") && !props.contains_key("a") && !props.contains_key("b") {
+            let w = source
+                .get("width")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(120.0);
+            let h = source
+                .get("height")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            props.insert("a".into(), json!({ "x": x, "y": y }));
+            props.insert("b".into(), json!({ "x": x + w, "y": y + h }));
+        }
+        serde_json::Value::Object(props)
+    };
+
+    Some(json!({
+        "id": id,
+        "board_id": object_board_id,
+        "kind": kind,
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+        "rotation": rotation,
+        "z_index": z_index,
+        "props": props,
+        "created_by": created_by,
+        "version": version,
+        "group_id": group_id,
+    }))
+}
+
+fn next_unclaimed_target_hint(
+    ordered_target_hints: &[String],
+    cursor: &mut usize,
+    used_ids: &std::collections::HashSet<String>,
+) -> Option<String> {
+    while *cursor < ordered_target_hints.len() {
+        let candidate = ordered_target_hints[*cursor].clone();
+        *cursor += 1;
+        if !used_ids.contains(&candidate) {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 async fn execute_get_board_state(state: &AppState, board_id: Uuid) -> Result<String, AiError> {

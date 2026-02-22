@@ -101,3 +101,38 @@ fn resolve_active_clip_prefers_selected_clip() {
     assert_eq!(id, "clip-1");
     assert_eq!(clip.duration_ms, 500.0);
 }
+
+#[test]
+fn project_clip_scene_interpolates_motion_between_updates() {
+    let mut base = HashMap::new();
+    let mut seed = obj("ball1", "ellipse");
+    seed.y = 100.0;
+    base.insert("ball1".to_owned(), seed.clone());
+
+    let mut create_obj = seed;
+    create_obj.id = "ball1".to_owned();
+    let clip = AnimationClip {
+        duration_ms: 2000.0,
+        looped: false,
+        scope_object_ids: Some(vec!["ball1".to_owned()]),
+        events: vec![
+            AnimationEvent { t_ms: 0.0, op: AnimationOp::Create { object: create_obj } },
+            AnimationEvent {
+                t_ms: 1000.0,
+                op: AnimationOp::Update { target_id: "ball1".to_owned(), patch: serde_json::json!({ "y": 300.0 }) },
+            },
+            AnimationEvent {
+                t_ms: 2000.0,
+                op: AnimationOp::Update { target_id: "ball1".to_owned(), patch: serde_json::json!({ "y": 100.0 }) },
+            },
+        ],
+    };
+
+    let at_500 = project_clip_scene(&base, Some("b1"), &clip, 500.0);
+    let y_500 = at_500.get("ball1").expect("ball1 exists").y;
+    assert!((y_500 - 200.0).abs() < 0.001);
+
+    let at_1500 = project_clip_scene(&base, Some("b1"), &clip, 1500.0);
+    let y_1500 = at_1500.get("ball1").expect("ball1 exists").y;
+    assert!((y_1500 - 200.0).abs() < 0.001);
+}

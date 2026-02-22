@@ -69,6 +69,10 @@ use std::cell::RefCell;
 #[cfg(feature = "hydrate")]
 use std::collections::HashMap;
 #[cfg(feature = "hydrate")]
+use std::collections::hash_map::DefaultHasher;
+#[cfg(feature = "hydrate")]
+use std::hash::{Hash, Hasher};
+#[cfg(feature = "hydrate")]
 use std::rc::Rc;
 
 #[cfg(feature = "hydrate")]
@@ -2305,7 +2309,7 @@ fn place_shape_at_cursor(
 
 #[cfg(feature = "hydrate")]
 fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Option<&str>) -> Option<CanvasObject> {
-    let id = uuid::Uuid::parse_str(&obj.id).ok()?;
+    let id = parse_or_stable_uuid(&obj.id);
     let board_id = active_board_id
         .and_then(|s| uuid::Uuid::parse_str(s).ok())
         .or_else(|| uuid::Uuid::parse_str(&obj.board_id).ok())
@@ -2350,6 +2354,42 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
             .as_deref()
             .and_then(|s| uuid::Uuid::parse_str(s).ok()),
     })
+}
+
+#[cfg(feature = "hydrate")]
+fn parse_or_stable_uuid(value: &str) -> uuid::Uuid {
+    if let Ok(parsed) = uuid::Uuid::parse_str(value) {
+        return parsed;
+    }
+    // Animation event streams may use human-readable IDs (for example "ball1").
+    // Derive a stable pseudo-UUID so transient playback objects still render.
+    let mut h1 = DefaultHasher::new();
+    "collabboard-animation-id-a".hash(&mut h1);
+    value.hash(&mut h1);
+    let hi = h1.finish();
+    let mut h2 = DefaultHasher::new();
+    "collabboard-animation-id-b".hash(&mut h2);
+    value.hash(&mut h2);
+    let lo = h2.finish();
+    let bytes = [
+        (hi >> 56) as u8,
+        (hi >> 48) as u8,
+        (hi >> 40) as u8,
+        (hi >> 32) as u8,
+        (hi >> 24) as u8,
+        (hi >> 16) as u8,
+        (hi >> 8) as u8,
+        hi as u8,
+        (lo >> 56) as u8,
+        (lo >> 48) as u8,
+        (lo >> 40) as u8,
+        (lo >> 32) as u8,
+        (lo >> 24) as u8,
+        (lo >> 16) as u8,
+        (lo >> 8) as u8,
+        lo as u8,
+    ];
+    uuid::Uuid::from_bytes(bytes)
 }
 
 #[cfg(feature = "hydrate")]
