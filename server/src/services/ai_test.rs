@@ -87,6 +87,8 @@ async fn tool_create_sticky_note() {
     if let AiMutation::Created(obj) = &mutations[0] {
         assert_eq!(obj.kind, "sticky_note");
         assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#FF5722"));
+        assert_eq!(obj.props.get("fontSize").and_then(|v| v.as_f64()), Some(24.0));
+        assert_eq!(obj.props.get("textColor").and_then(|v| v.as_str()), Some("#1F1A17"));
     } else {
         panic!("expected Created mutation");
     }
@@ -153,7 +155,13 @@ async fn tool_create_frame() {
     assert!(result.contains("created frame"));
     assert!(result.contains("Strengths"));
     assert_eq!(mutations.len(), 1);
-    assert!(matches!(&mutations[0], AiMutation::Created(obj) if obj.kind == "frame"));
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "frame");
+        assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#1F1A17"));
+        assert_eq!(obj.props.get("strokeWidth").and_then(|v| v.as_f64()), Some(0.0));
+    } else {
+        panic!("expected Created mutation");
+    }
 }
 
 // =========================================================================
@@ -302,6 +310,22 @@ async fn tool_update_text_title_field() {
     } else {
         panic!("expected Updated mutation");
     }
+}
+
+#[tokio::test]
+async fn tool_update_text_rejects_head_field() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectId": obj_id.to_string(), "field": "head", "newText": "New head" });
+    let result = execute_tool(&state, board_id, "updateText", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert_eq!(result, "error: field must be one of text/title");
+    assert!(mutations.is_empty());
 }
 
 #[tokio::test]

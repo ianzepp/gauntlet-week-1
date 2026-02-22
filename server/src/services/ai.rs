@@ -584,10 +584,20 @@ async fn execute_create_sticky_note(
         .get("strokeWidth")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
+    let font_size = input
+        .get("fontSize")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(24.0);
+    let text_color = input
+        .get("textColor")
+        .and_then(|v| v.as_str())
+        .unwrap_or("#1F1A17");
 
     let props = json!({
         "title": title,
         "text": text,
+        "fontSize": font_size,
+        "textColor": text_color,
         "fill": fill,
         "stroke": stroke,
         "strokeWidth": stroke_width
@@ -721,8 +731,20 @@ async fn execute_create_frame(
         .get("y")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
+    let stroke = input
+        .get("stroke")
+        .and_then(|v| v.as_str())
+        .unwrap_or("#1F1A17");
+    let stroke_width = input
+        .get("strokeWidth")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
 
-    let props = json!({"title": title});
+    let props = json!({
+        "title": title,
+        "stroke": stroke,
+        "strokeWidth": stroke_width
+    });
     let w = input
         .get("width")
         .and_then(serde_json::Value::as_f64)
@@ -764,7 +786,7 @@ async fn execute_create_connector(
         Err(_) => return Ok("error: missing or invalid toId".into()),
     };
 
-    let kind = if style.eq_ignore_ascii_case("line") || style.eq_ignore_ascii_case("dashed") {
+    let kind = if style.eq_ignore_ascii_case("line") {
         "line"
     } else {
         "arrow"
@@ -797,9 +819,6 @@ async fn execute_create_connector(
     props.insert("style".into(), json!(style));
     props.insert("stroke".into(), json!("#D94B4B"));
     props.insert("strokeWidth".into(), json!(2.0));
-    if style.eq_ignore_ascii_case("dashed") {
-        props.insert("dash".into(), json!([8.0, 6.0]));
-    }
 
     let width = (bx - ax).abs().max(1.0);
     let height = (by - ay).abs();
@@ -962,8 +981,8 @@ async fn execute_update_text(
         .and_then(|v| v.as_str())
         .unwrap_or("text")
         .to_string();
-    if !matches!(field.as_str(), "text" | "title" | "head" | "foot") {
-        return Ok("error: field must be one of text/title/head/foot".into());
+    if !matches!(field.as_str(), "text" | "title") {
+        return Ok("error: field must be one of text/title".into());
     }
 
     match update_object_with_retry(state, board_id, id, |snapshot| {

@@ -132,3 +132,37 @@ fn get_board_state_requires_nothing() {
     let tool = tools.iter().find(|t| t.name == "getBoardState").unwrap();
     assert!(tool.input_schema.get("required").is_none());
 }
+
+#[test]
+fn create_connector_style_enum_matches_supported_values() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "createConnector").unwrap();
+    let values: Vec<&str> = tool
+        .input_schema
+        .get("properties")
+        .and_then(|v| v.get("style"))
+        .and_then(|v| v.get("enum"))
+        .and_then(serde_json::Value::as_array)
+        .unwrap()
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    assert_eq!(values, vec!["line", "arrow"]);
+}
+
+#[test]
+fn update_text_field_enum_matches_ui_fields() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "updateText").unwrap();
+    let values: Vec<&str> = tool
+        .input_schema
+        .get("properties")
+        .and_then(|v| v.get("field"))
+        .and_then(|v| v.get("enum"))
+        .and_then(serde_json::Value::as_array)
+        .unwrap()
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    assert_eq!(values, vec!["text", "title"]);
+}

@@ -31,6 +31,8 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "text": { "type": "string", "description": "Text content of the sticky note" },
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
+                    "fontSize": { "type": "number", "description": "Text font size in pixels" },
+                    "textColor": { "type": "string", "description": "Text color hex" },
                     "fill": { "type": "string", "description": "Fill color (hex, e.g. #FFEB3B)" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
                     "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
@@ -73,7 +75,9 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
                     "width": { "type": "number", "description": "Width in pixels" },
-                    "height": { "type": "number", "description": "Height in pixels" }
+                    "height": { "type": "number", "description": "Height in pixels" },
+                    "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
+                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
                 },
                 "required": ["title", "x", "y", "width", "height"]
             }),
@@ -86,7 +90,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "properties": {
                     "fromId": { "type": "string", "format": "uuid", "description": "Source object ID" },
                     "toId": { "type": "string", "format": "uuid", "description": "Target object ID" },
-                    "style": { "type": "string", "enum": ["line", "arrow", "dashed"], "description": "Connector visual style" }
+                    "style": { "type": "string", "enum": ["line", "arrow"], "description": "Connector visual style" }
                 },
                 "required": ["fromId", "toId"]
             }),
@@ -131,7 +135,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
         },
         Tool {
             name: "updateText".into(),
-            description: "Update a text field on an object (text/title/head/foot).".into(),
+            description: "Update a text field on an object (text/title).".into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -139,7 +143,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "newText": { "type": "string", "description": "New text content" },
                     "field": {
                         "type": "string",
-                        "enum": ["text", "title", "head", "foot"],
+                        "enum": ["text", "title"],
                         "description": "Which text field to update (default: text)"
                     }
                 },
