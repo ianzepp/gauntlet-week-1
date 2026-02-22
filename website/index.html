@@ -21,6 +21,7 @@
         <button class="nav-item active" data-page="architecture" aria-current="page">ARCHITECTURE</button>
         <button class="nav-item" data-page="timeline">TIMELINE</button>
         <button class="nav-item" data-page="transcripts">TRANSCRIPTS</button>
+        <button class="nav-item" data-page="visuals">VISUALS</button>
         <button class="nav-item" data-page="demo">DEMO</button>
       </div>
     </div>
@@ -337,6 +338,27 @@
             <!-- Field notes rendered by JS to sync with selected day -->
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE: VISUALS -->
+    <!-- ============================================ -->
+    <div class="page" data-page="visuals">
+      <div class="visuals-panel" id="vis-panel">
+        <div class="timeline-log-header">
+          <button class="carousel-arrow carousel-prev" id="vis-prev" aria-label="Previous day"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,2 4,7 9,12"/></svg> PREV</button>
+          <div class="timeline-log-heading">
+            <div class="label">VISUAL_LOG</div>
+            <div class="timeline-log-title" id="vis-title">DAY 2 &mdash; SCREENSHOTS &amp; RECORDINGS</div>
+            <div class="timeline-log-meta"><span id="vis-date">2026-02-17</span> &middot; <span id="vis-count">0 FILES</span></div>
+          </div>
+          <button class="carousel-arrow carousel-next" id="vis-next" aria-label="Next day">NEXT <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5,2 10,7 5,12"/></svg></button>
+        </div>
+        <div class="visuals-gallery" id="vis-gallery">
+          <!-- Gallery rendered by JS -->
+        </div>
+        <div class="map-pagination" id="vis-pagination">DAY 2 OF 7</div>
       </div>
     </div>
 

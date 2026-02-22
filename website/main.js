@@ -1127,4 +1127,168 @@
       }
     });
   }
+  /* --- Visuals Page --- */
+  var visPanel = document.getElementById('vis-panel');
+
+  if (visPanel) {
+    var visTitle = document.getElementById('vis-title');
+    var visDate = document.getElementById('vis-date');
+    var visCount = document.getElementById('vis-count');
+    var visGallery = document.getElementById('vis-gallery');
+    var visPagination = document.getElementById('vis-pagination');
+    var visPrev = document.getElementById('vis-prev');
+    var visNext = document.getElementById('vis-next');
+    var visCurrent = 0;
+
+    /* Media files organized by day (dates from filenames) */
+    var visualDays = [
+      { day: 2, date: '2026-02-17', files: [
+        { name: 'screenshot-2026-02-17-0859.png', type: 'screenshot', time: '08:59' },
+        { name: 'screenshot-2026-02-17-1527a.png', type: 'screenshot', time: '15:27' },
+        { name: 'screenshot-2026-02-17-1527b.png', type: 'screenshot', time: '15:27' },
+        { name: 'screenshot-2026-02-17-1527c.png', type: 'screenshot', time: '15:27' },
+        { name: 'screenshot-2026-02-17-1527d.png', type: 'screenshot', time: '15:27' },
+        { name: 'screenshot-2026-02-17-1640.png', type: 'screenshot', time: '16:40' }
+      ]},
+      { day: 3, date: '2026-02-18', files: [
+        { name: 'screenshot-2026-02-18-1549.png', type: 'screenshot', time: '15:49' },
+        { name: 'screenshot-2026-02-18-1605.png', type: 'screenshot', time: '16:05' },
+        { name: 'screenshot-2026-02-18-1912.png', type: 'screenshot', time: '19:12' },
+        { name: 'recording-2026-02-18-1913.mov', type: 'recording', time: '19:13' },
+        { name: 'recording-2026-02-18-2000.mov', type: 'recording', time: '20:00' },
+        { name: 'recording-2026-02-18-2033.mov', type: 'recording', time: '20:33' },
+        { name: 'recording-2026-02-18-2036.mov', type: 'recording', time: '20:36' },
+        { name: 'recording-2026-02-18-2134.mov', type: 'recording', time: '21:34' }
+      ]},
+      { day: 4, date: '2026-02-19', files: [
+        { name: 'recording-2026-02-19-1403.mov', type: 'recording', time: '14:03' },
+        { name: 'screenshot-2026-02-19-2033.png', type: 'screenshot', time: '20:33' },
+        { name: 'screenshot-2026-02-19-2034.png', type: 'screenshot', time: '20:34' },
+        { name: 'screenshot-2026-02-19-2233.png', type: 'screenshot', time: '22:33' },
+        { name: 'screenshot-2026-02-19-2302.png', type: 'screenshot', time: '23:02' },
+        { name: 'screenshot-2026-02-19-2344.png', type: 'screenshot', time: '23:44' },
+        { name: 'recording-2026-02-19-2253.mov', type: 'recording', time: '22:53' }
+      ]},
+      { day: 5, date: '2026-02-20', files: [
+        { name: 'screenshot-2026-02-20-0042.png', type: 'screenshot', time: '00:42' },
+        { name: 'screenshot-2026-02-20-0043.png', type: 'screenshot', time: '00:43' },
+        { name: 'screenshot-2026-02-20-0748.png', type: 'screenshot', time: '07:48' },
+        { name: 'screenshot-2026-02-20-0927.png', type: 'screenshot', time: '09:27' },
+        { name: 'screenshot-2026-02-20-1012.png', type: 'screenshot', time: '10:12' },
+        { name: 'screenshot-2026-02-20-1143.png', type: 'screenshot', time: '11:43' },
+        { name: 'recording-2026-02-20-1017.mov', type: 'recording', time: '10:17' },
+        { name: 'recording-2026-02-20-1651.mov', type: 'recording', time: '16:51' }
+      ]},
+      { day: 6, date: '2026-02-21', files: [
+        { name: 'screenshot-2026-02-21-1709.png', type: 'screenshot', time: '17:09' },
+        { name: 'screenshot-2026-02-21-1711.png', type: 'screenshot', time: '17:11' },
+        { name: 'screenshot-2026-02-21-1718.png', type: 'screenshot', time: '17:18' },
+        { name: 'screenshot-2026-02-21-2042.png', type: 'screenshot', time: '20:42' }
+      ]}
+    ];
+
+    /* Day titles from timeline data */
+    var visDayTitles = {};
+    for (var vd = 0; vd < timelineDays.length; vd++) {
+      visDayTitles[timelineDays[vd].day] = timelineDays[vd].title;
+    }
+
+    function renderVisualDay(index) {
+      var dayData = visualDays[index];
+      visCurrent = index;
+
+      var dayTitle = visDayTitles[dayData.day] || '';
+      visTitle.textContent = 'DAY ' + dayData.day + ' \u2014 ' + dayTitle;
+      visDate.textContent = dayData.date;
+      visCount.textContent = dayData.files.length + ' FILES';
+      visPagination.textContent = 'DAY ' + dayData.day + ' OF ' + visualDays[visualDays.length - 1].day;
+
+      if (dayData.files.length === 0) {
+        visGallery.innerHTML = '<div class="vis-empty">NO VISUAL MEDIA FOR THIS DAY</div>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < dayData.files.length; i++) {
+        var f = dayData.files[i];
+        var src = 'media/' + f.name;
+        html += '<div class="vis-item" data-src="' + src + '" data-type="' + f.type + '">';
+        if (f.type === 'screenshot') {
+          html += '<img src="' + src + '" alt="Screenshot from ' + dayData.date + ' at ' + f.time + '" loading="lazy">';
+        } else {
+          html += '<video src="' + src + '" preload="metadata" muted></video>';
+        }
+        html += '<div class="vis-item-label">'
+          + '<span class="vis-item-type">' + f.type + '</span>'
+          + '<span>' + f.time + '</span>'
+          + '</div></div>';
+      }
+      visGallery.innerHTML = html;
+      visGallery.scrollTop = 0;
+
+      /* Attach click handlers for lightbox */
+      var items = visGallery.querySelectorAll('.vis-item');
+      items.forEach(function (item) {
+        item.addEventListener('click', function () {
+          openLightbox(item.getAttribute('data-src'), item.getAttribute('data-type'));
+        });
+      });
+    }
+
+    function openLightbox(src, type) {
+      var overlay = document.createElement('div');
+      overlay.className = 'vis-lightbox';
+
+      if (type === 'screenshot') {
+        var img = document.createElement('img');
+        img.src = src;
+        overlay.appendChild(img);
+      } else {
+        var vid = document.createElement('video');
+        vid.src = src;
+        vid.controls = true;
+        vid.autoplay = true;
+        overlay.appendChild(vid);
+      }
+
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) {
+          if (vid) vid.pause();
+          document.body.removeChild(overlay);
+        }
+      });
+
+      document.addEventListener('keydown', function handler(e) {
+        if (e.key === 'Escape') {
+          if (vid) vid.pause();
+          if (overlay.parentNode) document.body.removeChild(overlay);
+          document.removeEventListener('keydown', handler);
+        }
+      });
+
+      document.body.appendChild(overlay);
+    }
+
+    renderVisualDay(0);
+
+    visPrev.addEventListener('click', function () {
+      renderVisualDay((visCurrent - 1 + visualDays.length) % visualDays.length);
+    });
+
+    visNext.addEventListener('click', function () {
+      renderVisualDay((visCurrent + 1) % visualDays.length);
+    });
+
+    /* Keyboard navigation for visuals page */
+    document.addEventListener('keydown', function (e) {
+      var visPage = document.querySelector('.page[data-page="visuals"]');
+      if (!visPage || !visPage.classList.contains('active')) return;
+
+      if (e.key === 'ArrowLeft') {
+        visPrev.click();
+      } else if (e.key === 'ArrowRight') {
+        visNext.click();
+      }
+    });
+  }
 })();
