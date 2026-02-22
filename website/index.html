@@ -22,7 +22,6 @@
         <button class="nav-item" data-page="architecture">ARCHITECTURE</button>
         <button class="nav-item" data-page="timeline">TIMELINE</button>
         <button class="nav-item" data-page="transcripts">TRANSCRIPTS</button>
-        <button class="nav-item" data-page="stack">STACK</button>
         <button class="nav-item" data-page="demo">DEMO</button>
       </div>
     </div>
@@ -238,6 +237,7 @@
           <div class="tab-bar" data-tabgroup="arch-card">
             <button class="tab active" data-tab="arch-overview">OVERVIEW</button>
             <button class="tab" data-tab="arch-crates">CRATES</button>
+            <button class="tab" data-tab="arch-stack">STACK</button>
             <button class="tab" data-tab="arch-decisions">DECISIONS</button>
           </div>
           <div class="tab-content active" data-tab-content="arch-overview">
@@ -297,6 +297,53 @@
                 </div>
                 <p class="inventory-desc">End-to-end performance tests over real HTTP and WebSocket connections. Round-trip latency, board complexity scaling, and 25-user concurrent load scenarios.</p>
               </div>
+            </div>
+          </div>
+          <div class="tab-content" data-tab-content="arch-stack">
+            <div class="section-heading">TECHNOLOGY_STACK</div>
+            <p class="body-text">
+              The entire stack is Rust. The server is Axum with SQLx for database access. The frontend is Leptos &mdash; server-side rendered, then hydrated in the browser as WASM. No JavaScript runtime anywhere.
+            </p>
+            <p class="body-text">
+              Auth supports GitHub OAuth and email access codes with single-use WebSocket tickets. AI features work with either Anthropic (Claude) or OpenAI-compatible backends. Deployed on Railway with Docker, migrations run automatically on startup.
+            </p>
+            <div class="section-heading" style="margin-top: 24px;">DEPENDENCY_COUNTS</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">24 deps + 1 dev</span></div>
+              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">21 deps</span></div>
+              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">5 deps</span></div>
+              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">5 deps</span></div>
+              <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">8 deps</span></div>
+              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">3 deps</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">67 dependencies</span></div>
+            </div>
+            <div class="section-heading" style="margin-top: 24px;">KEY_LIBRARIES</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">AXUM:</span><span class="kv-value">0.8 (HTTP + WS)</span></div>
+              <div class="kv-row"><span class="kv-key">SQLX:</span><span class="kv-value">0.8 (PostgreSQL)</span></div>
+              <div class="kv-row"><span class="kv-key">LEPTOS:</span><span class="kv-value">0.8 (SSR + Hydrate)</span></div>
+              <div class="kv-row"><span class="kv-key">PROST:</span><span class="kv-value">0.13 (Protobuf)</span></div>
+              <div class="kv-row"><span class="kv-key">TOKIO:</span><span class="kv-value">1.x (Async Runtime)</span></div>
+              <div class="kv-row"><span class="kv-key">SERDE:</span><span class="kv-value">1.x (Serialization)</span></div>
+            </div>
+            <div class="section-heading" style="margin-top: 24px;">LINES_OF_CODE_BY_CRATE</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">15,914 (13,165 src + 2,749 test)</span></div>
+              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">14,006 (8,241 src + 5,765 test)</span></div>
+              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">8,897 (3,188 src + 5,709 test)</span></div>
+              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">1,453 (549 src + 904 test)</span></div>
+              <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">698 (460 src + 238 test)</span></div>
+              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">610 (218 src + 392 test)</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">41,578 lines</span></div>
+            </div>
+            <div class="section-heading" style="margin-top: 24px;">TEST_COVERAGE_BY_CRATE</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">99.7%</span></div>
+              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">59.5%</span></div>
+              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">49.4%</span></div>
+              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">48.3%</span></div>
+              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">24.5%</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">OVERALL:</span><span class="kv-value">41.2%</span></div>
             </div>
           </div>
           <div class="tab-content" data-tab-content="arch-decisions">
@@ -369,128 +416,6 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- PAGE: STACK -->
-    <!-- ============================================ -->
-    <div class="page" data-page="stack">
-      <div class="panel-left">
-        <div class="map-panel">
-          <div class="map-overlay">
-            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
-            <div class="map-overlay-title">TECHNOLOGY_STRATIGRAPHY</div>
-            <div class="map-overlay-meta">FULL STACK &middot; RUST 2024</div>
-          </div>
-          <div class="map-content">
-            <div class="stratigraphy">
-              <div class="stratum" style="--depth: 0">
-                <span class="stratum-label">BROWSER</span>
-                <span class="stratum-tech">Leptos 0.8 (WASM) + Canvas2D API</span>
-              </div>
-              <div class="stratum" style="--depth: 1">
-                <span class="stratum-label">ENGINE</span>
-                <span class="stratum-tech">canvas crate &mdash; native Rust, zero web-sys core</span>
-              </div>
-              <div class="stratum" style="--depth: 2">
-                <span class="stratum-label">WIRE</span>
-                <span class="stratum-tech">Protobuf frames (Prost 0.13) over WebSocket</span>
-              </div>
-              <div class="stratum" style="--depth: 3">
-                <span class="stratum-label">SERVER</span>
-                <span class="stratum-tech">Axum 0.8 + tower middleware + SQLx 0.8</span>
-              </div>
-              <div class="stratum" style="--depth: 4">
-                <span class="stratum-label">STORAGE</span>
-                <span class="stratum-tech">PostgreSQL &mdash; objects + frame log + sessions</span>
-              </div>
-              <div class="stratum" style="--depth: 5">
-                <span class="stratum-label">AI</span>
-                <span class="stratum-tech">Anthropic / OpenAI &mdash; 9-tool loop, 10 turns max</span>
-              </div>
-              <div class="stratum" style="--depth: 6">
-                <span class="stratum-label">DEPLOY</span>
-                <span class="stratum-tech">Docker + Railway &mdash; auto-migrate on startup</span>
-              </div>
-            </div>
-          </div>
-          <div class="map-zoom" aria-label="Zoom controls"><button aria-label="Zoom in">+</button><button aria-label="Zoom out">&minus;</button></div>
-          <div class="map-pagination">CROSS-SECTION &mdash; 7 LAYERS</div>
-        </div>
-      </div>
-      <div class="panel-right">
-        <div class="record-card">
-          <div class="record-header">
-            <span class="record-header-left">collabboard.dev</span>
-            <span class="record-header-center">TECHNOLOGY_STACK<br>SURVEY RECORD</span>
-            <span class="record-header-right">R-004</span>
-          </div>
-          <div class="record-identity">
-            <div class="label">STRATIGRAPHY / IDENTIFICATION</div>
-            <div class="display-script">Stack</div>
-            <div class="record-subtitle">Rust &middot; Axum &middot; Leptos &middot; PostgreSQL &middot; Protobuf</div>
-          </div>
-          <div class="tab-bar" data-tabgroup="stack-card">
-            <button class="tab active" data-tab="stack-overview">OVERVIEW</button>
-            <button class="tab" data-tab="stack-deps">DEPENDENCIES</button>
-            <button class="tab" data-tab="stack-stats">STATS</button>
-          </div>
-          <div class="tab-content active" data-tab-content="stack-overview">
-            <div class="section-heading">STACK_NARRATIVE</div>
-            <p class="body-text">
-              The entire stack is Rust. The server is Axum with SQLx for database access. The frontend is Leptos &mdash; server-side rendered, then hydrated in the browser as WASM. No JavaScript runtime anywhere.
-            </p>
-            <p class="body-text">
-              The canvas engine compiles to both native Rust (for testing) and WASM (for the browser). Its core logic has zero web-sys dependencies. WebSocket communication uses binary protobuf frames via Prost.
-            </p>
-            <p class="body-text">
-              Auth supports GitHub OAuth and email access codes with single-use WebSocket tickets. AI features work with either Anthropic (Claude) or OpenAI-compatible backends. Deployed on Railway with Docker, migrations run automatically on startup.
-            </p>
-          </div>
-          <div class="tab-content" data-tab-content="stack-deps">
-            <div class="section-heading">DEPENDENCY_COUNTS</div>
-            <div class="kv-list">
-              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">24 deps + 1 dev</span></div>
-              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">21 deps</span></div>
-              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">5 deps</span></div>
-              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">5 deps</span></div>
-              <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">8 deps</span></div>
-              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">3 deps</span></div>
-              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">67 dependencies</span></div>
-            </div>
-            <div class="section-heading" style="margin-top: 24px;">KEY_LIBRARIES</div>
-            <div class="kv-list">
-              <div class="kv-row"><span class="kv-key">AXUM:</span><span class="kv-value">0.8 (HTTP + WS)</span></div>
-              <div class="kv-row"><span class="kv-key">SQLX:</span><span class="kv-value">0.8 (PostgreSQL)</span></div>
-              <div class="kv-row"><span class="kv-key">LEPTOS:</span><span class="kv-value">0.8 (SSR + Hydrate)</span></div>
-              <div class="kv-row"><span class="kv-key">PROST:</span><span class="kv-value">0.13 (Protobuf)</span></div>
-              <div class="kv-row"><span class="kv-key">TOKIO:</span><span class="kv-value">1.x (Async Runtime)</span></div>
-              <div class="kv-row"><span class="kv-key">SERDE:</span><span class="kv-value">1.x (Serialization)</span></div>
-            </div>
-          </div>
-          <div class="tab-content" data-tab-content="stack-stats">
-            <div class="section-heading">LINES_OF_CODE_BY_CRATE</div>
-            <div class="kv-list">
-              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">15,914 (13,165 src + 2,749 test)</span></div>
-              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">14,006 (8,241 src + 5,765 test)</span></div>
-              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">8,897 (3,188 src + 5,709 test)</span></div>
-              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">1,453 (549 src + 904 test)</span></div>
-              <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">698 (460 src + 238 test)</span></div>
-              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">610 (218 src + 392 test)</span></div>
-              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">41,578 lines</span></div>
-            </div>
-            <div class="section-heading" style="margin-top: 24px;">TEST_COVERAGE_BY_CRATE</div>
-            <div class="kv-list">
-              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">99.7%</span></div>
-              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">59.5%</span></div>
-              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">49.4%</span></div>
-              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">48.3%</span></div>
-              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">24.5%</span></div>
-              <div class="kv-row kv-row-total"><span class="kv-key">OVERALL:</span><span class="kv-value">41.2%</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================ -->
     <!-- PAGE: DEMO -->
     <!-- ============================================ -->
     <div class="page" data-page="demo">
@@ -516,7 +441,7 @@
           <div class="record-header">
             <span class="record-header-left">collabboard.dev</span>
             <span class="record-header-center">DEMONSTRATION<br>FIELD LOG</span>
-            <span class="record-header-right">R-005</span>
+            <span class="record-header-right">R-004</span>
           </div>
           <div class="record-identity">
             <div class="label">EXHIBIT / IDENTIFICATION</div>
@@ -636,7 +561,7 @@
           <div class="record-header">
             <span class="record-header-left">collabboard.dev</span>
             <span class="record-header-center">SESSION_TRANSCRIPTS<br>EXPEDITION LOG</span>
-            <span class="record-header-right">R-006</span>
+            <span class="record-header-right">R-005</span>
           </div>
           <div class="record-identity">
             <div class="label">EXPEDITION / TRANSCRIPTS</div>

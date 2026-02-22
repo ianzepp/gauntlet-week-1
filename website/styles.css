@@ -349,41 +349,6 @@ body {
   height: auto;
 }
 
-/* --- Stratigraphy --- */
-.stratigraphy {
-  width: 100%;
-  max-width: 500px;
-}
-
-.stratum {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-lg);
-  padding: var(--gap-md) var(--gap-lg);
-  border: 1px solid var(--border-medium);
-  border-bottom: none;
-  background: var(--bg-card);
-}
-
-.stratum:last-child {
-  border-bottom: 1px solid var(--border-medium);
-}
-
-.stratum-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--text-primary);
-  min-width: 80px;
-}
-
-.stratum-tech {
-  font-size: 12px;
-  font-weight: 300;
-  color: var(--text-secondary);
-}
-
 /* --- Record Card (Right Panel) --- */
 .record-card {
   background: var(--bg-card);

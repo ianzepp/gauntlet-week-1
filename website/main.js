@@ -38,6 +38,7 @@
   /* --- Hash-based Routing --- */
   function getPageFromHash() {
     var hash = window.location.hash.replace('#', '');
+    if (hash === 'stack') hash = 'architecture';
     return hash || 'overview';
   }
 
