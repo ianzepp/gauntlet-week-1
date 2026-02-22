@@ -11,6 +11,8 @@ use leptos::prelude::*;
 use crate::state::board::BoardState;
 #[cfg(feature = "hydrate")]
 use crate::state::canvas_view::CanvasViewState;
+#[cfg(feature = "hydrate")]
+use crate::state::ui::UiState;
 
 #[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
@@ -25,6 +27,8 @@ pub fn BoardStamp() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     #[cfg(feature = "hydrate")]
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
+    #[cfg(feature = "hydrate")]
+    let ui = expect_context::<RwSignal<UiState>>();
     let minimap_ref = NodeRef::<leptos::html::Canvas>::new();
 
     #[cfg(feature = "hydrate")]
@@ -51,11 +55,46 @@ pub fn BoardStamp() -> impl IntoView {
         });
     }
 
+    #[cfg(feature = "hydrate")]
+    let on_click = move |ev: leptos::ev::MouseEvent| {
+        let Some(canvas) = minimap_ref.get() else {
+            return;
+        };
+        let maybe_objects = board.with(|board_state| {
+            if board_state.join_streaming || board_state.objects.len() > MINIMAP_DISABLE_THRESHOLD {
+                return None;
+            }
+            Some(board_state.objects.values().cloned().collect::<Vec<_>>())
+        });
+        let Some(objects) = maybe_objects else {
+            return;
+        };
+        let view = canvas_view.get_untracked();
+        let width_css = f64::from(canvas.client_width().max(1));
+        let height_css = f64::from(canvas.client_height().max(1));
+        let rect = canvas.get_bounding_client_rect();
+        let click_x = f64::from(ev.client_x()) - rect.left();
+        let click_y = f64::from(ev.client_y()) - rect.top();
+        let transform = minimap_transform(&objects, &view, width_css, height_css);
+        if transform.scale <= 0.0 {
+            return;
+        }
+        let center_x = ((click_x - transform.offset_x) / transform.scale) + transform.min_x;
+        let center_y = ((click_y - transform.offset_y) / transform.scale) + transform.min_y;
+        ui.update(|u| {
+            u.view_center_override = Some((center_x, center_y));
+            u.view_center_override_seq = u.view_center_override_seq.saturating_add(1);
+        });
+    };
+    #[cfg(not(feature = "hydrate"))]
+    let on_click = move |_ev: leptos::ev::MouseEvent| {};
+
     view! {
         <canvas
             class="board-stamp__minimap"
             node_ref=minimap_ref
             aria-label="Board minimap"
+            on:click=on_click
         ></canvas>
     }
 }

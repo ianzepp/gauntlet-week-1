@@ -3191,7 +3191,8 @@ a:hover {
     top: calc(var(--board-toolbar-height) + var(--space-md));
     right: var(--canvas-overlay-right-offset);
     z-index: var(--z-canvas-ui);
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: crosshair;
     opacity: 0.9;
     width: min(240px, calc(100% - var(--canvas-overlay-left-offset) - var(--canvas-overlay-right-offset) - var(--space-md)));
     height: 140px;
