@@ -7,6 +7,8 @@ Examples:
   python3 scripts/generate-stress-jsonl.py | cargo run -p cli -- ws object create --create-board
   python3 scripts/generate-stress-jsonl.py --pattern ring --count 100000 --seed 42 | \
     cargo run -p cli -- ws object create --board-id <board-id> --wait-for-ack false
+  python3 scripts/generate-stress-jsonl.py --pattern spiral --count 50000 | \
+    cargo run -p cli -- ws object create --create-board
 """
 
 from __future__ import annotations
@@ -29,9 +31,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-y", type=float, default=0.0, help="Pattern center/start Y")
     parser.add_argument(
         "--pattern",
-        choices=("snake", "square", "ring"),
+        choices=("snake", "square", "ring", "spiral"),
         default="snake",
-        help="Coordinate pattern: snake rows, concentric square rings, or circular rings",
+        help="Coordinate pattern: snake rows, concentric square rings, circular rings, or outward square spiral",
     )
     parser.add_argument("--columns", type=int, default=40, help="Columns for snake pattern")
     parser.add_argument("--row-gap", type=float, default=10.0, help="Extra vertical spacing between snake rows")
@@ -89,6 +91,35 @@ def snake_points(step: float, columns: int, row_gap: float) -> Iterator[tuple[fl
         row += 1
 
 
+def spiral_points(step: float) -> Iterator[tuple[float, float]]:
+    # Integer lattice square spiral centered at origin:
+    # (0,0), (1,0), (1,1), (0,1), (-1,1), (-1,0), ...
+    x = 0
+    y = 0
+    yield (0.0, 0.0)
+
+    leg_len = 1
+    while True:
+        # Right
+        for _ in range(leg_len):
+            x += 1
+            yield (x * step, y * step)
+        # Up
+        for _ in range(leg_len):
+            y += 1
+            yield (x * step, y * step)
+        leg_len += 1
+        # Left
+        for _ in range(leg_len):
+            x -= 1
+            yield (x * step, y * step)
+        # Down
+        for _ in range(leg_len):
+            y -= 1
+            yield (x * step, y * step)
+        leg_len += 1
+
+
 def random_hex_color(rng: random.Random) -> str:
     return f"#{rng.randint(0, 255):02x}{rng.randint(0, 255):02x}{rng.randint(0, 255):02x}"
 
@@ -117,6 +148,8 @@ def main() -> int:
         points = snake_points(args.size, args.columns, args.row_gap)
     elif args.pattern == "square":
         points = square_ring_points(args.size)
+    elif args.pattern == "spiral":
+        points = spiral_points(args.size)
     else:
         points = circle_ring_points(args.size)
 
