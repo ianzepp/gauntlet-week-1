@@ -29,8 +29,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "properties": {
                     "title": { "type": "string", "description": "Optional sticky note title" },
                     "text": { "type": "string", "description": "Text content of the sticky note" },
-                    "x": { "type": "number", "description": "X position on canvas" },
-                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "x": {
+                        "type": "number",
+                        "description": "X position in world/canvas coordinates (do not assume origin is visible top-left; prefer current viewer viewport)"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y position in world/canvas coordinates (do not assume origin is visible top-left; prefer current viewer viewport)"
+                    },
                     "fontSize": { "type": "number", "description": "Text font size in pixels" },
                     "textColor": { "type": "string", "description": "Text color hex" },
                     "fill": { "type": "string", "description": "Fill color (hex, e.g. #FFEB3B)" },
@@ -51,8 +57,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                         "enum": ["rectangle", "ellipse", "text", "line", "arrow"],
                         "description": "Shape type"
                     },
-                    "x": { "type": "number", "description": "X position on canvas" },
-                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "x": {
+                        "type": "number",
+                        "description": "X position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                    },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
                     "text": { "type": "string", "description": "Text content (used when type is text)" },
@@ -72,8 +84,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "type": "object",
                 "properties": {
                     "title": { "type": "string", "description": "Frame title displayed at the top" },
-                    "x": { "type": "number", "description": "X position on canvas" },
-                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "x": {
+                        "type": "number",
+                        "description": "X position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                    },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
@@ -102,8 +120,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "type": "object",
                 "properties": {
                     "svg": { "type": "string", "description": "Raw SVG markup string" },
-                    "x": { "type": "number", "description": "X position on canvas" },
-                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "x": {
+                        "type": "number",
+                        "description": "X position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                    },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
                     "title": { "type": "string", "description": "Optional SVG object title" },
@@ -135,8 +159,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "type": "object",
                 "properties": {
                     "svg": { "type": "string", "description": "Raw SVG markup string" },
-                    "x": { "type": "number", "description": "Optional X position on canvas" },
-                    "y": { "type": "number", "description": "Optional Y position on canvas" },
+                    "x": {
+                        "type": "number",
+                        "description": "Optional X in world/canvas coordinates (if omitted, infer from current viewer viewport)"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Optional Y in world/canvas coordinates (if omitted, infer from current viewer viewport)"
+                    },
                     "scale": { "type": "number", "description": "Optional uniform import scale factor" },
                     "mode": {
                         "type": "string",
@@ -268,8 +298,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "type": "object",
                 "properties": {
                     "mermaid": { "type": "string", "description": "Mermaid sequenceDiagram syntax" },
-                    "x": { "type": "number", "description": "X origin for diagram placement (default 0)" },
-                    "y": { "type": "number", "description": "Y origin for diagram placement (default 0)" },
+                    "x": {
+                        "type": "number",
+                        "description": "X origin for diagram placement (default: near viewer center, not assumed top-left)"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y origin for diagram placement (default: near viewer center, not assumed top-left)"
+                    },
                     "scale": { "type": "number", "description": "Scale factor 0.5-3.0 (default 1.0)" }
                 },
                 "required": ["mermaid"]
