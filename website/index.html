@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CollabBoard — Build Sprint Field Report</title>
-  <meta name="description" content="A real-time collaborative whiteboard built entirely in Rust. 41,578 lines of code across 6 crates in 7 days.">
+  <meta name="description" content="A real-time collaborative whiteboard built entirely in Rust. 42,272 lines of code across 7 crates in 7 days.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -41,8 +41,8 @@
   <section class="stat-strip" aria-label="Project statistics">
     <div class="stat-card stat-card-highlighted">
       <div class="stat-label">TOTAL_LINES_OF_CODE</div>
-      <div class="stat-number" data-target="41578">0</div>
-      <div class="stat-caption">SOURCE + TEST ACROSS 6 CRATES</div>
+      <div class="stat-number" data-target="42272">0</div>
+      <div class="stat-caption">SOURCE + TEST ACROSS 7 CRATES</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">BUILD_DURATION</div>
@@ -73,7 +73,7 @@
           <div class="map-overlay">
             <div class="label">LOCAL_SURVEY_VIEWPORT</div>
             <div class="map-overlay-title">CRATE_ARCHITECTURE &mdash; DEPENDENCY MAP</div>
-            <div class="map-overlay-meta">7 CRATES &middot; 67 DEPENDENCIES</div>
+            <div class="map-overlay-meta">7 CRATES &middot; 83 DEPENDENCIES</div>
           </div>
           <div class="map-content">
             <svg class="crate-map" viewBox="0 0 680 400" xmlns="http://www.w3.org/2000/svg">
@@ -162,7 +162,7 @@
           <div class="record-identity">
             <div class="label">SYSTEM / IDENTIFICATION</div>
             <div class="display-script">Architecture</div>
-            <div class="record-subtitle">6 Crates &middot; Cargo Workspace &middot; Edition 2024</div>
+            <div class="record-subtitle">7 Crates &middot; Cargo Workspace &middot; Edition 2024</div>
           </div>
           <div class="tab-bar" data-tabgroup="arch-card">
             <button class="tab active" data-tab="arch-overview">OVERVIEW</button>
@@ -227,6 +227,13 @@
                 </div>
                 <p class="inventory-desc">End-to-end performance tests over real HTTP and WebSocket connections. Round-trip latency, board complexity scaling, and 25-user concurrent load scenarios.</p>
               </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">CLI &mdash; COMMAND LINE</span>
+                  <span class="inventory-meta">694 LOC</span>
+                </div>
+                <p class="inventory-desc">Clap-based CLI for board management and debugging. REST board CRUD, WebSocket JSONL object streaming, and a stress generator with spiral pattern mode for load testing.</p>
+              </div>
             </div>
           </div>
           <div class="tab-content" data-tab-content="arch-stack">
@@ -245,7 +252,8 @@
               <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">5 deps</span></div>
               <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">8 deps</span></div>
               <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">3 deps</span></div>
-              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">67 dependencies</span></div>
+              <div class="kv-row"><span class="kv-key">CLI:</span><span class="kv-value">16 deps</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">83 dependencies</span></div>
             </div>
             <div class="section-heading" style="margin-top: 24px;">KEY_LIBRARIES</div>
             <div class="kv-list">
@@ -264,7 +272,8 @@
               <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">1,453 (549 src + 904 test)</span></div>
               <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">698 (460 src + 238 test)</span></div>
               <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">610 (218 src + 392 test)</span></div>
-              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">41,578 lines</span></div>
+              <div class="kv-row"><span class="kv-key">CLI:</span><span class="kv-value">694 (694 src + 0 test)</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">42,272 lines</span></div>
             </div>
             <div class="section-heading" style="margin-top: 24px;">TEST_COVERAGE_BY_CRATE</div>
             <div class="kv-list">
