@@ -22,7 +22,6 @@
         <button class="nav-item" data-page="timeline">TIMELINE</button>
         <button class="nav-item" data-page="transcripts">TRANSCRIPTS</button>
         <button class="nav-item" data-page="visuals">VISUALS</button>
-        <button class="nav-item" data-page="demo">DEMO</button>
       </div>
     </div>
     <div class="nav-divider" aria-hidden="true"></div>
@@ -359,126 +358,6 @@
           <!-- Gallery rendered by JS -->
         </div>
         <div class="map-pagination" id="vis-pagination">DAY 2 OF 7</div>
-      </div>
-    </div>
-
-    <!-- ============================================ -->
-    <!-- PAGE: DEMO -->
-    <!-- ============================================ -->
-    <div class="page" data-page="demo">
-      <div class="panel-left">
-        <div class="map-panel">
-          <div class="map-overlay">
-            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
-            <div class="map-overlay-title">LIVE_DEMONSTRATION</div>
-            <div class="map-overlay-meta">RAILWAY DEPLOYMENT &middot; 2026-02-20</div>
-          </div>
-          <div class="map-content demo-video-panel">
-            <div class="label">PLAYBACK_DEVICE &mdash; PRIMARY</div>
-            <div class="video-frame video-frame-large">
-              <iframe src="https://www.loom.com/embed/5d38b03c2450418ab11c29e0bbd28e52" frameborder="0" allowfullscreen title="CollabBoard demo video"></iframe>
-            </div>
-          </div>
-          <div class="map-zoom" aria-label="Zoom controls"><button aria-label="Zoom in">+</button><button aria-label="Zoom out">&minus;</button></div>
-          <div class="map-pagination">RECORDING 1 OF 2</div>
-        </div>
-      </div>
-      <div class="panel-right">
-        <div class="record-card">
-          <div class="record-header">
-            <span class="record-header-left">collabboard.dev</span>
-            <span class="record-header-center">DEMONSTRATION<br>FIELD LOG</span>
-            <span class="record-header-right">R-004</span>
-          </div>
-          <div class="record-identity">
-            <div class="label">EXHIBIT / IDENTIFICATION</div>
-            <div class="display-script">Demo</div>
-            <div class="record-subtitle">Live App &middot; Loom Recordings &middot; GitHub</div>
-          </div>
-          <div class="tab-bar" data-tabgroup="demo-card">
-            <button class="tab active" data-tab="demo-overview">OVERVIEW</button>
-            <button class="tab" data-tab="demo-features">FEATURES</button>
-            <button class="tab" data-tab="demo-links">LINKS</button>
-          </div>
-          <div class="tab-content active" data-tab-content="demo-overview">
-            <div class="section-heading">DEMONSTRATION_GUIDE</div>
-            <p class="body-text">
-              The live demo runs on Railway. Log in with GitHub or an email access code, create a board, and start drawing. Open the same board in a second browser tab to see real-time sync.
-            </p>
-            <p class="body-text">
-              Try the AI: click the AI button and type a natural language instruction like "arrange these sticky notes in a 3x3 grid" or "add a red diamond labeled URGENT." The AI reads your board, picks tools, and mutates objects live.
-            </p>
-            <p class="body-text">
-              Other features to explore: follow-camera (click another user's avatar to sync your viewport), chat (persistent per-board messaging), savepoints (rewind the board to an earlier state), and the compass widget (rotate the viewport).
-            </p>
-          </div>
-          <div class="tab-content" data-tab-content="demo-features">
-            <div class="section-heading">FEATURE_INVENTORY</div>
-            <div class="inventory-list">
-              <div class="inventory-item">
-                <div class="inventory-header">
-                  <span class="inventory-name">DRAWING TOOLS</span>
-                </div>
-                <p class="inventory-desc">Rectangles, ellipses, diamonds, stars, lines, arrows, text, frames (grouping), YouTube embeds. Full resize, rotate, multi-select.</p>
-              </div>
-              <div class="inventory-item">
-                <div class="inventory-header">
-                  <span class="inventory-name">REAL-TIME SYNC</span>
-                </div>
-                <p class="inventory-desc">WebSocket-based. Every object mutation broadcasts to all peers instantly. Cursor presence with deadband filtering. Smooth lerp on incoming drag events.</p>
-              </div>
-              <div class="inventory-item">
-                <div class="inventory-header">
-                  <span class="inventory-name">AI INTEGRATION</span>
-                </div>
-                <p class="inventory-desc">Natural language board manipulation. 9 tools: create sticky notes, shapes, frames, connectors; move, resize, update text, change color, get board state.</p>
-              </div>
-              <div class="inventory-item">
-                <div class="inventory-header">
-                  <span class="inventory-name">FOLLOW CAMERA</span>
-                </div>
-                <p class="inventory-desc">Click another user's avatar to sync your viewport to theirs. Pan, zoom, and rotation all sync. Click again to detach.</p>
-              </div>
-              <div class="inventory-item">
-                <div class="inventory-header">
-                  <span class="inventory-name">CHAT &amp; PRESENCE</span>
-                </div>
-                <p class="inventory-desc">Persistent per-board chat. User presence with live cursor positions. Heartbeat-based connection status.</p>
-              </div>
-              <div class="inventory-item">
-                <div class="inventory-header">
-                  <span class="inventory-name">SAVEPOINTS</span>
-                </div>
-                <p class="inventory-desc">Snapshot the board state at any point. Rewind to a previous savepoint to undo bulk changes.</p>
-              </div>
-            </div>
-          </div>
-          <div class="tab-content" data-tab-content="demo-links">
-            <div class="section-heading">EXTERNAL_LINKS</div>
-            <div class="kv-list">
-              <div class="kv-row">
-                <span class="kv-key">LIVE_DEMO:</span>
-                <a class="kv-value kv-link" href="/app" rel="noopener">CollabBoard App (/app)</a>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">GITHUB:</span>
-                <a class="kv-value kv-link" href="https://github.com/ianzepp/gauntlet-week-1" target="_blank" rel="noopener">github.com/ianzepp/gauntlet-week-1</a>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">LOOM_DAY_2:</span>
-                <a class="kv-value kv-link" href="https://www.loom.com/share/613a53b528ae431a81873c41583a11c2" target="_blank" rel="noopener">MVP Demo (Day 2)</a>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">LOOM_DAY_5:</span>
-                <a class="kv-value kv-link" href="https://www.loom.com/share/5d38b03c2450418ab11c29e0bbd28e52" target="_blank" rel="noopener">Early Release (Day 5)</a>
-              </div>
-              <div class="kv-row">
-                <span class="kv-key">LEPTOS_APP:</span>
-                <a class="kv-value kv-link" href="/app" rel="noopener">CollabBoard App (/app)</a>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
