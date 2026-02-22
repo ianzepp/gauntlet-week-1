@@ -481,41 +481,22 @@ async fn append_session_messages(state: &AppState, session_key: (Uuid, Uuid), us
 
 pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<&str>) -> String {
     let mut prompt = String::from(BASE_SYSTEM_PROMPT.trim_end());
-    prompt.push_str("\n\nCurrent board objects:\n");
-
+    prompt.push_str("\n\nBoard context summary:\n");
+    let _ = writeln!(prompt, "- total_objects={}", objects.len());
     if objects.is_empty() {
-        prompt.push_str("(empty board — no objects yet)\n");
+        prompt.push_str("- board_state=empty\n");
     } else {
+        let mut by_kind = std::collections::BTreeMap::<&str, usize>::new();
         for obj in objects {
-            let text = obj.props.get("text").and_then(|v| v.as_str()).unwrap_or("");
-            let title = obj
-                .props
-                .get("title")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let label = if !text.is_empty() {
-                text
-            } else if !title.is_empty() {
-                title
-            } else {
-                ""
-            };
-            let props_json =
-                serde_json::to_string(&obj.props).unwrap_or_else(|_| "{\"error\":\"props_serialize\"}".to_owned());
-            let _ = writeln!(
-                prompt,
-                "- id={} kind={} x={:.0} y={:.0} w={} h={} label={:?} props={}",
-                obj.id,
-                obj.kind,
-                obj.x,
-                obj.y,
-                obj.width.map_or("-".into(), |w| format!("{w:.0}")),
-                obj.height.map_or("-".into(), |h| format!("{h:.0}")),
-                label,
-                props_json,
-            );
+            *by_kind.entry(obj.kind.as_str()).or_default() += 1;
         }
+        let mut parts = Vec::with_capacity(by_kind.len());
+        for (kind, count) in by_kind {
+            parts.push(format!("{kind}:{count}"));
+        }
+        let _ = writeln!(prompt, "- kind_counts={}", parts.join(", "));
     }
+    prompt.push_str("- object_details=not_included_by_default_use_getBoardState_for_details\n");
 
     if let Some(grid) = grid_context {
         prompt.push('\n');

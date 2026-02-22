@@ -48,24 +48,27 @@ impl LlmChat for MockLlm {
 #[test]
 fn system_prompt_empty_board() {
     let prompt = build_system_prompt(&[], None);
-    assert!(prompt.contains("empty board"));
     assert!(prompt.contains("CollabBoard"));
+    assert!(prompt.contains("total_objects=0"));
+    assert!(prompt.contains("board_state=empty"));
+    assert!(prompt.contains("object_details=not_included_by_default_use_getBoardState_for_details"));
 }
 
 #[test]
 fn system_prompt_with_objects() {
     let obj = test_helpers::dummy_object();
     let prompt = build_system_prompt(&[obj.clone()], None);
-    assert!(prompt.contains(&obj.id.to_string()));
-    assert!(prompt.contains("sticky_note"));
-    assert!(prompt.contains("test")); // text prop
+    assert!(prompt.contains("total_objects=1"));
+    assert!(prompt.contains("kind_counts=sticky_note:1"));
+    assert!(!prompt.contains(&obj.id.to_string()));
+    assert!(!prompt.contains("props="));
 }
 
 #[test]
 fn system_prompt_mentions_frames_and_connectors() {
     let prompt = build_system_prompt(&[], None);
     assert!(prompt.contains("frame"));
-    assert!(prompt.contains("connector"));
+    assert!(prompt.contains("Connectors"));
     assert!(prompt.contains("getBoardState"));
 }
 

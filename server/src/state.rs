@@ -78,6 +78,23 @@ pub struct ConnectedClient {
     pub can_admin: bool,
 }
 
+/// Last known viewport and cursor for a connected client.
+#[derive(Debug, Clone, Default)]
+pub struct ClientViewport {
+    /// Last cursor X position in world coordinates, if known.
+    pub cursor_x: Option<f64>,
+    /// Last cursor Y position in world coordinates, if known.
+    pub cursor_y: Option<f64>,
+    /// Camera center X in world coordinates, if known.
+    pub camera_center_x: Option<f64>,
+    /// Camera center Y in world coordinates, if known.
+    pub camera_center_y: Option<f64>,
+    /// Camera zoom level, if known.
+    pub camera_zoom: Option<f64>,
+    /// Camera rotation in degrees, if known.
+    pub camera_rotation: Option<f64>,
+}
+
 pub struct BoardState {
     /// Current objects keyed by object ID.
     pub objects: HashMap<Uuid, BoardObject>,
@@ -85,6 +102,8 @@ pub struct BoardState {
     pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,
     /// Connected user metadata for each client.
     pub users: HashMap<Uuid, ConnectedClient>,
+    /// Last known viewport/cursor per connected client.
+    pub viewports: HashMap<Uuid, ClientViewport>,
     /// Object IDs modified since last flush.
     pub dirty: HashSet<Uuid>,
 }
@@ -93,7 +112,13 @@ impl BoardState {
     /// Create an empty board state with no objects, clients, or dirty entries.
     #[must_use]
     pub fn new() -> Self {
-        Self { objects: HashMap::new(), clients: HashMap::new(), users: HashMap::new(), dirty: HashSet::new() }
+        Self {
+            objects: HashMap::new(),
+            clients: HashMap::new(),
+            users: HashMap::new(),
+            viewports: HashMap::new(),
+            dirty: HashSet::new(),
+        }
     }
 }
 

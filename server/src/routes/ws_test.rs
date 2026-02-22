@@ -415,6 +415,16 @@ async fn cursor_moved_broadcasts_to_peers_with_user_name_and_user_color() {
             .and_then(|v| v.as_str()),
         Some("#22c55e")
     );
+
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id).expect("board should exist");
+    let viewport = board
+        .viewports
+        .get(&sender_client_id)
+        .expect("sender viewport should be cached");
+    assert_eq!(viewport.cursor_x, Some(321.5));
+    assert_eq!(viewport.cursor_y, Some(654.25));
+    assert_eq!(viewport.camera_rotation, Some(33.0));
 }
 
 #[tokio::test]
@@ -425,6 +435,14 @@ async fn cursor_clear_broadcasts_to_peers() {
         register_two_clients(&state, board_id).await;
     let mut current_board = Some(board_id);
     let user_id = Uuid::new_v4();
+
+    let mut moved_data = Data::new();
+    moved_data.insert("x".into(), json!(12.0));
+    moved_data.insert("y".into(), json!(34.0));
+    let moved = request_bytes(board_id, "cursor:moved", moved_data);
+    let _ =
+        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &moved).await;
+    let _ = recv_board_broadcast(&mut peer_rx).await;
 
     let text = request_bytes(board_id, "cursor:clear", Data::new());
     let sender_frames =
@@ -442,6 +460,13 @@ async fn cursor_clear_broadcasts_to_peers() {
             .get("client_id")
             .and_then(|v| v.as_str()),
         Some(expected_client_id.as_str())
+    );
+
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id).expect("board should exist");
+    assert!(
+        !board.viewports.contains_key(&sender_client_id),
+        "cursor clear should remove cached viewport"
     );
 }
 

@@ -269,7 +269,7 @@ async fn process_inbound_bytes(
         "board" => handle_board(state, current_board, client_id, user_id, user_name, user_color, client_tx, &req).await,
         "object" => handle_object(state, *current_board, client_id, user_id, &req).await,
         "chat" => handle_chat(state, *current_board, client_id, &req).await,
-        "cursor" => Ok(handle_cursor(*current_board, client_id, &req)),
+        "cursor" => Ok(handle_cursor(state, *current_board, client_id, &req).await),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
         "tool" => handle_tool(state, *current_board, client_id, &req).await,
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
@@ -1049,18 +1049,20 @@ async fn handle_object(
 // CURSOR HANDLER
 // =============================================================================
 
-fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> Outcome {
-    if current_board.is_none() {
+async fn handle_cursor(state: &AppState, current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> Outcome {
+    let Some(board_id) = current_board else {
         // Silently ignore cursor moves before joining.
         return Outcome::BroadcastExcludeSender(Data::new());
-    }
+    };
 
     let op = req.syscall.split_once(':').map_or("moved", |(_, op)| op);
     if op == "clear" {
+        clear_cached_viewport(state, board_id, client_id).await;
         let mut data = Data::new();
         data.insert("client_id".into(), serde_json::json!(client_id));
         Outcome::BroadcastExcludeSender(data)
     } else {
+        upsert_cached_viewport(state, board_id, client_id, req).await;
         let mut data = Data::new();
         data.insert("client_id".into(), serde_json::json!(client_id));
         if let Some(x) = req.data.get("x").and_then(serde_json::Value::as_f64) {
@@ -1113,6 +1115,56 @@ fn handle_cursor(current_board: Option<Uuid>, client_id: Uuid, req: &Frame) -> O
         }
 
         Outcome::BroadcastExcludeSender(data)
+    }
+}
+
+async fn upsert_cached_viewport(state: &AppState, board_id: Uuid, client_id: Uuid, req: &Frame) {
+    let mut boards = state.boards.write().await;
+    let Some(board_state) = boards.get_mut(&board_id) else {
+        return;
+    };
+    let viewport = board_state.viewports.entry(client_id).or_default();
+
+    if let Some(x) = req.data.get("x").and_then(serde_json::Value::as_f64) {
+        viewport.cursor_x = Some(x);
+    }
+    if let Some(y) = req.data.get("y").and_then(serde_json::Value::as_f64) {
+        viewport.cursor_y = Some(y);
+    }
+    if let Some(center_x) = req
+        .data
+        .get("camera_center_x")
+        .and_then(serde_json::Value::as_f64)
+    {
+        viewport.camera_center_x = Some(center_x);
+    }
+    if let Some(center_y) = req
+        .data
+        .get("camera_center_y")
+        .and_then(serde_json::Value::as_f64)
+    {
+        viewport.camera_center_y = Some(center_y);
+    }
+    if let Some(zoom) = req
+        .data
+        .get("camera_zoom")
+        .and_then(serde_json::Value::as_f64)
+    {
+        viewport.camera_zoom = Some(zoom);
+    }
+    if let Some(rotation) = req
+        .data
+        .get("camera_rotation")
+        .and_then(serde_json::Value::as_f64)
+    {
+        viewport.camera_rotation = Some(rotation);
+    }
+}
+
+async fn clear_cached_viewport(state: &AppState, board_id: Uuid, client_id: Uuid) {
+    let mut boards = state.boards.write().await;
+    if let Some(board_state) = boards.get_mut(&board_id) {
+        board_state.viewports.remove(&client_id);
     }
 }
 

@@ -734,6 +734,7 @@ pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
 
     board_state.clients.remove(&client_id);
     board_state.users.remove(&client_id);
+    board_state.viewports.remove(&client_id);
     info!(%board_id, %client_id, remaining = board_state.clients.len(), "client left board");
 
     if board_state.clients.is_empty() {
