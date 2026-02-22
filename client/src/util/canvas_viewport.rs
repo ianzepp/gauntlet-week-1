@@ -177,6 +177,8 @@ pub fn send_cursor_presence_if_needed(
             "camera_center_y": center_y,
             "camera_zoom": zoom,
             "camera_rotation": rotation,
+            "camera_viewport_width": engine.core.viewport_width,
+            "camera_viewport_height": engine.core.viewport_height,
         }),
     };
     if sender.get_untracked().send(&frame) {

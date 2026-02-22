@@ -23,7 +23,7 @@ use crate::frame::{Data, Frame};
 use crate::llm::LlmChat;
 use crate::llm::tools::gauntlet_week_1_tools;
 use crate::llm::types::{Content, ContentBlock, Message};
-use crate::state::{AppState, BoardObject};
+use crate::state::{AppState, BoardObject, ClientViewport};
 
 const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
 const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
@@ -165,15 +165,18 @@ pub async fn handle_prompt_with_parent(
     state.rate_limiter.check_and_record(client_id)?;
 
     // Snapshot board objects for context.
-    let board_snapshot = {
+    let (board_snapshot, viewport_snapshot) = {
         let boards = state.boards.read().await;
         let board = boards
             .get(&board_id)
             .ok_or(AiError::BoardNotLoaded(board_id))?;
-        board.objects.values().cloned().collect::<Vec<_>>()
+        (
+            board.objects.values().cloned().collect::<Vec<_>>(),
+            board.viewports.get(&client_id).cloned(),
+        )
     };
 
-    let system = build_system_prompt(&board_snapshot, grid_context);
+    let system = build_system_prompt(&board_snapshot, grid_context, viewport_snapshot.as_ref());
     let tools = gauntlet_week_1_tools();
     let session_key = (client_id, board_id);
     let prior_session_messages = load_session_messages(state, session_key).await;
@@ -479,7 +482,11 @@ async fn append_session_messages(state: &AppState, session_key: (Uuid, Uuid), us
 // SYSTEM PROMPT
 // =============================================================================
 
-pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<&str>) -> String {
+pub(crate) fn build_system_prompt(
+    objects: &[BoardObject],
+    grid_context: Option<&str>,
+    viewport: Option<&ClientViewport>,
+) -> String {
     let mut prompt = String::from(BASE_SYSTEM_PROMPT.trim_end());
     prompt.push_str("\n\nBoard context summary:\n");
     let _ = writeln!(prompt, "- total_objects={}", objects.len());
@@ -497,6 +504,7 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<
         let _ = writeln!(prompt, "- kind_counts={}", parts.join(", "));
     }
     prompt.push_str("- object_details=not_included_by_default_use_getBoardState_for_details\n");
+    append_viewport_context(&mut prompt, viewport);
 
     if let Some(grid) = grid_context {
         prompt.push('\n');
@@ -504,6 +512,81 @@ pub(crate) fn build_system_prompt(objects: &[BoardObject], grid_context: Option<
         prompt.push('\n');
     }
     prompt
+}
+
+fn append_viewport_context(prompt: &mut String, viewport: Option<&ClientViewport>) {
+    let Some(view) = viewport else {
+        prompt.push_str("- viewer_viewport=unknown\n");
+        return;
+    };
+    let Some(center_x) = view.camera_center_x else {
+        prompt.push_str("- viewer_viewport=partial\n");
+        return;
+    };
+    let Some(center_y) = view.camera_center_y else {
+        prompt.push_str("- viewer_viewport=partial\n");
+        return;
+    };
+    let Some(zoom) = view.camera_zoom else {
+        prompt.push_str("- viewer_viewport=partial\n");
+        return;
+    };
+    let Some(rotation_deg) = view.camera_rotation else {
+        prompt.push_str("- viewer_viewport=partial\n");
+        return;
+    };
+    let _ = writeln!(
+        prompt,
+        "- viewer_center=({center_x:.2}, {center_y:.2}) viewer_zoom={zoom:.4} viewer_rotation_deg={rotation_deg:.2}"
+    );
+    let Some(viewport_w) = view.camera_viewport_width else {
+        prompt.push_str("- viewer_viewport_world=unknown_missing_viewport_dimensions\n");
+        return;
+    };
+    let Some(viewport_h) = view.camera_viewport_height else {
+        prompt.push_str("- viewer_viewport_world=unknown_missing_viewport_dimensions\n");
+        return;
+    };
+    let zoom = zoom.max(0.001);
+    let world_w = viewport_w / zoom;
+    let world_h = viewport_h / zoom;
+    let half_w = world_w * 0.5;
+    let half_h = world_h * 0.5;
+    let radians = rotation_deg.to_radians();
+    let cos = radians.cos();
+    let sin = radians.sin();
+
+    let corners = [(-half_w, -half_h), (half_w, -half_h), (half_w, half_h), (-half_w, half_h)];
+    let mut transformed = [(0.0_f64, 0.0_f64); 4];
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    for (index, (dx, dy)) in corners.into_iter().enumerate() {
+        let x = center_x + (dx * cos) - (dy * sin);
+        let y = center_y + (dx * sin) + (dy * cos);
+        transformed[index] = (x, y);
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x);
+        max_y = max_y.max(y);
+    }
+
+    let _ = writeln!(prompt, "- viewer_viewport_css=({viewport_w:.1}, {viewport_h:.1})");
+    let _ = writeln!(prompt, "- viewer_viewport_world=({world_w:.2}, {world_h:.2})");
+    let _ = writeln!(
+        prompt,
+        "- viewer_world_corners=[({:.2}, {:.2}), ({:.2}, {:.2}), ({:.2}, {:.2}), ({:.2}, {:.2})]",
+        transformed[0].0,
+        transformed[0].1,
+        transformed[1].0,
+        transformed[1].1,
+        transformed[2].0,
+        transformed[2].1,
+        transformed[3].0,
+        transformed[3].1
+    );
+    let _ = writeln!(prompt, "- viewer_world_aabb=({min_x:.2}, {min_y:.2})..({max_x:.2}, {max_y:.2})");
 }
 
 // =============================================================================

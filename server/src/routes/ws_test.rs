@@ -370,7 +370,12 @@ async fn cursor_moved_broadcasts_to_peers_with_user_name_and_user_color() {
     let mut data = Data::new();
     data.insert("x".into(), json!(321.5));
     data.insert("y".into(), json!(654.25));
+    data.insert("camera_center_x".into(), json!(500.0));
+    data.insert("camera_center_y".into(), json!(700.0));
+    data.insert("camera_zoom".into(), json!(1.5));
     data.insert("camera_rotation".into(), json!(33.0));
+    data.insert("camera_viewport_width".into(), json!(1200.0));
+    data.insert("camera_viewport_height".into(), json!(800.0));
     data.insert("user_name".into(), json!("Alice"));
     data.insert("user_color".into(), json!("#22c55e"));
     let text = request_bytes(board_id, "cursor:moved", data);
@@ -404,6 +409,20 @@ async fn cursor_moved_broadcasts_to_peers_with_user_name_and_user_color() {
     assert_eq!(
         peer_broadcast
             .data
+            .get("camera_viewport_width")
+            .and_then(|v| v.as_f64()),
+        Some(1200.0)
+    );
+    assert_eq!(
+        peer_broadcast
+            .data
+            .get("camera_viewport_height")
+            .and_then(|v| v.as_f64()),
+        Some(800.0)
+    );
+    assert_eq!(
+        peer_broadcast
+            .data
             .get("user_name")
             .and_then(|v| v.as_str()),
         Some("Alice")
@@ -424,7 +443,12 @@ async fn cursor_moved_broadcasts_to_peers_with_user_name_and_user_color() {
         .expect("sender viewport should be cached");
     assert_eq!(viewport.cursor_x, Some(321.5));
     assert_eq!(viewport.cursor_y, Some(654.25));
+    assert_eq!(viewport.camera_center_x, Some(500.0));
+    assert_eq!(viewport.camera_center_y, Some(700.0));
+    assert_eq!(viewport.camera_zoom, Some(1.5));
     assert_eq!(viewport.camera_rotation, Some(33.0));
+    assert_eq!(viewport.camera_viewport_width, Some(1200.0));
+    assert_eq!(viewport.camera_viewport_height, Some(800.0));
 }
 
 #[tokio::test]

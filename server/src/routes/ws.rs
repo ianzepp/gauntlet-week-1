@@ -1099,6 +1099,20 @@ async fn handle_cursor(state: &AppState, current_board: Option<Uuid>, client_id:
         {
             data.insert("camera_rotation".into(), serde_json::json!(rotation));
         }
+        if let Some(viewport_width) = req
+            .data
+            .get("camera_viewport_width")
+            .and_then(serde_json::Value::as_f64)
+        {
+            data.insert("camera_viewport_width".into(), serde_json::json!(viewport_width));
+        }
+        if let Some(viewport_height) = req
+            .data
+            .get("camera_viewport_height")
+            .and_then(serde_json::Value::as_f64)
+        {
+            data.insert("camera_viewport_height".into(), serde_json::json!(viewport_height));
+        }
         if let Some(name) = req
             .data
             .get("user_name")
@@ -1158,6 +1172,20 @@ async fn upsert_cached_viewport(state: &AppState, board_id: Uuid, client_id: Uui
         .and_then(serde_json::Value::as_f64)
     {
         viewport.camera_rotation = Some(rotation);
+    }
+    if let Some(viewport_width) = req
+        .data
+        .get("camera_viewport_width")
+        .and_then(serde_json::Value::as_f64)
+    {
+        viewport.camera_viewport_width = Some(viewport_width);
+    }
+    if let Some(viewport_height) = req
+        .data
+        .get("camera_viewport_height")
+        .and_then(serde_json::Value::as_f64)
+    {
+        viewport.camera_viewport_height = Some(viewport_height);
     }
 }
 

@@ -93,6 +93,10 @@ pub struct ClientViewport {
     pub camera_zoom: Option<f64>,
     /// Camera rotation in degrees, if known.
     pub camera_rotation: Option<f64>,
+    /// Viewport width in CSS pixels, if known.
+    pub camera_viewport_width: Option<f64>,
+    /// Viewport height in CSS pixels, if known.
+    pub camera_viewport_height: Option<f64>,
 }
 
 pub struct BoardState {
