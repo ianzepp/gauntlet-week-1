@@ -17,7 +17,7 @@ use crate::state::board::BoardState;
 use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
 use crate::state::ui::ToolType;
-use crate::state::ui::UiState;
+use crate::state::ui::{UiState, ViewMode};
 #[cfg(feature = "hydrate")]
 use crate::util::animation::{project_clip_scene, resolve_active_clip};
 #[cfg(feature = "hydrate")]
@@ -2088,7 +2088,11 @@ pub fn CanvasHost() -> impl IntoView {
             }
             .into_any()}
             {view! {
-                <div id="right-dials-host" class="right-panel__dials-mount">
+                <div
+                    id="right-dials-host"
+                    class="right-panel__dials-mount"
+                    style=move || if _ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }
+                >
                     <CompassDial
                         class="canvas-compass"
                         disabled_class=""
