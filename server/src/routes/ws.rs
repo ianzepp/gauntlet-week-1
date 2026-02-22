@@ -31,6 +31,7 @@ use crate::services;
 use crate::state::AppState;
 
 const DEFAULT_WS_CLIENT_CHANNEL_CAPACITY: usize = 256;
+const JOIN_BULK_CHUNK_SIZE: usize = 256;
 
 fn ws_client_channel_capacity() -> usize {
     std::env::var("WS_CLIENT_CHANNEL_CAPACITY")
@@ -54,13 +55,13 @@ enum Outcome {
     BroadcastExcludeSender(Data),
     /// Send done+data to sender only.
     Reply(Data),
-    /// Stream one or more item payloads, then a terminal done payload, to sender.
+    /// Stream one or more non-terminal payloads, then a terminal done payload, to sender.
     ReplyStream { items: Vec<Data>, done: Data },
     /// Send empty done to sender only.
     Done,
     /// Reply to sender with one payload, broadcast different data to peers.
     ReplyAndBroadcast { reply: Data, broadcast: Data },
-    /// Stream item payloads + terminal done payload to sender, and broadcast to peers.
+    /// Stream non-terminal payloads + terminal done payload to sender, and broadcast to peers.
     ReplyStreamAndBroadcast {
         items: Vec<Data>,
         done: Data,
@@ -304,7 +305,7 @@ async fn process_inbound_bytes(
         Ok(Outcome::ReplyStream { items, done }) => {
             let mut sender_frames = Vec::with_capacity(items.len() + 1);
             for data in items {
-                sender_frames.push(req.item_with(data));
+                sender_frames.push(req.bulk_with(data));
             }
             let done_frame = req.done_with(done);
             services::persistence::enqueue_frame(state, &done_frame);
@@ -329,7 +330,7 @@ async fn process_inbound_bytes(
         Ok(Outcome::ReplyStreamAndBroadcast { items, done, broadcast }) => {
             let mut sender_frames = Vec::with_capacity(items.len() + 1);
             for data in items {
-                sender_frames.push(req.item_with(data));
+                sender_frames.push(req.bulk_with(data));
             }
 
             let done_frame = req.done_with(done);
@@ -440,9 +441,17 @@ async fn handle_board_join(
         Ok(objects) => {
             *current_board = Some(board_id);
 
-            let item_payloads = objects.iter().map(object_to_data).collect::<Vec<_>>();
+            let object_rows = objects.iter().map(object_to_data).collect::<Vec<_>>();
+            let item_payloads = object_rows
+                .chunks(JOIN_BULK_CHUNK_SIZE)
+                .map(|chunk| {
+                    let mut data = Data::new();
+                    data.insert("objects".into(), serde_json::json!(chunk));
+                    data
+                })
+                .collect::<Vec<_>>();
             let mut done = Data::new();
-            done.insert("count".into(), serde_json::json!(item_payloads.len()));
+            done.insert("count".into(), serde_json::json!(object_rows.len()));
             if let Ok(Some((name, is_public))) =
                 sqlx::query_as::<_, (String, bool)>("SELECT name, is_public FROM boards WHERE id = $1")
                     .bind(board_id)

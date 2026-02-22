@@ -95,6 +95,14 @@ pub(super) fn parse_board_object_item(data: &serde_json::Value) -> Option<crate:
 }
 
 #[cfg(any(test, feature = "hydrate"))]
+pub(super) fn parse_board_object_bulk(data: &serde_json::Value) -> Vec<crate::net::types::BoardObject> {
+    data.get("objects")
+        .cloned()
+        .and_then(|v| serde_json::from_value::<Vec<crate::net::types::BoardObject>>(v).ok())
+        .unwrap_or_default()
+}
+
+#[cfg(any(test, feature = "hydrate"))]
 pub(super) fn parse_chat_message(frame: &Frame, data: &serde_json::Value) -> Option<ChatMessage> {
     let content = pick_str(data, &["content", "message"])?.to_owned();
 

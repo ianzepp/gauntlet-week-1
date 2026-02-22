@@ -122,6 +122,7 @@ impl TraceFilter {
             Status::Done,
             Status::Error,
             Status::Item,
+            Status::Bulk,
             Status::Cancel,
         ]
         .into_iter()
@@ -195,9 +196,10 @@ impl From<Status> for StatusKey {
         match value {
             Status::Request => Self(0),
             Status::Item => Self(1),
-            Status::Done => Self(2),
-            Status::Error => Self(3),
-            Status::Cancel => Self(4),
+            Status::Bulk => Self(2),
+            Status::Done => Self(3),
+            Status::Error => Self(4),
+            Status::Cancel => Self(5),
         }
     }
 }
@@ -207,8 +209,9 @@ impl From<StatusKey> for Status {
         match value.0 {
             0 => Self::Request,
             1 => Self::Item,
-            2 => Self::Done,
-            3 => Self::Error,
+            2 => Self::Bulk,
+            3 => Self::Done,
+            4 => Self::Error,
             _ => Self::Cancel,
         }
     }
@@ -374,7 +377,7 @@ pub fn build_trace_sessions(frames: &[Frame]) -> Vec<TraceSession> {
             let board_id = first.board_id.clone();
             let started_at = first.ts;
 
-            let ended_at = if matches!(last.status, Status::Request | Status::Item) {
+            let ended_at = if matches!(last.status, Status::Request | Status::Item | Status::Bulk) {
                 None
             } else {
                 Some(last.ts)
@@ -430,7 +433,7 @@ pub fn pair_request_spans(frames: &[Frame]) -> Vec<SpanTiming> {
                     duration_ms: frame.ts - started_at,
                 });
             }
-            Status::Item => {}
+            Status::Item | Status::Bulk => {}
         }
     }
 
@@ -505,7 +508,7 @@ fn count_open_requests(frames: &[Frame]) -> usize {
                     *count -= 1;
                 }
             }
-            Status::Item => {}
+            Status::Item | Status::Bulk => {}
         }
     }
 

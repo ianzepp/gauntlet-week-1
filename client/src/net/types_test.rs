@@ -53,6 +53,7 @@ fn make_user() -> User {
 fn frame_status_serializes_to_lowercase() {
     assert_eq!(serde_json::to_string(&FrameStatus::Request).unwrap(), "\"request\"");
     assert_eq!(serde_json::to_string(&FrameStatus::Item).unwrap(), "\"item\"");
+    assert_eq!(serde_json::to_string(&FrameStatus::Bulk).unwrap(), "\"bulk\"");
     assert_eq!(serde_json::to_string(&FrameStatus::Done).unwrap(), "\"done\"");
     assert_eq!(serde_json::to_string(&FrameStatus::Error).unwrap(), "\"error\"");
     assert_eq!(serde_json::to_string(&FrameStatus::Cancel).unwrap(), "\"cancel\"");
@@ -65,6 +66,7 @@ fn frame_status_deserializes_from_lowercase() {
         FrameStatus::Request
     );
     assert_eq!(serde_json::from_str::<FrameStatus>("\"item\"").unwrap(), FrameStatus::Item);
+    assert_eq!(serde_json::from_str::<FrameStatus>("\"bulk\"").unwrap(), FrameStatus::Bulk);
     assert_eq!(serde_json::from_str::<FrameStatus>("\"done\"").unwrap(), FrameStatus::Done);
     assert_eq!(serde_json::from_str::<FrameStatus>("\"error\"").unwrap(), FrameStatus::Error);
     assert_eq!(serde_json::from_str::<FrameStatus>("\"cancel\"").unwrap(), FrameStatus::Cancel);

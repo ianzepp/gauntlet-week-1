@@ -29,6 +29,7 @@ fn done_is_terminal() {
     assert!(Status::Cancel.is_terminal());
     assert!(!Status::Request.is_terminal());
     assert!(!Status::Item.is_terminal());
+    assert!(!Status::Bulk.is_terminal());
 }
 
 #[test]
@@ -287,6 +288,7 @@ fn status_serde_all_variants() {
     for (status, expected) in [
         (Status::Request, "\"request\""),
         (Status::Item, "\"item\""),
+        (Status::Bulk, "\"bulk\""),
         (Status::Done, "\"done\""),
         (Status::Error, "\"error\""),
         (Status::Cancel, "\"cancel\""),

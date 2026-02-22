@@ -28,6 +28,7 @@ fn status_label(status: frames::Status) -> (&'static str, &'static str) {
     match status {
         frames::Status::Request => ("req", "request"),
         frames::Status::Item => ("item", "item"),
+        frames::Status::Bulk => ("bulk", "bulk"),
         frames::Status::Done => ("done", "done"),
         frames::Status::Error => ("err", "error"),
         frames::Status::Cancel => ("cancel", "cancel"),
@@ -61,9 +62,10 @@ fn status_rank(status_mod: &str) -> u8 {
     match status_mod {
         "request" => 0,
         "item" => 1,
-        "done" => 2,
-        "error" => 3,
-        "cancel" => 4,
+        "bulk" => 2,
+        "done" => 3,
+        "error" => 4,
+        "cancel" => 5,
         _ => 255,
     }
 }

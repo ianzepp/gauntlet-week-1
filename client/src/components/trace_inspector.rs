@@ -25,6 +25,7 @@ fn status_label(status: frames::Status) -> &'static str {
     match status {
         frames::Status::Request => "request",
         frames::Status::Item => "item",
+        frames::Status::Bulk => "bulk",
         frames::Status::Done => "done",
         frames::Status::Error => "error",
         frames::Status::Cancel => "cancel",
@@ -35,6 +36,7 @@ fn status_class(status: frames::Status) -> &'static str {
     match status {
         frames::Status::Request => "trace-inspector__status trace-inspector__status--request",
         frames::Status::Item => "trace-inspector__status trace-inspector__status--item",
+        frames::Status::Bulk => "trace-inspector__status trace-inspector__status--bulk",
         frames::Status::Done => "trace-inspector__status trace-inspector__status--done",
         frames::Status::Error => "trace-inspector__status trace-inspector__status--error",
         frames::Status::Cancel => "trace-inspector__status trace-inspector__status--cancel",

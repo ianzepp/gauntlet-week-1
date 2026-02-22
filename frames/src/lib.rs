@@ -27,6 +27,8 @@ pub enum Status {
     Request,
     /// Intermediate streaming item (non-terminal).
     Item,
+    /// Intermediate streaming batch (non-terminal).
+    Bulk,
     /// Successful terminal response.
     Done,
     /// Error terminal response.
@@ -42,6 +44,7 @@ impl Status {
         match self {
             Self::Request => WireFrameStatus::Request as i32,
             Self::Item => WireFrameStatus::Item as i32,
+            Self::Bulk => WireFrameStatus::Bulk as i32,
             Self::Done => WireFrameStatus::Done as i32,
             Self::Error => WireFrameStatus::Error as i32,
             Self::Cancel => WireFrameStatus::Cancel as i32,
@@ -53,6 +56,7 @@ impl Status {
         match WireFrameStatus::try_from(value) {
             Ok(WireFrameStatus::Request) => Ok(Self::Request),
             Ok(WireFrameStatus::Item) => Ok(Self::Item),
+            Ok(WireFrameStatus::Bulk) => Ok(Self::Bulk),
             Ok(WireFrameStatus::Done) => Ok(Self::Done),
             Ok(WireFrameStatus::Error) => Ok(Self::Error),
             Ok(WireFrameStatus::Cancel) => Ok(Self::Cancel),
@@ -211,6 +215,7 @@ enum WireFrameStatus {
     Error = 2,
     Cancel = 3,
     Item = 4,
+    Bulk = 5,
 }
 
 #[cfg(test)]

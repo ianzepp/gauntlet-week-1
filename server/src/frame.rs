@@ -54,6 +54,8 @@ pub enum Status {
     Request,
     /// Intermediate streaming item (non-terminal).
     Item,
+    /// Intermediate streaming batch (non-terminal).
+    Bulk,
     /// Successful terminal response.
     Done,
     /// Error terminal response.
@@ -67,6 +69,7 @@ impl From<Status> for frames::Status {
         match value {
             Status::Request => Self::Request,
             Status::Item => Self::Item,
+            Status::Bulk => Self::Bulk,
             Status::Done => Self::Done,
             Status::Error => Self::Error,
             Status::Cancel => Self::Cancel,
@@ -79,6 +82,7 @@ impl From<frames::Status> for Status {
         match value {
             frames::Status::Request => Self::Request,
             frames::Status::Item => Self::Item,
+            frames::Status::Bulk => Self::Bulk,
             frames::Status::Done => Self::Done,
             frames::Status::Error => Self::Error,
             frames::Status::Cancel => Self::Cancel,
@@ -206,6 +210,12 @@ impl Frame {
     #[must_use]
     pub fn item_with(&self, data: Data) -> Self {
         self.reply(Status::Item, data)
+    }
+
+    /// Create a bulk response carrying payload data. Non-terminal.
+    #[must_use]
+    pub fn bulk_with(&self, data: Data) -> Self {
+        self.reply(Status::Bulk, data)
     }
 
     /// Create an error response from a plain string. Terminal.

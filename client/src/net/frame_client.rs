@@ -47,8 +47,8 @@ use self::frame_client_objects::{
 #[cfg(any(test, feature = "hydrate"))]
 use self::frame_client_parse::{
     deleted_board_id, frame_error_message, parse_ai_message_value, parse_ai_prompt_message,
-    parse_ai_prompt_user_message, parse_board_list_items, parse_board_object_item, parse_board_objects,
-    parse_chat_message,
+    parse_ai_prompt_user_message, parse_board_list_items, parse_board_object_bulk, parse_board_object_item,
+    parse_board_objects, parse_chat_message,
 };
 #[cfg(feature = "hydrate")]
 use crate::net::types::{BoardObject, Frame, FrameStatus};
@@ -192,7 +192,7 @@ fn should_record_trace(frame: &Frame) -> bool {
 
     if frame.syscall == "board:join" {
         match frame.status {
-            FrameStatus::Item => {
+            FrameStatus::Item | FrameStatus::Bulk => {
                 TRACE_MUTED_UNTIL_JOIN_DONE.with(|flag| *flag.borrow_mut() = true);
                 return false;
             }
@@ -465,6 +465,25 @@ fn handle_board_frame(
                     }
                 });
                 queue_join_item(board, obj);
+            }
+            true
+        }
+        Some("join") if frame.status == FrameStatus::Bulk => {
+            let objs = parse_board_object_bulk(&frame.data);
+            if !objs.is_empty() {
+                board.update(|b| {
+                    if !b.join_streaming {
+                        b.objects.clear();
+                        b.drag_objects.clear();
+                        b.drag_updated_at.clear();
+                        b.join_streaming = true;
+                        b.bump_scene_rev();
+                        JOIN_ITEM_BUFFER.with(|buf| buf.borrow_mut().clear());
+                    }
+                });
+                for obj in objs {
+                    queue_join_item(board, obj);
+                }
             }
             true
         }

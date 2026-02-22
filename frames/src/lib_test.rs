@@ -26,6 +26,7 @@ fn status_numeric_mapping_matches_wire_enum() {
     assert_eq!(Status::Error.as_i32(), 2);
     assert_eq!(Status::Cancel.as_i32(), 3);
     assert_eq!(Status::Item.as_i32(), 4);
+    assert_eq!(Status::Bulk.as_i32(), 5);
 }
 
 #[test]
@@ -35,6 +36,7 @@ fn status_round_trips_from_wire_values() {
     assert_eq!(Status::from_i32(2).expect("status"), Status::Error);
     assert_eq!(Status::from_i32(3).expect("status"), Status::Cancel);
     assert_eq!(Status::from_i32(4).expect("status"), Status::Item);
+    assert_eq!(Status::from_i32(5).expect("status"), Status::Bulk);
 }
 
 #[test]
@@ -223,6 +225,7 @@ fn status_all_variants_serialize_lowercase() {
         (Status::Done, "\"done\""),
         (Status::Error, "\"error\""),
         (Status::Cancel, "\"cancel\""),
+        (Status::Bulk, "\"bulk\""),
     ];
     for (status, expected) in cases {
         assert_eq!(serde_json::to_string(&status).expect("serialize"), expected);
@@ -237,6 +240,7 @@ fn status_all_variants_deserialize_from_lowercase() {
         ("\"done\"", Status::Done),
         ("\"error\"", Status::Error),
         ("\"cancel\"", Status::Cancel),
+        ("\"bulk\"", Status::Bulk),
     ];
     for (input, expected) in cases {
         let got: Status = serde_json::from_str(input).expect("deserialize");
@@ -252,10 +256,11 @@ fn status_all_variants_as_i32_are_distinct() {
         Status::Done.as_i32(),
         Status::Error.as_i32(),
         Status::Cancel.as_i32(),
+        Status::Bulk.as_i32(),
     ]
     .to_vec();
     let deduped: std::collections::HashSet<i32> = values.iter().copied().collect();
-    assert_eq!(deduped.len(), 5);
+    assert_eq!(deduped.len(), 6);
 }
 
 // =============================================================
