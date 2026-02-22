@@ -10,6 +10,7 @@ fn frame(syscall: &str, status: FrameStatus, data: serde_json::Value) -> Frame {
         from: Some("u1".to_owned()),
         syscall: syscall.to_owned(),
         status,
+        trace: None,
         data,
     }
 }

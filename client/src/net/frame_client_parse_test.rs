@@ -10,6 +10,7 @@ fn frame_with(data: serde_json::Value) -> Frame {
         from: Some("u1".to_owned()),
         syscall: "test".to_owned(),
         status: FrameStatus::Done,
+        trace: None,
         data,
     }
 }

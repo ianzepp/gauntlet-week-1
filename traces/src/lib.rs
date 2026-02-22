@@ -480,13 +480,23 @@ pub fn sub_label(frame: &Frame) -> Option<String> {
         .map(str::to_owned)
 }
 
-/// Read a value from the `frame.data.trace` object by key.
+/// Read a value from the frame trace object by key.
+///
+/// Canonical location is top-level `frame.trace`. Falls back to `frame.data.trace`
+/// during migration from legacy payload-embedded trace metadata.
 fn trace_field<'a>(frame: &'a Frame, key: &str) -> Option<&'a serde_json::Value> {
     frame
+        .trace
+        .as_ref()
+        .and_then(serde_json::Value::as_object)
+        .and_then(|trace| trace.get(key))
+        .or_else(|| {
+            frame
         .data
         .get("trace")
         .and_then(serde_json::Value::as_object)
         .and_then(|trace| trace.get(key))
+        })
 }
 
 /// Count how many Request frames in `frames` have not yet received a terminal response.

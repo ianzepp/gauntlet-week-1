@@ -73,6 +73,30 @@ fn trace_meta(
     serde_json::Value::Object(trace)
 }
 
+fn elapsed_ms(started_at: Instant) -> i64 {
+    i64::try_from(started_at.elapsed().as_millis()).unwrap_or(i64::MAX)
+}
+
+fn trace_meta_with_timing(
+    trace_id: Uuid,
+    span_id: Uuid,
+    parent_span_id: Option<Uuid>,
+    kind: &str,
+    label: Option<&str>,
+    root_started_at: Instant,
+    duration_ms: Option<i64>,
+) -> serde_json::Value {
+    let mut trace = trace_meta(trace_id, span_id, parent_span_id, kind, label)
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    trace.insert("elapsed_ms".into(), json!(elapsed_ms(root_started_at)));
+    if let Some(duration_ms) = duration_ms {
+        trace.insert("duration_ms".into(), json!(duration_ms));
+    }
+    serde_json::Value::Object(trace)
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -122,6 +146,7 @@ pub struct AiResult {
     pub mutations: Vec<AiMutation>,
     pub text: Option<String>,
     pub items: Vec<Data>,
+    pub trace: AiTraceSummary,
 }
 
 #[derive(Debug)]
@@ -129,6 +154,14 @@ pub enum AiMutation {
     Created(BoardObject),
     Updated(BoardObject),
     Deleted(Uuid),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AiTraceSummary {
+    pub total_duration_ms: i64,
+    pub total_llm_duration_ms: i64,
+    pub total_tool_duration_ms: i64,
+    pub overhead_duration_ms: i64,
 }
 
 // =============================================================================
@@ -158,6 +191,7 @@ pub async fn handle_prompt_with_parent(
     parent_frame_id: Option<Uuid>,
 ) -> Result<AiResult, AiError> {
     info!(%board_id, %client_id, prompt_len = prompt.len(), "ai: prompt received");
+    let root_started_at = Instant::now();
     let max_tool_iterations = ai_max_tool_iterations();
     let max_tokens = ai_max_tokens();
 
@@ -192,6 +226,8 @@ pub async fn handle_prompt_with_parent(
     let mut all_mutations = Vec::new();
     let mut stream_items = Vec::new();
     let mut final_text: Option<String> = None;
+    let mut total_llm_duration_ms: i64 = 0;
+    let mut total_tool_duration_ms: i64 = 0;
     let token_reservation = u64::from(max_tokens);
     let trace_id = trace_id_for_prompt(parent_frame_id);
 
@@ -200,14 +236,20 @@ pub async fn handle_prompt_with_parent(
             .with_board_id(board_id)
             .with_from(user_id.to_string());
         llm_req.parent_id = parent_frame_id;
-        let mut llm_req_trace = trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request", Some("llm"))
+        let mut llm_req_trace = trace_meta_with_timing(
+            trace_id,
+            llm_req.id,
+            parent_frame_id,
+            "ai.llm_request",
+            Some("llm"),
+            root_started_at,
+            None,
+        )
             .as_object()
             .cloned()
             .unwrap_or_default();
         llm_req_trace.insert("iteration".into(), json!(iteration));
-        llm_req
-            .data
-            .insert("trace".into(), serde_json::Value::Object(llm_req_trace));
+        llm_req.trace = Some(serde_json::Value::Object(llm_req_trace));
         super::persistence::enqueue_frame(state, &llm_req);
 
         let mut llm_messages = base_messages.clone();
@@ -225,17 +267,22 @@ pub async fn handle_prompt_with_parent(
         {
             Ok(response) => response,
             Err(err) => {
-                let duration_ms = i64::try_from(llm_started_at.elapsed().as_millis()).unwrap_or(i64::MAX);
+                let duration_ms = elapsed_ms(llm_started_at);
                 let mut err_frame = llm_req.error_from(&err);
-                let mut err_trace = trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request", Some("llm"))
+                let mut err_trace = trace_meta_with_timing(
+                    trace_id,
+                    llm_req.id,
+                    parent_frame_id,
+                    "ai.llm_request",
+                    Some("llm"),
+                    root_started_at,
+                    Some(duration_ms),
+                )
                     .as_object()
                     .cloned()
                     .unwrap_or_default();
                 err_trace.insert("iteration".into(), json!(iteration));
-                err_trace.insert("duration_ms".into(), json!(duration_ms));
-                err_frame
-                    .data
-                    .insert("trace".into(), serde_json::Value::Object(err_trace));
+                err_frame.trace = Some(serde_json::Value::Object(err_trace));
                 super::persistence::enqueue_frame(state, &err_frame);
                 state
                     .rate_limiter
@@ -243,11 +290,20 @@ pub async fn handle_prompt_with_parent(
                 return Err(err.into());
             }
         };
-        let duration_ms = i64::try_from(llm_started_at.elapsed().as_millis()).unwrap_or(i64::MAX);
+        let duration_ms = elapsed_ms(llm_started_at);
+        total_llm_duration_ms = total_llm_duration_ms.saturating_add(duration_ms);
         let total_tokens = response.input_tokens + response.output_tokens;
 
-        let mut llm_done_data = Data::new();
-        let mut llm_trace = trace_meta(trace_id, llm_req.id, parent_frame_id, "ai.llm_request", Some(&response.model))
+        let llm_done_data = Data::new();
+        let mut llm_trace = trace_meta_with_timing(
+            trace_id,
+            llm_req.id,
+            parent_frame_id,
+            "ai.llm_request",
+            Some(&response.model),
+            root_started_at,
+            Some(duration_ms),
+        )
             .as_object()
             .cloned()
             .unwrap_or_default();
@@ -255,10 +311,9 @@ pub async fn handle_prompt_with_parent(
         llm_trace.insert("input_tokens".into(), json!(response.input_tokens));
         llm_trace.insert("output_tokens".into(), json!(response.output_tokens));
         llm_trace.insert("tokens".into(), json!(total_tokens));
-        llm_trace.insert("duration_ms".into(), json!(duration_ms));
         llm_trace.insert("stop_reason".into(), json!(response.stop_reason.clone()));
-        llm_done_data.insert("trace".into(), serde_json::Value::Object(llm_trace));
-        let llm_done = llm_req.done_with(llm_done_data);
+        let mut llm_done = llm_req.done_with(llm_done_data);
+        llm_done.trace = Some(serde_json::Value::Object(llm_trace));
         super::persistence::enqueue_frame(state, &llm_done);
 
         info!(
@@ -330,6 +385,8 @@ pub async fn handle_prompt_with_parent(
                 input,
                 trace_id,
                 Some(llm_req.id),
+                root_started_at,
+                &mut total_tool_duration_ms,
                 &mut all_mutations,
             )
             .await;
@@ -396,7 +453,21 @@ pub async fn handle_prompt_with_parent(
         append_session_messages(state, session_key, prompt_message, text).await;
     }
 
-    Ok(AiResult { mutations: all_mutations, text: final_text, items: stream_items })
+    let total_duration_ms = elapsed_ms(root_started_at);
+    let overhead_duration_ms = total_duration_ms
+        .saturating_sub(total_llm_duration_ms)
+        .saturating_sub(total_tool_duration_ms);
+    Ok(AiResult {
+        mutations: all_mutations,
+        text: final_text,
+        items: stream_items,
+        trace: AiTraceSummary {
+            total_duration_ms,
+            total_llm_duration_ms,
+            total_tool_duration_ms,
+            overhead_duration_ms,
+        },
+    })
 }
 
 async fn execute_tool_via_syscall(
@@ -409,8 +480,11 @@ async fn execute_tool_via_syscall(
     input: &serde_json::Value,
     trace_id: Uuid,
     parent_frame_id: Option<Uuid>,
+    root_started_at: Instant,
+    total_tool_duration_ms: &mut i64,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
+    let tool_started_at = Instant::now();
     let syscall = format!("tool:{tool_name}");
     let mut req_data = Data::new();
     req_data.insert("tool_use_id".into(), json!(tool_use_id));
@@ -420,34 +494,65 @@ async fn execute_tool_via_syscall(
         .with_board_id(board_id)
         .with_from(user_id.to_string());
     req.parent_id = parent_frame_id;
-    let mut req_trace = trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call", Some(tool_name))
+    let mut req_trace = trace_meta_with_timing(
+        trace_id,
+        req.id,
+        parent_frame_id,
+        "ai.tool_call",
+        Some(tool_name),
+        root_started_at,
+        None,
+    )
         .as_object()
         .cloned()
         .unwrap_or_default();
     req_trace.insert("iteration".into(), json!(iteration));
-    req.data
-        .insert("trace".into(), serde_json::Value::Object(req_trace));
+    req.trace = Some(serde_json::Value::Object(req_trace));
     super::persistence::enqueue_frame(state, &req);
 
     match super::tool_syscall::dispatch_tool_frame(state, board_id, &req).await {
         Ok(outcome) => {
+            let duration_ms = elapsed_ms(tool_started_at);
+            *total_tool_duration_ms = total_tool_duration_ms.saturating_add(duration_ms);
             mutations.extend(outcome.mutations);
-            let mut done_data = outcome.done_data;
-            done_data.insert(
-                "trace".into(),
-                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call", Some(tool_name)),
-            );
-            let done = req.done_with(done_data);
+            let done_data = outcome.done_data;
+            let mut done_trace = trace_meta_with_timing(
+                trace_id,
+                req.id,
+                parent_frame_id,
+                "ai.tool_call",
+                Some(tool_name),
+                root_started_at,
+                Some(duration_ms),
+            )
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+            done_trace.insert("iteration".into(), json!(iteration));
+            let mut done = req.done_with(done_data);
+            done.trace = Some(serde_json::Value::Object(done_trace));
             super::persistence::enqueue_frame(state, &done);
             Ok(outcome.content)
         }
         Err(err) => {
+            let duration_ms = elapsed_ms(tool_started_at);
+            *total_tool_duration_ms = total_tool_duration_ms.saturating_add(duration_ms);
             let mut error = req.error_from(&err);
             error.data.insert("tool_use_id".into(), json!(tool_use_id));
-            error.data.insert(
-                "trace".into(),
-                trace_meta(trace_id, req.id, parent_frame_id, "ai.tool_call", Some(tool_name)),
-            );
+            let mut err_trace = trace_meta_with_timing(
+                trace_id,
+                req.id,
+                parent_frame_id,
+                "ai.tool_call",
+                Some(tool_name),
+                root_started_at,
+                Some(duration_ms),
+            )
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+            err_trace.insert("iteration".into(), json!(iteration));
+            error.trace = Some(serde_json::Value::Object(err_trace));
             super::persistence::enqueue_frame(state, &error);
             Err(err)
         }

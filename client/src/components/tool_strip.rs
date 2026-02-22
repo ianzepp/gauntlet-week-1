@@ -95,6 +95,7 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
             from: None,
             syscall: "object:create".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({
                 "id": id,
                 "kind": kind,

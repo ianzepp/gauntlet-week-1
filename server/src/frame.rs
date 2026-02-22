@@ -120,6 +120,9 @@ pub struct Frame {
     /// Lifecycle position of this frame in its request/response stream.
     #[serde(default = "default_status")]
     pub status: Status,
+    /// Optional trace metadata attached to this frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trace: Option<serde_json::Value>,
     /// Flat key-value payload specific to the syscall.
     #[serde(default)]
     pub data: Data,
@@ -175,6 +178,7 @@ impl Frame {
             from: None,
             syscall: syscall.into(),
             status: Status::Request,
+            trace: None,
             data,
         }
     }
@@ -190,6 +194,7 @@ impl Frame {
             from: None,
             syscall: String::new(),
             status: Status::Cancel,
+            trace: None,
             data: Data::new(),
         }
     }
@@ -246,6 +251,7 @@ impl Frame {
             from: self.from.clone(),
             syscall: self.syscall.clone(),
             status,
+            trace: None,
             data,
         }
     }
@@ -269,6 +275,7 @@ impl From<&Frame> for frames::Frame {
             from: value.from.clone(),
             syscall: value.syscall.clone(),
             status: value.status.into(),
+            trace: value.trace.clone(),
             data,
         }
     }
@@ -314,6 +321,7 @@ impl TryFrom<frames::Frame> for Frame {
             from: value.from,
             syscall: value.syscall,
             status: value.status.into(),
+            trace: value.trace,
             data,
         })
     }

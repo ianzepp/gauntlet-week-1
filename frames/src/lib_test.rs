@@ -9,6 +9,7 @@ fn sample_frame() -> Frame {
         from: Some("user-1".to_owned()),
         syscall: "object:update".to_owned(),
         status: Status::Done,
+        trace: None,
         data: serde_json::json!({
             "x": 1.25,
             "ok": true,
@@ -76,6 +77,7 @@ fn decode_frame_rejects_invalid_wire_status() {
         from: None,
         syscall: "board:list".to_owned(),
         status: 77,
+        trace: None,
         data: Some(json_to_proto_value(&serde_json::json!({}))),
     };
     let mut bytes = Vec::new();
@@ -95,6 +97,7 @@ fn decode_frame_defaults_missing_data_to_empty_object() {
         from: None,
         syscall: "board:list".to_owned(),
         status: Status::Request.as_i32(),
+        trace: None,
         data: None,
     };
     let mut bytes = Vec::new();
@@ -114,6 +117,7 @@ fn decode_frame_converts_nan_number_to_json_null() {
         from: None,
         syscall: "board:list".to_owned(),
         status: Status::Request.as_i32(),
+        trace: None,
         data: Some(prost_types::Value {
             kind: Some(prost_types::value::Kind::NumberValue(f64::NAN)),
         }),
@@ -135,6 +139,7 @@ fn wire_conversion_preserves_empty_optional_fields() {
         from: None,
         syscall: String::new(),
         status: Status::Request,
+        trace: None,
         data: serde_json::json!({}),
     };
 
@@ -153,6 +158,7 @@ fn nested_payload_round_trips() {
         from: Some("u".to_owned()),
         syscall: "chat:history".to_owned(),
         status: Status::Done,
+        trace: None,
         data: serde_json::json!({
             "rows": [
                 {"id": 1.0, "name": "a"},
@@ -177,6 +183,7 @@ fn integer_json_numbers_are_normalized_to_float_numbers() {
         from: None,
         syscall: "board:list".to_owned(),
         status: Status::Request,
+        trace: None,
         data: serde_json::json!({"count": 2}),
     };
 
@@ -277,6 +284,7 @@ fn encode_decode_preserves_all_optional_string_fields() {
         from: Some("user-id".to_owned()),
         syscall: "object:create".to_owned(),
         status: Status::Request,
+        trace: None,
         data: serde_json::json!({}),
     };
     let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
@@ -299,6 +307,7 @@ fn encode_decode_negative_timestamp() {
         from: None,
         syscall: "board:join".to_owned(),
         status: Status::Done,
+        trace: None,
         data: serde_json::json!({}),
     };
     let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
@@ -322,6 +331,7 @@ fn encode_decode_all_status_variants() {
             from: None,
             syscall: "board:join".to_owned(),
             status,
+            trace: None,
             data: serde_json::json!({}),
         };
         let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
@@ -339,6 +349,7 @@ fn encode_decode_bool_in_data() {
         from: None,
         syscall: "board:join".to_owned(),
         status: Status::Done,
+        trace: None,
         data: serde_json::json!({"success": true, "failed": false}),
     };
     let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
@@ -356,6 +367,7 @@ fn encode_decode_null_in_data() {
         from: None,
         syscall: "board:join".to_owned(),
         status: Status::Done,
+        trace: None,
         data: serde_json::json!({"value": null}),
     };
     let decoded = decode_frame(&encode_frame(&frame)).expect("decode");
@@ -372,6 +384,7 @@ fn encode_decode_array_in_data() {
         from: None,
         syscall: "board:join".to_owned(),
         status: Status::Done,
+        trace: None,
         data: serde_json::json!({"items": [1.0, 2.0, 3.0]}),
     };
     let decoded = decode_frame(&encode_frame(&frame)).expect("decode");

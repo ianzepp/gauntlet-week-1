@@ -82,6 +82,9 @@ pub struct Frame {
     pub syscall: String,
     /// Lifecycle position of the frame.
     pub status: Status,
+    /// Optional trace metadata carried separately from business payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trace: Option<Value>,
     /// Arbitrary JSON payload.
     pub data: Value,
 }
@@ -122,6 +125,7 @@ fn frame_to_wire(frame: &Frame) -> WireFrame {
         from: frame.from.clone(),
         syscall: frame.syscall.clone(),
         status: frame.status.as_i32(),
+        trace: frame.trace.as_ref().map(json_to_proto_value),
         data: Some(json_to_proto_value(&frame.data)),
     }
 }
@@ -135,6 +139,7 @@ fn wire_to_frame(wire: WireFrame) -> Result<Frame, CodecError> {
         from: wire.from,
         syscall: wire.syscall,
         status: Status::from_i32(wire.status)?,
+        trace: wire.trace.map(|v| proto_to_json_value(&v)),
         data: wire
             .data
             .map_or(Value::Object(Map::new()), |v| proto_to_json_value(&v)),
@@ -204,6 +209,8 @@ struct WireFrame {
     #[prost(enumeration = "WireFrameStatus", tag = "7")]
     status: i32,
     #[prost(message, optional, tag = "8")]
+    trace: Option<prost_types::Value>,
+    #[prost(message, optional, tag = "9")]
     data: Option<prost_types::Value>,
 }
 

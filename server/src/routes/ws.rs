@@ -22,6 +22,7 @@ use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use std::collections::HashMap;
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -67,6 +68,20 @@ enum Outcome {
         done: Data,
         broadcast: Data,
     },
+}
+
+fn split_trace_from_data(mut data: Data) -> (Data, Option<serde_json::Value>) {
+    let trace = data.remove("trace");
+    (data, trace)
+}
+
+fn frame_for_client(frame: &Frame, trace_enabled: bool) -> Frame {
+    if trace_enabled {
+        return frame.clone();
+    }
+    let mut copy = frame.clone();
+    copy.trace = None;
+    copy
 }
 
 // =============================================================================
@@ -121,7 +136,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
         .with_data("user_id", user_id.to_string())
         .with_data("user_name", user_name.clone())
         .with_data("user_color", user_color.clone());
-    if send_frame(&mut socket, &welcome).await.is_err() {
+    if send_frame(&mut socket, &frame_for_client(&welcome, false)).await.is_err() {
         return;
     }
     services::persistence::enqueue_frame(&state, &welcome);
@@ -130,6 +145,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
 
     // Track which board this client has joined.
     let mut current_board: Option<Uuid> = None;
+    let mut trace_enabled = false;
 
     loop {
         tokio::select! {
@@ -142,6 +158,7 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                             &state,
                             &mut socket,
                             &mut current_board,
+                            &mut trace_enabled,
                             client_id,
                             user_id,
                             &user_name,
@@ -156,7 +173,8 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
                 }
             }
             Some(frame) = client_rx.recv() => {
-                if send_frame(&mut socket, &frame).await.is_err() {
+                let outbound = frame_for_client(&frame, trace_enabled);
+                if send_frame(&mut socket, &outbound).await.is_err() {
                     break;
                 }
             }
@@ -196,6 +214,7 @@ async fn dispatch_frame(
     state: &AppState,
     socket: &mut WebSocket,
     current_board: &mut Option<Uuid>,
+    trace_enabled: &mut bool,
     client_id: Uuid,
     user_id: Uuid,
     user_name: &str,
@@ -206,6 +225,7 @@ async fn dispatch_frame(
     let sender_frames = process_inbound_bytes(
         state,
         current_board,
+        trace_enabled,
         client_id,
         user_id,
         user_name,
@@ -215,7 +235,8 @@ async fn dispatch_frame(
     )
     .await;
     for frame in sender_frames {
-        let _ = send_frame(socket, &frame).await;
+        let outbound = frame_for_client(&frame, *trace_enabled);
+        let _ = send_frame(socket, &outbound).await;
     }
 }
 
@@ -226,6 +247,7 @@ async fn dispatch_frame(
 async fn process_inbound_bytes(
     state: &AppState,
     current_board: &mut Option<Uuid>,
+    trace_enabled: &mut bool,
     client_id: Uuid,
     user_id: Uuid,
     user_name: &str,
@@ -271,6 +293,7 @@ async fn process_inbound_bytes(
         "chat" => handle_chat(state, *current_board, client_id, &req).await,
         "cursor" => Ok(handle_cursor(state, *current_board, client_id, &req).await),
         "ai" => handle_ai(state, *current_board, client_id, &req).await,
+        "trace" => handle_trace(trace_enabled, &req),
         "tool" => handle_tool(state, *current_board, client_id, &req).await,
         _ => Err(req.error(format!("unknown prefix: {prefix}"))),
     };
@@ -279,7 +302,9 @@ async fn process_inbound_bytes(
     let board_id = *current_board;
     match result {
         Ok(Outcome::Broadcast(data)) => {
-            let sender_frame = req.done_with(data);
+            let (data, trace) = split_trace_from_data(data);
+            let mut sender_frame = req.done_with(data);
+            sender_frame.trace = trace;
             // Peers get a copy without parent_id (they didn't originate the request).
             let mut peer_frame = sender_frame.clone();
             peer_frame.id = Uuid::new_v4();
@@ -292,30 +317,38 @@ async fn process_inbound_bytes(
         }
         Ok(Outcome::BroadcastExcludeSender(data)) => {
             if let Some(bid) = board_id {
-                let frame = Frame::request(&req.syscall, data).with_board_id(bid);
+                let (data, trace) = split_trace_from_data(data);
+                let mut frame = Frame::request(&req.syscall, data).with_board_id(bid);
+                frame.trace = trace;
                 services::board::broadcast(state, bid, &frame, Some(client_id)).await;
             }
             vec![]
         }
         Ok(Outcome::Reply(data)) => {
-            let sender_frame = req.done_with(data);
+            let (data, trace) = split_trace_from_data(data);
+            let mut sender_frame = req.done_with(data);
+            sender_frame.trace = trace;
             services::persistence::enqueue_frame(state, &sender_frame);
             vec![sender_frame]
         }
         Ok(Outcome::ReplyStream { items, done }) => {
             let mut sender_frames = Vec::with_capacity(items.len() + 1);
             for data in items {
-                let item_frame = if req.syscall == "ai:prompt" {
+                let (data, trace) = split_trace_from_data(data);
+                let mut item_frame = if req.syscall == "ai:prompt" {
                     req.item_with(data)
                 } else {
                     req.bulk_with(data)
                 };
+                item_frame.trace = trace;
                 if req.syscall == "ai:prompt" {
                     services::persistence::enqueue_frame(state, &item_frame);
                 }
                 sender_frames.push(item_frame);
             }
-            let done_frame = req.done_with(done);
+            let (done, trace) = split_trace_from_data(done);
+            let mut done_frame = req.done_with(done);
+            done_frame.trace = trace;
             services::persistence::enqueue_frame(state, &done_frame);
             sender_frames.push(done_frame);
             sender_frames
@@ -326,9 +359,13 @@ async fn process_inbound_bytes(
             vec![sender_frame]
         }
         Ok(Outcome::ReplyAndBroadcast { reply, broadcast }) => {
-            let sender_frame = req.done_with(reply);
+            let (reply, reply_trace) = split_trace_from_data(reply);
+            let mut sender_frame = req.done_with(reply);
+            sender_frame.trace = reply_trace;
             if let Some(bid) = board_id {
-                let notif = Frame::request(&req.syscall, broadcast).with_board_id(bid);
+                let (broadcast, trace) = split_trace_from_data(broadcast);
+                let mut notif = Frame::request(&req.syscall, broadcast).with_board_id(bid);
+                notif.trace = trace;
                 services::persistence::enqueue_frame(state, &notif);
                 services::board::broadcast(state, bid, &notif, Some(client_id)).await;
             }
@@ -338,15 +375,22 @@ async fn process_inbound_bytes(
         Ok(Outcome::ReplyStreamAndBroadcast { items, done, broadcast }) => {
             let mut sender_frames = Vec::with_capacity(items.len() + 1);
             for data in items {
-                sender_frames.push(req.bulk_with(data));
+                let (data, trace) = split_trace_from_data(data);
+                let mut frame = req.bulk_with(data);
+                frame.trace = trace;
+                sender_frames.push(frame);
             }
 
-            let done_frame = req.done_with(done);
+            let (done, trace) = split_trace_from_data(done);
+            let mut done_frame = req.done_with(done);
+            done_frame.trace = trace;
             services::persistence::enqueue_frame(state, &done_frame);
             sender_frames.push(done_frame);
 
             if let Some(bid) = board_id {
-                let notif = Frame::request(&req.syscall, broadcast).with_board_id(bid);
+                let (broadcast, trace) = split_trace_from_data(broadcast);
+                let mut notif = Frame::request(&req.syscall, broadcast).with_board_id(bid);
+                notif.trace = trace;
                 services::persistence::enqueue_frame(state, &notif);
                 services::board::broadcast(state, bid, &notif, Some(client_id)).await;
             }
@@ -1238,16 +1282,13 @@ async fn broadcast_ai_mutations(
             .with_from(user_id.to_string());
         frame.parent_id = parent_id;
         if let Some(trace_id) = trace_id {
-            frame.data.insert(
-                "trace".into(),
-                serde_json::json!({
-                    "trace_id": trace_id,
-                    "span_id": frame.id,
-                    "parent_span_id": parent_id,
-                    "kind": "object.mutation",
-                    "label": syscall
-                }),
-            );
+            frame.trace = Some(serde_json::json!({
+                "trace_id": trace_id,
+                "span_id": frame.id,
+                "parent_span_id": parent_id,
+                "kind": "object.mutation",
+                "label": syscall
+            }));
         }
         frame.status = crate::frame::Status::Done;
         services::persistence::enqueue_frame(state, &frame);
@@ -1278,8 +1319,9 @@ async fn handle_tool(
     match services::tool_syscall::dispatch_tool_frame(state, board_id, req).await {
         Ok(outcome) => {
             let trace_id = req
-                .data
-                .get("trace")
+                .trace
+                .as_ref()
+                .or_else(|| req.data.get("trace"))
                 .and_then(serde_json::Value::as_object)
                 .and_then(|trace| trace.get("trace_id"))
                 .and_then(serde_json::Value::as_str)
@@ -1288,6 +1330,26 @@ async fn handle_tool(
             Ok(Outcome::Reply(outcome.done_data))
         }
         Err(err) => Err(req.error_from(&err)),
+    }
+}
+
+fn handle_trace(trace_enabled: &mut bool, req: &Frame) -> Result<Outcome, Frame> {
+    let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
+    match op {
+        "config" => {
+            let Some(enabled) = req
+                .data
+                .get("enabled")
+                .and_then(serde_json::Value::as_bool)
+            else {
+                return Err(req.error("enabled required"));
+            };
+            *trace_enabled = enabled;
+            let mut data = Data::new();
+            data.insert("enabled".into(), serde_json::json!(enabled));
+            Ok(Outcome::Reply(data))
+        }
+        _ => Err(req.error(format!("unknown trace op: {op}"))),
     }
 }
 
@@ -1315,6 +1377,7 @@ async fn handle_ai(
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
     match op {
         "prompt" => {
+            let prompt_started_at = Instant::now();
             let prompt = req
                 .data
                 .get("prompt")
@@ -1358,7 +1421,12 @@ async fn handle_ai(
                             "span_id": req.id,
                             "parent_span_id": serde_json::Value::Null,
                             "kind": "ai.prompt",
-                            "label": "prompt"
+                            "label": "prompt",
+                            "elapsed_ms": i64::try_from(prompt_started_at.elapsed().as_millis()).unwrap_or(i64::MAX),
+                            "total_duration_ms": result.trace.total_duration_ms,
+                            "total_llm_duration_ms": result.trace.total_llm_duration_ms,
+                            "total_tool_duration_ms": result.trace.total_tool_duration_ms,
+                            "overhead_duration_ms": result.trace.overhead_duration_ms
                         }),
                     );
                     Ok(Outcome::ReplyStream { items: result.items, done })
@@ -1366,16 +1434,14 @@ async fn handle_ai(
                 Err(e) => {
                     let mut err = req.error_from(&e);
                     err.data.insert("prompt".into(), serde_json::json!(prompt));
-                    err.data.insert(
-                        "trace".into(),
-                        serde_json::json!({
-                            "trace_id": req.id,
-                            "span_id": req.id,
-                            "parent_span_id": serde_json::Value::Null,
-                            "kind": "ai.prompt",
-                            "label": "prompt"
-                        }),
-                    );
+                    err.trace = Some(serde_json::json!({
+                        "trace_id": req.id,
+                        "span_id": req.id,
+                        "parent_span_id": serde_json::Value::Null,
+                        "kind": "ai.prompt",
+                        "label": "prompt",
+                        "elapsed_ms": i64::try_from(prompt_started_at.elapsed().as_millis()).unwrap_or(i64::MAX)
+                    }));
                     Err(err)
                 }
             }

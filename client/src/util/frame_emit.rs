@@ -27,6 +27,7 @@ fn object_update_props_frame(board_id: &str, object_id: &str, version: i64, prop
         from: None,
         syscall: "object:update".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({
             "id": object_id,
             "version": version,
@@ -48,6 +49,7 @@ fn object_update_rotation_frame(board_id: &str, object_id: &str, version: i64, r
         from: None,
         syscall: "object:update".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({
             "id": object_id,
             "version": version,
@@ -79,6 +81,7 @@ fn object_update_geometry_frame(
         from: None,
         syscall: "object:update".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({
             "id": object_id,
             "version": version,

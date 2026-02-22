@@ -29,6 +29,7 @@ pub fn RewindShelf() -> impl IntoView {
             from: None,
             syscall: "board:savepoint:create".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({
                 "label": "Manual savepoint"
             }),

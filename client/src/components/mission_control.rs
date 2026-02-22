@@ -37,6 +37,7 @@ pub fn MissionControl() -> impl IntoView {
             from: None,
             syscall: "board:list".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({}),
         };
         let _ = sender.get_untracked().send(&frame);

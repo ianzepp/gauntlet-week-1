@@ -256,10 +256,11 @@ pub async fn persist_frame(pool: &PgPool, frame: &Frame) -> Result<(), sqlx::Err
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
     let data = serde_json::to_value(&frame.data).unwrap_or_default();
+    let trace = frame.trace.clone().unwrap_or(serde_json::Value::Null);
 
     sqlx::query(
-        r#"INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, ts)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+        r#"INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, trace, ts)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
     )
     .bind(frame.id)
     .bind(frame.parent_id)
@@ -268,6 +269,7 @@ pub async fn persist_frame(pool: &PgPool, frame: &Frame) -> Result<(), sqlx::Err
     .bind(frame.board_id)
     .bind(&frame.from)
     .bind(&data)
+    .bind(&trace)
     .bind(frame.ts)
     .execute(pool)
     .await?;
@@ -283,10 +285,11 @@ pub async fn persist_frame_batch(pool: &PgPool, frames: &[Frame]) -> Result<(), 
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
         let data = serde_json::to_value(&frame.data).unwrap_or_default();
+        let trace = frame.trace.clone().unwrap_or(serde_json::Value::Null);
 
         sqlx::query(
-            r#"INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, ts)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+            r#"INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, trace, ts)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
         )
         .bind(frame.id)
         .bind(frame.parent_id)
@@ -295,6 +298,7 @@ pub async fn persist_frame_batch(pool: &PgPool, frames: &[Frame]) -> Result<(), 
         .bind(frame.board_id)
         .bind(&frame.from)
         .bind(&data)
+        .bind(&trace)
         .bind(frame.ts)
         .execute(tx.as_mut())
         .await?;

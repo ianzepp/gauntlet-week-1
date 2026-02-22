@@ -21,6 +21,7 @@ pub(super) fn build_board_list_request_frame(since_rev: Option<String>) -> Frame
         from: None,
         syscall: "board:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({
             "since_rev": since_rev
         }),
@@ -37,6 +38,7 @@ pub(super) fn build_board_savepoint_list_request_frame(board_id: String) -> Fram
         from: None,
         syscall: "board:savepoint:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({}),
     }
 }
@@ -51,6 +53,7 @@ pub(super) fn build_board_users_list_request_frame(board_id: String) -> Frame {
         from: None,
         syscall: "board:users:list".to_owned(),
         status: crate::net::types::FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({}),
     }
 }

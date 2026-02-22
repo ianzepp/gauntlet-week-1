@@ -128,10 +128,12 @@ async fn process_inbound_bytes(
         .and_then(|f| f.data.get("user_color"))
         .and_then(serde_json::Value::as_str)
         .unwrap_or("#8a8178");
+    let mut trace_enabled = false;
 
     super::process_inbound_bytes(
         state,
         current_board,
+        &mut trace_enabled,
         client_id,
         user_id,
         user_name,
@@ -140,6 +142,75 @@ async fn process_inbound_bytes(
         bytes,
     )
     .await
+}
+
+#[test]
+fn frame_for_client_strips_trace_when_disabled() {
+    let mut frame = Frame::request("ai:prompt", Data::new());
+    frame.trace = Some(json!({"trace_id": Uuid::new_v4()}));
+
+    let stripped = super::frame_for_client(&frame, false);
+    assert!(stripped.trace.is_none(), "trace should be removed for non-trace clients");
+    assert!(frame.trace.is_some(), "source frame should remain unchanged");
+
+    let kept = super::frame_for_client(&frame, true);
+    assert!(kept.trace.is_some(), "trace should be preserved for trace-enabled clients");
+}
+
+#[tokio::test]
+async fn trace_config_toggles_per_connection_trace_flag() {
+    let state = test_helpers::test_app_state();
+    let mut current_board = None;
+    let mut trace_enabled = false;
+    let client_id = Uuid::new_v4();
+    let user_id = Uuid::new_v4();
+    let (client_tx, _client_rx) = mpsc::channel(8);
+
+    let mut enable_data = Data::new();
+    enable_data.insert("enabled".into(), json!(true));
+    let enable_bytes = request_bytes(Uuid::new_v4(), "trace:config", enable_data);
+
+    let enable_reply = super::process_inbound_bytes(
+        &state,
+        &mut current_board,
+        &mut trace_enabled,
+        client_id,
+        user_id,
+        "tester",
+        "#fff",
+        &client_tx,
+        &enable_bytes,
+    )
+    .await;
+
+    assert!(trace_enabled, "trace should be enabled after trace:config enabled=true");
+    assert_eq!(enable_reply.len(), 1);
+    assert_eq!(enable_reply[0].syscall, "trace:config");
+    assert_eq!(enable_reply[0].status, Status::Done);
+    assert_eq!(enable_reply[0].data.get("enabled").and_then(|v| v.as_bool()), Some(true));
+
+    let mut disable_data = Data::new();
+    disable_data.insert("enabled".into(), json!(false));
+    let disable_bytes = request_bytes(Uuid::new_v4(), "trace:config", disable_data);
+
+    let disable_reply = super::process_inbound_bytes(
+        &state,
+        &mut current_board,
+        &mut trace_enabled,
+        client_id,
+        user_id,
+        "tester",
+        "#fff",
+        &client_tx,
+        &disable_bytes,
+    )
+    .await;
+
+    assert!(!trace_enabled, "trace should be disabled after trace:config enabled=false");
+    assert_eq!(disable_reply.len(), 1);
+    assert_eq!(disable_reply[0].syscall, "trace:config");
+    assert_eq!(disable_reply[0].status, Status::Done);
+    assert_eq!(disable_reply[0].data.get("enabled").and_then(|v| v.as_bool()), Some(false));
 }
 
 #[cfg(feature = "live-db-tests")]
@@ -1120,6 +1191,16 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(1));
     assert!(reply.data.get("text").is_none());
     assert_eq!(reply.data.get("turn_over").and_then(|v| v.as_bool()), Some(true));
+    let trace = reply
+        .trace
+        .as_ref()
+        .and_then(serde_json::Value::as_object)
+        .expect("trace envelope on ai:prompt done");
+    assert!(trace.get("elapsed_ms").and_then(serde_json::Value::as_i64).is_some());
+    assert!(trace.get("total_duration_ms").and_then(serde_json::Value::as_i64).is_some());
+    assert!(trace.get("total_llm_duration_ms").and_then(serde_json::Value::as_i64).is_some());
+    assert!(trace.get("total_tool_duration_ms").and_then(serde_json::Value::as_i64).is_some());
+    assert!(trace.get("overhead_duration_ms").and_then(serde_json::Value::as_i64).is_some());
     let assistant_item = sender_frames
         .iter()
         .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))

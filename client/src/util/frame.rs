@@ -21,6 +21,7 @@ pub fn request_frame(syscall: &str, board_id: Option<String>, data: serde_json::
         from: None,
         syscall: syscall.to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data,
     }
 }

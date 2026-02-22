@@ -13,6 +13,7 @@ fn make_frame() -> Frame {
         from: Some("u-1".to_owned()),
         syscall: "object:create".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({"kind": "rectangle"}),
     }
 }
@@ -99,6 +100,7 @@ fn frame_with_all_optional_fields_none() {
         from: None,
         syscall: "session:connected".to_owned(),
         status: FrameStatus::Done,
+        trace: None,
         data: serde_json::Value::Null,
     };
     let json = serde_json::to_string(&frame).unwrap();

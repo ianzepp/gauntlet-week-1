@@ -509,6 +509,7 @@ async fn broadcast_object_frame(state: &AppState, board_id: Uuid, syscall: &str,
         from: None,
         syscall: syscall.to_owned(),
         status: crate::frame::Status::Done,
+        trace: None,
         data,
     };
     board::broadcast(state, board_id, &frame, None).await;
@@ -865,6 +866,7 @@ pub async fn import_jsonl(
             from: None,
             syscall: "object:create".to_owned(),
             status: crate::frame::Status::Done,
+            trace: None,
             data,
         };
         board::broadcast(&state, board_id, &frame, None).await;

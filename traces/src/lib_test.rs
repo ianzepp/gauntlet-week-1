@@ -17,6 +17,7 @@ fn frame(id: &str, parent: Option<&str>, ts: i64, syscall: &str, status: Status)
         from: Some("server".to_owned()),
         syscall: syscall.to_owned(),
         status,
+        trace: None,
         data: json!({}),
     }
 }
@@ -37,6 +38,7 @@ fn frame_with_board(
         from: Some("server".to_owned()),
         syscall: syscall.to_owned(),
         status,
+        trace: None,
         data: json!({}),
     }
 }
@@ -318,6 +320,14 @@ fn sub_label_reads_trace_label_only() {
     let mut legacy = frame("2", None, 2, "ai:llm_request", Status::Done);
     legacy.data = json!({"model": "legacy-without-trace"});
     assert_eq!(sub_label(&legacy), None);
+}
+
+#[test]
+fn sub_label_prefers_top_level_trace_over_legacy_data_trace() {
+    let mut frame = frame("3", None, 3, "tool:createStickyNote", Status::Done);
+    frame.trace = Some(json!({ "label": "top_level" }));
+    frame.data = json!({ "trace": { "label": "legacy" } });
+    assert_eq!(sub_label(&frame).as_deref(), Some("top_level"));
 }
 
 #[test]

@@ -42,6 +42,7 @@ pub fn ChatPanel() -> impl IntoView {
             from: None,
             syscall: "chat:history".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({}),
         };
         sender.get().send(&frame);
@@ -74,6 +75,7 @@ pub fn ChatPanel() -> impl IntoView {
             from: None,
             syscall: "chat:message".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({ "message": text }),
         };
         sender.get().send(&frame);

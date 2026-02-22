@@ -1007,6 +1007,10 @@ async fn handle_prompt_persists_trace_envelope_for_llm_and_tool_spans() {
     .await
     .expect("prompt should succeed");
     assert!(!result.mutations.is_empty());
+    assert!(result.trace.total_duration_ms >= 0);
+    assert!(result.trace.total_llm_duration_ms >= 0);
+    assert!(result.trace.total_tool_duration_ms >= 0);
+    assert!(result.trace.overhead_duration_ms >= 0);
 
     let mut persisted = Vec::new();
     while let Ok(frame) = persist_rx.try_recv() {
@@ -1017,26 +1021,30 @@ async fn handle_prompt_persists_trace_envelope_for_llm_and_tool_spans() {
 
     let has_llm_with_trace = persisted.iter().any(|f| {
         f.syscall == "ai:llm_request"
-            && f.data
-                .get("trace")
+            && f.trace
+                .as_ref()
                 .and_then(serde_json::Value::as_object)
                 .is_some_and(|trace| {
                     trace.get("trace_id").and_then(serde_json::Value::as_str) == Some(root_str.as_str())
                         && trace.get("span_id").is_some()
                         && trace.get("kind").and_then(serde_json::Value::as_str) == Some("ai.llm_request")
+                        && trace.get("elapsed_ms").and_then(serde_json::Value::as_i64).is_some()
+                        && trace.get("duration_ms").and_then(serde_json::Value::as_i64).is_some()
                 })
     });
     assert!(has_llm_with_trace, "expected ai:llm_request frames with trace envelope");
 
     let has_tool_with_trace = persisted.iter().any(|f| {
         f.syscall.starts_with("tool:")
-            && f.data
-                .get("trace")
+            && f.trace
+                .as_ref()
                 .and_then(serde_json::Value::as_object)
                 .is_some_and(|trace| {
                     trace.get("trace_id").and_then(serde_json::Value::as_str) == Some(root_str.as_str())
                         && trace.get("span_id").is_some()
                         && trace.get("kind").and_then(serde_json::Value::as_str) == Some("ai.tool_call")
+                        && trace.get("elapsed_ms").and_then(serde_json::Value::as_i64).is_some()
+                        && trace.get("duration_ms").and_then(serde_json::Value::as_i64).is_some()
                 })
     });
     assert!(has_tool_with_trace, "expected tool:* frames with trace envelope");

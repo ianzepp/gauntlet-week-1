@@ -346,6 +346,7 @@ fn ShareDialog(board: RwSignal<BoardState>, on_cancel: Callback<()>) -> impl Int
             from: None,
             syscall: "board:access:generate".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({}),
         };
         let _ = sender.get_untracked().send(&frame);

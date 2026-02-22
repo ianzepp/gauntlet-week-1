@@ -11,6 +11,7 @@ fn make_frame(id: &str, syscall: &str, status: Status) -> Frame {
         from: None,
         syscall: syscall.to_owned(),
         status,
+        trace: None,
         data: json!({}),
     }
 }

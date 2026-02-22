@@ -10,6 +10,7 @@ fn frame(syscall: &str, status: FrameStatus, data: serde_json::Value) -> Frame {
         from: Some("u-1".to_owned()),
         syscall: syscall.to_owned(),
         status,
+        trace: None,
         data,
     }
 }
@@ -340,6 +341,7 @@ fn deleted_board_id_prefers_payload_then_board_id_fallback() {
         from: None,
         syscall: "board:delete".to_owned(),
         status: FrameStatus::Done,
+        trace: None,
         data: serde_json::json!({}),
     };
     assert_eq!(deleted_board_id(&frame_with_board_id).as_deref(), Some("b-from-frame"));

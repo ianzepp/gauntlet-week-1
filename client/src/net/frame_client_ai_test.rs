@@ -33,3 +33,52 @@ fn upsert_ai_user_message_appends_when_id_not_found() {
     assert_eq!(ai.messages.len(), 1);
     assert_eq!(ai.messages[0].id, "m1");
 }
+
+#[test]
+fn user_visible_role_filters_tool_messages() {
+    assert!(is_user_visible_role("assistant"));
+    assert!(is_user_visible_role("user"));
+    assert!(is_user_visible_role("error"));
+    assert!(!is_user_visible_role("tool"));
+}
+
+fn frame_with_tool_item(kind: &str, tool_name: &str, is_error: Option<bool>) -> Frame {
+    let mut data = serde_json::json!({
+        "role": "tool",
+        "kind": kind,
+        "tool_name": tool_name
+    });
+    if let Some(flag) = is_error {
+        data["is_error"] = serde_json::json!(flag);
+    }
+    Frame {
+        id: "f-tool".to_owned(),
+        parent_id: None,
+        ts: 123,
+        board_id: None,
+        from: None,
+        syscall: "ai:prompt".to_owned(),
+        status: crate::net::types::FrameStatus::Item,
+        trace: None,
+        data,
+    }
+}
+
+#[test]
+fn parse_tool_activity_message_summarizes_tool_call() {
+    let frame = frame_with_tool_item("tool_call", "createSvgObject", None);
+    let msg = parse_tool_activity_message(&frame).expect("tool activity message");
+    assert_eq!(msg.role, "assistant");
+    assert_eq!(msg.content, "Running `createSvgObject`...");
+}
+
+#[test]
+fn parse_tool_activity_message_summarizes_tool_result() {
+    let frame = frame_with_tool_item("tool_result", "createSvgObject", Some(false));
+    let msg = parse_tool_activity_message(&frame).expect("tool activity message");
+    assert_eq!(msg.content, "`createSvgObject` completed");
+
+    let frame_err = frame_with_tool_item("tool_result", "createSvgObject", Some(true));
+    let msg_err = parse_tool_activity_message(&frame_err).expect("tool activity message");
+    assert_eq!(msg_err.content, "`createSvgObject` failed");
+}
