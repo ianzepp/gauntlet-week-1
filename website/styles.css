@@ -1120,6 +1120,17 @@ body {
   }
 }
 
+/* --- Transcript Page Panel Override --- */
+.page[data-page="transcripts"] .panel-left {
+  flex: 0 0 50%;
+  max-width: 50%;
+}
+
+.page[data-page="transcripts"] .panel-right {
+  flex: 0 0 50%;
+  max-width: 50%;
+}
+
 /* --- Transcript Log Panel (left) --- */
 .transcript-log-panel {
   height: 100%;
@@ -1280,6 +1291,79 @@ body {
   border-top: 1px solid var(--border-faint);
   margin-top: var(--gap-sm);
   padding-top: var(--gap-sm);
+}
+
+/* --- Transcript Markdown Content --- */
+.tx-line code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-card-inset);
+  border: 1px solid var(--border-faint);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.tx-line pre {
+  background: var(--bg-card-inset);
+  border: 1px solid var(--border-light);
+  padding: var(--gap-sm);
+  margin: var(--gap-xs) 0;
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.tx-line pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.tx-line p {
+  margin: 0 0 var(--gap-xs) 0;
+}
+
+.tx-line p:last-child {
+  margin-bottom: 0;
+}
+
+.tx-line strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tx-line a {
+  color: var(--accent-active);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tx-line ul, .tx-line ol {
+  padding-left: var(--gap-md);
+  margin: var(--gap-xs) 0;
+}
+
+.tx-line table {
+  border-collapse: collapse;
+  font-size: 11px;
+  margin: var(--gap-xs) 0;
+}
+
+.tx-line th, .tx-line td {
+  border: 1px solid var(--border-light);
+  padding: 2px var(--gap-sm);
+}
+
+.tx-line th {
+  background: var(--bg-card-alt);
+  font-weight: 600;
+}
+
+.tx-line blockquote {
+  border-left: 2px solid var(--border-medium);
+  padding-left: var(--gap-sm);
+  color: var(--text-tertiary);
+  margin: var(--gap-xs) 0;
 }
 
 /* --- Reduced Motion --- */

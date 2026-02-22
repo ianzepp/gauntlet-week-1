@@ -983,9 +983,7 @@
           metaLines.push(line);
         } else {
           inMeta = false;
-          if (line.trim() !== '') {
-            bodyLines.push(line);
-          }
+          bodyLines.push(line);
         }
       }
 
@@ -1000,12 +998,43 @@
         html += '</div>';
       }
 
-      /* Body */
+      /* Body — group lines into blocks by leading emoji.
+         A line without a leading emoji is a continuation of the previous block. */
       html += '<div class="tx-body">';
+      var blocks = [];
+      var currentBlock = null;
+
       for (var b = 0; b < bodyLines.length; b++) {
         var line = bodyLines[b];
         var cls = classifyLine(line);
-        html += '<div class="tx-line ' + cls + '">' + escapeHtml(line) + '</div>';
+
+        if (cls !== null) {
+          /* New emoji-prefixed line starts a new block */
+          if (currentBlock) blocks.push(currentBlock);
+          currentBlock = { cls: cls, lines: [line] };
+        } else if (currentBlock) {
+          /* Continuation line — append to current block */
+          currentBlock.lines.push(line);
+        } else {
+          /* Orphan line before any emoji — treat as assistant */
+          currentBlock = { cls: 'tx-line-assistant', lines: [line] };
+        }
+      }
+      if (currentBlock) blocks.push(currentBlock);
+
+      for (var k = 0; k < blocks.length; k++) {
+        var blk = blocks[k];
+        /* Trim trailing blank lines */
+        while (blk.lines.length > 0 && blk.lines[blk.lines.length - 1].trim() === '') {
+          blk.lines.pop();
+        }
+        if (blk.lines.length === 0) continue;
+        var raw = blk.lines.join('\n');
+        if (blk.cls === 'tx-line-user' || blk.cls === 'tx-line-assistant') {
+          html += '<div class="tx-line ' + blk.cls + '">' + renderMarkdown(raw) + '</div>';
+        } else {
+          html += '<div class="tx-line ' + blk.cls + '">' + escapeHtml(raw) + '</div>';
+        }
       }
       html += '</div>';
 
@@ -1020,7 +1049,14 @@
       if (line.indexOf('\u274c') === 0) return 'tx-line-tool-fail';        /* ❌ */
       if (line.indexOf('\ud83d\udccb') === 0) return 'tx-line-meta';       /* 📋 */
       if (line.indexOf('---') === 0) return 'tx-line-summary';
-      return 'tx-line-assistant';
+      return null; /* continuation of previous block */
+    }
+
+    function renderMarkdown(text) {
+      if (typeof marked !== 'undefined' && marked.parse) {
+        try { return marked.parse(text, { breaks: true }); } catch (e) { /* fall through */ }
+      }
+      return escapeHtml(text);
     }
 
     function escapeHtml(str) {
