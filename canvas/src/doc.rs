@@ -13,7 +13,7 @@
 #[path = "doc_test.rs"]
 mod doc_test;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -281,24 +281,94 @@ fn relative_luminance(r: u8, g: u8, b: u8) -> f64 {
 /// In-memory store of board objects.
 pub struct DocStore {
     objects: HashMap<ObjectId, BoardObject>,
+    buckets: HashMap<(i32, i32), HashSet<ObjectId>>,
+}
+
+/// Axis-aligned world bounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WorldBounds {
+    pub min_x: f64,
+    pub min_y: f64,
+    pub max_x: f64,
+    pub max_y: f64,
+}
+
+impl WorldBounds {
+    #[must_use]
+    pub fn from_point(point_x: f64, point_y: f64) -> Self {
+        Self { min_x: point_x, min_y: point_y, max_x: point_x, max_y: point_y }
+    }
+
+    #[must_use]
+    pub fn expand(self, delta: f64) -> Self {
+        Self {
+            min_x: self.min_x - delta,
+            min_y: self.min_y - delta,
+            max_x: self.max_x + delta,
+            max_y: self.max_y + delta,
+        }
+    }
+}
+
+const BUCKET_SIZE_WORLD: f64 = 256.0;
+
+#[must_use]
+pub fn object_world_bounds(obj: &BoardObject) -> WorldBounds {
+    match obj.kind {
+        ObjectKind::Line | ObjectKind::Arrow => {
+            let a = obj
+                .props
+                .get("a")
+                .and_then(serde_json::Value::as_object)
+                .and_then(|point| Some((point.get("x")?.as_f64()?, point.get("y")?.as_f64()?)));
+            let b = obj
+                .props
+                .get("b")
+                .and_then(serde_json::Value::as_object)
+                .and_then(|point| Some((point.get("x")?.as_f64()?, point.get("y")?.as_f64()?)));
+
+            if let (Some((ax, ay)), Some((bx, by))) = (a, b) {
+                return WorldBounds {
+                    min_x: ax.min(bx),
+                    min_y: ay.min(by),
+                    max_x: ax.max(bx),
+                    max_y: ay.max(by),
+                };
+            }
+        }
+        _ => {}
+    }
+
+    let min_x = obj.x.min(obj.x + obj.width);
+    let min_y = obj.y.min(obj.y + obj.height);
+    let max_x = obj.x.max(obj.x + obj.width);
+    let max_y = obj.y.max(obj.y + obj.height);
+    WorldBounds { min_x, min_y, max_x, max_y }
 }
 
 impl DocStore {
     /// Create an empty store.
     #[must_use]
     pub fn new() -> Self {
-        Self { objects: HashMap::new() }
+        Self { objects: HashMap::new(), buckets: HashMap::new() }
     }
 
     /// Insert or replace an object. If an object with the same `id` already
     /// exists it is overwritten.
     pub fn insert(&mut self, obj: BoardObject) {
-        self.objects.insert(obj.id, obj);
+        let id = obj.id;
+        let new_bounds = object_world_bounds(&obj);
+        if let Some(prev) = self.objects.insert(id, obj) {
+            self.remove_from_buckets(id, object_world_bounds(&prev));
+        }
+        self.add_to_buckets(id, new_bounds);
     }
 
     /// Remove an object by id, returning it if it was present.
     pub fn remove(&mut self, id: &ObjectId) -> Option<BoardObject> {
-        self.objects.remove(id)
+        let removed = self.objects.remove(id)?;
+        self.remove_from_buckets(*id, object_world_bounds(&removed));
+        Some(removed)
     }
 
     /// Return a reference to an object by id.
@@ -312,6 +382,7 @@ impl DocStore {
         let Some(obj) = self.objects.get_mut(id) else {
             return false;
         };
+        let old_bounds = object_world_bounds(obj);
         if let Some(x) = partial.x {
             obj.x = x;
         }
@@ -355,14 +426,20 @@ impl DocStore {
                 }
             }
         }
+        let new_bounds = object_world_bounds(obj);
+        if old_bounds != new_bounds {
+            self.remove_from_buckets(*id, old_bounds);
+            self.add_to_buckets(*id, new_bounds);
+        }
         true
     }
 
     /// Replace all objects with a full snapshot.
     pub fn load_snapshot(&mut self, objects: Vec<BoardObject>) {
         self.objects.clear();
+        self.buckets.clear();
         for obj in objects {
-            self.objects.insert(obj.id, obj);
+            self.insert(obj);
         }
     }
 
@@ -370,6 +447,38 @@ impl DocStore {
     #[must_use]
     pub fn sorted_objects(&self) -> Vec<&BoardObject> {
         let mut objs: Vec<&BoardObject> = self.objects.values().collect();
+        objs.sort_by(|a, b| a.z_index.cmp(&b.z_index).then_with(|| a.id.cmp(&b.id)));
+        objs
+    }
+
+    /// Return objects that intersect the given world bounds, sorted by `(z_index, id)`.
+    #[must_use]
+    pub fn sorted_objects_in_bounds(&self, bounds: WorldBounds) -> Vec<&BoardObject> {
+        let mut ids = HashSet::new();
+        let min_bx = bucket_coord(bounds.min_x);
+        let min_by = bucket_coord(bounds.min_y);
+        let max_bx = bucket_coord(bounds.max_x);
+        let max_by = bucket_coord(bounds.max_y);
+
+        for by in min_by..=max_by {
+            for bx in min_bx..=max_bx {
+                if let Some(bucket) = self.buckets.get(&(bx, by)) {
+                    ids.extend(bucket.iter().copied());
+                }
+            }
+        }
+
+        let mut objs = ids
+            .into_iter()
+            .filter_map(|id| self.objects.get(&id))
+            .filter(|obj| {
+                let obj_bounds = object_world_bounds(obj);
+                !(obj_bounds.max_x < bounds.min_x
+                    || obj_bounds.min_x > bounds.max_x
+                    || obj_bounds.max_y < bounds.min_y
+                    || obj_bounds.min_y > bounds.max_y)
+            })
+            .collect::<Vec<_>>();
         objs.sort_by(|a, b| a.z_index.cmp(&b.z_index).then_with(|| a.id.cmp(&b.id)));
         objs
     }
@@ -385,6 +494,42 @@ impl DocStore {
     pub fn is_empty(&self) -> bool {
         self.objects.is_empty()
     }
+
+    fn add_to_buckets(&mut self, id: ObjectId, bounds: WorldBounds) {
+        let min_bx = bucket_coord(bounds.min_x);
+        let min_by = bucket_coord(bounds.min_y);
+        let max_bx = bucket_coord(bounds.max_x);
+        let max_by = bucket_coord(bounds.max_y);
+        for by in min_by..=max_by {
+            for bx in min_bx..=max_bx {
+                self.buckets.entry((bx, by)).or_default().insert(id);
+            }
+        }
+    }
+
+    fn remove_from_buckets(&mut self, id: ObjectId, bounds: WorldBounds) {
+        let min_bx = bucket_coord(bounds.min_x);
+        let min_by = bucket_coord(bounds.min_y);
+        let max_bx = bucket_coord(bounds.max_x);
+        let max_by = bucket_coord(bounds.max_y);
+        for by in min_by..=max_by {
+            for bx in min_bx..=max_bx {
+                let key = (bx, by);
+                let mut empty = false;
+                if let Some(bucket) = self.buckets.get_mut(&key) {
+                    bucket.remove(&id);
+                    empty = bucket.is_empty();
+                }
+                if empty {
+                    self.buckets.remove(&key);
+                }
+            }
+        }
+    }
+}
+
+fn bucket_coord(world: f64) -> i32 {
+    (world / BUCKET_SIZE_WORLD).floor() as i32
 }
 
 impl Default for DocStore {

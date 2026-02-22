@@ -14,7 +14,7 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::camera::{Camera, Point};
 use crate::consts::{FRAC_PI_5, HANDLE_RADIUS_PX, STAR_INNER_RATIO};
-use crate::doc::{BoardObject, DocStore, ObjectKind, Props};
+use crate::doc::{BoardObject, DocStore, ObjectKind, Props, WorldBounds};
 use crate::hit;
 use crate::input::UiState;
 
@@ -46,6 +46,8 @@ pub fn draw(
     dpr: f64,
 ) -> Result<(), JsValue> {
     let viewport_center = Point::new(viewport_w * 0.5, viewport_h * 0.5);
+    let viewport_bounds = viewport_world_bounds(camera, viewport_w, viewport_h, viewport_center);
+    let visible = doc.sorted_objects_in_bounds(viewport_bounds);
 
     // Layer 1: clear and set up transforms.
     ctx.set_transform(dpr, 0.0, 0.0, dpr, 0.0, 0.0)?;
@@ -57,7 +59,7 @@ pub fn draw(
     ctx.scale(camera.zoom, camera.zoom)?;
 
     // Layer 2: non-selected objects in z-order.
-    for obj in doc.sorted_objects() {
+    for obj in &visible {
         if ui.selected_ids.contains(&obj.id) {
             continue;
         }
@@ -66,7 +68,7 @@ pub fn draw(
 
     // Layer 3: selected objects in z-order.
     // Multi-select is naturally supported because selected_ids is a set.
-    for obj in doc.sorted_objects() {
+    for obj in &visible {
         if !ui.selected_ids.contains(&obj.id) {
             continue;
         }
@@ -87,6 +89,32 @@ pub fn draw(
     }
 
     Ok(())
+}
+
+fn viewport_world_bounds(camera: &Camera, viewport_w: f64, viewport_h: f64, viewport_center: Point) -> WorldBounds {
+    let corners = [
+        Point::new(0.0, 0.0),
+        Point::new(viewport_w, 0.0),
+        Point::new(0.0, viewport_h),
+        Point::new(viewport_w, viewport_h),
+    ];
+
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    for corner in corners {
+        let world = camera.screen_to_world(corner, viewport_center);
+        min_x = min_x.min(world.x);
+        min_y = min_y.min(world.y);
+        max_x = max_x.max(world.x);
+        max_y = max_y.max(world.y);
+    }
+
+    // Small margin avoids visible pop-in at the viewport edge.
+    let margin = camera.screen_dist_to_world(64.0);
+    WorldBounds { min_x: min_x - margin, min_y: min_y - margin, max_x: max_x + margin, max_y: max_y + margin }
 }
 
 // =============================================================

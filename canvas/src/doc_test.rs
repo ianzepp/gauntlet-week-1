@@ -614,6 +614,82 @@ fn sorted_objects_negative_z_index() {
     assert_eq!(sorted[1].z_index, 0);
 }
 
+#[test]
+fn sorted_objects_in_bounds_returns_only_intersecting_sorted() {
+    let mut store = DocStore::new();
+
+    let mut a = make_object(ObjectKind::Rect, 2);
+    a.id = Uuid::parse_str("00000000-0000-0000-0000-00000000000a").unwrap();
+    a.x = 10.0;
+    a.y = 10.0;
+    let a_id = a.id;
+
+    let mut b = make_object(ObjectKind::Rect, 1);
+    b.id = Uuid::parse_str("00000000-0000-0000-0000-00000000000b").unwrap();
+    b.x = 300.0;
+    b.y = 300.0;
+    let b_id = b.id;
+
+    let mut c = make_object(ObjectKind::Rect, 3);
+    c.id = Uuid::parse_str("00000000-0000-0000-0000-00000000000c").unwrap();
+    c.x = 800.0;
+    c.y = 800.0;
+
+    store.insert(c);
+    store.insert(a);
+    store.insert(b);
+
+    let visible = store.sorted_objects_in_bounds(WorldBounds {
+        min_x: 0.0,
+        min_y: 0.0,
+        max_x: 512.0,
+        max_y: 512.0,
+    });
+
+    assert_eq!(visible.len(), 2);
+    assert_eq!(visible[0].id, b_id);
+    assert_eq!(visible[1].id, a_id);
+}
+
+#[test]
+fn sorted_objects_in_bounds_after_partial_move_updates_index() {
+    let mut store = DocStore::new();
+    let mut obj = make_object(ObjectKind::Rect, 0);
+    obj.x = 10.0;
+    obj.y = 10.0;
+    let id = obj.id;
+    store.insert(obj);
+
+    let near = store.sorted_objects_in_bounds(WorldBounds {
+        min_x: 0.0,
+        min_y: 0.0,
+        max_x: 128.0,
+        max_y: 128.0,
+    });
+    assert_eq!(near.len(), 1);
+    assert_eq!(near[0].id, id);
+
+    let moved = PartialBoardObject { x: Some(1024.0), y: Some(1024.0), ..Default::default() };
+    assert!(store.apply_partial(&id, &moved));
+
+    let near_after = store.sorted_objects_in_bounds(WorldBounds {
+        min_x: 0.0,
+        min_y: 0.0,
+        max_x: 128.0,
+        max_y: 128.0,
+    });
+    assert!(near_after.is_empty());
+
+    let far_after = store.sorted_objects_in_bounds(WorldBounds {
+        min_x: 900.0,
+        min_y: 900.0,
+        max_x: 1200.0,
+        max_y: 1200.0,
+    });
+    assert_eq!(far_after.len(), 1);
+    assert_eq!(far_after[0].id, id);
+}
+
 // =============================================================
 // Props
 // =============================================================

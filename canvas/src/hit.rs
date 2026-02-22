@@ -14,7 +14,7 @@ mod hit_test;
 
 use crate::camera::{Camera, Point};
 use crate::consts::{FRAC_PI_5, HANDLE_RADIUS_PX, ROTATE_HANDLE_OFFSET_PX, STAR_INNER_RATIO};
-use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind};
+use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, WorldBounds};
 
 /// Which part of an object was hit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -397,7 +397,7 @@ pub fn hit_test(world_pt: Point, doc: &DocStore, camera: &Camera, selected_id: O
     }
 
     // 2. Test all objects in reverse draw order (topmost first).
-    let sorted = doc.sorted_objects();
+    let sorted = doc.sorted_objects_in_bounds(WorldBounds::from_point(world_pt.x, world_pt.y).expand(handle_radius_world));
     for obj in sorted.iter().rev() {
         if let Some(part) = hit_test_body(world_pt, obj, doc, handle_radius_world) {
             return Some(Hit { object_id: obj.id, part });
