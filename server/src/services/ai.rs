@@ -27,7 +27,10 @@ use crate::state::{AppState, BoardObject, ClientViewport};
 
 const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
 const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
+const DEFAULT_AI_ENABLE_SESSION_MEMORY: bool = true;
 const MAX_SESSION_CONVERSATION_MESSAGES: usize = 20;
+const MAX_SESSION_MESSAGE_CHARS: usize = 600;
+const MAX_SESSION_TOTAL_CHARS: usize = 3_000;
 const MAX_SVG_BYTES: usize = 200_000;
 const BASE_SYSTEM_PROMPT: &str = include_str!("../llm/system.md");
 
@@ -49,6 +52,19 @@ fn ai_max_tool_iterations() -> usize {
 fn ai_max_tokens() -> u32 {
     static VALUE: OnceLock<u32> = OnceLock::new();
     *VALUE.get_or_init(|| env_parse("AI_MAX_TOKENS", DEFAULT_AI_MAX_TOKENS))
+}
+
+fn ai_enable_session_memory() -> bool {
+    static VALUE: OnceLock<bool> = OnceLock::new();
+    *VALUE.get_or_init(|| {
+        std::env::var("AI_ENABLE_SESSION_MEMORY")
+            .ok()
+            .map(|v| {
+                let normalized = v.trim().to_ascii_lowercase();
+                matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+            })
+            .unwrap_or(DEFAULT_AI_ENABLE_SESSION_MEMORY)
+    })
 }
 
 fn trace_id_for_prompt(parent_frame_id: Option<Uuid>) -> Uuid {
@@ -213,7 +229,12 @@ pub async fn handle_prompt_with_parent(
     let system = build_system_prompt(&board_snapshot, grid_context, viewport_snapshot.as_ref());
     let tools = gauntlet_week_1_tools();
     let session_key = (client_id, board_id);
-    let prior_session_messages = load_session_messages(state, session_key).await;
+    let session_memory_enabled = ai_enable_session_memory();
+    let prior_session_messages = if session_memory_enabled {
+        load_session_messages(state, session_key).await
+    } else {
+        Vec::new()
+    };
 
     // Keep persisted context scoped to the active websocket session.
     // Refreshing reconnects and clears this memory.
@@ -449,7 +470,9 @@ pub async fn handle_prompt_with_parent(
         "ai: prompt complete"
     );
 
-    if let Some(text) = final_text.clone() {
+    if session_memory_enabled
+        && let Some(text) = final_text.clone()
+    {
         append_session_messages(state, session_key, prompt_message, text).await;
     }
 
@@ -572,8 +595,15 @@ async fn load_session_messages(state: &AppState, session_key: (Uuid, Uuid)) -> V
 async fn append_session_messages(state: &AppState, session_key: (Uuid, Uuid), user: Message, assistant_text: String) {
     let mut sessions = state.ai_session_messages.write().await;
     let entry = sessions.entry(session_key).or_default();
+    let user = truncate_message_for_session(user);
+    let assistant_text = truncate_text_for_session(&assistant_text);
     entry.push(user);
     entry.push(Message { role: "assistant".into(), content: Content::Text(assistant_text) });
+
+    while session_messages_total_chars(entry) > MAX_SESSION_TOTAL_CHARS && entry.len() >= 2 {
+        entry.drain(0..2);
+    }
+
     if entry.len() > MAX_SESSION_CONVERSATION_MESSAGES {
         // Round up to even so we never split a user/assistant pair —
         // the Anthropic API requires messages to start with a user role.
@@ -581,6 +611,44 @@ async fn append_session_messages(state: &AppState, session_key: (Uuid, Uuid), us
         let extra = extra + (extra % 2);
         entry.drain(0..extra.min(entry.len()));
     }
+}
+
+fn truncate_text_for_session(text: &str) -> String {
+    if text.chars().count() <= MAX_SESSION_MESSAGE_CHARS {
+        return text.to_owned();
+    }
+    let mut truncated = text.chars().take(MAX_SESSION_MESSAGE_CHARS).collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn truncate_message_for_session(message: Message) -> Message {
+    match message.content {
+        Content::Text(text) => Message {
+            role: message.role,
+            content: Content::Text(truncate_text_for_session(&text)),
+        },
+        other => Message { role: message.role, content: other },
+    }
+}
+
+fn session_messages_total_chars(messages: &[Message]) -> usize {
+    messages
+        .iter()
+        .map(|message| match &message.content {
+            Content::Text(text) => text.chars().count(),
+            Content::Blocks(blocks) => blocks
+                .iter()
+                .map(|block| match block {
+                    ContentBlock::Text { text } => text.chars().count(),
+                    ContentBlock::ToolUse { .. }
+                    | ContentBlock::ToolResult { .. }
+                    | ContentBlock::Thinking { .. }
+                    | ContentBlock::Unknown => 0,
+                })
+                .sum(),
+        })
+        .sum()
 }
 
 // =============================================================================

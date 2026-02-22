@@ -1287,7 +1287,7 @@ async fn handle_prompt_persists_trace_envelope_for_llm_and_tool_spans() {
 }
 
 #[tokio::test]
-async fn handle_prompt_reuses_session_history_within_same_client_session() {
+async fn handle_prompt_reuses_session_history_by_default() {
     use std::sync::Mutex as StdMutex;
 
     struct CaptureSessionHistoryLlm {
@@ -1336,4 +1336,33 @@ async fn handle_prompt_reuses_session_history_within_same_client_session() {
     assert_eq!(captured.len(), 2);
     assert_eq!(captured[0].len(), 1);
     assert_eq!(captured[1].len(), 3);
+}
+
+#[tokio::test]
+async fn session_history_is_trimmed_by_char_budget() {
+    let state = test_helpers::test_app_state();
+    let session_key = (Uuid::new_v4(), Uuid::new_v4());
+    let long = "x".repeat(10_000);
+
+    for _ in 0..6 {
+        append_session_messages(
+            &state,
+            session_key,
+            Message { role: "user".into(), content: Content::Text(long.clone()) },
+            long.clone(),
+        )
+        .await;
+    }
+
+    let stored = load_session_messages(&state, session_key).await;
+    let total_chars: usize = stored
+        .iter()
+        .map(|message| match &message.content {
+            Content::Text(text) => text.chars().count(),
+            _ => 0,
+        })
+        .sum();
+
+    assert!(total_chars <= MAX_SESSION_TOTAL_CHARS + 32);
+    assert!(stored.len() >= 2);
 }
