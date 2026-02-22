@@ -8,7 +8,11 @@
   var navButtons = document.querySelectorAll('.nav-item[data-page]');
   var pages = document.querySelectorAll('.page[data-page]');
 
-  function switchPage(pageName) {
+  var validPages = [];
+  navButtons.forEach(function (btn) { validPages.push(btn.getAttribute('data-page')); });
+
+  function switchPage(pageName, updateHash) {
+    if (validPages.indexOf(pageName) === -1) pageName = 'overview';
     navButtons.forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-page') === pageName);
       if (btn.getAttribute('data-page') === pageName) {
@@ -20,6 +24,9 @@
     pages.forEach(function (page) {
       page.classList.toggle('active', page.getAttribute('data-page') === pageName);
     });
+    if (updateHash !== false) {
+      history.pushState(null, '', '#' + pageName);
+    }
   }
 
   navButtons.forEach(function (btn) {
@@ -27,6 +34,22 @@
       switchPage(btn.getAttribute('data-page'));
     });
   });
+
+  /* --- Hash-based Routing --- */
+  function getPageFromHash() {
+    var hash = window.location.hash.replace('#', '');
+    return hash || 'overview';
+  }
+
+  window.addEventListener('popstate', function () {
+    switchPage(getPageFromHash(), false);
+  });
+
+  /* Load initial page from URL hash */
+  var initialPage = getPageFromHash();
+  if (initialPage !== 'overview') {
+    switchPage(initialPage, false);
+  }
 
   /* --- Hamburger Menu --- */
   var hamburger = document.querySelector('.nav-hamburger');
