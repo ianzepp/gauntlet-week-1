@@ -3,7 +3,7 @@ use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::camera::{Camera, Point};
 use crate::consts::{MIN_SHAPE_SIZE, ZOOM_FACTOR, ZOOM_MAX, ZOOM_MIN};
-use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, PartialBoardObject, Props};
+use crate::doc::{BoardObject, DocStore, ObjectId, ObjectKind, PartialBoardObject, Props, WorldBounds};
 use crate::hit::{self, EdgeEnd, HitPart, ResizeAnchor};
 use crate::input::{Button, DragAxis, InputState, Key, Modifiers, SelectionRect, Tool, UiState, WheelDelta};
 use crate::render;
@@ -131,6 +131,12 @@ impl EngineCore {
 
     /// Set the active tool.
     pub fn set_tool(&mut self, tool: Tool) {
+        if self.ui.tool != tool {
+            // Tool switches should not inherit an in-flight gesture from the
+            // previous tool (for example a stuck panning state).
+            self.input = InputState::Idle;
+            self.ui.marquee = None;
+        }
         self.ui.tool = tool;
     }
 
@@ -187,8 +193,10 @@ impl EngineCore {
         let world_pt = self.screen_to_world(screen_pt);
         let mut actions = Vec::new();
 
-        // Middle button or space+drag always pans.
-        if button == Button::Middle || (button == Button::Primary && self.ui.space_pan) {
+        // Middle button, space+drag, or hand tool always pans.
+        if button == Button::Middle
+            || (button == Button::Primary && (self.ui.space_pan || self.ui.tool == Tool::Hand))
+        {
             self.input = InputState::Panning { last_screen: screen_pt };
             actions.push(Action::SetCursor("grab".into()));
             return actions;
@@ -617,6 +625,10 @@ impl EngineCore {
                     if !hit_already_selected {
                         self.ui.selected_ids.clear();
                         self.ui.selected_ids.insert(h.object_id);
+                        // First click selects only. Require a subsequent drag gesture
+                        // on an already-selected object to start object movement.
+                        actions.push(Action::RenderNeeded);
+                        return;
                     }
                     let mut drag_ids = self.ui.selected_ids.iter().copied().collect::<Vec<_>>();
                     drag_ids.sort_unstable();
@@ -836,7 +848,7 @@ impl EngineCore {
         let snap_radius = self.camera.screen_dist_to_world(EDGE_ATTACH_SNAP_PX);
         let mut best: Option<(ObjectId, f64, f64, Point, f64)> = None;
 
-        let objects = self.doc.sorted_objects();
+        let objects = self.doc.sorted_objects_in_bounds(WorldBounds::from_point(world_pt.x, world_pt.y).expand(snap_radius));
         for obj in objects.iter().rev() {
             if obj.id == edge_id {
                 continue;

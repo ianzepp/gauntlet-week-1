@@ -107,12 +107,12 @@ fn request_render(
         return;
     };
 
-    let engine = Rc::clone(engine);
+    let engine_for_cb = Rc::clone(engine);
     let holder: Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>> = Rc::new(RefCell::new(None));
     let holder_for_cb = Rc::clone(&holder);
     let cb = Closure::wrap(Box::new(move |_ts: f64| {
         raf_pending.set(false);
-        if let Some(engine) = engine.borrow_mut().as_mut() {
+        if let Some(engine) = engine_for_cb.borrow_mut().as_mut() {
             render_and_track(engine, canvas_view);
         }
         holder_for_cb.borrow_mut().take();
@@ -705,11 +705,25 @@ pub fn CanvasHost() -> impl IntoView {
     let on_pointer_leave = {
         #[cfg(feature = "hydrate")]
         {
+            let canvas_ref = canvas_ref.clone();
             let engine = Rc::clone(&engine);
-            move |_ev: leptos::ev::PointerEvent| {
+            move |ev: leptos::ev::PointerEvent| {
                 preview_cursor.set(None);
-                if let Some(engine) = engine.borrow().as_ref() {
+                if let Some(canvas) = canvas_ref.get() {
+                    let _ = canvas.release_pointer_capture(ev.pointer_id());
+                }
+                if let Some(engine) = engine.borrow_mut().as_mut() {
+                    let active_transform = active_transform_object_ids(engine);
+                    sync_viewport(engine, &canvas_ref);
+                    let point = pointer_point(&ev);
+                    let button = map_button(ev.button());
+                    let modifiers = map_modifiers(ev.shift_key(), ev.ctrl_key(), ev.alt_key(), ev.meta_key());
+                    let actions = engine.on_pointer_up(point, button, modifiers);
+                    process_actions(actions, engine, board, sender);
+                    sync_selection_from_engine(engine, board);
                     sync_canvas_view_state(engine, canvas_view, None);
+                    last_drag_sent_ms.set(0.0);
+                    send_object_drag_end(active_transform, board, sender);
                     send_cursor_presence_if_needed(
                         engine,
                         board,
@@ -720,6 +734,7 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         false,
                     );
+                    render_and_track(engine, canvas_view);
                 }
                 send_cursor_clear(board, sender);
             }
