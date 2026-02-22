@@ -711,7 +711,7 @@ fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<Bo
             b.bump_scene_rev();
         });
         if let Some(window) = web_sys::window() {
-            let _ = window.location().set_href("/");
+            let _ = window.location().set_href("/app");
         }
     }
 }

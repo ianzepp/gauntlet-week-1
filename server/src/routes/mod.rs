@@ -13,8 +13,10 @@ pub mod ws;
 
 use std::path::PathBuf;
 
+use axum::extract::Path;
 use axum::Router;
 use axum::http::StatusCode;
+use axum::response::Redirect;
 use axum::routing::{get, patch, post};
 use leptos::prelude::*;
 use leptos_axum::{LeptosRoutes, generate_route_list};
@@ -31,6 +33,9 @@ fn api_routes(state: AppState) -> Router {
         .allow_headers(Any);
 
     Router::new()
+        .route("/login", get(redirect_login_to_app))
+        .route("/board", get(redirect_board_root_to_app_board))
+        .route("/board/{id}", get(redirect_board_to_app))
         .route("/auth/github", get(auth::github_redirect))
         .route("/auth/github/callback", get(auth::github_callback))
         .route("/api/auth/me", get(auth::me))
@@ -74,11 +79,23 @@ fn api_routes(state: AppState) -> Router {
         .with_state(state)
 }
 
+async fn redirect_login_to_app() -> Redirect {
+    Redirect::temporary("/app/login")
+}
+
+async fn redirect_board_to_app(Path(id): Path<String>) -> Redirect {
+    Redirect::temporary(&format!("/app/board/{id}"))
+}
+
+async fn redirect_board_root_to_app_board() -> Redirect {
+    Redirect::temporary("/app/board")
+}
+
 /// Resolve the path to the portfolio website directory.
 fn website_dir() -> PathBuf {
     std::env::var("WEBSITE_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("../website"))
+        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../website"))
 }
 
 /// Leptos SSR frontend: API routes + Leptos SSR at `/app` + portfolio at `/`.

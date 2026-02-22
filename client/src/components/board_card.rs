@@ -21,7 +21,7 @@ pub fn BoardCard(
     #[prop(optional)] mini: bool,
     #[prop(optional)] on_delete: Option<Callback<String>>,
 ) -> impl IntoView {
-    let href = format!("/board/{id}");
+    let href = format!("/app/board/{id}");
     let preview_ref = NodeRef::<leptos::html::Canvas>::new();
     let snapshot_count = snapshot.len();
     let on_delete_click = Callback::new({
