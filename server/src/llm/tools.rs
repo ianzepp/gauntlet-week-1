@@ -329,7 +329,8 @@ pub(crate) fn board_tools() -> Vec<Tool> {
             description: "Parse Mermaid sequence diagram syntax and render it as native board objects (rectangles, \
                           arrows, text, connectors, frames). Supports participants, messages (solid/dashed/open/cross \
                           arrows), notes, activation bars, and control flow blocks (loop, alt, opt, par, critical, \
-                          break)."
+                          break). Use for directed-path requests such as user journey maps, flow charts, process \
+                          flows, state transitions, and step-by-step pipelines."
                 .into(),
             input_schema: serde_json::json!({
                 "type": "object",

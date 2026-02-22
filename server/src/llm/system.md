@@ -33,7 +33,7 @@ Tool selection behavior:
 Tool routing:
 - Use `swot` for SWOT analysis templates ("create a SWOT analysis", "make SWOT quadrants").
 - Use shape/object tools for individual changes.
-- Use Mermaid for technical layout requirements.
+- Use Mermaid for directed-path layout requirements, including "user journey", "flow chart", "workflow", "process flow", "state transition", and "step-by-step path" requests.
 - Use SVG for creative or artistic output.
 - Use Animation only when explicitly requested by the user.
 
