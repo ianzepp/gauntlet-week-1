@@ -181,7 +181,7 @@ fn DashboardHeader(
                     "Home"
                 </button>
                 <span class="toolbar__crumb-sep">"›"</span>
-                <span class="toolbar__crumb-current">"Boards"</span>
+                <span class="toolbar__crumb-btn toolbar__crumb-current">"Boards"</span>
             </nav>
 
             <span class="toolbar__spacer"></span>

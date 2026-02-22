@@ -137,10 +137,27 @@ pub fn Toolbar() -> impl IntoView {
             .and_then(|item| item.owner_id.as_deref())
             == Some(user_id.as_str())
     };
+    let has_board_items = move || !boards.get().items.is_empty();
     let set_visibility = Callback::new(move |is_public: bool| {
+        if boards.get().items.is_empty() {
+            return;
+        }
         let Some(board_id) = board.get().board_id else {
             return;
         };
+        let Some(user_id) = auth.get().user.map(|u| u.id) else {
+            return;
+        };
+        let owns_board = boards
+            .get()
+            .items
+            .iter()
+            .find(|item| item.id == board_id)
+            .and_then(|item| item.owner_id.as_deref())
+            == Some(user_id.as_str());
+        if !owns_board {
+            return;
+        }
         let frame = request_frame(
             "board:visibility:set",
             Some(board_id.clone()),
@@ -239,34 +256,6 @@ pub fn Toolbar() -> impl IntoView {
                     view! { <span class="toolbar__board-name">{board_name}</span> }.into_any()
                 }
             }}
-            {move || {
-                if is_board_route() && can_toggle_visibility() {
-                    view! {
-                        <div class="toolbar__segment" role="group" aria-label="Board visibility mode">
-                            <button
-                                class="btn toolbar__segment-btn"
-                                class:toolbar__segment-btn--active=move || board.get().is_public
-                                on:click=move |_| set_visibility_public.run(true)
-                                title="Visible to all users"
-                            >
-                                <span class="toolbar__segment-label">{"Public"}</span>
-                            </button>
-                            <button
-                                class="btn toolbar__segment-btn"
-                                class:toolbar__segment-btn--active=move || !board.get().is_public
-                                on:click=move |_| set_visibility_private.run(false)
-                                title="Visible only to members"
-                            >
-                                <span class="toolbar__segment-label">{"Private"}</span>
-                            </button>
-                        </div>
-                    }
-                    .into_any()
-                } else {
-                    ().into_any()
-                }
-            }}
-
             <span class="toolbar__spacer"></span>
 
             <div class="toolbar__right-controls">
@@ -325,6 +314,35 @@ pub fn Toolbar() -> impl IntoView {
                                     title="Trace view"
                                 >
                                     <span class="toolbar__segment-label">{"Traces"}</span>
+                                </button>
+                            </div>
+                        }
+                        .into_any()
+                    } else {
+                        ().into_any()
+                    }
+                }}
+                {move || {
+                    if is_board_route() {
+                        view! {
+                            <div class="toolbar__segment" role="group" aria-label="Board visibility mode">
+                                <button
+                                    class="btn toolbar__segment-btn"
+                                    class:toolbar__segment-btn--active=move || board.get().is_public
+                                    disabled=move || !has_board_items() || !can_toggle_visibility()
+                                    on:click=move |_| set_visibility_public.run(true)
+                                    title="Visible to all users"
+                                >
+                                    <span class="toolbar__segment-label">{"Public"}</span>
+                                </button>
+                                <button
+                                    class="btn toolbar__segment-btn"
+                                    class:toolbar__segment-btn--active=move || !board.get().is_public
+                                    disabled=move || !has_board_items() || !can_toggle_visibility()
+                                    on:click=move |_| set_visibility_private.run(false)
+                                    title="Visible only to members"
+                                >
+                                    <span class="toolbar__segment-label">{"Private"}</span>
                                 </button>
                             </div>
                         }
