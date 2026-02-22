@@ -13,8 +13,8 @@ pub mod ws;
 
 use std::path::PathBuf;
 
-use axum::extract::Path;
 use axum::Router;
+use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::Redirect;
 use axum::routing::{get, patch, post};
