@@ -15,7 +15,7 @@ fn savepoint_row_to_json_includes_all_fields() {
         is_auto: true,
         reason: "test reason".to_owned(),
         label: Some("my label".to_owned()),
-        snapshot: serde_json::json!([{"kind": "rect"}]),
+        snapshot: serde_json::json!([{"kind": "rectangle"}]),
     };
     let json = savepoint_row_to_json(row);
     assert_eq!(json["id"], serde_json::json!(id));
@@ -26,7 +26,7 @@ fn savepoint_row_to_json_includes_all_fields() {
     assert_eq!(json["is_auto"], true);
     assert_eq!(json["reason"], "test reason");
     assert_eq!(json["label"], "my label");
-    assert_eq!(json["snapshot"], serde_json::json!([{"kind": "rect"}]));
+    assert_eq!(json["snapshot"], serde_json::json!([{"kind": "rectangle"}]));
 }
 
 #[test]

@@ -19,7 +19,7 @@ fn obj(id: &str) -> BoardObject {
     BoardObject {
         id: id.to_owned(),
         board_id: "b1".to_owned(),
-        kind: "rect".to_owned(),
+        kind: "rectangle".to_owned(),
         x: 1.0,
         y: 2.0,
         width: Some(10.0),

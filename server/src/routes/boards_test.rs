@@ -85,7 +85,7 @@ fn parse_import_handles_float_z_index() {
 
 #[test]
 fn parse_import_clamps_version_minimum() {
-    let line = r#"{"kind":"rect","version":0}"#;
+    let line = r#"{"kind":"rectangle","version":0}"#;
     let result = parse_import_object_line(line, Uuid::nil(), Uuid::nil())
         .unwrap()
         .unwrap();
@@ -95,7 +95,7 @@ fn parse_import_clamps_version_minimum() {
 #[test]
 fn parse_import_parses_group_id() {
     let gid = Uuid::new_v4();
-    let line = format!(r#"{{"kind":"rect","group_id":"{}"}}"#, gid);
+    let line = format!(r#"{{"kind":"rectangle","group_id":"{}"}}"#, gid);
     let result = parse_import_object_line(&line, Uuid::nil(), Uuid::nil())
         .unwrap()
         .unwrap();
@@ -116,7 +116,7 @@ fn parse_import_non_object_json_returns_none() {
 
 #[test]
 fn parse_import_assigns_new_uuid() {
-    let line = r#"{"kind":"rect"}"#;
+    let line = r#"{"kind":"rectangle"}"#;
     let r1 = parse_import_object_line(line, Uuid::nil(), Uuid::nil())
         .unwrap()
         .unwrap();

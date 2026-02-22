@@ -138,7 +138,7 @@ pub struct BoardUser {
 /// Lightweight object summary used in board preview responses.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BoardPreviewObject {
-    /// Shape or edge type (e.g. `"rect"`, `"arrow"`).
+    /// Shape or edge type (e.g. `"rectangle"`, `"arrow"`).
     pub kind: String,
     /// Left edge in world coordinates.
     pub x: f64,

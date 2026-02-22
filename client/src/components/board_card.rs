@@ -124,7 +124,7 @@ fn draw_preview_canvas(canvas: &web_sys::HtmlCanvasElement, snapshot: &[BoardLis
         let h_px = h * scale;
 
         let kind = obj.kind.to_ascii_lowercase();
-        if matches!(kind.as_str(), "line" | "arrow" | "connector") {
+        if matches!(kind.as_str(), "line" | "arrow") {
             ctx.begin_path();
             ctx.set_stroke_style_str("#3d3428");
             ctx.set_line_width(1.0);
@@ -177,7 +177,7 @@ fn snapshot_bounds(snapshot: &[BoardListPreviewObject]) -> Option<(f64, f64, f64
 #[cfg(feature = "hydrate")]
 fn preview_size(obj: &BoardListPreviewObject) -> (f64, f64) {
     let kind = obj.kind.to_ascii_lowercase();
-    if matches!(kind.as_str(), "line" | "arrow" | "connector") {
+    if matches!(kind.as_str(), "line" | "arrow") {
         return (obj.width.unwrap_or(80.0), obj.height.unwrap_or(0.0));
     }
     (obj.width.unwrap_or(160.0).max(8.0), obj.height.unwrap_or(110.0).max(8.0))

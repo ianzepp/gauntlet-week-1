@@ -35,7 +35,7 @@ pub struct BoardObject {
     pub id: Uuid,
     /// Board this object belongs to.
     pub board_id: Uuid,
-    /// Shape or edge type (e.g. `"rect"`, `"arrow"`).
+    /// Shape or edge type (e.g. `"rectangle"`, `"arrow"`).
     pub kind: String,
     /// Left edge of the bounding box in world coordinates.
     pub x: f64,

@@ -5,7 +5,7 @@ fn make_obj(props: serde_json::Value, width: Option<f64>, height: Option<f64>) -
     BoardObject {
         id: "o1".to_owned(),
         board_id: "b1".to_owned(),
-        kind: "rect".to_owned(),
+        kind: "rectangle".to_owned(),
         x: 0.0,
         y: 0.0,
         width,

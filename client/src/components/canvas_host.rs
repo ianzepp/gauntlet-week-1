@@ -2183,7 +2183,7 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
         .and_then(|s| uuid::Uuid::parse_str(s).ok());
 
     let kind = match obj.kind.as_str() {
-        "rectangle" | "rect" | "sticky_note" => CanvasKind::Rect,
+        "rectangle" | "sticky_note" => CanvasKind::Rect,
         "text" => CanvasKind::Text,
         "frame" => CanvasKind::Frame,
         "ellipse" => CanvasKind::Ellipse,

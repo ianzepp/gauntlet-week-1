@@ -13,7 +13,7 @@ fn make_frame() -> Frame {
         from: Some("u-1".to_owned()),
         syscall: "object:create".to_owned(),
         status: FrameStatus::Request,
-        data: serde_json::json!({"kind": "rect"}),
+        data: serde_json::json!({"kind": "rectangle"}),
     }
 }
 
@@ -21,7 +21,7 @@ fn make_board_object() -> BoardObject {
     BoardObject {
         id: "obj-1".to_owned(),
         board_id: "b-1".to_owned(),
-        kind: "rect".to_owned(),
+        kind: "rectangle".to_owned(),
         x: 10.0,
         y: 20.0,
         width: Some(100.0),
@@ -165,7 +165,7 @@ fn board_object_deserializes_integral_float_int_fields() {
     let value = serde_json::json!({
         "id": "obj-3",
         "board_id": "b-1",
-        "kind": "rect",
+        "kind": "rectangle",
         "x": 1.0,
         "y": 2.0,
         "width": 10.0,

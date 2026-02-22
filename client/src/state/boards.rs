@@ -30,7 +30,7 @@ pub struct BoardListItem {
 /// Lightweight object geometry for dashboard board previews.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BoardListPreviewObject {
-    /// Shape or edge type (e.g. `"rect"`, `"arrow"`).
+    /// Shape or edge type (e.g. `"rectangle"`, `"arrow"`).
     pub kind: String,
     /// Left edge in world coordinates.
     pub x: f64,
