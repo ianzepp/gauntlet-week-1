@@ -6,6 +6,7 @@
 //! websocket/state events into engine operations and publishes viewport telemetry.
 
 use leptos::prelude::*;
+use leptos::tachys::view::any_view::IntoAny;
 
 use crate::app::FrameSender;
 use crate::components::dial::{ColorDial, CompassDial, ZoomDial};
@@ -1925,184 +1926,196 @@ pub fn CanvasHost() -> impl IntoView {
 
     view! {
         <>
-            <canvas
-                class="canvas-host"
-                node_ref=canvas_ref
-                tabindex="0"
-                on:pointerdown=on_pointer_down
-                on:pointermove=on_pointer_move
-                on:pointerup=on_pointer_up
-                on:pointerleave=on_pointer_leave
-                on:dblclick=on_double_click
-                on:wheel=on_wheel
-                on:keydown=on_key_down
-            >
-                "Your browser does not support canvas."
-            </canvas>
+            {view! {
+                <canvas
+                    class="canvas-host"
+                    node_ref=canvas_ref
+                    tabindex="0"
+                    on:pointerdown=on_pointer_down
+                    on:pointermove=on_pointer_move
+                    on:pointerup=on_pointer_up
+                    on:pointerleave=on_pointer_leave
+                    on:dblclick=on_double_click
+                    on:wheel=on_wheel
+                    on:keydown=on_key_down
+                >
+                    "Your browser does not support canvas."
+                </canvas>
+            }
+            .into_any()}
             {move || {
                 preview_ghost().map(|(class_name, style)| {
                     view! { <div class=class_name style=style></div> }
                 })
             }}
-            <div class="canvas-world-overlay" style=canvas_world_overlay_style>
-                <div class="canvas-cursors">
-                    {move || {
-                        remote_cursors()
-                            .into_iter()
-                            .map(|(_id, name, color, x, y)| {
-                                let style = remote_cursor_style(x, y, &color);
-                                let title = name.clone();
-                                view! {
-                                    <div class="canvas-cursor" style=style title=title>
-                                        <span class="canvas-cursor__name">{name}</span>
-                                    </div>
-                                }
-                            })
-                        .collect_view()
-                    }}
+            {view! {
+                <div class="canvas-world-overlay" style=canvas_world_overlay_style>
+                    <div class="canvas-cursors">
+                        {move || {
+                            remote_cursors()
+                                .into_iter()
+                                .map(|(_id, name, color, x, y)| {
+                                    let style = remote_cursor_style(x, y, &color);
+                                    let title = name.clone();
+                                    view! {
+                                        <div class="canvas-cursor" style=style title=title>
+                                            <span class="canvas-cursor__name">{name}</span>
+                                        </div>
+                                    }
+                                })
+                            .collect_view()
+                        }}
+                    </div>
                 </div>
-            </div>
-            <div id="left-dials-host" class="left-panel__dials-mount">
-                <ZoomDial
-                    class="canvas-object-zoom"
-                    disabled_class="canvas-object-zoom--disabled"
-                    title="Drag to scale selected object(s); top is neutral"
-                    readout_title="Click to reset selected object scale to 100%"
-                    reset_title="Reset selected object scale to 100%"
-                    knob_class="canvas-object-zoom__knob"
-                    node_ref=object_zoom_ref
-                    disabled=Signal::derive(move || !has_selected_objects())
-                    readout=Signal::derive(move || format!("{:.0}%", object_zoom_scale() * 100.0))
-                    knob_style=Signal::derive(object_zoom_knob_style)
-                    on_pointer_down=on_object_zoom_pointer_down
-                    on_pointer_move=on_object_zoom_pointer_move
-                    on_pointer_up=on_object_zoom_pointer_up
-                    on_readout_pointer_down=on_object_zoom_readout_pointer_down
-                    on_readout_click=move |_ev| apply_group_scale_target(board, sender, 1.0)
-                    on_readout_dblclick=move |_ev| apply_group_scale_target(board, sender, 1.0)
-                    on_reset_click=move |_ev| apply_group_scale_target(board, sender, 1.0)
-                />
-                <CompassDial
-                    class="canvas-object-rotate"
-                    disabled_class="canvas-object-rotate--disabled"
-                    title="Drag to rotate selected object(s); hold Shift to snap by 15deg"
-                    readout_title="Selected object/group rotation"
-                    knob_class="canvas-object-rotate__knob"
-                    node_ref=object_rotate_ref
-                    disabled=Signal::derive(move || !has_selected_objects())
-                    readout=Signal::derive(move || format!("{:.0}deg", object_rotation_angle_deg()))
-                    knob_style=Signal::derive(object_rotation_knob_style)
-                    on_pointer_down=on_object_rotate_pointer_down
-                    on_pointer_move=on_object_rotate_pointer_move
-                    on_pointer_up=on_object_rotate_pointer_up
-                    on_snap_n=on_object_rotate_snap_n
-                    on_snap_e=on_object_rotate_snap_e
-                    on_snap_s=on_object_rotate_snap_s
-                    on_snap_w=on_object_rotate_snap_w
-                    on_readout_pointer_down=on_object_rotate_readout_pointer_down
-                    on_readout_click=on_object_rotate_center_click
-                    on_readout_dblclick=on_object_rotate_center_click
-                />
-                <ColorDial
-                    class="canvas-object-color"
-                    disabled_class="canvas-object-color--disabled"
-                    title="Drag to shift selected color lightness; center picks base color"
-                    swatch_title="Selected base color"
-                    reset_title="Reset background to defaults"
-                    center_label=Signal::derive(move || format!("{:+.0}", object_color_shift() * 100.0))
-                    knob_class="canvas-object-color__knob"
-                    node_ref=object_color_ref
-                    disabled=Signal::derive(move || !has_selected_objects())
-                    knob_style=Signal::derive(object_color_knob_style)
-                    color_value=Signal::derive(object_color_base)
-                    on_pointer_down=on_object_color_pointer_down
-                    on_pointer_move=on_object_color_pointer_move
-                    on_pointer_up=on_object_color_pointer_up
-                    on_center_pointer_down=on_object_color_readout_pointer_down
-                    on_color_input=on_object_color_input
-                    on_reset_click=on_object_color_reset
-                />
-                <ColorDial
-                    class="canvas-object-border"
-                    disabled_class="canvas-object-border--disabled"
-                    title="Drag to set selected border thickness; center picks border color"
-                    swatch_title="Selected border color"
-                    reset_title="Reset border to defaults"
-                    center_label=Signal::derive(move || format_border_width_label(object_border_width()))
-                    knob_class="canvas-object-border__knob"
-                    node_ref=object_border_ref
-                    disabled=Signal::derive(move || !has_selected_objects())
-                    knob_style=Signal::derive(object_border_knob_style)
-                    color_value=Signal::derive(object_border_color)
-                    on_pointer_down=on_object_border_pointer_down
-                    on_pointer_move=on_object_border_pointer_move
-                    on_pointer_up=on_object_border_pointer_up
-                    on_center_pointer_down=on_object_border_readout_pointer_down
-                    on_color_input=on_object_border_input
-                    on_reset_click=on_object_border_reset
-                />
-                <ColorDial
-                    class="canvas-object-text-style"
-                    disabled_class="canvas-object-text-style--disabled"
-                    title="Drag to set selected text size; center picks text color"
-                    swatch_title="Selected text color"
-                    reset_title="Reset text style to defaults"
-                    center_label=Signal::derive(move || format_text_size_label(object_text_size()))
-                    knob_class="canvas-object-text-style__knob"
-                    node_ref=object_text_style_ref
-                    disabled=Signal::derive(move || !has_selected_objects())
-                    knob_style=Signal::derive(object_text_knob_style)
-                    color_value=Signal::derive(object_text_color)
-                    on_pointer_down=on_object_text_style_pointer_down
-                    on_pointer_move=on_object_text_style_pointer_move
-                    on_pointer_up=on_object_text_style_pointer_up
-                    on_center_pointer_down=on_object_text_style_readout_pointer_down
-                    on_color_input=on_object_text_style_input
-                    on_reset_click=on_object_text_style_reset
-                />
-            </div>
-            <div id="right-dials-host" class="right-panel__dials-mount">
-                <CompassDial
-                    class="canvas-compass"
-                    disabled_class=""
-                    title="Drag to rotate view; hold Shift to snap by 15deg"
-                    readout_title="Board rotation"
-                    knob_class="canvas-compass__knob"
-                    node_ref=compass_ref
-                    disabled=Signal::derive(|| false)
-                    readout=Signal::derive(move || format!("{:.0}deg", compass_angle_deg()))
-                    knob_style=Signal::derive(compass_knob_style)
-                    on_pointer_down=on_compass_pointer_down
-                    on_pointer_move=on_compass_pointer_move
-                    on_pointer_up=on_compass_pointer_up
-                    on_snap_n=on_compass_snap_n
-                    on_snap_e=on_compass_snap_e
-                    on_snap_s=on_compass_snap_s
-                    on_snap_w=on_compass_snap_w
-                    on_readout_pointer_down=on_compass_readout_pointer_down
-                    on_readout_click=on_compass_center_click
-                    on_readout_dblclick=on_compass_center_click
-                />
-                <ZoomDial
-                    class="canvas-zoom-wheel"
-                    disabled_class=""
-                    title="Drag around dial to zoom"
-                    readout_title="Click to reset zoom to 100%"
-                    reset_title="Reset zoom to 100%"
-                    knob_class="canvas-zoom-wheel__knob"
-                    node_ref=zoom_ref
-                    disabled=Signal::derive(|| false)
-                    readout=Signal::derive(move || format!("{:.0}%", zoom_percent()))
-                    knob_style=Signal::derive(zoom_knob_style)
-                    on_pointer_down=on_zoom_pointer_down
-                    on_pointer_move=on_zoom_pointer_move
-                    on_pointer_up=on_zoom_pointer_up
-                    on_readout_pointer_down=on_zoom_readout_pointer_down
-                    on_readout_click=on_zoom_reset.clone()
-                    on_readout_dblclick=on_zoom_reset.clone()
-                    on_reset_click=on_zoom_reset
-                />
-            </div>
+            }
+            .into_any()}
+            {view! {
+                <div id="left-dials-host" class="left-panel__dials-mount">
+                    <ZoomDial
+                        class="canvas-object-zoom"
+                        disabled_class="canvas-object-zoom--disabled"
+                        title="Drag to scale selected object(s); top is neutral"
+                        readout_title="Click to reset selected object scale to 100%"
+                        reset_title="Reset selected object scale to 100%"
+                        knob_class="canvas-object-zoom__knob"
+                        node_ref=object_zoom_ref
+                        disabled=Signal::derive(move || !has_selected_objects())
+                        readout=Signal::derive(move || format!("{:.0}%", object_zoom_scale() * 100.0))
+                        knob_style=Signal::derive(object_zoom_knob_style)
+                        on_pointer_down=on_object_zoom_pointer_down
+                        on_pointer_move=on_object_zoom_pointer_move
+                        on_pointer_up=on_object_zoom_pointer_up
+                        on_readout_pointer_down=on_object_zoom_readout_pointer_down
+                        on_readout_click=move |_ev| apply_group_scale_target(board, sender, 1.0)
+                        on_readout_dblclick=move |_ev| apply_group_scale_target(board, sender, 1.0)
+                        on_reset_click=move |_ev| apply_group_scale_target(board, sender, 1.0)
+                    />
+                    <CompassDial
+                        class="canvas-object-rotate"
+                        disabled_class="canvas-object-rotate--disabled"
+                        title="Drag to rotate selected object(s); hold Shift to snap by 15deg"
+                        readout_title="Selected object/group rotation"
+                        knob_class="canvas-object-rotate__knob"
+                        node_ref=object_rotate_ref
+                        disabled=Signal::derive(move || !has_selected_objects())
+                        readout=Signal::derive(move || format!("{:.0}deg", object_rotation_angle_deg()))
+                        knob_style=Signal::derive(object_rotation_knob_style)
+                        on_pointer_down=on_object_rotate_pointer_down
+                        on_pointer_move=on_object_rotate_pointer_move
+                        on_pointer_up=on_object_rotate_pointer_up
+                        on_snap_n=on_object_rotate_snap_n
+                        on_snap_e=on_object_rotate_snap_e
+                        on_snap_s=on_object_rotate_snap_s
+                        on_snap_w=on_object_rotate_snap_w
+                        on_readout_pointer_down=on_object_rotate_readout_pointer_down
+                        on_readout_click=on_object_rotate_center_click
+                        on_readout_dblclick=on_object_rotate_center_click
+                    />
+                    <ColorDial
+                        class="canvas-object-color"
+                        disabled_class="canvas-object-color--disabled"
+                        title="Drag to shift selected color lightness; center picks base color"
+                        swatch_title="Selected base color"
+                        reset_title="Reset background to defaults"
+                        center_label=Signal::derive(move || format!("{:+.0}", object_color_shift() * 100.0))
+                        knob_class="canvas-object-color__knob"
+                        node_ref=object_color_ref
+                        disabled=Signal::derive(move || !has_selected_objects())
+                        knob_style=Signal::derive(object_color_knob_style)
+                        color_value=Signal::derive(object_color_base)
+                        on_pointer_down=on_object_color_pointer_down
+                        on_pointer_move=on_object_color_pointer_move
+                        on_pointer_up=on_object_color_pointer_up
+                        on_center_pointer_down=on_object_color_readout_pointer_down
+                        on_color_input=on_object_color_input
+                        on_reset_click=on_object_color_reset
+                    />
+                    <ColorDial
+                        class="canvas-object-border"
+                        disabled_class="canvas-object-border--disabled"
+                        title="Drag to set selected border thickness; center picks border color"
+                        swatch_title="Selected border color"
+                        reset_title="Reset border to defaults"
+                        center_label=Signal::derive(move || format_border_width_label(object_border_width()))
+                        knob_class="canvas-object-border__knob"
+                        node_ref=object_border_ref
+                        disabled=Signal::derive(move || !has_selected_objects())
+                        knob_style=Signal::derive(object_border_knob_style)
+                        color_value=Signal::derive(object_border_color)
+                        on_pointer_down=on_object_border_pointer_down
+                        on_pointer_move=on_object_border_pointer_move
+                        on_pointer_up=on_object_border_pointer_up
+                        on_center_pointer_down=on_object_border_readout_pointer_down
+                        on_color_input=on_object_border_input
+                        on_reset_click=on_object_border_reset
+                    />
+                    <ColorDial
+                        class="canvas-object-text-style"
+                        disabled_class="canvas-object-text-style--disabled"
+                        title="Drag to set selected text size; center picks text color"
+                        swatch_title="Selected text color"
+                        reset_title="Reset text style to defaults"
+                        center_label=Signal::derive(move || format_text_size_label(object_text_size()))
+                        knob_class="canvas-object-text-style__knob"
+                        node_ref=object_text_style_ref
+                        disabled=Signal::derive(move || !has_selected_objects())
+                        knob_style=Signal::derive(object_text_knob_style)
+                        color_value=Signal::derive(object_text_color)
+                        on_pointer_down=on_object_text_style_pointer_down
+                        on_pointer_move=on_object_text_style_pointer_move
+                        on_pointer_up=on_object_text_style_pointer_up
+                        on_center_pointer_down=on_object_text_style_readout_pointer_down
+                        on_color_input=on_object_text_style_input
+                        on_reset_click=on_object_text_style_reset
+                    />
+                </div>
+            }
+            .into_any()}
+            {view! {
+                <div id="right-dials-host" class="right-panel__dials-mount">
+                    <CompassDial
+                        class="canvas-compass"
+                        disabled_class=""
+                        title="Drag to rotate view; hold Shift to snap by 15deg"
+                        readout_title="Board rotation"
+                        knob_class="canvas-compass__knob"
+                        node_ref=compass_ref
+                        disabled=Signal::derive(|| false)
+                        readout=Signal::derive(move || format!("{:.0}deg", compass_angle_deg()))
+                        knob_style=Signal::derive(compass_knob_style)
+                        on_pointer_down=on_compass_pointer_down
+                        on_pointer_move=on_compass_pointer_move
+                        on_pointer_up=on_compass_pointer_up
+                        on_snap_n=on_compass_snap_n
+                        on_snap_e=on_compass_snap_e
+                        on_snap_s=on_compass_snap_s
+                        on_snap_w=on_compass_snap_w
+                        on_readout_pointer_down=on_compass_readout_pointer_down
+                        on_readout_click=on_compass_center_click
+                        on_readout_dblclick=on_compass_center_click
+                    />
+                    <ZoomDial
+                        class="canvas-zoom-wheel"
+                        disabled_class=""
+                        title="Drag around dial to zoom"
+                        readout_title="Click to reset zoom to 100%"
+                        reset_title="Reset zoom to 100%"
+                        knob_class="canvas-zoom-wheel__knob"
+                        node_ref=zoom_ref
+                        disabled=Signal::derive(|| false)
+                        readout=Signal::derive(move || format!("{:.0}%", zoom_percent()))
+                        knob_style=Signal::derive(zoom_knob_style)
+                        on_pointer_down=on_zoom_pointer_down
+                        on_pointer_move=on_zoom_pointer_move
+                        on_pointer_up=on_zoom_pointer_up
+                        on_readout_pointer_down=on_zoom_readout_pointer_down
+                        on_readout_click=on_zoom_reset.clone()
+                        on_readout_dblclick=on_zoom_reset.clone()
+                        on_reset_click=on_zoom_reset
+                    />
+                </div>
+            }
+            .into_any()}
         </>
     }
 }

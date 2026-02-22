@@ -407,6 +407,82 @@ pub fn BoardPage() -> impl IntoView {
             }
         }
     };
+    let toolbar_section = view! {
+        <div class="board-page__toolbar">
+            <Toolbar/>
+        </div>
+    }
+    .into_any();
+    let canvas_section = view! {
+        <div class="board-page__canvas">
+            <div style=move || if ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }>
+                <CanvasHost/>
+                <BoardStamp/>
+                <div class="board-page__input-overlay">
+                    <BoardPromptBar
+                        prompt_input=prompt_input
+                        prompt_status=prompt_status
+                        prompt_preview_user=prompt_preview_user
+                        prompt_preview_assistant=prompt_preview_assistant
+                        prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
+                        prompt_preview_assistant_error=prompt_preview_assistant_error
+                        on_submit=on_prompt_submit
+                        on_read_more=on_prompt_read_more
+                    />
+                </div>
+            </div>
+            <div style=move || if ui.get().view_mode == ViewMode::Trace { "" } else { "display:none;" }>
+                <TraceView/>
+            </div>
+        </div>
+    }
+    .into_any();
+    let right_panel_section = view! {
+        <div class="board-page__right-panel">
+            <RightPanel/>
+        </div>
+    }
+    .into_any();
+    let status_bar_section = view! {
+        <div class="board-page__status-bar">
+            <StatusBar on_help=on_help_open/>
+        </div>
+    }
+    .into_any();
+    let left_panel_section = move || {
+        if ui.get().view_mode == ViewMode::Canvas {
+            view! {
+                <div class="board-page__left-panel">
+                    <LeftPanel/>
+                </div>
+            }
+            .into_any()
+        } else {
+            ().into_any()
+        }
+    };
+    let object_text_dialog = move || {
+        if object_text_dialog_open.get() {
+            view! {
+                <ObjectTextDialog
+                    value=object_text_dialog_value
+                    on_cancel=on_object_text_cancel
+                    on_save=on_object_text_save
+                    on_keydown=on_object_text_keydown
+                />
+            }
+            .into_any()
+        } else {
+            ().into_any()
+        }
+    };
+    let help_modal = move || {
+        if help_modal_open.get() {
+            view! { <HelpShortcutsModal on_close=on_help_close /> }.into_any()
+        } else {
+            ().into_any()
+        }
+    };
 
     view! {
         <div
@@ -416,68 +492,13 @@ pub fn BoardPage() -> impl IntoView {
             class:board-page--trace=move || ui.get().view_mode == ViewMode::Trace
             on:keydown=on_board_keydown
         >
-            <div class="board-page__toolbar">
-                <Toolbar/>
-            </div>
-            {move || {
-                if ui.get().view_mode == ViewMode::Canvas {
-                    view! {
-                        <div class="board-page__left-panel">
-                            <LeftPanel/>
-                        </div>
-                    }
-                        .into_any()
-                } else {
-                    let _: () = view! { <></> };
-                    ().into_any()
-                }
-            }}
-            <div class="board-page__canvas">
-                <div style=move || if ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }>
-                    <CanvasHost/>
-                    <BoardStamp/>
-                    <div class="board-page__input-overlay">
-                        <BoardPromptBar
-                            prompt_input=prompt_input
-                            prompt_status=prompt_status
-                            prompt_preview_user=prompt_preview_user
-                            prompt_preview_assistant=prompt_preview_assistant
-                            prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
-                            prompt_preview_assistant_error=prompt_preview_assistant_error
-                            on_submit=on_prompt_submit
-                            on_read_more=on_prompt_read_more
-                        />
-                    </div>
-                </div>
-                <div style=move || if ui.get().view_mode == ViewMode::Trace { "" } else { "display:none;" }>
-                    <TraceView/>
-                </div>
-            </div>
-            <div class="board-page__right-panel">
-                <RightPanel/>
-            </div>
-            <div class="board-page__status-bar">
-                <StatusBar on_help=on_help_open/>
-            </div>
-            {move || {
-                if object_text_dialog_open.get() {
-                    view! {
-                        <ObjectTextDialog
-                            value=object_text_dialog_value
-                            on_cancel=on_object_text_cancel
-                            on_save=on_object_text_save
-                            on_keydown=on_object_text_keydown
-                        />
-                    }
-                        .into_any()
-                } else {
-                    let _: () = view! { <></> };
-                    ().into_any()
-                }
-            }}
-            <Show when=move || help_modal_open.get()>
-                <HelpShortcutsModal on_close=on_help_close />
-            </Show>
+            {toolbar_section}
+            {left_panel_section}
+            {canvas_section}
+            {right_panel_section}
+            {status_bar_section}
+            {object_text_dialog}
+            {help_modal}
         </div>
     }
 }
