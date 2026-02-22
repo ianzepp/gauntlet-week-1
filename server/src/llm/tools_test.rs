@@ -1,24 +1,20 @@
 use super::*;
 
 #[test]
-fn yaml_only_mode_exposes_single_tool() {
+fn gauntlet_tools_match_legacy_tools() {
     let tools = gauntlet_week_1_tools();
-    assert_eq!(tools.len(), 1);
-    assert_eq!(tools[0].name, "applyChangesYaml");
-}
-
-#[test]
-fn apply_changes_yaml_schema_requires_yaml_string() {
-    let tools = gauntlet_week_1_tools();
-    let tool = &tools[0];
-    let required = tool
-        .input_schema
-        .get("required")
-        .unwrap()
-        .as_array()
-        .unwrap();
-    let req_strs: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
-    assert_eq!(req_strs, vec!["yaml"]);
+    let legacy = legacy_tools();
+    assert_eq!(tools.len(), legacy.len());
+    let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+    assert!(names.contains(&"createStickyNote"));
+    assert!(names.contains(&"createShape"));
+    assert!(names.contains(&"createFrame"));
+    assert!(names.contains(&"createConnector"));
+    assert!(names.contains(&"moveObject"));
+    assert!(names.contains(&"resizeObject"));
+    assert!(names.contains(&"updateText"));
+    assert!(names.contains(&"changeColor"));
+    assert!(names.contains(&"getBoardState"));
 }
 
 #[test]
@@ -35,9 +31,9 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn legacy_tools_returns_all_eleven_tools() {
+fn legacy_tools_returns_all_ten_tools() {
     let tools = legacy_tools();
-    assert_eq!(tools.len(), 11);
+    assert_eq!(tools.len(), 10);
 }
 
 #[test]
@@ -54,7 +50,6 @@ fn legacy_tools_names_are_correct() {
     assert!(names.contains(&"updateText"));
     assert!(names.contains(&"changeColor"));
     assert!(names.contains(&"getBoardState"));
-    assert!(names.contains(&"applyChangesYaml"));
 }
 
 #[test]
