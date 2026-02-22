@@ -38,7 +38,7 @@
   /* --- Hash-based Routing --- */
   function getPageFromHash() {
     var hash = window.location.hash.replace('#', '');
-    if (hash === 'stack' || hash === 'overview' || hash === 'demo') hash = 'architecture';
+    if (hash === 'stack' || hash === 'overview' || hash === 'demo' || hash === 'visuals') hash = 'architecture';
     return hash || 'architecture';
   }
 
