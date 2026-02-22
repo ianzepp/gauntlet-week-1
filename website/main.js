@@ -142,7 +142,7 @@
   var timelineDays = [
     {
       day: 1, date: '2026-02-16', title: 'FULL-STACK SCAFFOLD', commits: 40,
-      fieldNote: 'Stood up the entire stack in a single day: Rust/Axum backend, React/Konva frontend, GitHub OAuth, WebSocket sync, AI tool loop, and frame persistence. Iterated the DB flush strategy three times before settling on direct writes.',
+      fieldNote: 'Day one was about getting a working vertical slice as fast as possible. Started with the pre-search doc \u2014 budget, auth strategy, architecture outline, testing plan \u2014 then scaffolded the Rust/Axum backend and React/Konva frontend in the same afternoon. By evening, GitHub OAuth was working, WebSocket real-time sync was broadcasting cursor positions, and the AI tool loop was calling out to Claude with 9 tools. The persistence layer went through three iterations: first a buffered flush at 1-second intervals, then tightened to 100ms, then ripped out entirely in favor of direct DB writes per frame. Also wired up user field report popovers, structured logging, Docker Compose, and a static file server with SPA fallback. Ended the day with 40 commits and a system that actually worked end-to-end, even if the canvas was rough.',
       clusters: [
         { name: 'PRE_SEARCH_AND_DESIGN_DOCS', commits: 6, summary: 'Drafted and iterated on the CollabBoard pre-search document covering budget, auth, architecture, and testing strategy. Added the project brief PDF, design system spec, and organized all docs into a docs/ directory.',
           git: [
@@ -212,7 +212,7 @@
     },
     {
       day: 2, date: '2026-02-17', title: 'CANVAS REBUILD & PANEL LAYOUT', commits: 76,
-      fieldNote: 'Gutted the canvas and rebuilt from scratch with full-viewport rendering, hit-testing, and inline text editing. Redesigned the right panel into a tabbed layout with chat, AI, and inspector. Added board dashboard and deployment pipeline.',
+      fieldNote: 'Woke up, looked at the canvas code, and decided to gut it entirely. The previous day\u2019s implementation had too many layered hacks. Replaced it from scratch with a full-viewport rendering layer: grid overlay, pan/zoom, coordinate display. Rebuilt rectangle creation, selectable dragging, hit-testing, and inline text editing one piece at a time. In parallel, redesigned the right panel \u2014 replaced the toggle with an always-visible collapsed icon rail, then extracted it into tabbed sections for Boards, Chat, AI, and Inspector. Added a board dashboard with album grid layout, real-time chat messaging, markdown rendering in AI responses, and scoped AI history to the authenticated user. Also shipped the deployment pipeline (Docker Compose, Fly.io prep, then removed Fly), renamed the project to gauntlet-week-1, and isolated tests from the live database. 76 commits \u2014 the canvas rebuild alone was 10.',
       clusters: [
         { name: 'WEBSOCKET_ERROR_HANDLING', commits: 3, summary: 'Added error logging for failed WebSocket frames on both server and client sides. Centralized the outbound WebSocket frame path to reduce duplication.',
           git: [
@@ -324,7 +324,7 @@
     },
     {
       day: 3, date: '2026-02-18', title: 'LEPTOS CLIENT FULL INTEGRATION', commits: 84,
-      fieldNote: 'Biggest day of the sprint. Replaced React/Konva with Leptos 0.8 SSR across eight sequential phases. Built the canvas engine with hit-testing (99 tests), input state machine (55 tests), and full Canvas2D rendering. Added multiplayer presence, placement tools, and frame grouping.',
+      fieldNote: 'The biggest day of the sprint \u2014 84 commits. The morning started with the canvas engine crate: hit-testing with 99 geometry tests, an input state machine with 55 edge-case tests, and the full Canvas2D render pipeline. Then the big move: replacing React/Konva with Leptos 0.8 SSR across eight sequential phases. Scaffold, SSR integration, pages and auth, WebSocket frame client, toolbar and status bar, left panel, right panel, dark mode polish. Each phase landed as its own commit. By afternoon the new Rust client was rendering in the browser. Spent the evening on multiplayer: remote cursor rendering, adaptive drag interpolation, stale cursor expiry, and conflict guards for live move/resize/rotate. Then placement tools (click-to-place ghost preview, circles, lines, arrows with attachment points), frame grouping with savepoint/rewind timeline, and a YouTube TV embed as an easter egg. Also added 102 new server tests, centralized the Rust toolchain, and fought Docker build issues for hours.',
       clusters: [
         { name: 'DESIGN_DOCS_AND_SCAFFOLDING', commits: 6, summary: 'Refreshed the README, drafted the konva-to-rust design doc with a public API boundary section. Added the canvas crate scaffold with 131 passing tests.',
           git: [
@@ -441,7 +441,7 @@
     },
     {
       day: 4, date: '2026-02-19', title: 'OBSERVABILITY, AI & ROTATION', commits: 104,
-      fieldNote: 'Highest commit count of the sprint. Built the traces crate for observability, migrated to protobuf wire format, implemented viewport rotation with compass widget, rebuilt AI integration with YAML grammar, and shipped auth, board sharing, and perf benchmarks.',
+      fieldNote: 'Highest commit count of the sprint: 104. The day split across five major fronts. First, migrated the entire WebSocket transport from JSON to a shared protobuf frames crate with binary encoding and wire protocol docs. Second, built the traces crate for observability \u2014 derivation helpers, client-side trace view UI, linked AI tool calls into prompt trace trees, per-round LLM spans with timing metrics. Third, implemented camera rotation with a compass view control, snapping behavior, and a QA matrix. Fourth, rebuilt the AI integration: session-scoped context memory, strict quoted-YAML grammar for LLM I/O, an applyChangesYaml parser, and routing all tool calls through a shared syscall dispatcher. Fifth, shipped real features: email-code authentication via Resend, board member ACLs with management routes, 6-character access code sharing, board snapshot mini-previews, hover-delete with confirm dialogs, and the perf crate with end-to-end benchmarks. Also added first-class text shapes, replaced the zoom menu with a dial control, and themed the UI for light/dark consistency.',
       clusters: [
         { name: 'PRESENCE_AND_STATION_LOG', commits: 8, summary: 'Unified cursor and camera presence by client connection. Built the station log roster with sort order, self-row styling, and follow/jump controls. Removed old header presence list in favor of station log.',
           git: [
@@ -581,7 +581,7 @@
     },
     {
       day: 5, date: '2026-02-20', title: 'DIALS, REFACTORS & POLISH', commits: 68,
-      fieldNote: 'Focused on code quality and UX refinement. Extracted reusable dial controls, decomposed the monolithic canvas host and frame client into smaller modules, split CSS into themed layers, and added multi-select, minimap, board import/export, and broad client test coverage.',
+      fieldNote: 'Shifted focus from features to quality. The monolithic canvas host file was getting unwieldy, so I decomposed it into submodules: dial math, object prop helpers, frame emission, selection metrics, shape placement presets, viewport and presence helpers, input mapping. Did the same for the frame client \u2014 parsing helpers, AI handlers, error handling, chat/object/request concerns all got their own files. Split the CSS into theme, base, layout, and component modules. Extracted reusable dial primitives and migrated the compass and zoom controls, then built new dials for object rotation, color (with base picker and lightness rotation), and text style. Added a minimap overlay with draggable viewport controls (later made read-only after the drag UX proved too fragile). Shipped multi-select canvas interactions with persisted grouping, board JSONL import/export with web-sys file input, and broad client test coverage across util, pages, state, and net helpers. 68 commits, mostly refactoring \u2014 the kind of day that doesn\u2019t look dramatic but makes everything after it faster.',
       clusters: [
         { name: 'CSS_AND_THEME_CLEANUP', commits: 5, summary: 'Split monolithic CSS into theme, base, layout, and component modules. Extracted shared side-panel primitives, inlined CSS imports to eliminate runtime 404s.',
           git: [
@@ -682,7 +682,7 @@
     },
     {
       day: 6, date: '2026-02-21', title: 'PERFORMANCE, CLI & AI TOOLS', commits: 52,
-      fieldNote: 'Tackled large-board rendering performance with spatial indexing and viewport culling. Stood up a CLI crate, cleaned up AI tool schemas, added SVG rendering, and ran a full correctness audit with doc coverage push.',
+      fieldNote: 'Performance day. Large boards (1,000+ objects from the stress generator) were sluggish, so I worked through the rendering pipeline end-to-end: disabled auto savepoints during bulk loads, gated scene sync on revision numbers, coalesced redraws with requestAnimationFrame, avoided large board clones in canvas host effects, and added spatial bucket indexing with viewport culling. Also fixed a tool-switch pan jump, moved the default viewport origin to top-left, and added a hand (pan) tool. Stood up the CLI crate with clap subcommands for REST board CRUD, WebSocket JSONL object streaming, and a spiral-pattern stress generator. Ran a full correctness audit: fixed all clippy warnings and panic-capable code across the workspace, added missing doc comments to every public item. Cleaned up AI tool schemas \u2014 removed legacy batch operations, shape aliases, and youtube_embed, then aligned tool definitions with canonical UI object properties. Added Phase 1 SVG AI tools and implemented their execution path, plumbing svg objects through to the canvas renderer from inline path markup. Also added streaming AI prompt updates as item frames and included live viewport geometry in the AI system prompt context. 52 commits.',
       clusters: [
         { name: 'HOUSEKEEPING_AND_STATS', commits: 7, summary: 'Ran a correctness audit fixing clippy warnings and panic-capable code across the workspace. Added missing doc comments to all public items. Built project stats and code coverage scripts for the README.',
           git: [
@@ -764,7 +764,7 @@
     },
     {
       day: 7, date: '2026-02-22', title: 'TRACING & PORTFOLIO SITE', commits: 9,
-      fieldNote: 'Final day. Promoted trace to a top-level frame field, built the portfolio website with vintage field-survey aesthetic, then iterated on design spec compliance and navigation. Replaced the timeline placeholder carousel with a commit-log view driven by actual git history.',
+      fieldNote: 'Final day of the sprint. Morning started with a small but important cleanup: promoted the trace field from a nested data property to a top-level frame field with backend gating, which simplified the entire observability pipeline. Then built the portfolio website you\u2019re looking at now \u2014 a vintage "Field Survey Terminal" aesthetic in plain HTML, CSS, and vanilla JS. Mounted it at the root path and relocated the Leptos app to /app. Iterated on design spec compliance (font sizes, transitions, carousel arrows, CSS variables), added hash-based URL routing so browser back/forward works, and replaced the timeline placeholder carousel with this vertically scrolling commit-log view driven by actual git history analysis. 9 commits on the final day \u2014 the lightest of the sprint, but the one that ties everything together for presentation.',
       clusters: [
         { name: 'FRAME_TRACE_PROMOTION', commits: 3, summary: 'Promoted the trace field from a nested data property to a top-level frame field with backend gating. Auto-enabled trace config before board list requests and removed legacy data.trace read fallbacks.',
           git: [
