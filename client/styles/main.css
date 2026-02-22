@@ -1793,16 +1793,63 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
+    width: auto;
     height: 32px;
+    padding: 0 var(--space-md);
     color: var(--text-nav);
     border: 1px solid transparent;
-    font-size: 14px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     line-height: 1;
 }
 
 .toolbar__back:hover {
     color: var(--text-nav-active);
+}
+
+.toolbar__breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-right: 2rem;
+}
+
+.toolbar__crumb-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.toolbar__crumb-btn:hover {
+    color: var(--text-nav-active);
+    background: color-mix(in oklab, var(--accent-active) 10%, transparent);
+}
+
+.toolbar__crumb-sep {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.toolbar__crumb-current {
+    color: var(--text-nav-active);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .toolbar__board-name {
@@ -1932,10 +1979,14 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
+    width: auto;
     height: 32px;
-    padding: 0;
+    padding: 0 var(--space-md);
     color: var(--text-nav);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     line-height: 1;
 }
 
@@ -2322,6 +2373,11 @@ a:hover {
     bottom: 6px;
     width: 2px;
     background: var(--accent-green);
+}
+
+.right-panel__rail-button--disabled {
+    opacity: 0.35;
+    cursor: default;
 }
 
 .right-panel__rail-button svg,

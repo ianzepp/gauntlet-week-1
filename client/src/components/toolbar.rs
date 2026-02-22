@@ -182,7 +182,15 @@ pub fn Toolbar() -> impl IntoView {
     };
 
     let on_share_cancel = Callback::new(move |()| show_share.set(false));
-    let on_back = Callback::new(move |()| {
+    let on_home = Callback::new(move |()| {
+        #[cfg(feature = "hydrate")]
+        {
+            if let Some(window) = web_sys::window() {
+                let _ = window.location().set_href("/");
+            }
+        }
+    });
+    let on_boards = Callback::new(move |()| {
         navigate("/app", leptos_router::NavigateOptions::default());
     });
 
@@ -219,17 +227,23 @@ pub fn Toolbar() -> impl IntoView {
             {move || {
                 if is_board_route() {
                     view! {
-                        <button class="toolbar__back" title="Back to dashboard" on:click=move |_| on_back.run(())>
-                            "←"
-                        </button>
+                        <nav class="toolbar__breadcrumb" aria-label="Breadcrumb">
+                            <button class="toolbar__crumb-btn" title="Go to Home" on:click=move |_| on_home.run(())>
+                                "Home"
+                            </button>
+                            <span class="toolbar__crumb-sep">"›"</span>
+                            <button class="toolbar__crumb-btn" title="Go to Boards" on:click=move |_| on_boards.run(())>
+                                "Boards"
+                            </button>
+                            <span class="toolbar__crumb-sep">"›"</span>
+                            <span class="toolbar__crumb-current">{board_name}</span>
+                        </nav>
                     }
                     .into_any()
                 } else {
-                    ().into_any()
+                    view! { <span class="toolbar__board-name">{board_name}</span> }.into_any()
                 }
             }}
-
-            <span class="toolbar__board-name">{board_name}</span>
             {move || {
                 if is_board_route() {
                     view! {
@@ -245,7 +259,6 @@ pub fn Toolbar() -> impl IntoView {
                                 }
                                 title="Light mode"
                             >
-                                <span class="toolbar__segment-icon">{"\u{2600}"}</span>
                                 <span class="toolbar__segment-label">{"Light"}</span>
                             </button>
                             <button
@@ -259,7 +272,6 @@ pub fn Toolbar() -> impl IntoView {
                                 }
                                 title="Dark mode"
                             >
-                                <span class="toolbar__segment-icon">{"\u{263E}"}</span>
                                 <span class="toolbar__segment-label">{"Dark"}</span>
                             </button>
                         </div>
@@ -279,7 +291,6 @@ pub fn Toolbar() -> impl IntoView {
                                 on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Canvas)
                                 title="Board canvas view"
                             >
-                                <span class="toolbar__segment-icon">{"\u{25A6}"}</span>
                                 <span class="toolbar__segment-label">{"Board"}</span>
                             </button>
                             <button
@@ -288,7 +299,6 @@ pub fn Toolbar() -> impl IntoView {
                                 on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Trace)
                                 title="Trace view"
                             >
-                                <span class="toolbar__segment-icon">{"\u{2261}"}</span>
                                 <span class="toolbar__segment-label">{"Traces"}</span>
                             </button>
                         </div>
@@ -308,7 +318,6 @@ pub fn Toolbar() -> impl IntoView {
                                 on:click=move |_| set_visibility_public.run(true)
                                 title="Visible to all users"
                             >
-                                <span class="toolbar__segment-icon">{"\u{1F513}"}</span>
                                 <span class="toolbar__segment-label">{"Public"}</span>
                             </button>
                             <button
@@ -317,7 +326,6 @@ pub fn Toolbar() -> impl IntoView {
                                 on:click=move |_| set_visibility_private.run(false)
                                 title="Visible only to members"
                             >
-                                <span class="toolbar__segment-icon">{"\u{1F512}"}</span>
                                 <span class="toolbar__segment-label">{"Private"}</span>
                             </button>
                         </div>
@@ -376,11 +384,7 @@ pub fn Toolbar() -> impl IntoView {
                 {")"}
             </span>
             <button class="btn toolbar__info-btn" on:click=move |_| show_profile.set(true) title="View profile">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5" />
-                    <line x1="7" y1="6" x2="7" y2="10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                    <circle cx="7" cy="4" r="0.9" fill="currentColor" />
-                </svg>
+                "Profile"
             </button>
             <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                 "Logout"

@@ -21,6 +21,7 @@ use crate::state::ui::{RightTab, UiState, ViewMode};
 #[component]
 pub fn RightPanel() -> impl IntoView {
     let ui = expect_context::<RwSignal<UiState>>();
+    const SAVEPOINTS_ENABLED: bool = false;
 
     let expanded = move || ui.get().right_panel_expanded;
     let active_tab = move || ui.get().right_tab;
@@ -106,28 +107,10 @@ pub fn RightPanel() -> impl IntoView {
 
                 <button
                     class="right-panel__rail-button ui-tooltip ui-tooltip--left"
-                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Records
-                    on:click=move |_| toggle_tab(RightTab::Records)
-                    title="Field Records"
-                    attr:data-tooltip="Field Records"
-                >
-                    <svg viewBox="0 0 20 20" aria-hidden="true">
-                        <ellipse cx="10" cy="5" rx="6" ry="2.5" />
-                        <path d="M4 5 V10" />
-                        <path d="M16 5 V10" />
-                        <ellipse cx="10" cy="10" rx="6" ry="2.5" />
-                        <path d="M4 10 V15" />
-                        <path d="M16 10 V15" />
-                        <ellipse cx="10" cy="15" rx="6" ry="2.5" />
-                    </svg>
-                </button>
-
-                <button
-                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
-                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Chat
-                    on:click=move |_| toggle_tab(RightTab::Chat)
-                    title="Chat"
-                    attr:data-tooltip="Chat"
+                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Ai
+                    on:click=move |_| toggle_tab(RightTab::Ai)
+                    title="Field Notes"
+                    attr:data-tooltip="Field Notes"
                 >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                         <rect x="3" y="3" width="14" height="10" />
@@ -152,13 +135,38 @@ pub fn RightPanel() -> impl IntoView {
 
                 <button
                     class="right-panel__rail-button ui-tooltip ui-tooltip--left"
-                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Ai
-                    on:click=move |_| toggle_tab(RightTab::Ai)
-                    title="Field Notes"
-                    attr:data-tooltip="Field Notes"
+                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Chat
+                    on:click=move |_| toggle_tab(RightTab::Chat)
+                    title="Chat"
+                    attr:data-tooltip="Chat"
                 >
                     <svg viewBox="0 0 20 20" aria-hidden="true">
-                        <path d="M10 2 L12 7 L18 7 L13 10 L15 16 L10 12 L5 16 L7 10 L2 7 L8 7 Z" />
+                        <rect x="3" y="4" width="11" height="8" />
+                        <path d="M6 12 L6 15 L9 12" />
+                        <rect x="8" y="8" width="9" height="7" />
+                    </svg>
+                </button>
+
+                <button
+                    class="right-panel__rail-button ui-tooltip ui-tooltip--left"
+                    class:right-panel__rail-button--disabled=move || !SAVEPOINTS_ENABLED
+                    class:right-panel__rail-button--active=move || expanded() && active_tab() == RightTab::Records
+                    on:click=move |_| {
+                        if SAVEPOINTS_ENABLED {
+                            toggle_tab(RightTab::Records);
+                        }
+                    }
+                    title="Savepoints (Coming soon)"
+                    attr:data-tooltip="Savepoints (Coming soon)"
+                >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <ellipse cx="10" cy="5" rx="6" ry="2.5" />
+                        <path d="M4 5 V10" />
+                        <path d="M16 5 V10" />
+                        <ellipse cx="10" cy="10" rx="6" ry="2.5" />
+                        <path d="M4 10 V15" />
+                        <path d="M16 10 V15" />
+                        <ellipse cx="10" cy="15" rx="6" ry="2.5" />
                     </svg>
                 </button>
 

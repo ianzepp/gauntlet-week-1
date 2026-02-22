@@ -30,6 +30,11 @@
     background: var(--accent-green);
 }
 
+.right-panel__rail-button--disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 .right-panel__rail-button svg,
 .right-panel__toggle svg {
     width: 20px;
