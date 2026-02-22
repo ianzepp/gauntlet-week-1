@@ -1,0 +1,5 @@
+website/media/*.mov filter=lfs diff=lfs merge=lfs -text
+website/media/*.mp4 filter=lfs diff=lfs merge=lfs -text
+website/media/*.png filter=lfs diff=lfs merge=lfs -text
+website/media/*.jpg filter=lfs diff=lfs merge=lfs -text
+website/media/*.webm filter=lfs diff=lfs merge=lfs -text
