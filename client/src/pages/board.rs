@@ -449,18 +449,12 @@ pub fn BoardPage() -> impl IntoView {
         </div>
     }
     .into_any();
-    let left_panel_section = move || {
-        if ui.get().view_mode == ViewMode::Canvas {
-            view! {
-                <div class="board-page__left-panel">
-                    <LeftPanel/>
-                </div>
-            }
-            .into_any()
-        } else {
-            ().into_any()
-        }
-    };
+    let left_panel_section = view! {
+        <div class="board-page__left-panel" style=move || if ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }>
+            <LeftPanel/>
+        </div>
+    }
+    .into_any();
     let object_text_dialog = move || {
         if object_text_dialog_open.get() {
             view! {
