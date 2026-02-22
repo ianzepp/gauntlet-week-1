@@ -326,22 +326,6 @@ body {
   background: var(--bg-card);
 }
 
-/* --- Architecture ASCII --- */
-.architecture-ascii {
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  padding: var(--gap-lg);
-  overflow: auto;
-}
-
-.architecture-ascii pre {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-primary);
-  white-space: pre;
-}
-
 /* --- Crate Map SVG --- */
 .crate-map {
   width: 100%;

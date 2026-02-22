@@ -12,7 +12,7 @@
   navButtons.forEach(function (btn) { validPages.push(btn.getAttribute('data-page')); });
 
   function switchPage(pageName, updateHash) {
-    if (validPages.indexOf(pageName) === -1) pageName = 'overview';
+    if (validPages.indexOf(pageName) === -1) pageName = 'architecture';
     navButtons.forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-page') === pageName);
       if (btn.getAttribute('data-page') === pageName) {
@@ -38,8 +38,8 @@
   /* --- Hash-based Routing --- */
   function getPageFromHash() {
     var hash = window.location.hash.replace('#', '');
-    if (hash === 'stack') hash = 'architecture';
-    return hash || 'overview';
+    if (hash === 'stack' || hash === 'overview') hash = 'architecture';
+    return hash || 'architecture';
   }
 
   window.addEventListener('popstate', function () {
@@ -48,7 +48,7 @@
 
   /* Load initial page from URL hash */
   var initialPage = getPageFromHash();
-  if (initialPage !== 'overview') {
+  if (initialPage !== 'architecture') {
     switchPage(initialPage, false);
   }
 

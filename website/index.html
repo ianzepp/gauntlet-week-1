@@ -18,8 +18,7 @@
       <span class="nav-icon" aria-hidden="true">&#8862;</span>
       <span class="nav-site-name">COLLABBOARD</span>
       <div class="nav-items">
-        <button class="nav-item active" data-page="overview" aria-current="page">OVERVIEW</button>
-        <button class="nav-item" data-page="architecture">ARCHITECTURE</button>
+        <button class="nav-item active" data-page="architecture" aria-current="page">ARCHITECTURE</button>
         <button class="nav-item" data-page="timeline">TIMELINE</button>
         <button class="nav-item" data-page="transcripts">TRANSCRIPTS</button>
         <button class="nav-item" data-page="demo">DEMO</button>
@@ -61,112 +60,9 @@
   <main class="main-content">
 
     <!-- ============================================ -->
-    <!-- PAGE: OVERVIEW -->
-    <!-- ============================================ -->
-    <div class="page active" data-page="overview">
-      <div class="panel-left">
-        <div class="map-panel">
-          <div class="map-overlay">
-            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
-            <div class="map-overlay-title">GAUNTLET WEEK 1 &mdash; SPRINT REPORT</div>
-            <div class="map-overlay-meta">2026-02-16 &rarr; 2026-02-22</div>
-          </div>
-          <div class="map-content">
-            <div class="architecture-ascii">
-              <pre>
-    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-    &#9474;                BROWSER (WASM)               &#9474;
-    &#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
-    &#9474;  &#9474;   client   &#9474; &#9474;   canvas   &#9474; &#9474;   frames   &#9474;  &#9474;
-    &#9474;  &#9474; (Leptos)  &#9474; &#9474;  (Engine)  &#9474; &#9474; (Protobuf) &#9474;  &#9474;
-    &#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
-    &#9474;        &#9474;            &#9474;            &#9474;         &#9474;
-    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                 &#9474;            &#9474;            &#9474;
-              WebSocket     Events      Frames
-                 &#9474;            &#9474;            &#9474;
-    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
-    &#9474;                                              &#9474;
-    &#9474;                SERVER (Axum)                  &#9474;
-    &#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
-    &#9474;  &#9474;   server   &#9474; &#9474;   traces   &#9474; &#9474;    perf    &#9474;  &#9474;
-    &#9474;  &#9474;  (Axum)   &#9474; &#9474;  (Events)  &#9474; &#9474;   (Load)   &#9474;  &#9474;
-    &#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
-    &#9474;        &#9474;                                      &#9474;
-    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
-                 &#9474;
-            PostgreSQL
-              </pre>
-            </div>
-          </div>
-          <div class="map-zoom" aria-label="Zoom controls"><button aria-label="Zoom in">+</button><button aria-label="Zoom out">&minus;</button></div>
-          <div class="map-pagination">PROJECT 1 OF 1</div>
-        </div>
-      </div>
-      <div class="panel-right">
-        <div class="record-card">
-          <div class="record-header">
-            <span class="record-header-left">collabboard.dev</span>
-            <span class="record-header-center">BUILD_SPRINT<br>FIELD REPORT</span>
-            <span class="record-header-right">R-001</span>
-          </div>
-          <div class="record-identity">
-            <div class="label">PROJECT / IDENTIFICATION</div>
-            <div class="display-script">CollabBoard</div>
-            <div class="record-subtitle">Ian &middot; Rust &middot; Leptos &middot; Axum &middot; 7 Days</div>
-          </div>
-          <div class="tab-bar" data-tabgroup="overview-card">
-            <button class="tab active" data-tab="overview-overview">OVERVIEW</button>
-            <button class="tab" data-tab="overview-quickfacts">QUICK_FACTS</button>
-            <button class="tab" data-tab="overview-metrics">METRICS</button>
-          </div>
-          <div class="tab-content active" data-tab-content="overview-overview">
-            <div class="section-heading">DISCOVERY_DESCRIPTION / SUMMARY</div>
-            <p class="body-text">
-              A real-time collaborative whiteboard where multiple users draw, chat, and let AI rearrange things on a shared canvas &mdash; built entirely in Rust, from the server all the way down to the browser.
-            </p>
-            <p class="body-text">
-              Open a board, grab a tool, start sketching. Rectangles, ellipses, diamonds, stars, lines, arrows, text elements, frames that group objects, and embedded YouTube tiles. Other users on the same board see every stroke as it happens. Type a prompt and the AI reads your board state, decides which tools to call, and mutates objects directly &mdash; you watch it happen live.
-            </p>
-            <p class="body-text">
-              Built in 7 days for The Gauntlet. The twist: do it all in Rust &mdash; server, frontend, canvas engine, wire protocol &mdash; no JavaScript runtime anywhere in the stack.
-            </p>
-          </div>
-          <div class="tab-content" data-tab-content="overview-quickfacts">
-            <div class="section-heading">QUICK_FACTS</div>
-            <div class="kv-list">
-              <div class="kv-row"><span class="kv-key">LANGUAGE:</span><span class="kv-value">Rust (Edition 2024)</span></div>
-              <div class="kv-row"><span class="kv-key">FRONTEND:</span><span class="kv-value">Leptos 0.8 (SSR + WASM)</span></div>
-              <div class="kv-row"><span class="kv-key">BACKEND:</span><span class="kv-value">Axum 0.8 + SQLx 0.8</span></div>
-              <div class="kv-row"><span class="kv-key">DATABASE:</span><span class="kv-value">PostgreSQL</span></div>
-              <div class="kv-row"><span class="kv-key">WIRE_FORMAT:</span><span class="kv-value">Protobuf (Prost 0.13)</span></div>
-              <div class="kv-row"><span class="kv-key">AUTH:</span><span class="kv-value">GitHub OAuth + Email Codes</span></div>
-              <div class="kv-row"><span class="kv-key">AI:</span><span class="kv-value">Anthropic / OpenAI</span></div>
-              <div class="kv-row"><span class="kv-key">DEPLOY:</span><span class="kv-value">Railway + Docker</span></div>
-            </div>
-          </div>
-          <div class="tab-content" data-tab-content="overview-metrics">
-            <div class="section-heading">PROJECT_STATISTICS</div>
-            <div class="kv-list">
-              <div class="kv-row"><span class="kv-key">TOTAL_LINES:</span><span class="kv-value">41,578</span></div>
-              <div class="kv-row"><span class="kv-key">SOURCE_LINES:</span><span class="kv-value">25,821</span></div>
-              <div class="kv-row"><span class="kv-key">TEST_LINES:</span><span class="kv-value">15,757</span></div>
-              <div class="kv-row"><span class="kv-key">CRATES:</span><span class="kv-value">6</span></div>
-              <div class="kv-row"><span class="kv-key">FUNCTIONS:</span><span class="kv-value">581 (316 pub, 265 priv)</span></div>
-              <div class="kv-row"><span class="kv-key">TESTS:</span><span class="kv-value">989 passed, 0 failed</span></div>
-              <div class="kv-row"><span class="kv-key">COVERAGE:</span><span class="kv-value">41.2% line coverage</span></div>
-              <div class="kv-row"><span class="kv-key">COMMITS:</span><span class="kv-value">433 over 7 days (~62/day)</span></div>
-              <div class="kv-row"><span class="kv-key">DEPENDENCIES:</span><span class="kv-value">67 total (66 + 1 dev)</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================ -->
     <!-- PAGE: ARCHITECTURE -->
     <!-- ============================================ -->
-    <div class="page" data-page="architecture">
+    <div class="page active" data-page="architecture">
       <div class="panel-left">
         <div class="map-panel">
           <div class="map-overlay">
