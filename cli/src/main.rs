@@ -38,7 +38,7 @@ enum CliError {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "collab-cli", about = "CollabBoard API and websocket CLI")]
+#[command(name = "collab-cli", about = "Field Board API and websocket CLI")]
 struct Cli {
     #[arg(long, env = "COLLAB_BASE_URL", default_value = "http://127.0.0.1:3000")]
     base_url: String,

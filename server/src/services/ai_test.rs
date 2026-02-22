@@ -48,7 +48,7 @@ impl LlmChat for MockLlm {
 #[test]
 fn system_prompt_empty_board() {
     let prompt = build_system_prompt(&[], None, None);
-    assert!(prompt.contains("CollabBoard"));
+    assert!(prompt.contains("Field Board"));
     assert!(prompt.contains("total_objects=0"));
     assert!(prompt.contains("board_state=empty"));
     assert!(prompt.contains("object_details=not_included_by_default_use_getBoardState_for_details"));

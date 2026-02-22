@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "========================================"
-echo "  CollabBoard Project Stats"
+echo "  Field Board Project Stats"
 echo "  $(date +%Y-%m-%d)"
 echo "========================================"
 echo ""

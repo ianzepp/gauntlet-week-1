@@ -1,4 +1,4 @@
-# CollabBoard
+# Field Board
 
 A real-time collaborative whiteboard where multiple users draw, chat, and let AI rearrange things on a shared canvas — built entirely in Rust, from the server all the way down to the browser.
 
@@ -195,7 +195,7 @@ On the wire, frames are binary protobuf via Prost 0.13. The `data` field round-t
 
 ### `traces` — Observability Primitives
 
-Shared trace and event primitives for CollabBoard's observability UI. Intentionally avoids UI framework dependencies so it can be used by `client` (Leptos) or any other renderer.
+Shared trace and event primitives for Field Board's observability UI. Intentionally avoids UI framework dependencies so it can be used by `client` (Leptos) or any other renderer.
 
 Provides syscall prefix-to-display mapping, default trace filtering policy (hides `cursor:*` and `item` frames by default), frame-to-session grouping by parent chain, request/done span pairing for waterfall timing, aggregate metrics (counts, errors, pending), and sub-label extraction for common syscall payloads.
 
@@ -217,7 +217,7 @@ All tests are `#[ignore]` — run them with `cargo test -p perf -- --ignored --n
 
 ### `cli` — API + WS Automation
 
-A command-line client for scripting against CollabBoard over HTTP and websocket frames.
+A command-line client for scripting against Field Board over HTTP and websocket frames.
 
 - REST subcommands target:
 - `GET /api/board`

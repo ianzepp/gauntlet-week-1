@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CollabBoard — Build Sprint Field Report</title>
+  <title>Field Board — Build Sprint Field Report</title>
   <meta name="description" content="A real-time collaborative whiteboard built entirely in Rust. 45,140 lines of code across 7 crates in 7 days.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,7 @@
   <nav class="nav-bar" role="navigation" aria-label="Primary">
     <div class="nav-left">
       <span class="nav-icon" aria-hidden="true">&#8862;</span>
-      <span class="nav-site-name">COLLABBOARD</span>
+      <span class="nav-site-name">FIELD_BOARD</span>
       <div class="nav-items">
         <button class="nav-item active" data-page="architecture" aria-current="page">ARCHITECTURE</button>
         <button class="nav-item" data-page="timeline">TIMELINE</button>
@@ -155,7 +155,7 @@
       <div class="panel-right">
         <div class="record-card">
           <div class="record-header">
-            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-left">fieldboard.dev</span>
             <span class="record-header-center">CRATE_ARCHITECTURE<br>SURVEY RECORD</span>
             <span class="record-header-right">R-002</span>
           </div>
@@ -173,7 +173,7 @@
           <div class="tab-content active" data-tab-content="arch-overview">
             <div class="section-heading">SYSTEM_ARCHITECTURE</div>
             <p class="body-text">
-              CollabBoard is a real-time collaborative whiteboard built end-to-end in Rust. Seven crates in a Cargo workspace share types, validation logic, and wire protocol definitions with zero duplication across client and server boundaries. There is no JavaScript runtime anywhere in the stack.
+              Field Board is a real-time collaborative whiteboard built end-to-end in Rust. Seven crates in a Cargo workspace share types, validation logic, and wire protocol definitions with zero duplication across client and server boundaries. There is no JavaScript runtime anywhere in the stack.
             </p>
             <p class="body-text">
               The <strong>client</strong> is a Leptos 0.8 application that renders on the server via SSR, then hydrates in the browser as a WebAssembly binary. The <strong>canvas engine</strong> is a from-scratch 2D drawing system with its own hit-testing, input state machine, and rendering pipeline. Its core has zero browser dependencies &mdash; the full test suite (250+ tests) runs under <code>cargo test</code> without a browser. A thin WASM wrapper forwards DOM events in and calls <code>render()</code> out.
@@ -347,7 +347,7 @@
       <div class="panel-right">
         <div class="record-card">
           <div class="record-header">
-            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-left">fieldboard.dev</span>
             <span class="record-header-center">BUILD_TIMELINE<br>FIELD LOG</span>
             <span class="record-header-right">R-003</span>
           </div>
@@ -408,7 +408,7 @@
       <div class="panel-right">
         <div class="record-card">
           <div class="record-header">
-            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-left">fieldboard.dev</span>
             <span class="record-header-center">SESSION_TRANSCRIPTS<br>EXPEDITION LOG</span>
             <span class="record-header-right">R-005</span>
           </div>

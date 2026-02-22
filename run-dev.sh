@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "==> Starting CollabBoard with Docker Compose..."
+echo "==> Starting Field Board with Docker Compose..."
 BUILD_FLAG=""
 if [[ "${1:-}" == "--build" ]]; then
   BUILD_FLAG="--build"

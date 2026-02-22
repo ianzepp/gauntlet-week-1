@@ -1,4 +1,4 @@
-/* CollabBoard Portfolio — Vanilla JS */
+/* Field Board Portfolio — Vanilla JS */
 (function () {
   'use strict';
 
@@ -144,20 +144,20 @@
       day: 1, date: '2026-02-16', title: 'FULL-STACK SCAFFOLD', commits: 40,
       fieldNote: 'Day one was about getting a working vertical slice as fast as possible. Started with the pre-search doc \u2014 budget, auth strategy, architecture outline, testing plan \u2014 then scaffolded the Rust/Axum backend and React/Konva frontend in the same afternoon.\n\nBy evening, GitHub OAuth was working, WebSocket real-time sync was broadcasting cursor positions, and the AI tool loop was calling out to Claude with 9 tools.\n\nThe persistence layer went through three iterations: first a buffered flush at 1-second intervals, then tightened to 100ms, then ripped out entirely in favor of direct DB writes per frame.\n\nAlso wired up user field report popovers, structured logging, Docker Compose, and a static file server with SPA fallback. Ended the day with 40 commits and a system that actually worked end-to-end, even if the canvas was rough.',
       clusters: [
-        { name: 'PRE_SEARCH_AND_DESIGN_DOCS', commits: 6, summary: 'Drafted and iterated on the CollabBoard pre-search document covering budget, auth, architecture, and testing strategy. Added the project brief PDF, design system spec, and organized all docs into a docs/ directory.',
+        { name: 'PRE_SEARCH_AND_DESIGN_DOCS', commits: 6, summary: 'Drafted and iterated on the Field Board pre-search document covering budget, auth, architecture, and testing strategy. Added the project brief PDF, design system spec, and organized all docs into a docs/ directory.',
           git: [
-            {h:'cf05398',t:'13:56',m:'Add CollabBoard Pre-Search document'},
+            {h:'cf05398',t:'13:56',m:'Add Field Board Pre-Search document'},
             {h:'3bf294a',t:'14:14',m:'Update Pre-Search after review: budget, auth, architecture, testing'},
             {h:'afb6ff3',t:'14:26',m:'Resolve PRE-SEARCH gaps: auth, sync, persistence, reconnect, and open questions'},
-            {h:'9b8dc14',t:'14:29',m:'Add CollabBoard project brief PDF'},
+            {h:'9b8dc14',t:'14:29',m:'Add Field Board project brief PDF'},
             {h:'3e83cba',t:'16:30',m:'Add design system spec and move project docs to docs/'},
             {h:'dbe3ffb',t:'16:31',m:'Move PRE-SEARCH.MD to docs/'}
           ]},
         { name: 'BACKEND_AND_FRONTEND_SCAFFOLD', commits: 5, summary: 'Stood up the Rust/Axum backend scaffold and the React/Vite/Konva frontend scaffold. Moved backend into server/, added the AI agent loop and WebSocket dispatch entry points.',
           git: [
-            {h:'f9a61b9',t:'16:34',m:'Add Rust + Axum backend scaffold for CollabBoard'},
+            {h:'f9a61b9',t:'16:34',m:'Add Rust + Axum backend scaffold for Field Board'},
             {h:'8adcfc1',t:'16:35',m:'Add .gitignore for Rust project'},
-            {h:'7de815d',t:'16:57',m:'Add React + Vite + Konva frontend scaffold for CollabBoard'},
+            {h:'7de815d',t:'16:57',m:'Add React + Vite + Konva frontend scaffold for Field Board'},
             {h:'107d8ee',t:'16:59',m:'Add README and move G4 spec to docs/'},
             {h:'ccfce3e',t:'17:44',m:'Move backend to server/, add AI agent loop and WS dispatch'}
           ]},
@@ -178,7 +178,7 @@
           ]},
         { name: 'AUTH_AND_REALTIME_SYNC', commits: 4, summary: 'Implemented GitHub OAuth authentication with env var configuration. Wired up WebSocket real-time sync with cursor presence broadcasting across connected clients.',
           git: [
-            {h:'363c343',t:'18:59',m:'Add GitHub OAuth authentication for collaboard'},
+            {h:'363c343',t:'18:59',m:'Add GitHub OAuth authentication for Field Board'},
             {h:'67783d3',t:'19:01',m:'Add GitHub OAuth env vars to .env.example'},
             {h:'e33dec8',t:'19:30',m:'Wire up WebSocket real-time sync and cursor presence (#17)'},
             {h:'c29759b',t:'21:39',m:'Skip logging and persistence for cursor frames'}
@@ -293,7 +293,7 @@
             {h:'4285f6f',t:'08:44',m:'Prepare Fly deployment image and release workflow'},
             {h:'233f161',t:'09:07',m:'Switch local dev to Docker Compose workflow'},
             {h:'22a3936',t:'11:29',m:'Update Fly config for ORD region and runtime env vars'},
-            {h:'2441393',t:'12:08',m:'Rename collaboard to gauntlet-week-1 and isolate tests from live DB'},
+            {h:'2441393',t:'12:08',m:'Rename Field Board to gauntlet-week-1 and isolate tests from live DB'},
             {h:'b59a057',t:'16:18',m:'Run DB migrations before server start in Dockerfile'},
             {h:'7d1bd06',t:'16:38',m:'Remove Fly deployment config'}
           ]},
@@ -540,7 +540,7 @@
           ]},
         { name: 'OBSERVABILITY_AND_TRACING', commits: 14, summary: 'Added a traces crate with derivation helpers and client-side trace view UI. Linked AI tool calls and object frames into a prompt trace tree, emitted per-round LLM spans with metrics, and iterated heavily on the trace UI.',
           git: [
-            {h:'d3c5f1c',t:'12:46',m:'Create collabboard-observability-design.md'},
+            {h:'d3c5f1c',t:'12:46',m:'Create Field Board observability design doc'},
             {h:'bad0148',t:'16:51',m:'Add traces crate with derivation helpers and coverage'},
             {h:'b2f58af',t:'16:53',m:'Document observability implementation status'},
             {h:'b2c7b75',t:'20:22',m:'Add observability trace view to client'},
