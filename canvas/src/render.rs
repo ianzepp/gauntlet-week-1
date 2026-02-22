@@ -257,9 +257,9 @@ fn draw_inline_svg_paths(ctx: &CanvasRenderingContext2d, obj: &BoardObject) -> R
     let Some(svg) = obj.props.get("svg").and_then(serde_json::Value::as_str) else {
         return Err(JsValue::from_str("missing svg prop"));
     };
-    let paths = parse_svg_paths(svg);
-    if paths.is_empty() {
-        return Err(JsValue::from_str("no path elements"));
+    let shapes = parse_svg_shapes(svg);
+    if shapes.is_empty() {
+        return Err(JsValue::from_str("no renderable elements"));
     }
 
     let (vb_min_x, vb_min_y, vb_w, vb_h) = svg_view_box(svg).unwrap_or((0.0, 0.0, obj.width, obj.height));
@@ -275,65 +275,627 @@ fn draw_inline_svg_paths(ctx: &CanvasRenderingContext2d, obj: &BoardObject) -> R
     ctx.scale(sx, sy)?;
     ctx.translate(-vb_min_x, -vb_min_y)?;
 
-    for path in paths {
-        let shape = Path2d::new_with_path_string(&path.d)?;
-
-        if path.fill.as_deref() != Some("none") {
-            ctx.set_fill_style_str(path.fill.as_deref().unwrap_or("#000000"));
-            ctx.fill_with_path_2d(&shape);
-        }
-
-        if let Some(stroke) = path.stroke.as_deref() {
-            if stroke != "none" {
-                ctx.set_stroke_style_str(stroke);
-                let width = path.stroke_width.unwrap_or(1.0) / stroke_scale;
-                ctx.set_line_width(width.max(0.1));
-                ctx.stroke_with_path(&shape);
-            }
-        }
+    for shape in &shapes {
+        render_svg_shape(ctx, shape, stroke_scale)?;
     }
 
     ctx.restore();
     Ok(())
 }
 
+/// Render a single `SvgShape` to the canvas context.
+fn render_svg_shape(ctx: &CanvasRenderingContext2d, shape: &SvgShape, stroke_scale: f64) -> Result<(), JsValue> {
+    match &shape.geometry {
+        SvgGeometry::Path(d) => {
+            let path = Path2d::new_with_path_string(d)?;
+            svg_fill_stroke(
+                ctx,
+                &path,
+                shape.fill.as_deref(),
+                shape.stroke.as_deref(),
+                shape.stroke_width,
+                stroke_scale,
+            );
+        }
+        SvgGeometry::Rect { x, y, width, height, rx, ry } => {
+            let path = svg_rect_path(*x, *y, *width, *height, *rx, *ry)?;
+            svg_fill_stroke(
+                ctx,
+                &path,
+                shape.fill.as_deref(),
+                shape.stroke.as_deref(),
+                shape.stroke_width,
+                stroke_scale,
+            );
+        }
+        SvgGeometry::Circle { cx, cy, r } => {
+            let path = svg_circle_path(*cx, *cy, *r)?;
+            svg_fill_stroke(
+                ctx,
+                &path,
+                shape.fill.as_deref(),
+                shape.stroke.as_deref(),
+                shape.stroke_width,
+                stroke_scale,
+            );
+        }
+        SvgGeometry::Ellipse { cx, cy, rx, ry } => {
+            let path = svg_ellipse_path(*cx, *cy, *rx, *ry)?;
+            svg_fill_stroke(
+                ctx,
+                &path,
+                shape.fill.as_deref(),
+                shape.stroke.as_deref(),
+                shape.stroke_width,
+                stroke_scale,
+            );
+        }
+        SvgGeometry::Line { x1, y1, x2, y2 } => {
+            let d = format!("M{x1},{y1}L{x2},{y2}");
+            let path = Path2d::new_with_path_string(&d)?;
+            // Lines have no fill by default.
+            let stroke = shape.stroke.as_deref().unwrap_or("#000000");
+            if stroke != "none" {
+                ctx.set_stroke_style_str(stroke);
+                let width = shape.stroke_width.unwrap_or(1.0) / stroke_scale;
+                ctx.set_line_width(width.max(0.1));
+                ctx.stroke_with_path(&path);
+            }
+        }
+        SvgGeometry::Polygon(pts) | SvgGeometry::Polyline(pts) => {
+            if pts.len() >= 2 {
+                let mut d = format!("M{},{}", pts[0].0, pts[0].1);
+                for &(px, py) in &pts[1..] {
+                    use std::fmt::Write;
+                    let _ = write!(d, "L{px},{py}");
+                }
+                if matches!(shape.geometry, SvgGeometry::Polygon(_)) {
+                    d.push('Z');
+                }
+                let path = Path2d::new_with_path_string(&d)?;
+                svg_fill_stroke(
+                    ctx,
+                    &path,
+                    shape.fill.as_deref(),
+                    shape.stroke.as_deref(),
+                    shape.stroke_width,
+                    stroke_scale,
+                );
+            }
+        }
+        SvgGeometry::Text { x, y, content, font_size } => {
+            let fill = shape.fill.as_deref().unwrap_or("#000000");
+            if fill != "none" {
+                ctx.set_fill_style_str(fill);
+                let size = font_size.unwrap_or(16.0);
+                ctx.set_font(&format!("{size:.0}px sans-serif"));
+                ctx.set_text_baseline("auto");
+                let _ = ctx.fill_text(content, *x, *y);
+            }
+        }
+        SvgGeometry::Group(children) => {
+            ctx.save();
+            if let Some(ref tf) = shape.transform {
+                apply_svg_transform(ctx, tf)?;
+            }
+            for child in children {
+                render_svg_shape(ctx, child, stroke_scale)?;
+            }
+            ctx.restore();
+            return Ok(());
+        }
+    }
+
+    Ok(())
+}
+
+/// Apply fill and stroke to a `Path2d`.
+fn svg_fill_stroke(
+    ctx: &CanvasRenderingContext2d,
+    path: &Path2d,
+    fill: Option<&str>,
+    stroke: Option<&str>,
+    stroke_width: Option<f64>,
+    stroke_scale: f64,
+) {
+    if fill != Some("none") {
+        ctx.set_fill_style_str(fill.unwrap_or("#000000"));
+        ctx.fill_with_path_2d(path);
+    }
+    if let Some(s) = stroke {
+        if s != "none" {
+            ctx.set_stroke_style_str(s);
+            let width = stroke_width.unwrap_or(1.0) / stroke_scale;
+            ctx.set_line_width(width.max(0.1));
+            ctx.stroke_with_path(path);
+        }
+    }
+}
+
+#[allow(clippy::many_single_char_names)]
+fn svg_rect_path(x: f64, y: f64, w: f64, h: f64, rx: f64, ry: f64) -> Result<Path2d, JsValue> {
+    if rx > 0.0 || ry > 0.0 {
+        let rx = rx.max(ry).min(w / 2.0);
+        let ry = ry.max(rx).min(h / 2.0);
+        let d = format!(
+            "M{},{} h{} a{rx},{ry} 0 0 1 {rx},{ry} v{} a{rx},{ry} 0 0 1 -{rx},{ry} h-{} a{rx},{ry} 0 0 1 -{rx},-{ry} v-{} a{rx},{ry} 0 0 1 {rx},-{ry} Z",
+            x + rx,
+            y,
+            w - 2.0 * rx,
+            h - 2.0 * ry,
+            w - 2.0 * rx,
+            h - 2.0 * ry,
+        );
+        Path2d::new_with_path_string(&d)
+    } else {
+        let d = format!("M{x},{y}h{w}v{h}h-{w}Z");
+        Path2d::new_with_path_string(&d)
+    }
+}
+
+fn svg_circle_path(cx: f64, cy: f64, r: f64) -> Result<Path2d, JsValue> {
+    let d = format!("M{},{} a{r},{r} 0 1 0 {},0 a{r},{r} 0 1 0 {},0", cx - r, cy, 2.0 * r, -2.0 * r,);
+    Path2d::new_with_path_string(&d)
+}
+
+fn svg_ellipse_path(cx: f64, cy: f64, rx: f64, ry: f64) -> Result<Path2d, JsValue> {
+    let d = format!(
+        "M{},{} a{rx},{ry} 0 1 0 {},0 a{rx},{ry} 0 1 0 {},0",
+        cx - rx,
+        cy,
+        2.0 * rx,
+        -2.0 * rx,
+    );
+    Path2d::new_with_path_string(&d)
+}
+
+/// Apply a simple SVG `transform` string to the canvas context.
+/// Supports: translate(x,y), scale(x,y), rotate(deg), matrix(a,b,c,d,e,f).
+fn apply_svg_transform(ctx: &CanvasRenderingContext2d, transform: &str) -> Result<(), JsValue> {
+    let mut scan = transform;
+    while let Some(paren_start) = scan.find('(') {
+        let func_name = scan[..paren_start].trim();
+        // Extract the last word if there are spaces (e.g. "foo translate" → "translate").
+        let func_name = func_name
+            .rsplit_once(char::is_whitespace)
+            .map_or(func_name, |(_, n)| n);
+        let Some(paren_end) = scan[paren_start..].find(')') else {
+            break;
+        };
+        let args_str = &scan[paren_start + 1..paren_start + paren_end];
+        let args: Vec<f64> = args_str
+            .split(|c: char| c == ',' || c.is_ascii_whitespace())
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| s.parse::<f64>().ok())
+            .collect();
+        scan = &scan[paren_start + paren_end + 1..];
+
+        match func_name {
+            "translate" => {
+                let tx = args.first().copied().unwrap_or(0.0);
+                let ty = args.get(1).copied().unwrap_or(0.0);
+                ctx.translate(tx, ty)?;
+            }
+            "scale" => {
+                let sx = args.first().copied().unwrap_or(1.0);
+                let sy = args.get(1).copied().unwrap_or(sx);
+                ctx.scale(sx, sy)?;
+            }
+            "rotate" => {
+                let deg = args.first().copied().unwrap_or(0.0);
+                ctx.rotate(deg * PI / 180.0)?;
+            }
+            "matrix" if args.len() >= 6 => {
+                ctx.transform(args[0], args[1], args[2], args[3], args[4], args[5])?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+// =============================================================
+// SVG shape types
+// =============================================================
+
 #[derive(Clone, Debug, PartialEq)]
-struct SvgPathShape {
-    d: String,
+struct SvgShape {
+    geometry: SvgGeometry,
     fill: Option<String>,
     stroke: Option<String>,
     stroke_width: Option<f64>,
+    transform: Option<String>,
 }
 
-fn parse_svg_paths(svg: &str) -> Vec<SvgPathShape> {
-    let mut out = Vec::new();
-    let mut scan = svg;
+#[derive(Clone, Debug, PartialEq)]
+enum SvgGeometry {
+    Path(String),
+    Rect {
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        rx: f64,
+        ry: f64,
+    },
+    Circle {
+        cx: f64,
+        cy: f64,
+        r: f64,
+    },
+    Ellipse {
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+    },
+    Line {
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+    },
+    Polygon(Vec<(f64, f64)>),
+    Polyline(Vec<(f64, f64)>),
+    Text {
+        x: f64,
+        y: f64,
+        content: String,
+        font_size: Option<f64>,
+    },
+    Group(Vec<SvgShape>),
+}
 
-    while let Some(start) = scan.find("<path") {
-        let after_start = &scan[start..];
-        let Some(tag_end_rel) = after_start.find('>') else {
+/// Parse all renderable SVG elements from markup into shapes.
+fn parse_svg_shapes(svg: &str) -> Vec<SvgShape> {
+    parse_svg_fragment(svg)
+}
+
+/// Recursively parse SVG elements from a fragment.
+fn parse_svg_fragment(fragment: &str) -> Vec<SvgShape> {
+    let mut out = Vec::new();
+    let mut scan = fragment;
+
+    while let Some(tag_start) = scan.find('<') {
+        let rest = &scan[tag_start..];
+
+        // Skip closing tags, comments, XML declarations, CDATA.
+        if rest.starts_with("</") || rest.starts_with("<!") || rest.starts_with("<?") {
+            scan = &scan[tag_start + 1..];
+            continue;
+        }
+
+        // Extract tag name.
+        let after_lt = &rest[1..];
+        let name_end = after_lt
+            .find(|c: char| c.is_ascii_whitespace() || c == '>' || c == '/')
+            .unwrap_or(after_lt.len());
+        let tag_name = &after_lt[..name_end];
+
+        // Find end of opening tag.
+        let Some(tag_close) = rest.find('>') else {
             break;
         };
-        let tag = &after_start[..=tag_end_rel];
-        if let Some(d) = attr_value(tag, "d") {
-            out.push(SvgPathShape {
-                d,
-                fill: attr_value(tag, "fill"),
-                stroke: attr_value(tag, "stroke"),
-                stroke_width: attr_value(tag, "stroke-width").and_then(|v| parse_svg_number(&v)),
-            });
+        let tag_str = &rest[..=tag_close];
+        let self_closing = tag_str.ends_with("/>") || tag_str.ends_with("/ >");
+
+        match tag_name {
+            "path" => {
+                if let Some(shape) = parse_path_tag(tag_str) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "rect" => {
+                if let Some(shape) = parse_rect_tag(tag_str) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "circle" => {
+                if let Some(shape) = parse_circle_tag(tag_str) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "ellipse" => {
+                if let Some(shape) = parse_ellipse_tag(tag_str) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "line" => {
+                if let Some(shape) = parse_line_tag(tag_str) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "polygon" => {
+                if let Some(shape) = parse_poly_tag(tag_str, true) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "polyline" => {
+                if let Some(shape) = parse_poly_tag(tag_str, false) {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + tag_close + 1..];
+            }
+            "text" => {
+                if let Some(shape) = parse_text_tag(tag_str, &scan[tag_start..]) {
+                    out.push(shape);
+                }
+                // Skip past closing </text>.
+                let after_open = &scan[tag_start + tag_close + 1..];
+                if let Some(close_idx) = after_open.find("</text>") {
+                    scan = &after_open[close_idx + 7..];
+                } else {
+                    scan = &scan[tag_start + tag_close + 1..];
+                }
+            }
+            "g" => {
+                let (group_shape, advance) = parse_group_tag(tag_str, self_closing, &scan[tag_start..]);
+                if let Some(shape) = group_shape {
+                    out.push(shape);
+                }
+                scan = &scan[tag_start + advance..];
+            }
+            _ => {
+                scan = &scan[tag_start + tag_close + 1..];
+            }
         }
-        scan = &after_start[tag_end_rel + 1..];
     }
 
     out
+}
+
+fn common_style(tag: &str) -> (Option<String>, Option<String>, Option<f64>, Option<String>) {
+    (
+        attr_value(tag, "fill"),
+        attr_value(tag, "stroke"),
+        attr_value(tag, "stroke-width").and_then(|v| parse_svg_number(&v)),
+        attr_value(tag, "transform"),
+    )
+}
+
+fn parse_path_tag(tag: &str) -> Option<SvgShape> {
+    let d = attr_value(tag, "d")?;
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    Some(SvgShape { geometry: SvgGeometry::Path(d), fill, stroke, stroke_width, transform })
+}
+
+fn parse_rect_tag(tag: &str) -> Option<SvgShape> {
+    let x = attr_value(tag, "x")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let y = attr_value(tag, "y")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let width = attr_value(tag, "width")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let height = attr_value(tag, "height")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let rx = attr_value(tag, "rx")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let ry = attr_value(tag, "ry")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    if width <= 0.0 && height <= 0.0 {
+        return None;
+    }
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    Some(SvgShape {
+        geometry: SvgGeometry::Rect { x, y, width, height, rx, ry },
+        fill,
+        stroke,
+        stroke_width,
+        transform,
+    })
+}
+
+fn parse_circle_tag(tag: &str) -> Option<SvgShape> {
+    let cx = attr_value(tag, "cx")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let cy = attr_value(tag, "cy")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let r = attr_value(tag, "r")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    if r <= 0.0 {
+        return None;
+    }
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    Some(SvgShape { geometry: SvgGeometry::Circle { cx, cy, r }, fill, stroke, stroke_width, transform })
+}
+
+fn parse_ellipse_tag(tag: &str) -> Option<SvgShape> {
+    let cx = attr_value(tag, "cx")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let cy = attr_value(tag, "cy")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let rx = attr_value(tag, "rx")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let ry = attr_value(tag, "ry")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    if rx <= 0.0 && ry <= 0.0 {
+        return None;
+    }
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    Some(SvgShape { geometry: SvgGeometry::Ellipse { cx, cy, rx, ry }, fill, stroke, stroke_width, transform })
+}
+
+#[allow(clippy::unnecessary_wraps)]
+fn parse_line_tag(tag: &str) -> Option<SvgShape> {
+    let x1 = attr_value(tag, "x1")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let y1 = attr_value(tag, "y1")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let x2 = attr_value(tag, "x2")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let y2 = attr_value(tag, "y2")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    Some(SvgShape {
+        geometry: SvgGeometry::Line { x1, y1, x2, y2 },
+        fill,
+        stroke,
+        stroke_width: stroke_width.or(Some(1.0)),
+        transform,
+    })
+}
+
+fn parse_points(raw: &str) -> Vec<(f64, f64)> {
+    let nums: Vec<f64> = raw
+        .split(|c: char| c == ',' || c.is_ascii_whitespace())
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<f64>().ok())
+        .collect();
+    nums.chunks(2)
+        .filter_map(|chunk| Some((chunk[0], *chunk.get(1)?)))
+        .collect()
+}
+
+fn parse_poly_tag(tag: &str, is_polygon: bool) -> Option<SvgShape> {
+    let pts_str = attr_value(tag, "points")?;
+    let pts = parse_points(&pts_str);
+    if pts.len() < 2 {
+        return None;
+    }
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    let geometry = if is_polygon {
+        SvgGeometry::Polygon(pts)
+    } else {
+        SvgGeometry::Polyline(pts)
+    };
+    Some(SvgShape { geometry, fill, stroke, stroke_width, transform })
+}
+
+fn parse_text_tag(tag: &str, full_fragment: &str) -> Option<SvgShape> {
+    let x = attr_value(tag, "x")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let y = attr_value(tag, "y")
+        .and_then(|v| parse_svg_number(&v))
+        .unwrap_or(0.0);
+    let font_size = attr_value(tag, "font-size").and_then(|v| parse_svg_number(&v));
+    // Extract text content between <text ...> and </text>.
+    let content = if let Some(close) = full_fragment.find("</text>") {
+        let after_tag = &full_fragment[full_fragment.find('>').map_or(0, |i| i + 1)..close];
+        // Strip any nested <tspan> tags but keep text.
+        strip_tags(after_tag)
+    } else {
+        String::new()
+    };
+    if content.trim().is_empty() {
+        return None;
+    }
+    let (fill, stroke, stroke_width, transform) = common_style(tag);
+    Some(SvgShape { geometry: SvgGeometry::Text { x, y, content, font_size }, fill, stroke, stroke_width, transform })
+}
+
+/// Strip HTML/SVG tags and return just text content.
+fn strip_tags(input: &str) -> String {
+    let mut out = String::new();
+    let mut in_tag = false;
+    for c in input.chars() {
+        if c == '<' {
+            in_tag = true;
+        } else if c == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            out.push(c);
+        }
+    }
+    out
+}
+
+fn parse_group_tag(tag: &str, self_closing: bool, full_fragment: &str) -> (Option<SvgShape>, usize) {
+    let (_, _, _, transform) = common_style(tag);
+    let (fill, stroke, stroke_width, _) = common_style(tag);
+
+    if self_closing {
+        let advance = full_fragment.find('>').map_or(1, |i| i + 1);
+        return (None, advance);
+    }
+
+    // Find matching </g> — handle nesting.
+    let tag_close = full_fragment.find('>').unwrap_or(0);
+    let inner_start = tag_close + 1;
+    let inner = &full_fragment[inner_start..];
+    let close_pos = find_matching_close(inner, "g");
+    let inner_content = &inner[..close_pos];
+    let advance = inner_start + close_pos + 4; // skip past "</g>"
+
+    let children = parse_svg_fragment(inner_content);
+    if children.is_empty() {
+        return (None, advance);
+    }
+
+    (
+        Some(SvgShape { geometry: SvgGeometry::Group(children), fill, stroke, stroke_width, transform }),
+        advance,
+    )
+}
+
+/// Find the position of the matching closing tag, handling nesting.
+fn find_matching_close(content: &str, tag_name: &str) -> usize {
+    let open_tag = format!("<{tag_name}");
+    let close_tag = format!("</{tag_name}>");
+    let mut depth = 1_usize;
+    let mut pos = 0;
+
+    while pos < content.len() {
+        let next_open = content[pos..].find(&open_tag);
+        let next_close = content[pos..].find(&close_tag);
+
+        match (next_open, next_close) {
+            (Some(oi), Some(ci)) if oi < ci => {
+                // Open tag comes first — check it's not self-closing.
+                let check = &content[pos + oi..];
+                if let Some(end) = check.find('>') {
+                    if !check[..=end].ends_with("/>") {
+                        depth += 1;
+                    }
+                }
+                pos += oi + open_tag.len();
+            }
+            (_, Some(ci)) => {
+                // Close tag comes first (or no open tag).
+                depth -= 1;
+                if depth == 0 {
+                    return pos + ci;
+                }
+                pos += ci + close_tag.len();
+            }
+            (Some(oi), None) => {
+                pos += oi + open_tag.len();
+            }
+            (None, None) => break,
+        }
+    }
+
+    content.len()
 }
 
 fn svg_view_box(svg: &str) -> Option<(f64, f64, f64, f64)> {
     if let Some(vb) = attr_value(svg, "viewBox") {
         let nums: Vec<f64> = vb
             .split(|c: char| c.is_ascii_whitespace() || c == ',')
-            .filter_map(|s| (!s.is_empty()).then_some(s))
+            .filter(|s| !s.is_empty())
             .filter_map(parse_svg_number)
             .collect();
         if nums.len() == 4 {
@@ -845,17 +1407,117 @@ fn apply_stroke_style(ctx: &CanvasRenderingContext2d, props: &Props<'_>) {
 
 #[cfg(test)]
 mod render_test {
-    use super::{attr_value, parse_svg_number, parse_svg_paths, svg_view_box};
+    use super::{SvgGeometry, attr_value, parse_svg_number, parse_svg_shapes, svg_view_box};
 
     #[test]
-    fn parse_svg_paths_extracts_path_attributes() {
+    fn parse_svg_shapes_extracts_path_attributes() {
         let svg = r##"<svg viewBox="0 0 100 100"><path d="M0 0 L10 10 Z" fill="#f00" stroke="#000" stroke-width="2"/></svg>"##;
-        let paths = parse_svg_paths(svg);
-        assert_eq!(paths.len(), 1);
-        assert_eq!(paths[0].d, "M0 0 L10 10 Z");
-        assert_eq!(paths[0].fill.as_deref(), Some("#f00"));
-        assert_eq!(paths[0].stroke.as_deref(), Some("#000"));
-        assert_eq!(paths[0].stroke_width, Some(2.0));
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        if let SvgGeometry::Path(ref d) = shapes[0].geometry {
+            assert_eq!(d, "M0 0 L10 10 Z");
+        } else {
+            panic!("expected Path geometry");
+        }
+        assert_eq!(shapes[0].fill.as_deref(), Some("#f00"));
+        assert_eq!(shapes[0].stroke.as_deref(), Some("#000"));
+        assert_eq!(shapes[0].stroke_width, Some(2.0));
+    }
+
+    #[test]
+    fn parse_svg_shapes_extracts_rect() {
+        let svg = r##"<svg viewBox="0 0 200 200"><rect x="10" y="20" width="100" height="50" fill="#0f0"/></svg>"##;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        assert!(
+            matches!(shapes[0].geometry, SvgGeometry::Rect { x, y, width, height, .. } if x == 10.0 && y == 20.0 && width == 100.0 && height == 50.0)
+        );
+    }
+
+    #[test]
+    fn parse_svg_shapes_extracts_circle() {
+        let svg = r#"<svg><circle cx="50" cy="50" r="25" fill="blue"/></svg>"#;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        assert!(
+            matches!(shapes[0].geometry, SvgGeometry::Circle { cx, cy, r } if cx == 50.0 && cy == 50.0 && r == 25.0)
+        );
+    }
+
+    #[test]
+    fn parse_svg_shapes_extracts_ellipse() {
+        let svg = r#"<svg><ellipse cx="50" cy="50" rx="30" ry="20"/></svg>"#;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        assert!(matches!(shapes[0].geometry, SvgGeometry::Ellipse { .. }));
+    }
+
+    #[test]
+    fn parse_svg_shapes_extracts_line() {
+        let svg = r#"<svg><line x1="0" y1="0" x2="100" y2="100" stroke="black"/></svg>"#;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        assert!(
+            matches!(shapes[0].geometry, SvgGeometry::Line { x1, y1, x2, y2 } if x1 == 0.0 && y1 == 0.0 && x2 == 100.0 && y2 == 100.0)
+        );
+    }
+
+    #[test]
+    fn parse_svg_shapes_extracts_polygon() {
+        let svg = r#"<svg><polygon points="50,0 100,100 0,100" fill="red"/></svg>"#;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        if let SvgGeometry::Polygon(ref pts) = shapes[0].geometry {
+            assert_eq!(pts.len(), 3);
+        } else {
+            panic!("expected Polygon");
+        }
+    }
+
+    #[test]
+    fn parse_svg_shapes_extracts_text() {
+        let svg = r#"<svg><text x="10" y="30" font-size="16">Hello</text></svg>"#;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        if let SvgGeometry::Text { x, y, ref content, font_size } = shapes[0].geometry {
+            assert_eq!(x, 10.0);
+            assert_eq!(y, 30.0);
+            assert_eq!(content, "Hello");
+            assert_eq!(font_size, Some(16.0));
+        } else {
+            panic!("expected Text");
+        }
+    }
+
+    #[test]
+    fn parse_svg_shapes_handles_group() {
+        let svg = r#"<svg><g transform="translate(10,20)"><rect x="0" y="0" width="50" height="50"/><circle cx="25" cy="25" r="10"/></g></svg>"#;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 1);
+        if let SvgGeometry::Group(ref children) = shapes[0].geometry {
+            assert_eq!(children.len(), 2);
+        } else {
+            panic!("expected Group");
+        }
+        assert_eq!(shapes[0].transform.as_deref(), Some("translate(10,20)"));
+    }
+
+    #[test]
+    fn parse_svg_shapes_landscape_like() {
+        let svg = r##"<svg viewBox="0 0 400 200">
+            <rect x="0" y="100" width="400" height="100" fill="#4a7c5c"/>
+            <rect x="0" y="0" width="400" height="100" fill="#87CEEB"/>
+            <circle cx="320" cy="40" r="30" fill="#FFD700"/>
+            <polygon points="150,100 175,40 200,100" fill="#2d5a2d"/>
+            <polygon points="220,100 250,30 280,100" fill="#1e4a1e"/>
+        </svg>"##;
+        let shapes = parse_svg_shapes(svg);
+        assert_eq!(shapes.len(), 5);
+        assert!(matches!(shapes[0].geometry, SvgGeometry::Rect { .. }));
+        assert!(matches!(shapes[1].geometry, SvgGeometry::Rect { .. }));
+        assert!(matches!(shapes[2].geometry, SvgGeometry::Circle { .. }));
+        assert!(matches!(shapes[3].geometry, SvgGeometry::Polygon(_)));
+        assert!(matches!(shapes[4].geometry, SvgGeometry::Polygon(_)));
     }
 
     #[test]
