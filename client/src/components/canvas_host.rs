@@ -2175,12 +2175,34 @@ fn place_shape_at_cursor(
     let y = world.y - (height * 0.5);
     let id = uuid::Uuid::new_v4().to_string();
     let props = materialize_shape_props(kind, x, y, width, height, props);
+    let local_object = BoardObject {
+        id: id.clone(),
+        board_id: board_id.clone(),
+        kind: kind.to_owned(),
+        x,
+        y,
+        width: Some(width),
+        height: Some(height),
+        rotation: 0.0,
+        z_index: i32::try_from(board.get_untracked().objects.len()).unwrap_or(i32::MAX),
+        props: props.clone(),
+        created_by: Some("local".to_owned()),
+        version: 1,
+        group_id: None,
+    };
+
+    board.update(|b| {
+        b.objects.insert(id.clone(), local_object);
+        b.selection.clear();
+        b.selection.insert(id.clone());
+        b.bump_scene_rev();
+    });
 
     let frame = Frame {
         id: uuid::Uuid::new_v4().to_string(),
         parent_id: None,
         ts: 0,
-        board_id: Some(board_id),
+        board_id: Some(board_id.clone()),
         from: None,
         syscall: "object:create".to_owned(),
         status: FrameStatus::Request,
@@ -2194,6 +2216,7 @@ fn place_shape_at_cursor(
             "height": height,
             "rotation": 0,
             "props": props,
+            "group_id": null,
         }),
     };
     let _ = sender.get_untracked().send(&frame);
