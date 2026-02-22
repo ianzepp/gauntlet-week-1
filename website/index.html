@@ -173,13 +173,22 @@
           <div class="tab-content active" data-tab-content="arch-overview">
             <div class="section-heading">SYSTEM_ARCHITECTURE</div>
             <p class="body-text">
-              Six Rust crates in a Cargo workspace. The client compiles to WASM and runs in the browser via Leptos SSR + hydration. The canvas engine has zero browser dependencies in its core &mdash; it compiles to native Rust for testing and to WASM for the browser.
+              CollabBoard is a real-time collaborative whiteboard built end-to-end in Rust. Seven crates in a Cargo workspace share types, validation logic, and wire protocol definitions with zero duplication across client and server boundaries. There is no JavaScript runtime anywhere in the stack.
             </p>
             <p class="body-text">
-              Communication uses binary protobuf frames over WebSocket. The server routes by syscall prefix &mdash; board:*, object:*, cursor:*, chat:*, ai:* &mdash; and handlers return an Outcome enum. A single dispatch layer decides who gets what.
+              The <strong>client</strong> is a Leptos 0.8 application that renders on the server via SSR, then hydrates in the browser as a WebAssembly binary. The <strong>canvas engine</strong> is a from-scratch 2D drawing system with its own hit-testing, input state machine, and rendering pipeline. Its core has zero browser dependencies &mdash; the full test suite (250+ tests) runs under <code>cargo test</code> without a browser. A thin WASM wrapper forwards DOM events in and calls <code>render()</code> out.
             </p>
             <p class="body-text">
-              Two-speed persistence: object dirty flush at 100ms intervals, frame log queue with batched writer at 5ms. AI integration runs a tool-call loop with 9 tools that read and mutate the board directly.
+              All client-server communication flows through a single WebSocket carrying binary protobuf frames. Each frame has a syscall prefix &mdash; <code>board:*</code>, <code>object:*</code>, <code>cursor:*</code>, <code>chat:*</code>, <code>ai:*</code> &mdash; and the server routes it to a handler function. Handlers never touch the socket directly: they return an <strong>Outcome</strong> enum (Broadcast, Reply, or ReplyStream) and a single dispatch layer decides who receives what.
+            </p>
+            <p class="body-text">
+              Persistence runs at two speeds. Object mutations collect in a dirty set and flush to PostgreSQL every 100ms. The frame log uses a separate batched writer at 5ms intervals for audit-grade event capture. Ephemeral frames (cursors, presence heartbeats) never hit the database.
+            </p>
+            <p class="body-text">
+              AI integration supports both Anthropic (Claude) and OpenAI-compatible backends. The server runs a multi-round tool-call loop with 9 tools that read board state, create and modify objects, and respond to natural language instructions. Tool calls route through the same syscall dispatch as user actions, so AI mutations broadcast to all connected clients in real time.
+            </p>
+            <p class="body-text">
+              Authentication supports GitHub OAuth and email access codes with single-use WebSocket tickets. Board sharing uses 6-character invite codes with member ACLs. The whole system deploys as a single Docker image on Railway, with migrations running automatically on startup.
             </p>
           </div>
           <div class="tab-content" data-tab-content="arch-crates">
