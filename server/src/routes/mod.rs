@@ -53,7 +53,9 @@ fn api_routes(state: AppState) -> Router {
         )
         .route(
             "/api/board/{id}/objects/{object_id}",
-            get(boards::get_object).patch(boards::patch_object).delete(boards::delete_object_rest),
+            get(boards::get_object)
+                .patch(boards::patch_object)
+                .delete(boards::delete_object_rest),
         )
         .route("/api/boards/{id}/import.jsonl", post(boards::import_jsonl))
         .route("/api/boards/{id}/export.jsonl", get(boards::export_jsonl))

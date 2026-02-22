@@ -3,28 +3,12 @@
 //! Ported from Prior's `kernel/src/llm/client.rs`. Thin HTTP wrapper for
 //! `/v1/messages`. Pure parsing in `parse_response` for testability.
 
+use super::config::LlmTimeouts;
 use super::types::{ChatResponse, ContentBlock, LlmError, Message, Tool};
 use std::time::Duration;
 
 const API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
-const DEFAULT_LLM_REQUEST_TIMEOUT_SECS: u64 = 120;
-const DEFAULT_LLM_CONNECT_TIMEOUT_SECS: u64 = 10;
-
-fn env_parse_u64(key: &str, default: u64) -> u64 {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(default)
-}
-
-fn llm_request_timeout_secs() -> u64 {
-    env_parse_u64("LLM_REQUEST_TIMEOUT_SECS", DEFAULT_LLM_REQUEST_TIMEOUT_SECS)
-}
-
-fn llm_connect_timeout_secs() -> u64 {
-    env_parse_u64("LLM_CONNECT_TIMEOUT_SECS", DEFAULT_LLM_CONNECT_TIMEOUT_SECS)
-}
 
 // =============================================================================
 // CLIENT
@@ -36,10 +20,10 @@ pub struct AnthropicClient {
 }
 
 impl AnthropicClient {
-    pub fn new(api_key: String) -> Result<Self, LlmError> {
+    pub fn new(api_key: String, timeouts: LlmTimeouts) -> Result<Self, LlmError> {
         let http = reqwest::Client::builder()
-            .timeout(Duration::from_secs(llm_request_timeout_secs()))
-            .connect_timeout(Duration::from_secs(llm_connect_timeout_secs()))
+            .timeout(Duration::from_secs(timeouts.request_secs))
+            .connect_timeout(Duration::from_secs(timeouts.connect_secs))
             .build()
             .map_err(|e| LlmError::HttpClientBuild(e.to_string()))?;
         Ok(Self { http, api_key })

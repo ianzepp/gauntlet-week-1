@@ -7,10 +7,12 @@
 //! Anthropic or `OpenAI` based on `LLM_PROVIDER`.
 
 pub mod anthropic;
+pub mod config;
 pub mod openai;
 pub mod tools;
 pub mod types;
 
+use config::{LlmConfig, LlmProviderKind};
 pub use types::LlmChat;
 use types::{ChatResponse, LlmError, Message, Tool};
 
@@ -44,28 +46,28 @@ impl LlmClient {
     ///
     /// Returns an error if the API key is missing or the HTTP client fails.
     pub fn from_env() -> Result<Self, LlmError> {
-        let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into());
+        let config = LlmConfig::from_env()?;
+        Self::from_config(config)
+    }
 
-        // Indirection: LLM_API_KEY_ENV names the env var that holds the actual key.
-        let key_var =
-            std::env::var("LLM_API_KEY_ENV").map_err(|_| LlmError::MissingApiKey { var: "LLM_API_KEY_ENV".into() })?;
-        let api_key = std::env::var(&key_var).map_err(|_| LlmError::MissingApiKey { var: key_var.clone() })?;
-
-        let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
-            "openai" => "gpt-4o".into(),
-            _ => "claude-sonnet-4-5-20250929".into(),
-        });
-
-        let inner = match provider.as_str() {
-            "anthropic" => LlmProvider::Anthropic(anthropic::AnthropicClient::new(api_key)?),
-            "openai" => {
-                let mode = std::env::var("LLM_OPENAI_MODE").ok();
-                let base_url = std::env::var("LLM_OPENAI_BASE_URL").ok();
-                LlmProvider::OpenAi(openai::OpenAiClient::new(api_key, mode.as_deref(), base_url.as_deref())?)
+    /// Build an LLM client from a parsed typed config.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the provider HTTP client fails to build.
+    pub fn from_config(config: LlmConfig) -> Result<Self, LlmError> {
+        let model = config.model.clone();
+        let inner = match config.provider {
+            LlmProviderKind::Anthropic => {
+                LlmProvider::Anthropic(anthropic::AnthropicClient::new(config.api_key, config.timeouts)?)
             }
-            other => return Err(LlmError::ConfigParse(format!("unknown LLM_PROVIDER: {other}"))),
+            LlmProviderKind::OpenAi => LlmProvider::OpenAi(openai::OpenAiClient::new(
+                config.api_key,
+                config.openai_mode,
+                config.openai_base_url,
+                config.timeouts,
+            )?),
         };
-
         Ok(Self { inner, model })
     }
 

@@ -147,12 +147,7 @@ pub async fn create_board_rest(
         .map_err(board_error_to_status)?;
     Ok((
         StatusCode::CREATED,
-        Json(BoardRestResponse {
-            id: row.id,
-            name: row.name,
-            owner_id: row.owner_id,
-            is_public: row.is_public,
-        }),
+        Json(BoardRestResponse { id: row.id, name: row.name, owner_id: row.owner_id, is_public: row.is_public }),
     ))
 }
 
@@ -414,11 +409,9 @@ pub async fn patch_object(
             .get(&board_id)
             .and_then(|board_state| board_state.objects.get(&object_id).cloned())
     }
-    .or(
-        load_object_from_db(&state.pool, board_id, object_id)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-    )
+    .or(load_object_from_db(&state.pool, board_id, object_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?)
     .ok_or(StatusCode::NOT_FOUND)?;
 
     if let Some(kind) = body.kind {
@@ -525,7 +518,13 @@ async fn next_z_index(state: &AppState, board_id: Uuid) -> Result<i32, sqlx::Err
     {
         let boards = state.boards.read().await;
         if let Some(board_state) = boards.get(&board_id) {
-            return Ok(board_state.objects.values().map(|obj| obj.z_index).max().unwrap_or(-1) + 1);
+            return Ok(board_state
+                .objects
+                .values()
+                .map(|obj| obj.z_index)
+                .max()
+                .unwrap_or(-1)
+                + 1);
         }
     }
 

@@ -949,9 +949,7 @@ async fn handle_object(
             )
             .await
             {
-                Ok(obj) => {
-                    Ok(Outcome::Broadcast(object_to_data(&obj)))
-                }
+                Ok(obj) => Ok(Outcome::Broadcast(object_to_data(&obj))),
                 Err(e) => Err(req.error_from(&e)),
             }
         }

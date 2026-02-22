@@ -7,32 +7,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::time::Duration;
 
+use super::config::{LlmTimeouts, OpenAiApiMode};
 use super::types::{ChatResponse, Content, ContentBlock, LlmError, Message, Tool};
-
-const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
-const DEFAULT_LLM_REQUEST_TIMEOUT_SECS: u64 = 120;
-const DEFAULT_LLM_CONNECT_TIMEOUT_SECS: u64 = 10;
-
-fn env_parse_u64(key: &str, default: u64) -> u64 {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(default)
-}
-
-fn llm_request_timeout_secs() -> u64 {
-    env_parse_u64("LLM_REQUEST_TIMEOUT_SECS", DEFAULT_LLM_REQUEST_TIMEOUT_SECS)
-}
-
-fn llm_connect_timeout_secs() -> u64 {
-    env_parse_u64("LLM_CONNECT_TIMEOUT_SECS", DEFAULT_LLM_CONNECT_TIMEOUT_SECS)
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum OpenAiApiMode {
-    ChatCompletions,
-    Responses,
-}
 
 pub struct OpenAiClient {
     http: reqwest::Client,
@@ -42,26 +18,18 @@ pub struct OpenAiClient {
 }
 
 impl OpenAiClient {
-    pub fn new(api_key: String, mode: Option<&str>, base_url: Option<&str>) -> Result<Self, LlmError> {
-        let mode = match mode.unwrap_or("responses") {
-            "responses" => OpenAiApiMode::Responses,
-            "chat_completions" => OpenAiApiMode::ChatCompletions,
-            other => {
-                return Err(LlmError::ConfigParse(format!(
-                    "unsupported openai_api mode '{other}' (expected 'responses' or 'chat_completions')"
-                )));
-            }
-        };
-        let base_url = base_url
-            .unwrap_or(DEFAULT_OPENAI_BASE_URL)
-            .trim_end_matches('/')
-            .to_string();
+    pub fn new(
+        api_key: String,
+        mode: OpenAiApiMode,
+        base_url: String,
+        timeouts: LlmTimeouts,
+    ) -> Result<Self, LlmError> {
         let http = reqwest::Client::builder()
-            .timeout(Duration::from_secs(llm_request_timeout_secs()))
-            .connect_timeout(Duration::from_secs(llm_connect_timeout_secs()))
+            .timeout(Duration::from_secs(timeouts.request_secs))
+            .connect_timeout(Duration::from_secs(timeouts.connect_secs))
             .build()
             .map_err(|e| LlmError::HttpClientBuild(e.to_string()))?;
-        Ok(Self { http, api_key, base_url, mode })
+        Ok(Self { http, api_key, base_url: base_url.trim_end_matches('/').to_string(), mode })
     }
 
     pub async fn chat(

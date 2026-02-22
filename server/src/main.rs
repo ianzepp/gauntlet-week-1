@@ -76,10 +76,16 @@ fn log_startup_env_config(port: u16) {
     log_env_line("LLM_OPENAI_MODE", env_or_default("LLM_OPENAI_MODE", "responses"));
     log_env_line(
         "LLM_OPENAI_BASE_URL",
-        env_or_default("LLM_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        env_or_default("LLM_OPENAI_BASE_URL", llm::config::DEFAULT_OPENAI_BASE_URL),
     );
-    log_env_line("LLM_REQUEST_TIMEOUT_SECS", env_parse_or("LLM_REQUEST_TIMEOUT_SECS", 120_u64));
-    log_env_line("LLM_CONNECT_TIMEOUT_SECS", env_parse_or("LLM_CONNECT_TIMEOUT_SECS", 10_u64));
+    log_env_line(
+        "LLM_REQUEST_TIMEOUT_SECS",
+        env_parse_or("LLM_REQUEST_TIMEOUT_SECS", llm::config::DEFAULT_LLM_REQUEST_TIMEOUT_SECS),
+    );
+    log_env_line(
+        "LLM_CONNECT_TIMEOUT_SECS",
+        env_parse_or("LLM_CONNECT_TIMEOUT_SECS", llm::config::DEFAULT_LLM_CONNECT_TIMEOUT_SECS),
+    );
 
     log_env_line(
         "WS_CLIENT_CHANNEL_CAPACITY",
