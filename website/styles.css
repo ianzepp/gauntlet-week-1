@@ -736,6 +736,61 @@ body {
   margin-top: var(--gap-xs);
 }
 
+/* Commit sub-entries within a cluster */
+.tl-commit-list {
+  margin-top: var(--gap-sm);
+  padding-left: 2px;
+  border-left: 1px solid var(--border-light);
+  margin-left: 4px;
+}
+
+.tl-commit {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-sm);
+  padding: 3px 0 3px var(--gap-sm);
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.tl-commit-dot {
+  position: absolute;
+  left: -5px;
+  top: 9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-medium);
+  flex-shrink: 0;
+}
+
+.tl-commit-hash {
+  font-weight: 500;
+  color: var(--accent-active);
+  text-decoration: none;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.tl-commit-hash:hover {
+  text-decoration: underline;
+}
+
+.tl-commit-time {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.tl-commit-msg {
+  color: var(--text-secondary);
+  font-weight: 300;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tl-log-empty {
   font-family: var(--font-mono);
   font-size: 13px;
