@@ -346,8 +346,7 @@ fn render_svg_shape(ctx: &CanvasRenderingContext2d, shape: &SvgShape, stroke_sca
             if pts.len() >= 2 {
                 let mut d = format!("M{},{}", pts[0].0, pts[0].1);
                 for &(px, py) in &pts[1..] {
-                    use std::fmt::Write;
-                    let _ = write!(d, "L{px},{py}");
+                    d.push_str(&format!("L{px},{py}"));
                 }
                 if matches!(shape.geometry, SvgGeometry::Polygon(_)) {
                     d.push('Z');
@@ -370,7 +369,7 @@ fn render_svg_shape(ctx: &CanvasRenderingContext2d, shape: &SvgShape, stroke_sca
                 let size = font_size.unwrap_or(16.0);
                 ctx.set_font(&format!("{size:.0}px sans-serif"));
                 ctx.set_text_baseline("auto");
-                let _ = ctx.fill_text(content, *x, *y);
+                ctx.fill_text(content, *x, *y)?;
             }
         }
         SvgGeometry::Group(children) => {
@@ -466,7 +465,7 @@ fn apply_svg_transform(ctx: &CanvasRenderingContext2d, transform: &str) -> Resul
         let args: Vec<f64> = args_str
             .split(|c: char| c == ',' || c.is_ascii_whitespace())
             .filter(|s| !s.is_empty())
-            .filter_map(|s| s.parse::<f64>().ok())
+            .filter_map(|s| s.parse::<f64>().map_or(None, Some))
             .collect();
         scan = &scan[paren_start + paren_end + 1..];
 
@@ -762,7 +761,7 @@ fn parse_points(raw: &str) -> Vec<(f64, f64)> {
     let nums: Vec<f64> = raw
         .split(|c: char| c == ',' || c.is_ascii_whitespace())
         .filter(|s| !s.is_empty())
-        .filter_map(|s| s.parse::<f64>().ok())
+        .filter_map(|s| s.parse::<f64>().map_or(None, Some))
         .collect();
     nums.chunks(2)
         .filter_map(|chunk| Some((chunk[0], *chunk.get(1)?)))
@@ -928,7 +927,10 @@ fn parse_svg_number(raw: &str) -> Option<f64> {
         .strip_suffix("px")
         .or_else(|| trimmed.strip_suffix('%'))
         .unwrap_or(trimmed);
-    value.parse::<f64>().ok()
+    match value.parse::<f64>() {
+        Ok(number) => Some(number),
+        Err(_) => None,
+    }
 }
 
 fn draw_diamond(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
@@ -1417,7 +1419,7 @@ mod render_test {
         if let SvgGeometry::Path(ref d) = shapes[0].geometry {
             assert_eq!(d, "M0 0 L10 10 Z");
         } else {
-            panic!("expected Path geometry");
+            assert!(false, "expected Path geometry");
         }
         assert_eq!(shapes[0].fill.as_deref(), Some("#f00"));
         assert_eq!(shapes[0].stroke.as_deref(), Some("#000"));
@@ -1470,7 +1472,7 @@ mod render_test {
         if let SvgGeometry::Polygon(ref pts) = shapes[0].geometry {
             assert_eq!(pts.len(), 3);
         } else {
-            panic!("expected Polygon");
+            assert!(false, "expected Polygon");
         }
     }
 
@@ -1485,7 +1487,7 @@ mod render_test {
             assert_eq!(content, "Hello");
             assert_eq!(font_size, Some(16.0));
         } else {
-            panic!("expected Text");
+            assert!(false, "expected Text");
         }
     }
 
@@ -1497,7 +1499,7 @@ mod render_test {
         if let SvgGeometry::Group(ref children) = shapes[0].geometry {
             assert_eq!(children.len(), 2);
         } else {
-            panic!("expected Group");
+            assert!(false, "expected Group");
         }
         assert_eq!(shapes[0].transform.as_deref(), Some("translate(10,20)"));
     }

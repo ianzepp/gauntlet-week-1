@@ -325,6 +325,7 @@ pub fn request_frame(syscall: &str, board_id: Option<&str>, data: serde_json::Va
         from: None,
         syscall: syscall.to_owned(),
         status: Status::Request,
+        trace: None,
         data,
     }
 }

@@ -1214,7 +1214,7 @@
       var html = '';
       for (var i = 0; i < dayData.files.length; i++) {
         var f = dayData.files[i];
-        var src = 'media/' + f.name;
+        var src = '/media/' + f.name;
         html += '<div class="vis-item" data-src="' + src + '" data-type="' + f.type + '">';
         if (f.type === 'screenshot') {
           html += '<img src="' + src + '" alt="Screenshot from ' + dayData.date + ' at ' + f.time + '" loading="lazy">';

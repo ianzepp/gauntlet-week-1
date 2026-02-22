@@ -620,14 +620,9 @@ impl EngineCore {
                         return;
                     }
 
-                    let hit_already_selected = self.ui.selected_ids.contains(&h.object_id);
-                    if !hit_already_selected {
+                    if !self.ui.selected_ids.contains(&h.object_id) {
                         self.ui.selected_ids.clear();
                         self.ui.selected_ids.insert(h.object_id);
-                        // First click selects only. Require a subsequent drag gesture
-                        // on an already-selected object to start object movement.
-                        actions.push(Action::RenderNeeded);
-                        return;
                     }
                     let mut drag_ids = self.ui.selected_ids.iter().copied().collect::<Vec<_>>();
                     drag_ids.sort_unstable();
