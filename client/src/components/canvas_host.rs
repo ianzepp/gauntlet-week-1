@@ -165,8 +165,6 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let object_text_style_drag_state = RwSignal::new(None::<SelectionTextStyleDragState>);
     #[cfg(feature = "hydrate")]
-    let last_centered_board = RwSignal::new(None::<String>);
-    #[cfg(feature = "hydrate")]
     let last_drag_sent_ms = RwSignal::new(0.0_f64);
     #[cfg(feature = "hydrate")]
     let last_presence_sent_ms = RwSignal::new(0.0_f64);
@@ -204,7 +202,15 @@ pub fn CanvasHost() -> impl IntoView {
 
             let mut instance = Engine::new(canvas);
             sync_viewport(&mut instance, &canvas_ref_mount);
-            center_world_origin(&mut instance);
+            let prior_view = canvas_view.get_untracked();
+            if prior_view.viewport_width > 0.0 && prior_view.viewport_height > 0.0 {
+                instance.core.camera.pan_x = prior_view.pan_x;
+                instance.core.camera.pan_y = prior_view.pan_y;
+                instance.core.camera.zoom = prior_view.zoom.clamp(0.1, 10.0);
+                instance.set_view_rotation_deg(prior_view.view_rotation_deg);
+            } else {
+                center_world_origin(&mut instance);
+            }
             sync_canvas_view_state(&instance, canvas_view, None);
             send_cursor_presence_if_needed(
                 &instance,
@@ -291,21 +297,19 @@ pub fn CanvasHost() -> impl IntoView {
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 engine.load_snapshot(snapshot);
                 sync_viewport(engine, &canvas_ref_sync);
-                if last_centered_board.get_untracked() != board_id {
-                    center_world_origin(engine);
-                    last_centered_board.set(board_id.clone());
-                    send_cursor_presence_if_needed(
-                        engine,
-                        board,
-                        _auth,
-                        sender,
-                        last_presence_sent_ms,
-                        last_presence_sent,
-                        None,
-                        true,
-                    );
-                }
                 sync_canvas_view_state(engine, canvas_view, None);
+            }
+            if let Some(engine) = engine.borrow().as_ref() {
+                send_cursor_presence_if_needed(
+                    engine,
+                    board,
+                    _auth,
+                    sender,
+                    last_presence_sent_ms,
+                    last_presence_sent,
+                    None,
+                    true,
+                );
             }
             request_render(&engine, canvas_view, render_raf_pending);
             last_scene_sync_key.set(scene_key);
