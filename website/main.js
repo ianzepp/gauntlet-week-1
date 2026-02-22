@@ -135,65 +135,189 @@
 
   animateCounters();
 
-  /* --- Timeline Carousel --- */
-  var carousel = document.getElementById('timeline-carousel');
+  /* --- Timeline Day Data --- */
+  var timelineDays = [
+    {
+      day: 1, date: '2026-02-15', title: 'PLANNING & PRE-SEARCH', commits: 0,
+      fieldNote: 'Scope definition, architecture research, and pre-search documentation. No code committed \u2014 all planning, all day.',
+      clusters: []
+    },
+    {
+      day: 2, date: '2026-02-16', title: 'FULL-STACK SCAFFOLD', commits: 40,
+      fieldNote: 'Stood up the entire stack in a single day: Rust/Axum backend, React/Konva frontend, GitHub OAuth, WebSocket sync, AI tool loop, and frame persistence. Iterated the DB flush strategy three times before settling on direct writes.',
+      clusters: [
+        { name: 'BUG_FIXES_AND_INFRA', commits: 7, summary: 'Fixed a stream of integration issues: Frame deserialization with null handling and valid UUIDs, AI "stuck on thinking" from unfiltered blocks, and canvas object selection/transform bugs. Added dotenvy for .env loading, structured logging, static file serving with SPA fallback, and a docker-compose file.' },
+        { name: 'PRE_SEARCH_AND_DESIGN_DOCS', commits: 6, summary: 'Drafted and iterated on the CollabBoard pre-search document covering budget, auth, architecture, and testing strategy. Added the project brief PDF, design system spec, and organized all docs into a docs/ directory.' },
+        { name: 'PERSISTENCE_LAYER', commits: 6, summary: 'Added buffered frame persistence to the frames table, then tightened the flush interval from 1s to 100ms and switched to sleep-after-flush. Later removed the buffer entirely in favor of direct DB persistence on each inbound frame.' },
+        { name: 'BACKEND_AND_FRONTEND_SCAFFOLD', commits: 5, summary: 'Stood up the Rust/Axum backend scaffold and the React/Vite/Konva frontend scaffold. Moved backend into server/, added the AI agent loop and WebSocket dispatch entry points.' },
+        { name: 'UI_LAYOUT_AND_FRONTEND', commits: 5, summary: 'Redesigned the UI with a left tool rail, tabbed right panel, and board stamp. Added the AI chat panel as a collapsible sidebar, placeholder drawing tools, and Transformer-based selection/resize.' },
+        { name: 'AI_SERVICE_AND_TOOLING', commits: 4, summary: 'Built the LLM multi-provider adapter with rate limiting and prompt injection defense. Replaced the consolidated tool set with 9 spec-matching tools.' },
+        { name: 'AUTH_AND_REALTIME_SYNC', commits: 4, summary: 'Implemented GitHub OAuth authentication with env var configuration. Wired up WebSocket real-time sync with cursor presence broadcasting across connected clients.' },
+        { name: 'USER_STATS_AND_PROFILES', commits: 3, summary: 'Added user field report popovers on status bar chips showing per-user activity. Fixed profile stats to stamp user_id on frames and query both in-memory boards and legacy frame data.' }
+      ]
+    },
+    {
+      day: 3, date: '2026-02-17', title: 'CANVAS REBUILD & PANEL LAYOUT', commits: 76,
+      fieldNote: 'Gutted the canvas and rebuilt from scratch with full-viewport rendering, hit-testing, and inline text editing. Redesigned the right panel into a tabbed layout with chat, AI, and inspector. Added board dashboard and deployment pipeline.',
+      clusters: [
+        { name: 'RIGHT_PANEL_REDESIGN', commits: 12, summary: 'Replaced the right panel toggle with an always-visible collapsed icon rail, then iterated heavily \u2014 extracting tabs for Boards, Chat, AI, and Inspector. Added real-time chat, board switcher, and open/close chevron.' },
+        { name: 'CANVAS_GUTTING_AND_REBUILD', commits: 10, summary: 'Gutted the existing canvas and replaced it with a full-viewport layer: grid overlay, pan/zoom, coordinate display. Rebuilt rectangle creation, selectable dragging, hit-testing, inline text editing, and sticky notes from scratch.' },
+        { name: 'INSPECTOR_AND_VISUAL_POLISH', commits: 9, summary: 'Added inspector controls for font size and border width, moved presence chips to the top bar, merged the tool rail into a unified left panel. Added confirmed delete with keyboard shortcut and tuned selection ring animation.' },
+        { name: 'AI_AND_CHAT_FEATURES', commits: 8, summary: 'Added chat:history and ai:history syscalls, feeding recent conversation into LLM context scoped to the authenticated user. Rendered markdown in AI responses and fixed tool mutations to use current object versions.' },
+        { name: 'DEPLOYMENT_AND_DEVOPS', commits: 8, summary: 'Added run-dev.sh and switched to Docker Compose. Prepared Fly.io deployment, then removed it. Renamed project to gauntlet-week-1 and isolated tests from the live database.' },
+        { name: 'SERVER_TEST_INFRASTRUCTURE', commits: 7, summary: 'Moved server tests into dedicated *_test.rs files per project convention. Added integration suites for WebSocket AI flows, multi-user sync, board service syscalls, and chat/history.' },
+        { name: 'GRID_AND_VIEWPORT_LAYOUT', commits: 7, summary: 'Added Battleship-style grid coordinates to the viewport with labels on all four sides and a formal z-index layering system. After struggling with grid gutter attachment, reverted and removed the grid overlay UI entirely.' },
+        { name: 'MISC_CONFIG_AND_DOCS', commits: 7, summary: 'Added runtime tuning knobs, documented environment configuration, and logged sanitized startup config. Updated README, ran cargo fmt and clippy, fixed minor frontend selection bugs.' },
+        { name: 'DASHBOARD_AND_BOARD_MANAGEMENT', commits: 5, summary: 'Added a board dashboard page with album grid layout displaying board names. Extracted a BoardCard component, fixed board list reload issues, and maintained full presence state from join/part broadcasts.' },
+        { name: 'WEBSOCKET_ERROR_HANDLING', commits: 3, summary: 'Added error logging for failed WebSocket frames on both server and client sides. Centralized the outbound WebSocket frame path to reduce duplication.' }
+      ]
+    },
+    {
+      day: 4, date: '2026-02-18', title: 'LEPTOS CLIENT FULL INTEGRATION', commits: 84,
+      fieldNote: 'Biggest day of the sprint. Replaced React/Konva with Leptos 0.8 SSR across eight sequential phases. Built the canvas engine with hit-testing (99 tests), input state machine (55 tests), and full Canvas2D rendering. Added multiplayer presence, placement tools, and frame grouping.',
+      clusters: [
+        { name: 'LEPTOS_CLIENT_PHASES', commits: 12, summary: 'Built the Leptos 0.8 + Axum SSR client across eight sequential phases: scaffold, SSR integration, pages/auth/REST, WebSocket frame client, toolbar/statusbar, left panel, right panel, and dark mode polish.' },
+        { name: 'CANVAS_ENGINE_CORE', commits: 11, summary: 'Implemented hit-testing with 99 geometry tests, the input state machine with 55 edge-case tests, and the render/draw pipeline with full Canvas2D output. Fixed resize accumulation and text action bugs.' },
+        { name: 'CLIENT_UI_RESTRUCTURE', commits: 10, summary: 'Rewrote the client stylesheet to a React-token-based UI system. Wired WebSocket board join/list/create flows, normalized frame parsing, polished toolbar and dashboard interactions.' },
+        { name: 'CANVAS_BROWSER_INTEGRATION', commits: 8, summary: 'Mounted the canvas engine in the browser and wired pointer, wheel, and keyboard events. Propagated canvas actions to WebSocket mutation frames, centered the world origin, and fixed rotated resize handle drift.' },
+        { name: 'SERVER_TESTS_AND_TOOLCHAIN', commits: 8, summary: 'Added 102 new server tests. Centralized Rust toolchain configuration, aligned rust-version across all crates and the Dockerfile, and resolved Docker build issues.' },
+        { name: 'MULTIPLAYER_PRESENCE', commits: 7, summary: 'Implemented remote cursor rendering with server cursor frame support. Built adaptive drag interpolation, stale cursor expiry, and conflict guards for live move/resize/rotate broadcasting.' },
+        { name: 'PLACEMENT_TOOLS_AND_SHAPES', commits: 7, summary: 'Replaced the tool flyout with click-to-place ghost preview workflow. Enabled circle, line, and arrow placement tools with shape attachment points and endpoint markers.' },
+        { name: 'DESIGN_DOCS_AND_SCAFFOLDING', commits: 6, summary: 'Refreshed the README, drafted the konva-to-rust design doc with a public API boundary section. Added the canvas crate scaffold with 131 passing tests.' },
+        { name: 'FRAMES_AND_POLISH', commits: 5, summary: 'Added frames grouping with persistent rail tooltips and savepoint/rewind timeline. Implemented grouped transform rotation for frame contents and shipped a YouTube TV embed as an easter egg.' }
+      ]
+    },
+    {
+      day: 5, date: '2026-02-19', title: 'OBSERVABILITY, AI & ROTATION', commits: 104,
+      fieldNote: 'Highest commit count of the sprint. Built the traces crate for observability, migrated to protobuf wire format, implemented viewport rotation with compass widget, rebuilt AI integration with YAML grammar, and shipped auth, board sharing, and perf benchmarks.',
+      clusters: [
+        { name: 'OBSERVABILITY_AND_TRACING', commits: 14, summary: 'Added a traces crate with derivation helpers and client-side trace view UI. Linked AI tool calls and object frames into a prompt trace tree, emitted per-round LLM spans with metrics, and iterated heavily on the trace UI.' },
+        { name: 'AI_TOOLS_AND_YAML_GRAMMAR', commits: 12, summary: 'Built AI assistant integration with markdown rendering, session-scoped context, and a strict quoted-YAML grammar for LLM I/O. Added an applyChangesYaml parser/executor and routed tool calls through a shared syscall dispatcher.' },
+        { name: 'CANVAS_AND_UI_POLISH', commits: 11, summary: 'Added first-class text shapes across canvas, client, and AI tooling. Refined zoom wheel interaction, replaced status bar zoom menu with a dial control, and applied theme consistency across light and dark modes.' },
+        { name: 'CANVAS_ROTATION_AND_COMPASS', commits: 9, summary: 'Implemented viewport-centered camera rotation math and rotated canvas rendering with a compass view control. Synced rotation through presence and follow mode, added compass snapping with a QA matrix.' },
+        { name: 'BOARD_MANAGEMENT_AND_SHARING', commits: 9, summary: 'Added board snapshot mini-previews, hover-delete with confirm dialogs, and broadcast of board deletes. Implemented board member ACLs, management routes, and a 6-character access code sharing flow.' },
+        { name: 'PRESENCE_AND_STATION_LOG', commits: 8, summary: 'Unified cursor and camera presence by client connection. Built the station log roster with sort order, self-row styling, and follow/jump controls. Removed old header presence list in favor of station log.' },
+        { name: 'CRATE_MIGRATION_AND_PROTOBUF', commits: 7, summary: 'Restructured workspace from two crates to three (client/server/canvas), removed the legacy React build pipeline. Migrated WebSocket transport to a shared protobuf frames crate with wire protocol docs.' },
+        { name: 'FRAME_PARSING_AND_PERSISTENCE', commits: 5, summary: 'Refactored client-side frame parsing with expanded test coverage. Fixed protobuf numeric decoding for board join with regression tests. Refactored board WebSocket ops into dedicated handlers.' },
+        { name: 'AUTH_AND_LOGIN_FLOW', commits: 5, summary: 'Added email-code authentication using Resend delivery with a template. Fixed OAuth navigation, resolved the dashboard auth flash, and simplified login title styling.' },
+        { name: 'PERF_BENCHMARKS', commits: 3, summary: 'Added a perf crate with end-to-end, algorithmic complexity, and mass-user benchmarks. Configured auth bypass for local perf runs and improved output with count-matrix rows.' }
+      ]
+    },
+    {
+      day: 6, date: '2026-02-20', title: 'DIALS, REFACTORS & POLISH', commits: 68,
+      fieldNote: 'Focused on code quality and UX refinement. Extracted reusable dial controls, decomposed the monolithic canvas host and frame client into smaller modules, split CSS into themed layers, and added multi-select, minimap, board import/export, and broad client test coverage.',
+      clusters: [
+        { name: 'DIAL_CONTROL_SYSTEM', commits: 10, summary: 'Extracted reusable dial primitives, migrated compass and zoom controls to the new system. Added object-level rotation, color, and text style dials with snap-click routing and reset controls.' },
+        { name: 'MULTI_SELECT_AND_UX_POLISH', commits: 9, summary: 'Implemented multi-select canvas interactions with persisted grouping and a consistent bullseye placement ghost. Added public board toggle, follow controls, status-bar help modal, and default object colors.' },
+        { name: 'CANVAS_HOST_REFACTOR', commits: 7, summary: 'Broke the canvas host into smaller modules for dial math, object prop helpers, frame emission, selection metrics, and shape placement presets. Removed unused transform code.' },
+        { name: 'FRAME_CLIENT_REFACTOR', commits: 6, summary: 'Decomposed the frame client into dedicated submodules for parsing helpers, AI handlers, error handling, and chat/object/request concerns. Fixed hydrate recursion from the reorganization.' },
+        { name: 'CLIENT_TESTING_AND_CLEANUP', commits: 6, summary: 'Added broad client test coverage for util, pages, state, and net helpers. Deduplicated redirect logic, shared hex color normalization, and extracted a shared request frame builder.' },
+        { name: 'CSS_AND_THEME_CLEANUP', commits: 5, summary: 'Split monolithic CSS into theme, base, layout, and component modules. Extracted shared side-panel primitives, inlined CSS imports to eliminate runtime 404s.' },
+        { name: 'MINIMAP_AND_VIEWPORT', commits: 5, summary: 'Replaced the station log with a bare top-right minimap overlay with draggable viewport controls. Made minimap read-only after drag UX proved too fragile.' },
+        { name: 'OBJECT_TEXT_AND_PROMPTS', commits: 5, summary: 'Added object text edit modal triggered by canvas double-click. Refactored board prompt parsing, extracted prompt bar into a dedicated component with preview flow.' },
+        { name: 'IMPORT_EXPORT_AND_INFRA', commits: 5, summary: 'Added board JSONL export and import endpoints with toolbar actions, web-sys file input for imports. Included traces crate in Docker build and added requirements checklist to README.' }
+      ]
+    },
+    {
+      day: 7, date: '2026-02-21', title: 'PERFORMANCE, CLI & AI TOOLS', commits: 52,
+      fieldNote: 'Final sprint day. Tackled large-board rendering performance with spatial indexing and viewport culling. Stood up a CLI crate, cleaned up AI tool schemas, added SVG rendering, and ran a full correctness audit with doc coverage push.',
+      clusters: [
+        { name: 'CANVAS_PERFORMANCE', commits: 8, summary: 'Tackled large-board rendering end to end: disabled auto savepoints during bulk loads, added join/render timing metrics, gated scene sync on revision numbers, and coalesced redraws. Introduced spatial bucket indexing with viewport culling.' },
+        { name: 'AI_TOOL_SCHEMA_CLEANUP', commits: 8, summary: 'Refactored server LLM config, centralized provider wiring, and aligned AI tool schemas with canonical UI object properties. Removed legacy batch operations, shape aliases, and youtube_embed.' },
+        { name: 'HOUSEKEEPING_AND_STATS', commits: 7, summary: 'Ran a correctness audit fixing clippy warnings and panic-capable code across the workspace. Added missing doc comments to all public items. Built project stats and code coverage scripts for the README.' },
+        { name: 'TOOLBAR_AND_PROFILE_UI', commits: 7, summary: 'Added responsive toolbar toggles and a user profile modal with clipboard support. Iterated on the toolbar user area design across several refinement passes.' },
+        { name: 'SVG_AI_TOOLS_AND_VIEWPORT', commits: 5, summary: 'Defined Phase 1 SVG AI tool schemas and implemented their execution path, plumbing svg objects through to the canvas renderer from inline path markup. Added streaming of ai:prompt updates and live viewport geometry in the AI system prompt.' },
+        { name: 'CLI_AND_STRESS_TOOLING', commits: 4, summary: 'Stood up a CLI crate with clap subcommands covering REST board CRUD and WebSocket JSONL object streaming. Added a stress JSONL generator with a spiral pattern mode.' },
+        { name: 'CANVAS_INPUT_FIXES', commits: 4, summary: 'Fixed a tool-switch pan jump bug, moved default viewport origin to top-left. Added a hand (pan) tool and preserved camera state across canvas host re-initialization.' },
+        { name: 'TESTING_HARDENING', commits: 3, summary: 'Extracted pure server logic into testable functions. Added exhaustive edge-case tests across canvas, frames, and traces crates, then fixed compile errors surfaced by the surgeon pass.' }
+      ]
+    }
+  ];
 
-  if (carousel) {
-    var slides = carousel.querySelectorAll('.carousel-slide');
-    var prevBtn = carousel.querySelector('.carousel-prev');
-    var nextBtn = carousel.querySelector('.carousel-next');
-    var pagination = document.getElementById('timeline-pagination');
-    var overlayTitle = document.getElementById('timeline-overlay-title');
-    var overlayDate = document.getElementById('timeline-overlay-date');
-    var currentSlide = 0;
+  /* --- Timeline Rendering --- */
+  var tlPanel = document.getElementById('timeline-log-panel');
 
-    var dayData = [
-      { title: 'DAY 1 \u2014 PROJECT BOOTSTRAP', date: '2026-02-14' },
-      { title: 'DAY 2 \u2014 MVP DRAWING', date: '2026-02-15' },
-      { title: 'DAY 3 \u2014 CANVAS ENGINE', date: '2026-02-16' },
-      { title: 'DAY 4 \u2014 AI INTEGRATION', date: '2026-02-17' },
-      { title: 'DAY 5 \u2014 EARLY RELEASE', date: '2026-02-18' },
-      { title: 'DAY 6 \u2014 OBSERVABILITY', date: '2026-02-19' },
-      { title: 'DAY 7 \u2014 FINAL POLISH', date: '2026-02-20' }
-    ];
+  if (tlPanel) {
+    var tlTitle = document.getElementById('tl-title');
+    var tlDate = document.getElementById('tl-date');
+    var tlCommits = document.getElementById('tl-commits');
+    var tlBody = document.getElementById('tl-body');
+    var tlPagination = document.getElementById('tl-pagination');
+    var tlFieldNotes = document.getElementById('tl-field-notes');
+    var tlPrev = document.getElementById('tl-prev');
+    var tlNext = document.getElementById('tl-next');
+    var tlCurrent = 0;
 
-    function showSlide(index) {
-      slides.forEach(function (s, i) {
-        s.classList.toggle('active', i === index);
-      });
-      currentSlide = index;
-      if (pagination) {
-        pagination.textContent = 'DAY ' + (index + 1) + ' OF 7';
+    function renderTimelineDay(index) {
+      var day = timelineDays[index];
+      tlCurrent = index;
+
+      /* Update header */
+      tlTitle.textContent = 'DAY ' + day.day + ' \u2014 ' + day.title;
+      tlDate.textContent = day.date;
+      tlCommits.textContent = day.commits + ' COMMITS';
+      tlPagination.textContent = 'DAY ' + day.day + ' OF 7';
+
+      /* Render commit log (left panel) — most recent cluster first */
+      var clusters = day.clusters.slice().reverse();
+      if (clusters.length === 0) {
+        tlBody.innerHTML = '<div class="tl-log-empty">No commits on this day.<br>Planning, research, and pre-search documentation only.</div>';
+      } else {
+        var html = '';
+        for (var i = 0; i < clusters.length; i++) {
+          var c = clusters[i];
+          html += '<div class="tl-log-entry">'
+            + '<div class="tl-log-marker"></div>'
+            + '<div class="tl-log-content">'
+            + '<div class="tl-log-name">' + c.name.replace(/_/g, '_') + '</div>'
+            + '<div class="tl-log-commits">' + c.commits + ' COMMITS</div>'
+            + '<div class="tl-log-summary">' + c.summary + '</div>'
+            + '</div></div>';
+        }
+        tlBody.innerHTML = html;
       }
-      if (overlayTitle && dayData[index]) {
-        overlayTitle.textContent = dayData[index].title;
+      tlBody.scrollTop = 0;
+
+      /* Render field notes (right panel) */
+      var notesHtml = '<div class="section-heading">FIELD_NOTES &mdash; DAY ' + day.day + '</div>'
+        + '<p class="body-text">' + day.fieldNote + '</p>';
+      if (clusters.length > 0) {
+        notesHtml += '<div class="section-heading" style="margin-top:24px">ACTIVITY_SUMMARY</div>';
+        /* Show clusters in original (chronological) order for the field notes */
+        for (var j = 0; j < day.clusters.length; j++) {
+          var cl = day.clusters[j];
+          notesHtml += '<div class="timeline-entry">'
+            + '<div class="inventory-header">'
+            + '<span class="inventory-name">' + cl.name.replace(/_/g, '_') + '</span>'
+            + '<span class="inventory-meta">' + cl.commits + ' COMMITS</span>'
+            + '</div>'
+            + '<p class="inventory-desc">' + cl.summary + '</p>'
+            + '</div>';
+        }
       }
-      if (overlayDate && dayData[index]) {
-        overlayDate.textContent = dayData[index].date;
-      }
+      tlFieldNotes.innerHTML = notesHtml;
     }
 
-    if (prevBtn) {
-      prevBtn.addEventListener('click', function () {
-        showSlide((currentSlide - 1 + slides.length) % slides.length);
-      });
-    }
+    /* Initialize */
+    renderTimelineDay(0);
 
-    if (nextBtn) {
-      nextBtn.addEventListener('click', function () {
-        showSlide((currentSlide + 1) % slides.length);
-      });
-    }
+    tlPrev.addEventListener('click', function () {
+      renderTimelineDay((tlCurrent - 1 + timelineDays.length) % timelineDays.length);
+    });
 
-    /* Keyboard navigation for carousel */
+    tlNext.addEventListener('click', function () {
+      renderTimelineDay((tlCurrent + 1) % timelineDays.length);
+    });
+
+    /* Keyboard navigation */
     document.addEventListener('keydown', function (e) {
       var timelinePage = document.querySelector('.page[data-page="timeline"]');
       if (!timelinePage || !timelinePage.classList.contains('active')) return;
 
       if (e.key === 'ArrowLeft') {
-        prevBtn && prevBtn.click();
+        tlPrev.click();
       } else if (e.key === 'ArrowRight') {
-        nextBtn && nextBtn.click();
+        tlNext.click();
       }
     });
   }

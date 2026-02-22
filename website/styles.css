@@ -620,11 +620,131 @@ body {
   padding-top: var(--gap-xs);
 }
 
-/* --- Timeline Entries --- */
+/* --- Timeline Entries (right panel) --- */
 .timeline-entries {
   display: flex;
   flex-direction: column;
   gap: var(--gap-lg);
+}
+
+/* --- Timeline Log Panel (left panel) --- */
+.timeline-log-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+}
+
+.timeline-log-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  padding: var(--gap-md) var(--gap-lg);
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.timeline-log-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-log-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+.timeline-log-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+}
+
+.timeline-log-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--gap-md) var(--gap-lg);
+}
+
+/* Individual log entry */
+.tl-log-entry {
+  display: flex;
+  gap: var(--gap-md);
+  padding: var(--gap-md) 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.tl-log-entry:last-child {
+  border-bottom: none;
+}
+
+.tl-log-marker {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-medium);
+  margin-top: 6px;
+  position: relative;
+}
+
+.tl-log-marker::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 3px;
+  width: 1px;
+  height: calc(100% + var(--gap-md) + 8px);
+  background: var(--border-light);
+}
+
+.tl-log-entry:last-child .tl-log-marker::after {
+  display: none;
+}
+
+.tl-log-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tl-log-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.tl-log-commits {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.tl-log-summary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-top: var(--gap-xs);
+}
+
+.tl-log-empty {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--gap-2xl) var(--gap-lg);
+  line-height: 1.6;
 }
 
 /* --- Decisions --- */

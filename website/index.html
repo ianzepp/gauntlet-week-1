@@ -43,7 +43,7 @@
     <div class="stat-card">
       <div class="stat-label">BUILD_DURATION</div>
       <div class="stat-number" data-target="7">0</div>
-      <div class="stat-caption">DAYS &middot; 382 COMMITS</div>
+      <div class="stat-caption">DAYS &middot; 424 COMMITS</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">TEST_RESULTS</div>
@@ -69,7 +69,7 @@
           <div class="map-overlay">
             <div class="label">LOCAL_SURVEY_VIEWPORT</div>
             <div class="map-overlay-title">GAUNTLET WEEK 1 &mdash; SPRINT REPORT</div>
-            <div class="map-overlay-meta">2026-02-14 &rarr; 2026-02-20</div>
+            <div class="map-overlay-meta">2026-02-15 &rarr; 2026-02-21</div>
           </div>
           <div class="map-content">
             <div class="architecture-ascii">
@@ -155,7 +155,7 @@
               <div class="kv-row"><span class="kv-key">FUNCTIONS:</span><span class="kv-value">581 (316 pub, 265 priv)</span></div>
               <div class="kv-row"><span class="kv-key">TESTS:</span><span class="kv-value">989 passed, 0 failed</span></div>
               <div class="kv-row"><span class="kv-key">COVERAGE:</span><span class="kv-value">41.2% line coverage</span></div>
-              <div class="kv-row"><span class="kv-key">COMMITS:</span><span class="kv-value">382 over 6 days (~64/day)</span></div>
+              <div class="kv-row"><span class="kv-key">COMMITS:</span><span class="kv-value">424 over 7 days (~61/day)</span></div>
               <div class="kv-row"><span class="kv-key">DEPENDENCIES:</span><span class="kv-value">67 total (66 + 1 dev)</span></div>
             </div>
           </div>
@@ -332,61 +332,20 @@
     <!-- ============================================ -->
     <div class="page" data-page="timeline">
       <div class="panel-left">
-        <div class="map-panel">
-          <div class="map-overlay">
-            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
-            <div class="map-overlay-title" id="timeline-overlay-title">DAY 1 &mdash; PROJECT BOOTSTRAP</div>
-            <div class="map-overlay-meta" id="timeline-overlay-date">2026-02-14</div>
-          </div>
-          <div class="carousel" id="timeline-carousel">
-            <button class="carousel-arrow carousel-prev" aria-label="Previous day">&#9665;</button>
-            <div class="carousel-track">
-              <div class="carousel-slide active" data-day="1">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 1 SCREENSHOT</div>
-                  <div class="placeholder-sub">PROJECT BOOTSTRAP &amp; INFRASTRUCTURE</div>
-                </div>
-              </div>
-              <div class="carousel-slide" data-day="2">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 2 SCREENSHOT</div>
-                  <div class="placeholder-sub">MVP &mdash; DRAWING &amp; WEBSOCKETS</div>
-                </div>
-              </div>
-              <div class="carousel-slide" data-day="3">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 3 SCREENSHOT</div>
-                  <div class="placeholder-sub">CANVAS ENGINE &amp; HIT TESTING</div>
-                </div>
-              </div>
-              <div class="carousel-slide" data-day="4">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 4 SCREENSHOT</div>
-                  <div class="placeholder-sub">AI INTEGRATION &amp; TOOL CALLS</div>
-                </div>
-              </div>
-              <div class="carousel-slide" data-day="5">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 5 SCREENSHOT</div>
-                  <div class="placeholder-sub">EARLY RELEASE &amp; POLISH</div>
-                </div>
-              </div>
-              <div class="carousel-slide" data-day="6">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 6 SCREENSHOT</div>
-                  <div class="placeholder-sub">OBSERVABILITY &amp; PERF TESTING</div>
-                </div>
-              </div>
-              <div class="carousel-slide" data-day="7">
-                <div class="screenshot-placeholder">
-                  <div class="placeholder-label">DAY 7 SCREENSHOT</div>
-                  <div class="placeholder-sub">FINAL POLISH &amp; DEPLOYMENT</div>
-                </div>
-              </div>
+        <div class="timeline-log-panel" id="timeline-log-panel">
+          <div class="timeline-log-header">
+            <button class="carousel-arrow carousel-prev" id="tl-prev" aria-label="Previous day">&#9665;</button>
+            <div class="timeline-log-heading">
+              <div class="label">COMMIT_LOG</div>
+              <div class="timeline-log-title" id="tl-title">DAY 1 &mdash; PLANNING &amp; PRE-SEARCH</div>
+              <div class="timeline-log-meta"><span id="tl-date">2026-02-15</span> &middot; <span id="tl-commits">0 COMMITS</span></div>
             </div>
-            <button class="carousel-arrow carousel-next" aria-label="Next day">&#9655;</button>
+            <button class="carousel-arrow carousel-next" id="tl-next" aria-label="Next day">&#9655;</button>
           </div>
-          <div class="map-pagination" id="timeline-pagination">DAY 1 OF 7</div>
+          <div class="timeline-log-body" id="tl-body">
+            <!-- Day pages rendered by JS -->
+          </div>
+          <div class="map-pagination" id="tl-pagination">DAY 1 OF 7</div>
         </div>
       </div>
       <div class="panel-right">
@@ -399,63 +358,15 @@
           <div class="record-identity">
             <div class="label">EXPEDITION / TIMELINE</div>
             <div class="display-script">Timeline</div>
-            <div class="record-subtitle">7 Days &middot; 382 Commits &middot; Feb 14&ndash;20, 2026</div>
+            <div class="record-subtitle">7 Days &middot; 424 Commits &middot; Feb 15&ndash;21, 2026</div>
           </div>
           <div class="tab-bar" data-tabgroup="timeline-card">
             <button class="tab active" data-tab="timeline-overview">FIELD_NOTES</button>
             <button class="tab" data-tab="timeline-videos">VIDEO_LOG</button>
           </div>
           <div class="tab-content active" data-tab-content="timeline-overview">
-            <div class="timeline-entries">
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 1 &mdash; PROJECT BOOTSTRAP</span>
-                  <span class="inventory-meta">FEB 14</span>
-                </div>
-                <p class="inventory-desc">Cargo workspace setup, PostgreSQL schema, Axum server scaffolding, Leptos SSR wiring, Docker Compose configuration. First successful server startup.</p>
-              </div>
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 2 &mdash; MVP DRAWING</span>
-                  <span class="inventory-meta">FEB 15</span>
-                </div>
-                <p class="inventory-desc">WebSocket frame protocol, basic shape drawing (rectangles, ellipses), real-time sync between clients. First Loom video recorded.</p>
-              </div>
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 3 &mdash; CANVAS ENGINE</span>
-                  <span class="inventory-meta">FEB 16</span>
-                </div>
-                <p class="inventory-desc">Dedicated canvas engine crate. Hit testing with per-shape geometry. Gesture state machine (7 states). Camera pan/zoom/rotate with viewport rotation.</p>
-              </div>
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 4 &mdash; AI INTEGRATION</span>
-                  <span class="inventory-meta">FEB 17</span>
-                </div>
-                <p class="inventory-desc">AI tool-call loop with 9 tools. Board state snapshot in system prompt. Real-time object mutation broadcast. Anthropic and OpenAI backend support.</p>
-              </div>
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 5 &mdash; EARLY RELEASE</span>
-                  <span class="inventory-meta">FEB 18</span>
-                </div>
-                <p class="inventory-desc">Auth system (GitHub OAuth + email codes). Dashboard with canvas-rendered thumbnails. Follow-camera sync. Chat system. Railway deployment. Second Loom video.</p>
-              </div>
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 6 &mdash; OBSERVABILITY</span>
-                  <span class="inventory-meta">FEB 19</span>
-                </div>
-                <p class="inventory-desc">Traces crate for event observability. Perf harness with latency benchmarks. Frame log queue optimization. Load testing with 25 concurrent clients.</p>
-              </div>
-              <div class="timeline-entry">
-                <div class="inventory-header">
-                  <span class="inventory-name">DAY 7 &mdash; FINAL POLISH</span>
-                  <span class="inventory-meta">FEB 20</span>
-                </div>
-                <p class="inventory-desc">Bug fixes, edge case handling, test coverage push, documentation, savepoint/rewind feature, viewport compass widget, final deployment.</p>
-              </div>
+            <div class="timeline-entries" id="tl-field-notes">
+              <!-- Field notes rendered by JS to sync with selected day -->
             </div>
           </div>
           <div class="tab-content" data-tab-content="timeline-videos">
