@@ -28,7 +28,7 @@ use crate::state::{AppState, BoardObject, ClientViewport};
 const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
 const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
 const DEFAULT_AI_ENABLE_SESSION_MEMORY: bool = true;
-const MAX_SESSION_CONVERSATION_MESSAGES: usize = 20;
+const MAX_SESSION_CONVERSATION_MESSAGES: usize = 3;
 const MAX_SESSION_MESSAGE_CHARS: usize = 600;
 const MAX_SESSION_TOTAL_CHARS: usize = 3_000;
 const MAX_SVG_BYTES: usize = 200_000;
