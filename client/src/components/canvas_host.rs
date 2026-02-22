@@ -220,6 +220,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     #[cfg(feature = "hydrate")]
+    let placement_click_consumed = RwSignal::new(false);
+    #[cfg(feature = "hydrate")]
     let engine = Rc::new(RefCell::new(None::<Engine>));
 
     #[cfg(feature = "hydrate")]
@@ -624,6 +626,7 @@ pub fn CanvasHost() -> impl IntoView {
                         let engine_ref = engine.borrow();
                         if let Some(engine) = engine_ref.as_ref() {
                             place_shape_at_cursor(point, kind, width, height, props, engine, board, sender);
+                            placement_click_consumed.set(true);
                         }
                     }
                     if let Some(engine) = engine.borrow_mut().as_mut() {
@@ -757,6 +760,10 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(canvas) = canvas_ref.get() {
                     let _ = canvas.release_pointer_capture(ev.pointer_id());
                 }
+                if placement_click_consumed.get_untracked() {
+                    placement_click_consumed.set(false);
+                    return;
+                }
                 if board.get().follow_client_id.is_some() {
                     return;
                 }
@@ -839,6 +846,11 @@ pub fn CanvasHost() -> impl IntoView {
                 preview_cursor.set(None);
                 if let Some(canvas) = canvas_ref.get() {
                     let _ = canvas.release_pointer_capture(ev.pointer_id());
+                }
+                if placement_click_consumed.get_untracked() {
+                    placement_click_consumed.set(false);
+                    send_cursor_clear(board, sender);
+                    return;
                 }
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     let active_transform = active_transform_object_ids(engine);
@@ -2316,8 +2328,9 @@ fn place_shape_at_cursor(
         b.bump_scene_rev();
     });
 
+    let request_id = uuid::Uuid::new_v4().to_string();
     let frame = Frame {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: request_id.clone(),
         parent_id: None,
         ts: 0,
         board_id: Some(board_id.clone()),
@@ -2337,6 +2350,9 @@ fn place_shape_at_cursor(
             "group_id": null,
         }),
     };
+    board.update(|b| {
+        b.pending_create_request_ids.insert(request_id, id.clone());
+    });
     let _ = sender.get_untracked().send(&frame);
 }
 
@@ -2449,8 +2465,10 @@ fn process_actions(
                     });
                 }
 
+                let local_id = obj.id.to_string();
+                let request_id = uuid::Uuid::new_v4().to_string();
                 let frame = Frame {
-                    id: uuid::Uuid::new_v4().to_string(),
+                    id: request_id.clone(),
                     parent_id: None,
                     ts: 0,
                     board_id: Some(board_id),
@@ -2459,7 +2477,7 @@ fn process_actions(
                     status: FrameStatus::Request,
                     trace: None,
                     data: serde_json::json!({
-                        "id": obj.id.to_string(),
+                        "id": local_id,
                         "kind": canvas_kind_to_wire(obj.kind),
                         "x": obj.x,
                         "y": obj.y,
@@ -2470,6 +2488,9 @@ fn process_actions(
                         "group_id": obj.group_id.map(|id| id.to_string()),
                     }),
                 };
+                board.update(|b| {
+                    b.pending_create_request_ids.insert(request_id, obj.id.to_string());
+                });
                 let _ = sender.get_untracked().send(&frame);
             }
             Action::ObjectUpdated { id, fields } => {

@@ -67,6 +67,7 @@ fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<St
     board.join_round_trip_ms = None;
     board.pending_join_request_id = None;
     board.pending_join_started_ms = None;
+    board.pending_create_request_ids.clear();
     board.scene_rev = 0;
 }
 
@@ -189,6 +190,7 @@ pub fn BoardPage() -> impl IntoView {
             b.join_round_trip_ms = None;
             b.pending_join_request_id = None;
             b.pending_join_started_ms = None;
+            b.pending_create_request_ids.clear();
             b.scene_rev = 0;
         });
         ui.update(|u| {

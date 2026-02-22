@@ -65,6 +65,7 @@ fn board_state_default_transient_maps_are_empty() {
     assert!(state.cursor_updated_at.is_empty());
     assert!(state.drag_objects.is_empty());
     assert!(state.drag_updated_at.is_empty());
+    assert!(state.pending_create_request_ids.is_empty());
     assert!(state.savepoints.is_empty());
     assert!(!state.join_streaming);
 }

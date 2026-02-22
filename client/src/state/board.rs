@@ -56,6 +56,8 @@ pub struct BoardState {
     pub pending_join_request_id: Option<String>,
     /// Client-side timestamp (ms) when pending board:join was sent.
     pub pending_join_started_ms: Option<f64>,
+    /// Map create request frame id -> optimistic local object id for create reconciliation.
+    pub pending_create_request_ids: HashMap<String, String>,
 }
 
 /// WebSocket connection status.

@@ -97,6 +97,17 @@ pub(super) fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
     match frame.syscall.as_str() {
         "object:create" if frame.status == FrameStatus::Done => {
             if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
+                if let Some(parent_id) = frame.parent_id.as_deref()
+                    && let Some(local_id) = board.pending_create_request_ids.remove(parent_id)
+                    && local_id != obj.id
+                {
+                    board.objects.remove(&local_id);
+                    board.drag_objects.remove(&local_id);
+                    board.drag_updated_at.remove(&local_id);
+                    if board.selection.remove(&local_id) {
+                        board.selection.insert(obj.id.clone());
+                    }
+                }
                 board.objects.insert(obj.id.clone(), obj);
                 board.bump_scene_rev();
             }

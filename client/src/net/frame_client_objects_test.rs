@@ -77,3 +77,39 @@ fn apply_object_frame_ignores_unknown_syscall() {
     apply_object_frame(&f, &mut board);
     assert_eq!(board.objects.len(), before);
 }
+
+#[test]
+fn apply_object_frame_create_done_reconciles_optimistic_local_id() {
+    let mut board = BoardState::default();
+    board.objects.insert("local-1".to_owned(), obj("local-1"));
+    board.selection.insert("local-1".to_owned());
+    board
+        .pending_create_request_ids
+        .insert("req-1".to_owned(), "local-1".to_owned());
+
+    let mut f = frame(
+        "object:create",
+        FrameStatus::Done,
+        serde_json::json!({
+            "id": "server-1",
+            "board_id": "b1",
+            "kind": "rectangle",
+            "x": 1.0,
+            "y": 2.0,
+            "width": 10.0,
+            "height": 20.0,
+            "rotation": 0.0,
+            "z_index": 1,
+            "props": {},
+            "version": 1
+        }),
+    );
+    f.parent_id = Some("req-1".to_owned());
+    apply_object_frame(&f, &mut board);
+
+    assert!(!board.objects.contains_key("local-1"));
+    assert!(board.objects.contains_key("server-1"));
+    assert!(!board.pending_create_request_ids.contains_key("req-1"));
+    assert!(!board.selection.contains("local-1"));
+    assert!(board.selection.contains("server-1"));
+}
