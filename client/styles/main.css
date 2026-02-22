@@ -2013,6 +2013,11 @@ a:hover {
     background: color-mix(in oklab, var(--accent-active) 10%, transparent);
 }
 
+.toolbar__logout:hover {
+    color: var(--accent-error);
+    background: color-mix(in oklab, var(--accent-error) 14%, transparent);
+}
+
 
 /* Left panel */
 .left-panel__panel {
