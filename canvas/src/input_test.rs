@@ -40,6 +40,7 @@ fn tool_debug_format() {
 fn tool_all_variants_distinct() {
     let variants = [
         Tool::Select,
+        Tool::Hand,
         Tool::Rect,
         Tool::Text,
         Tool::Ellipse,
@@ -67,6 +68,7 @@ fn tool_is_shape() {
     assert!(Tool::Diamond.is_shape());
     assert!(Tool::Star.is_shape());
     assert!(!Tool::Select.is_shape());
+    assert!(!Tool::Hand.is_shape());
     assert!(!Tool::Line.is_shape());
     assert!(!Tool::Arrow.is_shape());
 }
@@ -76,6 +78,7 @@ fn tool_is_edge() {
     assert!(Tool::Line.is_edge());
     assert!(Tool::Arrow.is_edge());
     assert!(!Tool::Select.is_edge());
+    assert!(!Tool::Hand.is_edge());
     assert!(!Tool::Rect.is_edge());
 }
 

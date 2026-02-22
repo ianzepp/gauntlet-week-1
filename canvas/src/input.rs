@@ -21,6 +21,8 @@ pub enum Tool {
     /// Pointer / selection tool (default).
     #[default]
     Select,
+    /// Hand / panning tool.
+    Hand,
     /// Draw a rectangle.
     Rect,
     /// Create a text object.

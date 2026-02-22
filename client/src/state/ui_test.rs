@@ -72,6 +72,7 @@ fn tool_type_default_is_select() {
 fn tool_type_variants_are_distinct() {
     let variants = [
         ToolType::Select,
+        ToolType::Hand,
         ToolType::Sticky,
         ToolType::Rectangle,
         ToolType::Frame,

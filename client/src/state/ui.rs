@@ -71,6 +71,7 @@ impl Default for UiState {
 pub enum ToolType {
     #[default]
     Select,
+    Hand,
     Sticky,
     Rectangle,
     Frame,

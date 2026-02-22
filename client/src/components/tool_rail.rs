@@ -19,7 +19,10 @@ struct ToolDef {
     disabled: bool,
 }
 
-const PRIMARY_TOOLS: &[ToolDef] = &[ToolDef { tool: ToolType::Select, label: "Select", disabled: false }];
+const PRIMARY_TOOLS: &[ToolDef] = &[
+    ToolDef { tool: ToolType::Hand, label: "Hand", disabled: false },
+    ToolDef { tool: ToolType::Select, label: "Select", disabled: false },
+];
 
 const SHAPE_TOOLS: &[ToolDef] = &[
     ToolDef { tool: ToolType::Sticky, label: "Note", disabled: false },
@@ -133,6 +136,15 @@ fn render_home_icon() -> impl IntoView {
 
 fn render_icon(tool: ToolType) -> impl IntoView {
     match tool {
+        ToolType::Hand => view! {
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M6 10.5 V5.5 C6 4.8 6.5 4.2 7.2 4.2 C7.9 4.2 8.4 4.8 8.4 5.5 V9.5" />
+                <path d="M8.4 9.5 V4.2 C8.4 3.5 8.9 3 9.6 3 C10.3 3 10.8 3.5 10.8 4.2 V9.5" />
+                <path d="M10.8 9.5 V4.8 C10.8 4.1 11.3 3.6 12 3.6 C12.7 3.6 13.2 4.1 13.2 4.8 V10.2" />
+                <path d="M13.2 8.6 C13.2 8 13.7 7.5 14.3 7.5 C15 7.5 15.5 8 15.5 8.6 V12.3 C15.5 15.1 13.2 17.4 10.4 17.4 H9.3 C6.8 17.4 4.8 15.6 4.5 13.2 L4 10.2 C3.9 9.5 4.4 8.9 5 8.8 C5.6 8.7 6.2 9.1 6.3 9.8 L6.6 11.3" />
+            </svg>
+        }
+        .into_any(),
         ToolType::Select => view! {
             <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M4 2 L4 16 L8 12 L12 18 L14 17 L10 11 L15 11 Z" />

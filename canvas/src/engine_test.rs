@@ -302,6 +302,7 @@ fn core_set_tool_all_variants() {
     let mut core = EngineCore::new();
     let tools = [
         Tool::Select,
+        Tool::Hand,
         Tool::Rect,
         Tool::Ellipse,
         Tool::Diamond,
@@ -1776,6 +1777,7 @@ fn tool_is_shape_classification() {
     assert!(Tool::Diamond.is_shape());
     assert!(Tool::Star.is_shape());
     assert!(!Tool::Select.is_shape());
+    assert!(!Tool::Hand.is_shape());
     assert!(!Tool::Line.is_shape());
     assert!(!Tool::Arrow.is_shape());
 }
@@ -1785,6 +1787,7 @@ fn tool_is_edge_classification() {
     assert!(Tool::Line.is_edge());
     assert!(Tool::Arrow.is_edge());
     assert!(!Tool::Select.is_edge());
+    assert!(!Tool::Hand.is_edge());
     assert!(!Tool::Rect.is_edge());
 }
 

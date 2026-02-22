@@ -27,6 +27,7 @@ use canvas::input::{Button as CanvasButton, Modifiers as CanvasModifiers, Tool a
 pub fn map_tool(tool: ToolType) -> CanvasTool {
     match tool {
         ToolType::Select => CanvasTool::Select,
+        ToolType::Hand => CanvasTool::Hand,
         ToolType::Sticky | ToolType::Rectangle | ToolType::Frame | ToolType::Youtube => CanvasTool::Select,
         ToolType::Ellipse => CanvasTool::Ellipse,
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
