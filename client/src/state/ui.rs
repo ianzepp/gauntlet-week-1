@@ -52,7 +52,7 @@ impl Default for UiState {
         Self {
             dark_mode: false,
             view_mode: ViewMode::Canvas,
-            active_tool: ToolType::Hand,
+            active_tool: ToolType::Select,
             home_viewport_seq: 0,
             zoom_override_seq: 0,
             zoom_override: None,
@@ -78,8 +78,8 @@ impl Default for UiState {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ToolType {
     #[default]
-    Hand,
     Select,
+    Hand,
     Sticky,
     Rectangle,
     Frame,

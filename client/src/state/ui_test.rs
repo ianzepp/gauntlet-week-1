@@ -17,9 +17,9 @@ fn ui_state_default_view_mode_is_canvas() {
 }
 
 #[test]
-fn ui_state_default_tool_is_hand() {
+fn ui_state_default_tool_is_select() {
     let state = UiState::default();
-    assert_eq!(state.active_tool, ToolType::Hand);
+    assert_eq!(state.active_tool, ToolType::Select);
     assert_eq!(state.home_viewport_seq, 0);
     assert_eq!(state.zoom_override_seq, 0);
     assert_eq!(state.zoom_override, None);
@@ -64,8 +64,8 @@ fn view_mode_variants_are_distinct() {
 // =============================================================
 
 #[test]
-fn tool_type_default_is_hand() {
-    assert_eq!(ToolType::default(), ToolType::Hand);
+fn tool_type_default_is_select() {
+    assert_eq!(ToolType::default(), ToolType::Select);
 }
 
 #[test]
