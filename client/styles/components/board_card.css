@@ -117,7 +117,7 @@
     margin-top: var(--space-sm);
     border: 1px solid var(--border-default);
     background: #f6f1e7;
-    min-height: 72px;
+    min-height: 90px;
     overflow: hidden;
     position: relative;
 }

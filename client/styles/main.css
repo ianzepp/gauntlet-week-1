@@ -647,7 +647,7 @@ a:hover {
 
 .dashboard-page__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
     gap: var(--space-md);
     align-content: start;
 }
@@ -849,9 +849,15 @@ a:hover {
 
 /* Board layout */
 .board-page {
-    --canvas-overlay-edge-offset: calc(var(--space-md) + 18px);
-    --canvas-overlay-left-offset: var(--canvas-overlay-edge-offset);
-    --canvas-overlay-right-offset: var(--canvas-overlay-edge-offset);
+    --board-toolbar-height: 48px;
+    --board-status-height: 32px;
+    --canvas-overlay-edge-offset: var(--space-md);
+    --left-rail-width: 52px;
+    --right-rail-width: 52px;
+    --left-expanded-offset: 212px;
+    --right-expanded-offset: 372px;
+    --canvas-overlay-left-offset: calc(var(--space-md) + var(--left-rail-width));
+    --canvas-overlay-right-offset: calc(var(--space-md) + var(--right-rail-width));
     --canvas-dial-size: 74px;
     --canvas-dial-gap: calc(var(--space-md) + 4px);
     display: grid;
@@ -859,7 +865,7 @@ a:hover {
         "toolbar toolbar toolbar"
         "left canvas right"
         "status status status";
-    grid-template-rows: 36px minmax(0, 1fr) 24px;
+    grid-template-rows: var(--board-toolbar-height) minmax(0, 1fr) var(--board-status-height);
     grid-template-columns: auto 1fr auto;
     height: 100vh;
     height: 100dvh;
@@ -876,6 +882,14 @@ a:hover {
     grid-template-columns: 1fr auto;
 }
 
+.board-page.board-page--left-expanded {
+    --canvas-overlay-left-offset: calc(var(--space-md) + var(--left-expanded-offset));
+}
+
+.board-page.board-page--right-expanded {
+    --canvas-overlay-right-offset: calc(var(--space-md) + var(--right-expanded-offset));
+}
+
 .board-page__toolbar {
     grid-area: toolbar;
     z-index: var(--z-chrome);
@@ -890,9 +904,26 @@ a:hover {
 
 .board-page__canvas {
     grid-area: canvas;
-    position: relative;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 0;
     min-height: 0;
     background: var(--canvas-bg);
+}
+
+.board-page.board-page--trace .board-page__canvas {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+}
+
+.board-page:not(.board-page--trace) .canvas-host {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
 }
 
 .board-page__right-panel {
@@ -910,7 +941,7 @@ a:hover {
 .board-page__input-overlay {
     position: absolute;
     left: 50%;
-    bottom: var(--space-md);
+    bottom: calc(var(--board-status-height) + var(--space-md));
     transform: translateX(-50%);
     width: clamp(320px, 60%, 920px);
     z-index: var(--z-chrome);
@@ -1211,7 +1242,7 @@ a:hover {
 
 .canvas-compass {
     position: absolute;
-    right: var(--canvas-overlay-right-offset);
+    right: calc(100% + var(--space-md));
     bottom: var(--canvas-overlay-edge-offset);
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1227,7 +1258,7 @@ a:hover {
 
 .canvas-object-rotate {
     position: absolute;
-    left: var(--canvas-overlay-left-offset);
+    left: calc(100% + var(--space-md));
     bottom: var(--canvas-overlay-edge-offset);
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1248,7 +1279,7 @@ a:hover {
 
 .canvas-object-zoom {
     position: absolute;
-    left: var(--canvas-overlay-left-offset);
+    left: calc(100% + var(--space-md));
     bottom: calc(var(--canvas-overlay-edge-offset) + var(--canvas-dial-size) + var(--canvas-dial-gap));
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1269,7 +1300,7 @@ a:hover {
 
 .canvas-object-color {
     position: absolute;
-    left: var(--canvas-overlay-left-offset);
+    left: calc(100% + var(--space-md));
     top: var(--canvas-overlay-edge-offset);
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1290,7 +1321,7 @@ a:hover {
 
 .canvas-object-border {
     position: absolute;
-    left: var(--canvas-overlay-left-offset);
+    left: calc(100% + var(--space-md));
     top: calc(var(--canvas-overlay-edge-offset) + var(--canvas-dial-size) + var(--canvas-dial-gap));
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1311,7 +1342,7 @@ a:hover {
 
 .canvas-object-text-style {
     position: absolute;
-    left: var(--canvas-overlay-left-offset);
+    left: calc(100% + var(--space-md));
     top: calc(var(--canvas-overlay-edge-offset) + (var(--canvas-dial-size) + var(--canvas-dial-gap)) * 2);
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1578,7 +1609,7 @@ a:hover {
 
 .canvas-zoom-wheel {
     position: absolute;
-    right: var(--canvas-overlay-right-offset);
+    right: calc(100% + var(--space-md));
     bottom: calc(var(--canvas-overlay-edge-offset) + var(--canvas-dial-size) + var(--canvas-dial-gap));
     width: var(--canvas-dial-size);
     height: var(--canvas-dial-size);
@@ -1960,6 +1991,14 @@ a:hover {
 
 .left-panel__strip-anchor {
     position: fixed;
+    z-index: var(--z-chrome);
+}
+
+.left-panel__dials-mount,
+.right-panel__dials-mount {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
     z-index: var(--z-chrome);
 }
 
@@ -3028,7 +3067,7 @@ a:hover {
     margin-top: var(--space-sm);
     border: 1px solid var(--border-default);
     background: #f6f1e7;
-    min-height: 72px;
+    min-height: 90px;
     overflow: hidden;
     position: relative;
 }
@@ -3084,7 +3123,7 @@ a:hover {
 
 .board-stamp__minimap {
     position: absolute;
-    top: var(--space-md);
+    top: calc(var(--board-toolbar-height) + var(--space-md));
     right: var(--canvas-overlay-right-offset);
     z-index: var(--z-canvas-ui);
     pointer-events: none;
@@ -3235,29 +3274,29 @@ a:hover {
 @media (max-width: 980px) {
     .board-page {
         /* Mobile mode: side panels are fixed over canvas, so overlays must track rail position. */
-        --canvas-overlay-left-offset: calc(var(--space-md) + 52px);
-        --canvas-overlay-right-offset: calc(var(--space-md) + 52px);
+        --canvas-overlay-left-offset: calc(var(--space-md) + var(--left-rail-width));
+        --canvas-overlay-right-offset: calc(var(--space-md) + var(--right-rail-width));
         grid-template-areas:
             "toolbar toolbar"
             "canvas canvas"
             "status status";
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: 36px minmax(0, 1fr) 24px;
+        grid-template-rows: var(--board-toolbar-height) minmax(0, 1fr) var(--board-status-height);
     }
 
     .board-page.board-page--left-expanded {
-        --canvas-overlay-left-offset: calc(var(--space-md) + 212px);
+        --canvas-overlay-left-offset: calc(var(--space-md) + var(--left-expanded-offset));
     }
 
     .board-page.board-page--right-expanded {
-        --canvas-overlay-right-offset: calc(var(--space-md) + 372px);
+        --canvas-overlay-right-offset: calc(var(--space-md) + var(--right-expanded-offset));
     }
 
     .board-page__left-panel,
     .board-page__right-panel {
         position: fixed;
-        top: 36px;
-        bottom: 24px;
+        top: var(--board-toolbar-height);
+        bottom: var(--board-status-height);
         max-width: calc(100vw - 52px);
     }
 

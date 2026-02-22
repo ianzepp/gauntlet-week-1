@@ -216,6 +216,7 @@ pub fn RightPanel() -> impl IntoView {
                     </div>
                 </div>
             </Show>
+            <div id="right-dials-mount" class="right-panel__dials-mount"></div>
         </div>
     }
 }

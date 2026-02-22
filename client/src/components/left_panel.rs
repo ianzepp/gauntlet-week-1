@@ -78,6 +78,7 @@ pub fn LeftPanel() -> impl IntoView {
             </Show>
 
             <ToolRail/>
+            <div id="left-dials-mount" class="left-panel__dials-mount"></div>
         </div>
     }
 }

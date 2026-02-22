@@ -9,7 +9,7 @@
             "canvas canvas"
             "status status";
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: 36px minmax(0, 1fr) 24px;
+        grid-template-rows: var(--board-toolbar-height) minmax(0, 1fr) var(--board-status-height);
     }
 
     .board-page.board-page--left-expanded {
@@ -23,8 +23,8 @@
     .board-page__left-panel,
     .board-page__right-panel {
         position: fixed;
-        top: 36px;
-        bottom: 24px;
+        top: var(--board-toolbar-height);
+        bottom: var(--board-status-height);
         max-width: calc(100vw - 52px);
     }
 
@@ -77,4 +77,3 @@
     }
 
 }
-

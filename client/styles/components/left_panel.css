@@ -30,6 +30,13 @@
     z-index: var(--z-chrome);
 }
 
+.left-panel__dials-mount {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: var(--z-chrome);
+}
+
 /* Tool rail + strip */
 .tool-rail {
     display: flex;

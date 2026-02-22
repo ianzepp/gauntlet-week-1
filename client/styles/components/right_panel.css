@@ -69,3 +69,10 @@
     flex: 1;
     min-width: 0;
 }
+
+.right-panel__dials-mount {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: var(--z-chrome);
+}
