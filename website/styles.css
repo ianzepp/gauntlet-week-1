@@ -41,9 +41,17 @@
   --gap-lg:            24px;
   --gap-xl:            32px;
   --gap-2xl:           48px;
+  --gap-3xl:           64px;
 
   --card-padding:      24px;
+  --card-border:       1px solid var(--border-strong);
   --section-gap:       32px;
+
+  /* Map/illustration overlay */
+  --map-land:          #D8D0C0;
+  --map-water:         #C8C0B0;
+  --map-border:        #A09888;
+  --map-marker:        #2C2416;
 
   /* Transitions */
   --transition-fast:    120ms ease-out;
@@ -230,16 +238,24 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* --- Page --- */
 .page {
-  display: none;
+  display: flex;
   height: 100%;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-medium);
 }
 
 .page.active {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
 }
 
 /* --- Panels --- */
@@ -263,9 +279,9 @@ body {
   flex-direction: column;
   position: relative;
   background: var(--bg-page);
-  /* Subtle grid */
+  /* Subtle dot grid at ~0.05 opacity */
   background-image:
-    radial-gradient(circle, var(--border-faint) 1px, transparent 1px);
+    radial-gradient(circle, rgba(44, 36, 22, 0.05) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
@@ -411,7 +427,7 @@ body {
 .display-script {
   font-family: var(--font-script);
   font-style: italic;
-  font-size: clamp(36px, 5vw, 56px);
+  font-size: clamp(48px, 5vw, 64px);
   color: var(--text-primary);
   line-height: 1.1;
   margin: var(--gap-sm) 0;
@@ -464,18 +480,25 @@ body {
 
 /* --- Tab Content --- */
 .tab-content {
-  display: none;
   padding: var(--gap-md);
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity var(--transition-medium);
 }
 
 .tab-content.active {
-  display: block;
+  opacity: 1;
+  height: auto;
+  overflow: visible;
+  pointer-events: auto;
 }
 
 /* --- Section Heading --- */
 .section-heading {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -574,7 +597,7 @@ body {
 
 .inventory-name {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-primary);
@@ -663,12 +686,13 @@ body {
 }
 
 .carousel-arrow {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--border-strong);
+  border-radius: 50%;
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -742,6 +766,57 @@ body {
   gap: var(--gap-md);
 }
 
+/* --- Vintage Screenshot Filter --- */
+.vintage-frame {
+  border: 1px solid var(--border-strong);
+  filter: sepia(12%) contrast(95%) brightness(98%) saturate(85%);
+}
+
+/* --- Stat Accent Bar (highlighted stat) --- */
+.stat-card-highlighted {
+  position: relative;
+}
+
+.stat-card-highlighted::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--accent-active);
+  margin-top: var(--gap-sm);
+}
+
+/* --- Zoom Controls (map panel) --- */
+.map-zoom {
+  position: absolute;
+  bottom: 48px;
+  left: var(--gap-md);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.map-zoom button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.map-zoom button:first-child {
+  border-bottom: none;
+}
+
+.map-zoom button:hover {
+  color: var(--text-primary);
+}
+
 /* --- Status Bar --- */
 .status-bar {
   display: flex;
@@ -780,6 +855,7 @@ body {
   .page.active {
     flex-direction: column;
     overflow-y: auto;
+    position: relative;
   }
 
   .panel-left {
@@ -853,7 +929,7 @@ body {
   }
 
   .display-script {
-    font-size: clamp(28px, 5vw, 48px);
+    font-size: clamp(32px, 5vw, 48px);
   }
 
   .tab-bar {
@@ -873,7 +949,9 @@ body {
     transition-duration: 0.01ms !important;
   }
 
-  .carousel-slide {
+  .carousel-slide,
+  .tab-content,
+  .page {
     transition: none;
   }
 }
