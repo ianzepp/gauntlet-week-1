@@ -15,6 +15,9 @@ use crate::state::canvas_view::CanvasViewState;
 #[cfg(feature = "hydrate")]
 use wasm_bindgen::JsCast;
 
+#[cfg(feature = "hydrate")]
+const MINIMAP_DISABLE_THRESHOLD: usize = 1000;
+
 /// Board minimap overlay.
 #[component]
 pub fn BoardStamp() -> impl IntoView {
@@ -28,11 +31,18 @@ pub fn BoardStamp() -> impl IntoView {
     {
         let minimap_ref = minimap_ref.clone();
         Effect::new(move || {
-            let board_state = board.get();
-            if board_state.join_streaming {
+            let maybe_objects = board.with(|board_state| {
+                if board_state.join_streaming || board_state.objects.len() > MINIMAP_DISABLE_THRESHOLD {
+                    return None;
+                }
+                Some(board_state.objects.values().cloned().collect::<Vec<_>>())
+            });
+            let Some(objects) = maybe_objects else {
+                if let Some(canvas) = minimap_ref.get() {
+                    clear_minimap(&canvas);
+                }
                 return;
-            }
-            let objects = board_state.objects.values().cloned().collect::<Vec<_>>();
+            };
             let view = canvas_view.get();
             let Some(canvas) = minimap_ref.get() else {
                 return;
@@ -48,6 +58,26 @@ pub fn BoardStamp() -> impl IntoView {
             aria-label="Board minimap"
         ></canvas>
     }
+}
+
+#[cfg(feature = "hydrate")]
+fn clear_minimap(canvas: &web_sys::HtmlCanvasElement) {
+    let width_css = f64::from(canvas.client_width().max(1));
+    let height_css = f64::from(canvas.client_height().max(1));
+    if canvas.width() != width_css.round() as u32 || canvas.height() != height_css.round() as u32 {
+        canvas.set_width(width_css.round() as u32);
+        canvas.set_height(height_css.round() as u32);
+    }
+    let Some(ctx_value) = canvas.get_context("2d").ok().flatten() else {
+        return;
+    };
+    let Some(ctx) = ctx_value
+        .dyn_into::<web_sys::CanvasRenderingContext2d>()
+        .ok()
+    else {
+        return;
+    };
+    ctx.clear_rect(0.0, 0.0, width_css, height_css);
 }
 
 #[cfg(feature = "hydrate")]
