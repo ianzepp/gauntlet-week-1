@@ -23,6 +23,7 @@
         <button class="nav-item" data-page="timeline">TIMELINE</button>
         <button class="nav-item" data-page="stack">STACK</button>
         <button class="nav-item" data-page="demo">DEMO</button>
+        <button class="nav-item" data-page="transcripts">TRANSCRIPTS</button>
       </div>
     </div>
     <div class="nav-divider" aria-hidden="true"></div>
@@ -604,6 +605,46 @@
                 <a class="kv-value kv-link" href="/app" rel="noopener">CollabBoard App (/app)</a>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE: TRANSCRIPTS -->
+    <!-- ============================================ -->
+    <div class="page" data-page="transcripts">
+      <div class="panel-left">
+        <div class="transcript-log-panel" id="tx-log-panel">
+          <div class="timeline-log-header">
+            <button class="carousel-arrow carousel-prev" id="tx-prev" aria-label="Previous day"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,2 4,7 9,12"/></svg> PREV</button>
+            <div class="timeline-log-heading">
+              <div class="label">SESSION_LOG</div>
+              <div class="timeline-log-title" id="tx-title">DAY 1 &mdash; FULL-STACK SCAFFOLD</div>
+              <div class="timeline-log-meta"><span id="tx-date">2026-02-16</span> &middot; <span id="tx-count">0 SESSIONS</span></div>
+            </div>
+            <button class="carousel-arrow carousel-next" id="tx-next" aria-label="Next day">NEXT <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5,2 10,7 5,12"/></svg></button>
+          </div>
+          <div class="transcript-list" id="tx-list">
+            <!-- Session entries rendered by JS -->
+          </div>
+          <div class="map-pagination" id="tx-pagination">DAY 1 OF 7</div>
+        </div>
+      </div>
+      <div class="panel-right">
+        <div class="record-card">
+          <div class="record-header">
+            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-center">SESSION_TRANSCRIPTS<br>EXPEDITION LOG</span>
+            <span class="record-header-right">R-006</span>
+          </div>
+          <div class="record-identity">
+            <div class="label">EXPEDITION / TRANSCRIPTS</div>
+            <div class="display-script">Transcripts</div>
+            <div class="record-subtitle">254 Sessions &middot; Claude &amp; Codex &middot; Feb 16&ndash;22, 2026</div>
+          </div>
+          <div class="transcript-viewer" id="tx-viewer">
+            <div class="tx-empty-state">SELECT A SESSION FROM THE LOG</div>
           </div>
         </div>
       </div>

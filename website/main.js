@@ -877,4 +877,185 @@
       }
     });
   }
+  /* --- Transcripts Page --- */
+  var txPanel = document.getElementById('tx-log-panel');
+
+  if (txPanel) {
+    var txTitle = document.getElementById('tx-title');
+    var txDate = document.getElementById('tx-date');
+    var txCount = document.getElementById('tx-count');
+    var txList = document.getElementById('tx-list');
+    var txPagination = document.getElementById('tx-pagination');
+    var txViewer = document.getElementById('tx-viewer');
+    var txPrev = document.getElementById('tx-prev');
+    var txNext = document.getElementById('tx-next');
+    var txCurrent = 0;
+    var txManifest = null;
+
+    /* Day titles from timeline data */
+    var txDayTitles = [];
+    for (var d = 0; d < timelineDays.length; d++) {
+      txDayTitles.push(timelineDays[d].title);
+    }
+
+    function renderTranscriptDay(index) {
+      if (!txManifest) return;
+      var dayData = txManifest.days[index];
+      txCurrent = index;
+
+      txTitle.textContent = 'DAY ' + dayData.day + ' \u2014 ' + (txDayTitles[index] || '');
+      txDate.textContent = dayData.date;
+      txCount.textContent = dayData.sessions.length + ' SESSIONS';
+      txPagination.textContent = 'DAY ' + dayData.day + ' OF 7';
+
+      var html = '';
+      for (var i = 0; i < dayData.sessions.length; i++) {
+        var s = dayData.sessions[i];
+        var estTime = formatTranscriptTime(s.started);
+        var agentClass = s.agent === 'codex' ? ' codex' : '';
+        var metaParts = [];
+        if (s.model) metaParts.push(s.model);
+        if (s.duration) metaParts.push(s.duration);
+        if (s.messages) metaParts.push(s.messages);
+
+        html += '<div class="tx-session" data-day="' + dayData.day + '" data-file="' + s.file + '">'
+          + '<div class="tx-session-time">' + estTime + '</div>'
+          + '<div class="tx-session-body">'
+          + '<div class="tx-session-agent' + agentClass + '">' + s.agent.toUpperCase() + '</div>'
+          + '<div class="tx-session-summary">' + escapeHtml(s.summary || '(no summary)') + '</div>'
+          + '<div class="tx-session-meta">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</div>'
+          + '</div></div>';
+      }
+      txList.innerHTML = html;
+      txList.scrollTop = 0;
+
+      /* Attach click handlers */
+      var entries = txList.querySelectorAll('.tx-session');
+      entries.forEach(function (entry) {
+        entry.addEventListener('click', function () {
+          entries.forEach(function (e) { e.classList.remove('active'); });
+          entry.classList.add('active');
+          loadTranscript(entry.getAttribute('data-day'), entry.getAttribute('data-file'));
+        });
+      });
+
+      /* Reset viewer */
+      txViewer.innerHTML = '<div class="tx-empty-state">SELECT A SESSION FROM THE LOG</div>';
+    }
+
+    function formatTranscriptTime(started) {
+      if (!started) return '--:--';
+      /* Parse UTC, convert to EST (UTC-5), show HH:MM */
+      var parts = started.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (!parts) return '--:--';
+      var h = parseInt(parts[4], 10) - 5;
+      var m = parts[5];
+      if (h < 0) h += 24;
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      var h12 = h % 12;
+      if (h12 === 0) h12 = 12;
+      return h12 + ':' + m + ' ' + ampm;
+    }
+
+    function loadTranscript(dayNum, filename) {
+      var url = 'transcripts/day' + dayNum + '/' + filename;
+      txViewer.innerHTML = '<div class="tx-empty-state">LOADING...</div>';
+
+      fetch(url)
+        .then(function (res) { return res.text(); })
+        .then(function (text) {
+          renderTranscript(text);
+        })
+        .catch(function () {
+          txViewer.innerHTML = '<div class="tx-empty-state">FAILED TO LOAD TRANSCRIPT</div>';
+        });
+    }
+
+    function renderTranscript(text) {
+      var lines = text.split('\n');
+      var metaLines = [];
+      var bodyLines = [];
+      var inMeta = true;
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (inMeta && line.indexOf('\ud83d\udccb') === 0) {
+          metaLines.push(line);
+        } else {
+          inMeta = false;
+          if (line.trim() !== '') {
+            bodyLines.push(line);
+          }
+        }
+      }
+
+      var html = '';
+
+      /* Meta block */
+      if (metaLines.length > 0) {
+        html += '<div class="tx-meta-block">';
+        for (var m = 0; m < metaLines.length; m++) {
+          html += '<div>' + escapeHtml(metaLines[m]) + '</div>';
+        }
+        html += '</div>';
+      }
+
+      /* Body */
+      html += '<div class="tx-body">';
+      for (var b = 0; b < bodyLines.length; b++) {
+        var line = bodyLines[b];
+        var cls = classifyLine(line);
+        html += '<div class="tx-line ' + cls + '">' + escapeHtml(line) + '</div>';
+      }
+      html += '</div>';
+
+      txViewer.innerHTML = html;
+      txViewer.scrollTop = 0;
+    }
+
+    function classifyLine(line) {
+      if (line.indexOf('\ud83d\udc64') === 0) return 'tx-line-user';       /* 👤 */
+      if (line.indexOf('\ud83e\udd16') === 0) return 'tx-line-assistant';  /* 🤖 */
+      if (line.indexOf('\u2705') === 0) return 'tx-line-tool';             /* ✅ */
+      if (line.indexOf('\u274c') === 0) return 'tx-line-tool-fail';        /* ❌ */
+      if (line.indexOf('\ud83d\udccb') === 0) return 'tx-line-meta';       /* 📋 */
+      if (line.indexOf('---') === 0) return 'tx-line-summary';
+      return 'tx-line-assistant';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* Load manifest and init */
+    fetch('transcripts/index.json')
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        txManifest = data;
+        renderTranscriptDay(0);
+      });
+
+    txPrev.addEventListener('click', function () {
+      if (!txManifest) return;
+      renderTranscriptDay((txCurrent - 1 + txManifest.days.length) % txManifest.days.length);
+    });
+
+    txNext.addEventListener('click', function () {
+      if (!txManifest) return;
+      renderTranscriptDay((txCurrent + 1) % txManifest.days.length);
+    });
+
+    /* Keyboard navigation for transcripts page */
+    document.addEventListener('keydown', function (e) {
+      var txPage = document.querySelector('.page[data-page="transcripts"]');
+      if (!txPage || !txPage.classList.contains('active')) return;
+
+      if (e.key === 'ArrowLeft') {
+        txPrev.click();
+      } else if (e.key === 'ArrowRight') {
+        txNext.click();
+      }
+    });
+  }
 })();
