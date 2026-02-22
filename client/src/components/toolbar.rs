@@ -245,70 +245,6 @@ pub fn Toolbar() -> impl IntoView {
                 }
             }}
             {move || {
-                if is_board_route() {
-                    view! {
-                        <div class="toolbar__segment" role="group" aria-label="Theme mode">
-                            <button
-                                class="btn toolbar__segment-btn"
-                                class:toolbar__segment-btn--active=move || !ui.get().dark_mode
-                                on:click=move |_| {
-                                    if ui.get().dark_mode {
-                                        let next = crate::util::dark_mode::toggle(true);
-                                        ui.update(|u| u.dark_mode = next);
-                                    }
-                                }
-                                title="Light mode"
-                            >
-                                <span class="toolbar__segment-label">{"Light"}</span>
-                            </button>
-                            <button
-                                class="btn toolbar__segment-btn"
-                                class:toolbar__segment-btn--active=move || ui.get().dark_mode
-                                on:click=move |_| {
-                                    if !ui.get().dark_mode {
-                                        let next = crate::util::dark_mode::toggle(false);
-                                        ui.update(|u| u.dark_mode = next);
-                                    }
-                                }
-                                title="Dark mode"
-                            >
-                                <span class="toolbar__segment-label">{"Dark"}</span>
-                            </button>
-                        </div>
-                    }
-                    .into_any()
-                } else {
-                    ().into_any()
-                }
-            }}
-            {move || {
-                if is_board_route() {
-                    view! {
-                        <div class="toolbar__segment" role="group" aria-label="Board view mode">
-                            <button
-                                class="btn toolbar__segment-btn"
-                                class:toolbar__segment-btn--active=move || ui.get().view_mode == ViewMode::Canvas
-                                on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Canvas)
-                                title="Board canvas view"
-                            >
-                                <span class="toolbar__segment-label">{"Board"}</span>
-                            </button>
-                            <button
-                                class="btn toolbar__segment-btn"
-                                class:toolbar__segment-btn--active=move || ui.get().view_mode == ViewMode::Trace
-                                on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Trace)
-                                title="Trace view"
-                            >
-                                <span class="toolbar__segment-label">{"Traces"}</span>
-                            </button>
-                        </div>
-                    }
-                    .into_any()
-                } else {
-                    ().into_any()
-                }
-            }}
-            {move || {
                 if is_board_route() && can_toggle_visibility() {
                     view! {
                         <div class="toolbar__segment" role="group" aria-label="Board visibility mode">
@@ -336,45 +272,6 @@ pub fn Toolbar() -> impl IntoView {
                 }
             }}
 
-            {move || {
-                if is_board_route() {
-                    view! {
-                        <button class="btn toolbar__share" on:click=on_share title="Share board">
-                            "Share"
-                        </button>
-                    }
-                    .into_any()
-                } else {
-                    ().into_any()
-                }
-            }}
-            {move || {
-                if is_board_route() && board.get().board_id.is_some() {
-                    view! {
-                        <button class="btn toolbar__share" on:click=on_import_click title="Import board snapshot from JSONL">
-                            "Import"
-                        </button>
-                    }
-                    .into_any()
-                } else {
-                    ().into_any()
-                }
-            }}
-            {move || {
-                if is_board_route() && board.get().board_id.is_some() {
-                    view! {
-                        <button class="btn toolbar__share" on:click=on_export title="Export board as JSONL snapshot">
-                            "Export"
-                        </button>
-                    }
-                    .into_any()
-                } else {
-                    ().into_any()
-                }
-            }}
-
-            <span class="toolbar__spacer"></span>
-
             <span class="toolbar__self">
                 {move || self_identity().0}
             </span>
@@ -386,9 +283,115 @@ pub fn Toolbar() -> impl IntoView {
             <button class="btn toolbar__info-btn" on:click=move |_| show_profile.set(true) title="View profile">
                 "Profile"
             </button>
-            <button class="btn toolbar__logout" on:click=on_logout title="Logout">
-                "Logout"
-            </button>
+
+            <span class="toolbar__spacer"></span>
+
+            <div class="toolbar__right-controls">
+                {move || {
+                    if is_board_route() {
+                        view! {
+                            <button class="btn toolbar__action-btn" on:click=on_share title="Share board">
+                                "Share"
+                            </button>
+                        }
+                        .into_any()
+                    } else {
+                        ().into_any()
+                    }
+                }}
+                {move || {
+                    if is_board_route() && board.get().board_id.is_some() {
+                        view! {
+                            <button class="btn toolbar__action-btn" on:click=on_import_click title="Import board snapshot from JSONL">
+                                "Import"
+                            </button>
+                        }
+                        .into_any()
+                    } else {
+                        ().into_any()
+                    }
+                }}
+                {move || {
+                    if is_board_route() && board.get().board_id.is_some() {
+                        view! {
+                            <button class="btn toolbar__action-btn" on:click=on_export title="Export board as JSONL snapshot">
+                                "Export"
+                            </button>
+                        }
+                        .into_any()
+                    } else {
+                        ().into_any()
+                    }
+                }}
+                {move || {
+                    if is_board_route() {
+                        view! {
+                            <div class="toolbar__segment" role="group" aria-label="Board view mode">
+                                <button
+                                    class="btn toolbar__segment-btn"
+                                    class:toolbar__segment-btn--active=move || ui.get().view_mode == ViewMode::Canvas
+                                    on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Canvas)
+                                    title="Board canvas view"
+                                >
+                                    <span class="toolbar__segment-label">{"Board"}</span>
+                                </button>
+                                <button
+                                    class="btn toolbar__segment-btn"
+                                    class:toolbar__segment-btn--active=move || ui.get().view_mode == ViewMode::Trace
+                                    on:click=move |_| ui.update(|u| u.view_mode = ViewMode::Trace)
+                                    title="Trace view"
+                                >
+                                    <span class="toolbar__segment-label">{"Traces"}</span>
+                                </button>
+                            </div>
+                        }
+                        .into_any()
+                    } else {
+                        ().into_any()
+                    }
+                }}
+                {move || {
+                    if is_board_route() {
+                        view! {
+                            <div class="toolbar__segment" role="group" aria-label="Theme mode">
+                                <button
+                                    class="btn toolbar__segment-btn"
+                                    class:toolbar__segment-btn--active=move || !ui.get().dark_mode
+                                    on:click=move |_| {
+                                        if ui.get().dark_mode {
+                                            let next = crate::util::dark_mode::toggle(true);
+                                            ui.update(|u| u.dark_mode = next);
+                                        }
+                                    }
+                                    title="Light mode"
+                                >
+                                    <span class="toolbar__segment-label">{"Light"}</span>
+                                </button>
+                                <button
+                                    class="btn toolbar__segment-btn"
+                                    class:toolbar__segment-btn--active=move || ui.get().dark_mode
+                                    on:click=move |_| {
+                                        if !ui.get().dark_mode {
+                                            let next = crate::util::dark_mode::toggle(false);
+                                            ui.update(|u| u.dark_mode = next);
+                                        }
+                                    }
+                                    title="Dark mode"
+                                >
+                                    <span class="toolbar__segment-label">{"Dark"}</span>
+                                </button>
+                            </div>
+                        }
+                        .into_any()
+                    } else {
+                        ().into_any()
+                    }
+                }}
+
+                <button class="btn toolbar__logout" on:click=on_logout title="Logout">
+                    "Logout"
+                </button>
+            </div>
         </div>
 
         {show_share_dialog}

@@ -1912,15 +1912,25 @@ a:hover {
     flex: 1;
 }
 
-.toolbar__dark-toggle,
+.toolbar__right-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.toolbar__action-btn,
 .toolbar__logout {
-    width: 32px;
-    height: 32px;
-    padding: 0;
+    width: auto;
+    height: 30px;
+    padding: 0 var(--space-md);
     border: 1px solid transparent;
     background: transparent;
     color: var(--text-nav);
-    font-size: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     line-height: 1;
 }
 
@@ -1967,10 +1977,6 @@ a:hover {
     padding: 0 var(--space-xs);
 }
 
-.toolbar__share {
-    margin-left: 2rem;
-}
-
 .toolbar__self-method {
     color: color-mix(in oklab, var(--text-secondary) 72%, transparent);
 }
@@ -1998,15 +2004,10 @@ a:hover {
 }
 
 .toolbar__logout {
-    width: auto;
-    padding: 0 var(--space-md);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    color: var(--text-nav-active);
 }
 
-.toolbar__dark-toggle:hover,
+.toolbar__action-btn:hover,
 .toolbar__logout:hover {
     color: var(--text-nav-active);
     background: color-mix(in oklab, var(--accent-active) 10%, transparent);
