@@ -3,15 +3,15 @@
     pointer-events: auto;
     display: flex;
     align-items: center;
-    height: 24px;
+    height: 32px;
     background: var(--bg-status-bar);
     border-top: 1px solid var(--border-default);
-    padding: 0 var(--space-sm);
+    padding: 0 var(--space-lg);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
     line-height: 1;
     justify-content: space-between;
 }
@@ -19,7 +19,7 @@
 .status-bar__section {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: var(--space-md);
     line-height: 1;
 }
 
@@ -35,8 +35,8 @@
 }
 
 .status-bar__dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     background: var(--text-tertiary);
 }
 
@@ -54,9 +54,24 @@
 
 .status-bar__divider {
     width: 1px;
-    height: 12px;
+    height: 14px;
     font-size: 0;
     background: var(--border-default);
+}
+
+.status-bar__help {
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    padding: 0;
+    cursor: pointer;
+}
+
+.status-bar__help:hover {
+    color: var(--text-primary);
 }
 
 .status-bar__user-chip {

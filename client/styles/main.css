@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap");
 
 :root {
     /* User colors */
@@ -13,7 +13,7 @@
 
     /* Typography */
     --font-mono: "IBM Plex Mono", "Courier Prime", "JetBrains Mono", monospace;
-    --font-script: "Caveat", cursive;
+    --font-script: "Playfair Display", "Libre Baskerville", Georgia, serif;
 
     /* Spacing */
     --space-xs: 4px;
@@ -21,6 +21,8 @@
     --space-md: 16px;
     --space-lg: 24px;
     --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
 
     /* Layering */
     --z-canvas-ui: 10;
@@ -40,26 +42,28 @@
     --canvas-grid-major: #d7d1c7;
 
     /* UI Chrome */
-    --bg-primary: #f5f0e8;
-    --bg-secondary: #ede8dd;
-    --bg-nav: #ede8dd;
-    --bg-status-bar: #f0ebe2;
+    --bg-primary: #e8e0d0;
+    --bg-secondary: #f2ece0;
+    --bg-tertiary: #ede6d8;
+    --bg-nav: #d8d0c0;
+    --bg-status-bar: #d0c8b8;
 
     /* Text */
-    --text-primary: #2c2824;
-    --text-secondary: #8a8178;
-    --text-tertiary: #b5aea4;
-    --text-nav: #6f675f;
-    --text-nav-active: #2c2824;
+    --text-primary: #2c2416;
+    --text-secondary: #5c5040;
+    --text-tertiary: #8c8070;
+    --text-nav: #5c5040;
+    --text-nav-active: #2c2416;
 
     /* Accents */
-    --accent-green: #2c6e49;
+    --accent-green: #4a7c5c;
     --accent-error: #8b4049;
-    --accent-highlight: #8b6e4e;
+    --accent-highlight: #8c6c2c;
+    --accent-active: #6b4c2a;
 
     /* Borders */
-    --border-default: #d4cfc6;
-    --border-subtle: #e5e0d8;
+    --border-default: #a09080;
+    --border-subtle: #c8c0b0;
 
     /* Object colors */
     --obj-cream: #f5f0e8;
@@ -79,6 +83,7 @@
 
     --bg-primary: #1c1a18;
     --bg-secondary: #252220;
+    --bg-tertiary: #2d2925;
     --bg-nav: #0f0e0d;
     --bg-status-bar: #1c1a18;
 
@@ -88,9 +93,10 @@
     --text-nav: #7a756d;
     --text-nav-active: #e8e0d2;
 
-    --accent-green: #3d9463;
+    --accent-green: #4f9770;
     --accent-error: #b85a63;
-    --accent-highlight: #ff69b4;
+    --accent-highlight: #b08b63;
+    --accent-active: #cfab84;
 
     --border-default: #3a3632;
     --border-subtle: #2a2724;
@@ -123,11 +129,12 @@ body {
     font-family: var(--font-mono);
     font-size: 13px;
     background: var(--bg-primary);
-    color: var(--text-primary);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
     overflow: hidden;
 }
 
-button,
 input,
 textarea,
 select {
@@ -142,12 +149,18 @@ select {
 }
 
 button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    border: none;
+    background: none;
     cursor: pointer;
     transition: background 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
 
 button:hover {
-    background: var(--bg-primary);
+    background: transparent;
+    color: var(--text-primary);
 }
 
 button:disabled {
@@ -159,6 +172,11 @@ input:focus,
 textarea:focus,
 select:focus {
     border-color: var(--text-primary);
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent-active);
+    outline-offset: 2px;
 }
 
 ::-webkit-scrollbar {
@@ -175,7 +193,7 @@ select:focus {
 }
 
 a {
-    color: var(--accent-green);
+    color: inherit;
     text-decoration: none;
     transition: color 150ms ease;
 }
@@ -186,8 +204,8 @@ a:hover {
 
 /* Shared button variants */
 .btn {
-    height: 28px;
-    padding: 0 var(--space-sm);
+    height: 30px;
+    padding: 0 12px;
     background: transparent;
     border: 1px solid var(--border-default);
     font-family: var(--font-mono);
@@ -196,16 +214,17 @@ a:hover {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-secondary);
+    transition: background 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
 }
 
 .btn--primary {
-    border-color: var(--accent-green);
-    color: var(--accent-green);
+    border-color: var(--accent-active);
+    color: var(--accent-active);
 }
 
 .btn--primary:hover {
-    background: var(--accent-green);
-    color: var(--bg-primary);
+    background: var(--accent-active);
+    color: var(--bg-secondary);
 }
 
 .btn--danger {
@@ -270,7 +289,9 @@ a:hover {
 .right-panel__header {
     display: flex;
     align-items: center;
-    height: 36px;
+    height: 40px;
+    padding: 0 var(--space-sm);
+    background: var(--bg-nav);
     border-bottom: 1px solid var(--border-default);
     flex-shrink: 0;
 }
@@ -279,12 +300,11 @@ a:hover {
 .right-panel__title {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-primary);
-    padding-left: var(--space-sm);
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
 }
 
 .left-panel__close,
@@ -1731,10 +1751,10 @@ a:hover {
     pointer-events: auto;
     display: flex;
     align-items: center;
-    height: 36px;
+    height: 48px;
     background: var(--bg-nav);
-    padding: 0 var(--space-sm);
-    gap: var(--space-xs);
+    padding: 0 var(--space-lg);
+    gap: var(--space-sm);
     border-bottom: 1px solid var(--border-default);
 }
 
@@ -1742,8 +1762,8 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     color: var(--text-nav);
     border: 1px solid transparent;
     font-size: 14px;
@@ -1757,16 +1777,16 @@ a:hover {
 .toolbar__board-name {
     font-family: var(--font-mono);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text-nav-active);
-    margin-right: 3em;
+    margin-right: 2rem;
 }
 
 .toolbar__divider {
     width: 1px;
-    height: 14px;
+    height: 24px;
     background: var(--border-default);
 }
 
@@ -1775,7 +1795,7 @@ a:hover {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    margin-left: var(--space-sm);
+    margin-left: var(--space-md);
     min-width: 0;
     overflow: hidden;
 }
@@ -1790,9 +1810,9 @@ a:hover {
     padding-left: var(--space-xs);
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     color: var(--text-nav);
     white-space: nowrap;
     max-width: 180px;
@@ -1816,8 +1836,8 @@ a:hover {
 
 .toolbar__dark-toggle,
 .toolbar__logout {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border: 1px solid transparent;
     background: transparent;
@@ -1835,9 +1855,9 @@ a:hover {
 }
 
 .toolbar__segment-btn {
-    height: 24px;
-    min-width: 54px;
-    padding: 0 8px;
+    height: 30px;
+    min-width: 60px;
+    padding: 0 10px;
     border: 0;
     border-right: 1px solid var(--border-default);
     background: transparent;
@@ -1865,12 +1885,12 @@ a:hover {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     padding: 0 var(--space-xs);
 }
 
 .toolbar__share {
-    margin-left: 0;
+    margin-left: 2rem;
 }
 
 .toolbar__self-method {
@@ -1881,8 +1901,8 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     color: var(--text-nav);
     line-height: 1;
@@ -1897,7 +1917,7 @@ a:hover {
 
 .toolbar__logout {
     width: auto;
-    padding: 0 var(--space-sm);
+    padding: 0 var(--space-md);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
@@ -1907,7 +1927,7 @@ a:hover {
 .toolbar__dark-toggle:hover,
 .toolbar__logout:hover {
     color: var(--text-nav-active);
-    background: transparent;
+    background: color-mix(in oklab, var(--accent-active) 10%, transparent);
 }
 
 
@@ -2746,15 +2766,15 @@ a:hover {
     pointer-events: auto;
     display: flex;
     align-items: center;
-    height: 24px;
+    height: 32px;
     background: var(--bg-status-bar);
     border-top: 1px solid var(--border-default);
-    padding: 0 var(--space-sm);
+    padding: 0 var(--space-lg);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
     line-height: 1;
     justify-content: space-between;
 }
@@ -2762,7 +2782,7 @@ a:hover {
 .status-bar__section {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: var(--space-md);
     line-height: 1;
 }
 
@@ -2775,7 +2795,7 @@ a:hover {
 .status-bar__help {
     border: 0;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     font: inherit;
     text-transform: inherit;
     letter-spacing: inherit;
@@ -2793,8 +2813,8 @@ a:hover {
 }
 
 .status-bar__dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     background: var(--text-tertiary);
 }
 
@@ -2812,7 +2832,7 @@ a:hover {
 
 .status-bar__divider {
     width: 1px;
-    height: 12px;
+    height: 14px;
     font-size: 0;
     background: var(--border-default);
 }

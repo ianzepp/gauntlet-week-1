@@ -6,26 +6,28 @@
     --canvas-grid-major: #d7d1c7;
 
     /* UI Chrome */
-    --bg-primary: #f5f0e8;
-    --bg-secondary: #ede8dd;
-    --bg-nav: #ede8dd;
-    --bg-status-bar: #f0ebe2;
+    --bg-primary: #e8e0d0;
+    --bg-secondary: #f2ece0;
+    --bg-tertiary: #ede6d8;
+    --bg-nav: #d8d0c0;
+    --bg-status-bar: #d0c8b8;
 
     /* Text */
-    --text-primary: #2c2824;
-    --text-secondary: #8a8178;
-    --text-tertiary: #b5aea4;
-    --text-nav: #6f675f;
-    --text-nav-active: #2c2824;
+    --text-primary: #2c2416;
+    --text-secondary: #5c5040;
+    --text-tertiary: #8c8070;
+    --text-nav: #5c5040;
+    --text-nav-active: #2c2416;
 
     /* Accents */
-    --accent-green: #2c6e49;
+    --accent-green: #4a7c5c;
     --accent-error: #8b4049;
-    --accent-highlight: #8b6e4e;
+    --accent-highlight: #8c6c2c;
+    --accent-active: #6b4c2a;
 
     /* Borders */
-    --border-default: #d4cfc6;
-    --border-subtle: #e5e0d8;
+    --border-default: #a09080;
+    --border-subtle: #c8c0b0;
 
     /* Object colors */
     --obj-cream: #f5f0e8;

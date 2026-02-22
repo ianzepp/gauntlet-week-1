@@ -11,7 +11,7 @@
 
     /* Typography */
     --font-mono: "IBM Plex Mono", "Courier Prime", "JetBrains Mono", monospace;
-    --font-script: "Caveat", cursive;
+    --font-script: "Playfair Display", "Libre Baskerville", Georgia, serif;
 
     /* Spacing */
     --space-xs: 4px;
@@ -19,6 +19,8 @@
     --space-md: 16px;
     --space-lg: 24px;
     --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
 
     /* Layering */
     --z-canvas-ui: 10;

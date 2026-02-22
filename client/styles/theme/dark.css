@@ -5,6 +5,7 @@
 
     --bg-primary: #1c1a18;
     --bg-secondary: #252220;
+    --bg-tertiary: #2d2925;
     --bg-nav: #0f0e0d;
     --bg-status-bar: #1c1a18;
 
@@ -14,9 +15,10 @@
     --text-nav: #7a756d;
     --text-nav-active: #e8e0d2;
 
-    --accent-green: #3d9463;
+    --accent-green: #4f9770;
     --accent-error: #b85a63;
-    --accent-highlight: #ff69b4;
+    --accent-highlight: #b08b63;
+    --accent-active: #cfab84;
 
     --border-default: #3a3632;
     --border-subtle: #2a2724;

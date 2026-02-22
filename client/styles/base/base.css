@@ -16,11 +16,12 @@ body {
     font-family: var(--font-mono);
     font-size: 13px;
     background: var(--bg-primary);
-    color: var(--text-primary);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
     overflow: hidden;
 }
 
-button,
 input,
 textarea,
 select {
@@ -35,12 +36,18 @@ select {
 }
 
 button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    border: none;
+    background: none;
     cursor: pointer;
     transition: background 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
 
 button:hover {
-    background: var(--bg-primary);
+    background: transparent;
+    color: var(--text-primary);
 }
 
 button:disabled {
@@ -52,6 +59,11 @@ input:focus,
 textarea:focus,
 select:focus {
     border-color: var(--text-primary);
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent-active);
+    outline-offset: 2px;
 }
 
 ::-webkit-scrollbar {
@@ -68,7 +80,7 @@ select:focus {
 }
 
 a {
-    color: var(--accent-green);
+    color: inherit;
     text-decoration: none;
     transition: color 150ms ease;
 }
@@ -79,8 +91,8 @@ a:hover {
 
 /* Shared button variants */
 .btn {
-    height: 28px;
-    padding: 0 var(--space-sm);
+    height: 30px;
+    padding: 0 12px;
     background: transparent;
     border: 1px solid var(--border-default);
     font-family: var(--font-mono);
@@ -89,16 +101,17 @@ a:hover {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-secondary);
+    transition: background 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
 }
 
 .btn--primary {
-    border-color: var(--accent-green);
-    color: var(--accent-green);
+    border-color: var(--accent-active);
+    color: var(--accent-active);
 }
 
 .btn--primary:hover {
-    background: var(--accent-green);
-    color: var(--bg-primary);
+    background: var(--accent-active);
+    color: var(--bg-secondary);
 }
 
 .btn--danger {
@@ -163,7 +176,9 @@ a:hover {
 .right-panel__header {
     display: flex;
     align-items: center;
-    height: 36px;
+    height: 40px;
+    padding: 0 var(--space-sm);
+    background: var(--bg-nav);
     border-bottom: 1px solid var(--border-default);
     flex-shrink: 0;
 }
@@ -172,12 +187,11 @@ a:hover {
 .right-panel__title {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-primary);
-    padding-left: var(--space-sm);
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
 }
 
 .left-panel__close,

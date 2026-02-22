@@ -3,10 +3,10 @@
     pointer-events: auto;
     display: flex;
     align-items: center;
-    height: 36px;
+    height: 48px;
     background: var(--bg-nav);
-    padding: 0 var(--space-sm);
-    gap: var(--space-xs);
+    padding: 0 var(--space-lg);
+    gap: var(--space-sm);
     border-bottom: 1px solid var(--border-default);
 }
 
@@ -14,8 +14,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     color: var(--text-nav);
     border: 1px solid transparent;
     font-size: 14px;
@@ -29,16 +29,16 @@
 .toolbar__board-name {
     font-family: var(--font-mono);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text-nav-active);
-    margin-right: 3em;
+    margin-right: 2rem;
 }
 
 .toolbar__divider {
     width: 1px;
-    height: 14px;
+    height: 24px;
     background: var(--border-default);
 }
 
@@ -47,7 +47,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    margin-left: var(--space-sm);
+    margin-left: var(--space-md);
     min-width: 0;
     overflow: hidden;
 }
@@ -62,9 +62,9 @@
     padding-left: var(--space-xs);
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     color: var(--text-nav);
     white-space: nowrap;
     max-width: 180px;
@@ -88,8 +88,8 @@
 
 .toolbar__dark-toggle,
 .toolbar__logout {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border: 1px solid transparent;
     background: transparent;
@@ -107,9 +107,9 @@
 }
 
 .toolbar__segment-btn {
-    height: 24px;
-    min-width: 54px;
-    padding: 0 8px;
+    height: 30px;
+    min-width: 60px;
+    padding: 0 10px;
     border: 0;
     border-right: 1px solid var(--border-default);
     background: transparent;
@@ -137,12 +137,12 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     padding: 0 var(--space-xs);
 }
 
 .toolbar__share {
-    margin-left: 3em;
+    margin-left: 2rem;
 }
 
 .toolbar__self-method {
@@ -158,8 +158,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     color: var(--text-nav);
     line-height: 1;
@@ -174,7 +174,7 @@
 
 .toolbar__logout {
     width: auto;
-    padding: 0 var(--space-sm);
+    padding: 0 var(--space-md);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
@@ -192,5 +192,5 @@
 .toolbar__dark-toggle:hover,
 .toolbar__logout:hover {
     color: var(--text-nav-active);
-    background: transparent;
+    background: color-mix(in oklab, var(--accent-active) 10%, transparent);
 }
