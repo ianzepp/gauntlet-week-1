@@ -267,10 +267,6 @@ pub fn Toolbar() -> impl IntoView {
                 }
             }}
 
-            <button class="btn toolbar__info-btn" on:click=move |_| show_profile.set(true) title="View profile">
-                "Profile"
-            </button>
-
             <span class="toolbar__spacer"></span>
 
             <div class="toolbar__right-controls">
@@ -375,6 +371,9 @@ pub fn Toolbar() -> impl IntoView {
                     }
                 }}
 
+                <button class="btn toolbar__action-btn" on:click=move |_| show_profile.set(true) title="View session">
+                    "Session"
+                </button>
                 <button class="btn toolbar__logout" on:click=on_logout title="Logout">
                     "Logout"
                 </button>
