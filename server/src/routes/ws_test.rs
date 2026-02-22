@@ -1060,13 +1060,25 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
     )
     .await;
 
-    assert_eq!(sender_frames.len(), 1);
-    let reply = &sender_frames[0];
+    assert!(sender_frames.len() >= 2);
+    let reply = sender_frames
+        .iter()
+        .find(|f| f.status == Status::Done)
+        .expect("done frame should be present");
     assert_eq!(reply.syscall, "ai:prompt");
     assert_eq!(reply.status, Status::Done);
     assert_eq!(reply.data.get("prompt").and_then(|v| v.as_str()), Some("create a sticky"));
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(1));
-    assert_eq!(reply.data.get("text").and_then(|v| v.as_str()), Some("Created a sticky."));
+    assert!(reply.data.get("text").is_none());
+    assert_eq!(reply.data.get("turn_over").and_then(|v| v.as_bool()), Some(true));
+    let assistant_item = sender_frames
+        .iter()
+        .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))
+        .expect("assistant item should be present");
+    assert_eq!(
+        assistant_item.data.get("content").and_then(|v| v.as_str()),
+        Some("Created a sticky.")
+    );
 
     let sender_broadcast = recv_board_broadcast(&mut sender_rx).await;
     let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
@@ -1148,13 +1160,25 @@ async fn ai_prompt_resize_sticky_broadcasts_update_and_replies_with_text() {
     )
     .await;
 
-    assert_eq!(sender_frames.len(), 1);
-    let reply = &sender_frames[0];
+    assert!(sender_frames.len() >= 2);
+    let reply = sender_frames
+        .iter()
+        .find(|f| f.status == Status::Done)
+        .expect("done frame should be present");
     assert_eq!(reply.syscall, "ai:prompt");
     assert_eq!(reply.status, Status::Done);
     assert_eq!(reply.data.get("prompt").and_then(|v| v.as_str()), Some("resize sticky 4"));
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(1));
-    assert_eq!(reply.data.get("text").and_then(|v| v.as_str()), Some("Resized sticky 4."));
+    assert!(reply.data.get("text").is_none());
+    assert_eq!(reply.data.get("turn_over").and_then(|v| v.as_bool()), Some(true));
+    let assistant_item = sender_frames
+        .iter()
+        .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))
+        .expect("assistant item should be present");
+    assert_eq!(
+        assistant_item.data.get("content").and_then(|v| v.as_str()),
+        Some("Resized sticky 4.")
+    );
 
     let sender_broadcast = recv_board_broadcast(&mut sender_rx).await;
     let peer_broadcast = recv_board_broadcast(&mut peer_rx).await;
@@ -1232,13 +1256,25 @@ async fn ai_prompt_multi_tool_single_turn_broadcasts_all_mutations_and_replies_w
     )
     .await;
 
-    assert_eq!(sender_frames.len(), 1);
-    let reply = &sender_frames[0];
+    assert!(sender_frames.len() >= 2);
+    let reply = sender_frames
+        .iter()
+        .find(|f| f.status == Status::Done)
+        .expect("done frame should be present");
     assert_eq!(reply.syscall, "ai:prompt");
     assert_eq!(reply.status, Status::Done);
     assert_eq!(reply.data.get("prompt").and_then(|v| v.as_str()), Some("create two stickies"));
     assert_eq!(reply.data.get("mutations").and_then(|v| v.as_u64()), Some(2));
-    assert_eq!(reply.data.get("text").and_then(|v| v.as_str()), Some("Added two stickies."));
+    assert!(reply.data.get("text").is_none());
+    assert_eq!(reply.data.get("turn_over").and_then(|v| v.as_bool()), Some(true));
+    let assistant_item = sender_frames
+        .iter()
+        .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))
+        .expect("assistant item should be present");
+    assert_eq!(
+        assistant_item.data.get("content").and_then(|v| v.as_str()),
+        Some("Added two stickies.")
+    );
 
     let sender_broadcasts = recv_board_broadcasts(&mut sender_rx, 2).await;
     let peer_broadcasts = recv_board_broadcasts(&mut peer_rx, 2).await;
@@ -1347,11 +1383,26 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
     )
     .await;
 
-    assert_eq!(first_reply.len(), 1);
-    let first = &first_reply[0];
+    assert!(first_reply.len() >= 2);
+    let first = first_reply
+        .iter()
+        .find(|f| f.status == Status::Done)
+        .expect("done frame should be present");
     assert_eq!(first.status, Status::Done);
     assert_eq!(first.data.get("mutations").and_then(|v| v.as_u64()), Some(2));
-    assert_eq!(first.data.get("text").and_then(|v| v.as_str()), Some("First batch complete."));
+    assert!(first.data.get("text").is_none());
+    assert_eq!(first.data.get("turn_over").and_then(|v| v.as_bool()), Some(true));
+    let first_assistant_item = first_reply
+        .iter()
+        .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))
+        .expect("assistant item should be present");
+    assert_eq!(
+        first_assistant_item
+            .data
+            .get("content")
+            .and_then(|v| v.as_str()),
+        Some("First batch complete.")
+    );
     let first_sender_broadcasts = recv_board_broadcasts(&mut sender_rx, 2).await;
     let first_peer_broadcasts = recv_board_broadcasts(&mut peer_rx, 2).await;
     assert!(
@@ -1375,11 +1426,26 @@ async fn ai_prompt_sequence_multi_tool_text_then_multi_tool_text() {
     )
     .await;
 
-    assert_eq!(second_reply.len(), 1);
-    let second = &second_reply[0];
+    assert!(second_reply.len() >= 2);
+    let second = second_reply
+        .iter()
+        .find(|f| f.status == Status::Done)
+        .expect("done frame should be present");
     assert_eq!(second.status, Status::Done);
     assert_eq!(second.data.get("mutations").and_then(|v| v.as_u64()), Some(2));
-    assert_eq!(second.data.get("text").and_then(|v| v.as_str()), Some("Second batch complete."));
+    assert!(second.data.get("text").is_none());
+    assert_eq!(second.data.get("turn_over").and_then(|v| v.as_bool()), Some(true));
+    let second_assistant_item = second_reply
+        .iter()
+        .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))
+        .expect("assistant item should be present");
+    assert_eq!(
+        second_assistant_item
+            .data
+            .get("content")
+            .and_then(|v| v.as_str()),
+        Some("Second batch complete.")
+    );
     let second_sender_broadcasts = recv_board_broadcasts(&mut sender_rx, 2).await;
     let second_peer_broadcasts = recv_board_broadcasts(&mut peer_rx, 2).await;
     assert!(

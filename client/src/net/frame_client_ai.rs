@@ -61,6 +61,15 @@ pub(super) fn handle_ai_frame(frame: &Frame, ai: leptos::prelude::RwSignal<AiSta
             }
             true
         }
+        "ai:prompt" if frame.status == FrameStatus::Item => {
+            if let Some(msg) = super::parse_ai_prompt_message(frame) {
+                ai.update(|a| {
+                    a.messages.push(msg);
+                    a.loading = true;
+                });
+            }
+            true
+        }
         _ => false,
     }
 }

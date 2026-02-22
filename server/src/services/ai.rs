@@ -121,6 +121,7 @@ impl From<crate::rate_limit::RateLimitError> for AiError {
 pub struct AiResult {
     pub mutations: Vec<AiMutation>,
     pub text: Option<String>,
+    pub items: Vec<Data>,
 }
 
 #[derive(Debug)]
@@ -186,6 +187,7 @@ pub async fn handle_prompt_with_parent(
     let mut latest_tool_exchange: Option<(Message, Message)> = None;
 
     let mut all_mutations = Vec::new();
+    let mut stream_items = Vec::new();
     let mut final_text: Option<String> = None;
     let token_reservation = u64::from(max_tokens);
     let trace_id = trace_id_for_prompt(parent_frame_id);
@@ -279,7 +281,13 @@ pub async fn handle_prompt_with_parent(
             })
             .collect();
         if !text_parts.is_empty() {
-            final_text = Some(text_parts.join("\n"));
+            let text = text_parts.join("\n");
+            final_text = Some(text.clone());
+            let mut item = Data::new();
+            item.insert("role".into(), json!("assistant"));
+            item.insert("content".into(), json!(text));
+            item.insert("kind".into(), json!("assistant_text"));
+            stream_items.push(item);
         }
 
         // Collect tool_use blocks.
@@ -300,6 +308,14 @@ pub async fn handle_prompt_with_parent(
         // Execute each tool call and collect results.
         let mut tool_results = Vec::new();
         for (tool_id, tool_name, input) in &tool_calls {
+            let mut start_item = Data::new();
+            start_item.insert("role".into(), json!("tool"));
+            start_item.insert("kind".into(), json!("tool_call"));
+            start_item.insert("tool_use_id".into(), json!(tool_id));
+            start_item.insert("tool_name".into(), json!(tool_name));
+            start_item.insert("input".into(), input.clone());
+            stream_items.push(start_item);
+
             info!(iteration, tool = %tool_name, "ai: executing tool via syscall");
             let result = execute_tool_via_syscall(
                 state,
@@ -324,6 +340,16 @@ pub async fn handle_prompt_with_parent(
                     (e.to_string(), Some(true))
                 }
             };
+            let mut result_item = Data::new();
+            result_item.insert("role".into(), json!("tool"));
+            result_item.insert("kind".into(), json!("tool_result"));
+            result_item.insert("tool_use_id".into(), json!(tool_id));
+            result_item.insert("tool_name".into(), json!(tool_name));
+            result_item.insert("content".into(), json!(content.clone()));
+            if let Some(err) = is_error {
+                result_item.insert("is_error".into(), json!(err));
+            }
+            stream_items.push(result_item);
             tool_results.push(ContentBlock::ToolResult { tool_use_id: tool_id.clone(), content, is_error });
         }
 
@@ -343,11 +369,17 @@ pub async fn handle_prompt_with_parent(
     // fallback text when the LLM returned none (e.g. thinking-only or
     // mutations-only responses).
     if final_text.is_none() {
-        final_text = Some(if all_mutations.is_empty() {
+        let synthesized = if all_mutations.is_empty() {
             "Done.".into()
         } else {
             format!("Done — {} object(s) updated.", all_mutations.len())
-        });
+        };
+        final_text = Some(synthesized.clone());
+        let mut item = Data::new();
+        item.insert("role".into(), json!("assistant"));
+        item.insert("content".into(), json!(synthesized));
+        item.insert("kind".into(), json!("assistant_text"));
+        stream_items.push(item);
     }
 
     info!(
@@ -361,7 +393,7 @@ pub async fn handle_prompt_with_parent(
         append_session_messages(state, session_key, prompt_message, text).await;
     }
 
-    Ok(AiResult { mutations: all_mutations, text: final_text })
+    Ok(AiResult { mutations: all_mutations, text: final_text, items: stream_items })
 }
 
 async fn execute_tool_via_syscall(

@@ -305,7 +305,15 @@ async fn process_inbound_bytes(
         Ok(Outcome::ReplyStream { items, done }) => {
             let mut sender_frames = Vec::with_capacity(items.len() + 1);
             for data in items {
-                sender_frames.push(req.bulk_with(data));
+                let item_frame = if req.syscall == "ai:prompt" {
+                    req.item_with(data)
+                } else {
+                    req.bulk_with(data)
+                };
+                if req.syscall == "ai:prompt" {
+                    services::persistence::enqueue_frame(state, &item_frame);
+                }
+                sender_frames.push(item_frame);
             }
             let done_frame = req.done_with(done);
             services::persistence::enqueue_frame(state, &done_frame);
@@ -1259,13 +1267,11 @@ async fn handle_ai(
                     broadcast_ai_mutations(state, board_id, user_id, Some(req.id), Some(req.id), &result.mutations)
                         .await;
 
-                    let mut data = Data::new();
-                    data.insert("prompt".into(), serde_json::json!(prompt));
-                    if let Some(text) = &result.text {
-                        data.insert("text".into(), serde_json::json!(text));
-                    }
-                    data.insert("mutations".into(), serde_json::json!(result.mutations.len()));
-                    data.insert(
+                    let mut done = Data::new();
+                    done.insert("prompt".into(), serde_json::json!(prompt));
+                    done.insert("turn_over".into(), serde_json::json!(true));
+                    done.insert("mutations".into(), serde_json::json!(result.mutations.len()));
+                    done.insert(
                         "trace".into(),
                         serde_json::json!({
                             "trace_id": req.id,
@@ -1275,7 +1281,7 @@ async fn handle_ai(
                             "label": "prompt"
                         }),
                     );
-                    Ok(Outcome::Reply(data))
+                    Ok(Outcome::ReplyStream { items: result.items, done })
                 }
                 Err(e) => {
                     let mut err = req.error_from(&e);
@@ -1300,16 +1306,30 @@ async fn handle_ai(
 }
 
 async fn ai_history(state: &AppState, board_id: Uuid, user_id: Uuid, req: &Frame) -> Result<Outcome, Frame> {
-    let rows = match sqlx::query_as::<_, (Uuid, i64, String, Option<String>, Option<String>, Option<String>)>(
+    let rows = match sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            i64,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(
         "SELECT f.id, f.ts, f.status::text,
                 f.data->>'prompt' AS prompt,
                 f.data->>'text' AS text,
-                f.data->>'mutations' AS mutations
+                f.data->>'mutations' AS mutations,
+                f.data->>'role' AS role,
+                f.data->>'content' AS content
          FROM frames f
          WHERE f.board_id = $1
            AND f.\"from\" = $2
            AND f.syscall = 'ai:prompt'
-           AND f.status IN ('request', 'done')
+           AND f.status IN ('request', 'item', 'done')
          ORDER BY f.seq ASC
          LIMIT 400",
     )
@@ -1324,7 +1344,7 @@ async fn ai_history(state: &AppState, board_id: Uuid, user_id: Uuid, req: &Frame
 
     let messages: Vec<serde_json::Value> = rows
         .into_iter()
-        .filter_map(|(id, ts, status, prompt, text, mutations)| {
+        .filter_map(|(id, ts, status, prompt, text, mutations, role, content)| {
             if status == "request" {
                 let prompt = prompt?;
                 if prompt.is_empty() {
@@ -1335,6 +1355,18 @@ async fn ai_history(state: &AppState, board_id: Uuid, user_id: Uuid, req: &Frame
                     "ts": ts,
                     "role": "user",
                     "text": prompt,
+                }))
+            } else if status == "item" {
+                let role = role.unwrap_or_else(|| "assistant".to_owned());
+                let text = content?;
+                if text.is_empty() {
+                    return None;
+                }
+                Some(serde_json::json!({
+                    "id": id,
+                    "ts": ts,
+                    "role": role,
+                    "text": text,
                 }))
             } else {
                 let text = text?;
