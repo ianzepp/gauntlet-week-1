@@ -399,6 +399,7 @@ pub async fn handle_prompt_with_parent(
             let result = execute_tool_via_syscall(
                 state,
                 board_id,
+                client_id,
                 user_id,
                 iteration,
                 tool_id,
@@ -496,6 +497,7 @@ pub async fn handle_prompt_with_parent(
 async fn execute_tool_via_syscall(
     state: &AppState,
     board_id: Uuid,
+    client_id: Uuid,
     user_id: Uuid,
     iteration: usize,
     tool_use_id: &str,
@@ -511,7 +513,11 @@ async fn execute_tool_via_syscall(
     let syscall = format!("tool:{tool_name}");
     let mut req_data = Data::new();
     req_data.insert("tool_use_id".into(), json!(tool_use_id));
-    req_data.insert("input".into(), input.clone());
+    let mut tool_input = input.clone();
+    if let Some(obj) = tool_input.as_object_mut() {
+        obj.insert("_viewer_client_id".into(), json!(client_id.to_string()));
+    }
+    req_data.insert("input".into(), tool_input);
 
     let mut req = Frame::request(syscall, req_data)
         .with_board_id(board_id)
@@ -843,6 +849,186 @@ where
     Err(super::object::ObjectError::NotFound(object_id))
 }
 
+fn default_dimensions_for_kind(kind: &str) -> (f64, f64) {
+    match kind {
+        "sticky_note" => (220.0, 160.0),
+        "frame" => (400.0, 300.0),
+        "text" => (220.0, 56.0),
+        "line" | "arrow" => (180.0, 40.0),
+        "svg" => (320.0, 180.0),
+        _ => (160.0, 100.0),
+    }
+}
+
+fn object_dimensions(obj: &BoardObject) -> (f64, f64) {
+    let (dw, dh) = default_dimensions_for_kind(&obj.kind);
+    (obj.width.unwrap_or(dw).max(1.0), obj.height.unwrap_or(dh).max(1.0))
+}
+
+fn viewer_top_left_world(view: &ClientViewport) -> Option<(f64, f64)> {
+    let center_x = view.camera_center_x?;
+    let center_y = view.camera_center_y?;
+    let zoom = view.camera_zoom?.max(0.001);
+    let rotation_deg = view.camera_rotation?;
+    let viewport_w = view.camera_viewport_width?;
+    let viewport_h = view.camera_viewport_height?;
+
+    let world_w = viewport_w / zoom;
+    let world_h = viewport_h / zoom;
+    let dx = -world_w * 0.5;
+    let dy = -world_h * 0.5;
+    let radians = rotation_deg.to_radians();
+    let cos = radians.cos();
+    let sin = radians.sin();
+
+    let x = center_x + (dx * cos) - (dy * sin);
+    let y = center_y + (dx * sin) + (dy * cos);
+    Some((x, y))
+}
+
+async fn ai_viewport_origin_from_input(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+) -> Option<(f64, f64)> {
+    let client_id = input
+        .get("_viewer_client_id")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|raw| raw.parse::<Uuid>().ok())?;
+    let boards = state.boards.read().await;
+    let board = boards.get(&board_id)?;
+    let viewport = board.viewports.get(&client_id)?;
+    viewer_top_left_world(viewport)
+}
+
+fn map_ai_coords_to_world(
+    x_opt: Option<f64>,
+    y_opt: Option<f64>,
+    origin: Option<(f64, f64)>,
+) -> (Option<f64>, Option<f64>) {
+    match origin {
+        Some((ox, oy)) => (x_opt.map(|x| ox + x), y_opt.map(|y| oy + y)),
+        None => (x_opt, y_opt),
+    }
+}
+
+fn intersects_with_padding(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    other_x: f64,
+    other_y: f64,
+    other_w: f64,
+    other_h: f64,
+    padding: f64,
+) -> bool {
+    x < other_x + other_w + padding
+        && x + width > other_x - padding
+        && y < other_y + other_h + padding
+        && y + height > other_y - padding
+}
+
+async fn placement_anchor(state: &AppState, board_id: Uuid) -> (f64, f64) {
+    let boards = state.boards.read().await;
+    let Some(board) = boards.get(&board_id) else {
+        return (0.0, 0.0);
+    };
+
+    if let Some((cx, cy)) = board
+        .viewports
+        .values()
+        .find_map(|vp| vp.camera_center_x.zip(vp.camera_center_y))
+    {
+        return (cx, cy);
+    }
+
+    if board.objects.is_empty() {
+        return (0.0, 0.0);
+    }
+
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    for obj in board.objects.values() {
+        let (w, h) = object_dimensions(obj);
+        min_x = min_x.min(obj.x);
+        min_y = min_y.min(obj.y);
+        max_x = max_x.max(obj.x + w);
+        max_y = max_y.max(obj.y + h);
+    }
+
+    ((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
+}
+
+async fn find_non_overlapping_position(
+    state: &AppState,
+    board_id: Uuid,
+    origin_x: f64,
+    origin_y: f64,
+    width: f64,
+    height: f64,
+) -> (f64, f64) {
+    let boards = state.boards.read().await;
+    let Some(board) = boards.get(&board_id) else {
+        return (origin_x, origin_y);
+    };
+    let objects: Vec<(f64, f64, f64, f64)> = board
+        .objects
+        .values()
+        .map(|obj| {
+            let (w, h) = object_dimensions(obj);
+            (obj.x, obj.y, w, h)
+        })
+        .collect();
+    if objects.is_empty() {
+        return (origin_x, origin_y);
+    }
+
+    let padding = 14.0;
+    let step_x = (width + 24.0).max(64.0);
+    let step_y = (height + 24.0).max(64.0);
+
+    for attempt in 0..96 {
+        let (x, y) = if attempt == 0 {
+            (origin_x, origin_y)
+        } else {
+            let index = attempt - 1;
+            let col = (index % 4) as f64;
+            let row = (index / 4) as f64;
+            (origin_x + (col * step_x), origin_y + (row * step_y))
+        };
+
+        let overlaps = objects.iter().any(|(ox, oy, ow, oh)| {
+            intersects_with_padding(x, y, width, height, *ox, *oy, *ow, *oh, padding)
+        });
+        if !overlaps {
+            return (x, y);
+        }
+    }
+
+    (origin_x, origin_y)
+}
+
+async fn resolve_create_position(
+    state: &AppState,
+    board_id: Uuid,
+    x_opt: Option<f64>,
+    y_opt: Option<f64>,
+    width: f64,
+    height: f64,
+    allow_overlap: bool,
+) -> (f64, f64) {
+    let (anchor_x, anchor_y) = placement_anchor(state, board_id).await;
+    let mut x = x_opt.unwrap_or(anchor_x - (width * 0.5));
+    let mut y = y_opt.unwrap_or(anchor_y - (height * 0.5));
+    if !allow_overlap {
+        (x, y) = find_non_overlapping_position(state, board_id, x, y, width, height).await;
+    }
+    (x, y)
+}
+
 async fn execute_create_sticky_note(
     state: &AppState,
     board_id: Uuid,
@@ -851,14 +1037,10 @@ async fn execute_create_sticky_note(
 ) -> Result<String, AiError> {
     let title = input.get("title").and_then(|v| v.as_str()).unwrap_or("");
     let text = input.get("text").and_then(|v| v.as_str()).unwrap_or("");
-    let x = input
-        .get("x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let y = input
-        .get("y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
+    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
     let fill = input
         .get("fill")
         .and_then(|v| v.as_str())
@@ -876,6 +1058,11 @@ async fn execute_create_sticky_note(
         .get("textColor")
         .and_then(|v| v.as_str())
         .unwrap_or("#1F1A17");
+    let allow_overlap = input
+        .get("allowOverlap")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let (x, y) = resolve_create_position(state, board_id, x_opt, y_opt, 220.0, 160.0, allow_overlap).await;
 
     let props = json!({
         "title": title,
@@ -906,14 +1093,10 @@ async fn execute_create_shape(
     let Some(kind) = canonical_kind(requested_kind) else {
         return Ok("error: unsupported shape type".into());
     };
-    let x = input
-        .get("x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let y = input
-        .get("y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
+    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
     let fill = input
         .get("fill")
         .and_then(|v| v.as_str())
@@ -927,6 +1110,36 @@ async fn execute_create_shape(
         .get("strokeWidth")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
+
+    let allow_overlap = input
+        .get("allowOverlap")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let w = input.get("width").and_then(serde_json::Value::as_f64);
+    let h = input.get("height").and_then(serde_json::Value::as_f64);
+    let default_w = if kind == "text" {
+        220.0
+    } else if kind == "line" || kind == "arrow" {
+        180.0
+    } else {
+        160.0
+    };
+    let default_h = if kind == "text" {
+        56.0
+    } else if kind == "line" || kind == "arrow" {
+        0.0
+    } else {
+        100.0
+    };
+    let placement_h = if kind == "line" || kind == "arrow" {
+        40.0
+    } else {
+        default_h
+    };
+    let create_w = w.unwrap_or(default_w);
+    let create_h = h.unwrap_or(placement_h);
+    let (x, y) =
+        resolve_create_position(state, board_id, x_opt, y_opt, create_w, create_h, allow_overlap).await;
 
     let props = if kind == "text" {
         let text_color = input
@@ -962,22 +1175,6 @@ async fn execute_create_shape(
             "strokeWidth": stroke_width
         })
     };
-    let w = input.get("width").and_then(serde_json::Value::as_f64);
-    let h = input.get("height").and_then(serde_json::Value::as_f64);
-    let default_w = if kind == "text" {
-        220.0
-    } else if kind == "line" || kind == "arrow" {
-        180.0
-    } else {
-        160.0
-    };
-    let default_h = if kind == "text" {
-        56.0
-    } else if kind == "line" || kind == "arrow" {
-        0.0
-    } else {
-        100.0
-    };
     let mut obj = super::object::create_object(state, board_id, &kind, x, y, w, h, 0.0, props, None, None).await?;
 
     // Update the in-memory object with dimensions.
@@ -1007,14 +1204,10 @@ async fn execute_create_frame(
         .get("title")
         .and_then(|v| v.as_str())
         .unwrap_or("Untitled");
-    let x = input
-        .get("x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let y = input
-        .get("y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
+    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
     let stroke = input
         .get("stroke")
         .and_then(|v| v.as_str())
@@ -1037,6 +1230,11 @@ async fn execute_create_frame(
         .get("height")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(300.0);
+    let allow_overlap = input
+        .get("allowOverlap")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let (x, y) = resolve_create_position(state, board_id, x_opt, y_opt, w, h, allow_overlap).await;
     let obj =
         super::object::create_object(state, board_id, "frame", x, y, Some(w), Some(h), 0.0, props, None, None).await?;
     let obj_id = obj.id;
@@ -1143,12 +1341,10 @@ async fn execute_create_svg_object(
         Ok(s) => s,
         Err(msg) => return Ok(format!("error: {msg}")),
     };
-    let Some(x) = input.get("x").and_then(serde_json::Value::as_f64) else {
-        return Ok("error: missing x".into());
-    };
-    let Some(y) = input.get("y").and_then(serde_json::Value::as_f64) else {
-        return Ok("error: missing y".into());
-    };
+    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
     let Some(width) = input.get("width").and_then(serde_json::Value::as_f64) else {
         return Ok("error: missing width".into());
     };
@@ -1158,6 +1354,20 @@ async fn execute_create_svg_object(
     let title = input.get("title").and_then(|v| v.as_str()).unwrap_or("");
     let view_box = input.get("viewBox").and_then(|v| v.as_str());
     let preserve_aspect_ratio = input.get("preserveAspectRatio").and_then(|v| v.as_str());
+    let allow_overlap = input
+        .get("allowOverlap")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let (x, y) = resolve_create_position(
+        state,
+        board_id,
+        x_opt,
+        y_opt,
+        width.max(1.0),
+        height.max(1.0),
+        allow_overlap,
+    )
+    .await;
 
     let mut props = serde_json::Map::new();
     props.insert("svg".into(), json!(svg));
@@ -1273,23 +1483,24 @@ async fn execute_import_svg(
         Err(msg) => return Ok(format!("error: {msg}")),
     };
 
-    let x = input
-        .get("x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let y = input
-        .get("y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
+    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
     let scale = input
         .get("scale")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(1.0)
         .clamp(0.1, 10.0);
+    let allow_overlap = input
+        .get("allowOverlap")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
 
     let (base_width, base_height) = infer_svg_dimensions(&svg);
     let width = (base_width * scale).max(1.0);
     let height = (base_height * scale).max(1.0);
+    let (x, y) = resolve_create_position(state, board_id, x_opt, y_opt, width, height, allow_overlap).await;
     let props = json!({ "svg": svg });
 
     let obj =
@@ -1526,8 +1737,12 @@ async fn execute_move_object(
         return Ok("error: missing or invalid objectId".into());
     };
 
-    let x = input.get("x").cloned();
-    let y = input.get("y").cloned();
+    let raw_x = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (mapped_x, mapped_y) = map_ai_coords_to_world(raw_x, raw_y, ai_origin);
+    let x = mapped_x.map(|v| json!(v));
+    let y = mapped_y.map(|v| json!(v));
 
     match update_object_with_retry(state, board_id, id, |_| {
         let mut data = Data::new();
@@ -1759,14 +1974,10 @@ async fn execute_create_swot(
     input: &serde_json::Value,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
-    let x = input
-        .get("x")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
-    let y = input
-        .get("y")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
+    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
+    let ai_origin = ai_viewport_origin_from_input(state, board_id, input).await;
+    let (x_opt, y_opt) = map_ai_coords_to_world(raw_x_opt, raw_y_opt, ai_origin);
     let width = input
         .get("width")
         .and_then(serde_json::Value::as_f64)
@@ -1781,6 +1992,11 @@ async fn execute_create_swot(
         .get("title")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("SWOT Analysis");
+    let allow_overlap = input
+        .get("allowOverlap")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let (x, y) = resolve_create_position(state, board_id, x_opt, y_opt, width, height, allow_overlap).await;
 
     let frame_props = json!({
         "title": title,

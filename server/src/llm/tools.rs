@@ -31,19 +31,20 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "text": { "type": "string", "description": "Text content of the sticky note" },
                     "x": {
                         "type": "number",
-                        "description": "X position in world/canvas coordinates (do not assume origin is visible top-left; prefer current viewer viewport)"
+                        "description": "X position in viewport coordinates where 0 is the visible left edge"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in world/canvas coordinates (do not assume origin is visible top-left; prefer current viewer viewport)"
+                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
                     },
                     "fontSize": { "type": "number", "description": "Text font size in pixels" },
                     "textColor": { "type": "string", "description": "Text color hex" },
                     "fill": { "type": "string", "description": "Fill color (hex, e.g. #FFEB3B)" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
-                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
+                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" },
+                    "allowOverlap": { "type": "boolean", "description": "Whether this object may overlap existing objects (default false)" }
                 },
-                "required": ["text", "x", "y"]
+                "required": ["text"]
             }),
         },
         Tool {
@@ -59,11 +60,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     },
                     "x": {
                         "type": "number",
-                        "description": "X position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                        "description": "X position in viewport coordinates where 0 is the visible left edge"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
                     },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
@@ -72,9 +73,10 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "textColor": { "type": "string", "description": "Text color hex (type=text)" },
                     "fill": { "type": "string", "description": "Fill color (hex)" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
-                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
+                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" },
+                    "allowOverlap": { "type": "boolean", "description": "Whether this object may overlap existing objects (default false)" }
                 },
-                "required": ["type", "x", "y", "width", "height"]
+                "required": ["type"]
             }),
         },
         Tool {
@@ -86,18 +88,19 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "title": { "type": "string", "description": "Frame title displayed at the top" },
                     "x": {
                         "type": "number",
-                        "description": "X position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                        "description": "X position in viewport coordinates where 0 is the visible left edge"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
                     },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
-                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
+                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" },
+                    "allowOverlap": { "type": "boolean", "description": "Whether this object may overlap existing objects (default false)" }
                 },
-                "required": ["title", "x", "y", "width", "height"]
+                "required": ["title"]
             }),
         },
         Tool {
@@ -122,11 +125,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "svg": { "type": "string", "description": "Raw SVG markup string" },
                     "x": {
                         "type": "number",
-                        "description": "X position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                        "description": "X position in viewport coordinates where 0 is the visible left edge"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Y position in world/canvas coordinates (place inside current viewer viewport when possible)"
+                        "description": "Y position in viewport coordinates where 0 is the visible top edge"
                     },
                     "width": { "type": "number", "description": "Width in pixels" },
                     "height": { "type": "number", "description": "Height in pixels" },
@@ -135,9 +138,10 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "preserveAspectRatio": {
                         "type": "string",
                         "description": "Optional SVG preserveAspectRatio value"
-                    }
+                    },
+                    "allowOverlap": { "type": "boolean", "description": "Whether this object may overlap existing objects (default false)" }
                 },
-                "required": ["svg", "x", "y", "width", "height"]
+                "required": ["svg", "width", "height"]
             }),
         },
         Tool {
@@ -161,13 +165,14 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "svg": { "type": "string", "description": "Raw SVG markup string" },
                     "x": {
                         "type": "number",
-                        "description": "Optional X in world/canvas coordinates (if omitted, infer from current viewer viewport)"
+                        "description": "Optional X in viewport coordinates where 0 is the visible left edge"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Optional Y in world/canvas coordinates (if omitted, infer from current viewer viewport)"
+                        "description": "Optional Y in viewport coordinates where 0 is the visible top edge"
                     },
                     "scale": { "type": "number", "description": "Optional uniform import scale factor" },
+                    "allowOverlap": { "type": "boolean", "description": "Whether this object may overlap existing objects (default false)" },
                     "mode": {
                         "type": "string",
                         "enum": ["single_object"],
@@ -297,11 +302,11 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "properties": {
                     "x": {
                         "type": "number",
-                        "description": "Top-left X position of the SWOT template"
+                        "description": "Top-left X position in viewport coordinates where 0 is the visible left edge"
                     },
                     "y": {
                         "type": "number",
-                        "description": "Top-left Y position of the SWOT template"
+                        "description": "Top-left Y position in viewport coordinates where 0 is the visible top edge"
                     },
                     "width": {
                         "type": "number",
@@ -314,7 +319,8 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "title": {
                         "type": "string",
                         "description": "Optional frame title (default: SWOT Analysis)"
-                    }
+                    },
+                    "allowOverlap": { "type": "boolean", "description": "Whether this template may overlap existing objects (default false)" }
                 }
             }),
         },

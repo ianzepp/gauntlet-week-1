@@ -95,7 +95,7 @@ fn board_tools_required_fields_are_arrays() {
 }
 
 #[test]
-fn create_sticky_note_requires_text_x_y() {
+fn create_sticky_note_requires_text_only() {
     let tools = board_tools();
     let tool = tools.iter().find(|t| t.name == "createStickyNote").unwrap();
     let required: Vec<&str> = tool
@@ -107,11 +107,11 @@ fn create_sticky_note_requires_text_x_y() {
         .iter()
         .filter_map(|v| v.as_str())
         .collect();
-    assert_eq!(required, vec!["text", "x", "y"]);
+    assert_eq!(required, vec!["text"]);
 }
 
 #[test]
-fn create_shape_requires_type_x_y_width_height() {
+fn create_shape_requires_type_only() {
     let tools = board_tools();
     let tool = tools.iter().find(|t| t.name == "createShape").unwrap();
     let required: Vec<&str> = tool
@@ -123,7 +123,7 @@ fn create_shape_requires_type_x_y_width_height() {
         .iter()
         .filter_map(|v| v.as_str())
         .collect();
-    assert_eq!(required, vec!["type", "x", "y", "width", "height"]);
+    assert_eq!(required, vec!["type"]);
 }
 
 #[test]
@@ -160,10 +160,11 @@ fn swot_requires_nothing_and_exposes_layout_fields() {
     assert!(props.get("width").is_some());
     assert!(props.get("height").is_some());
     assert!(props.get("title").is_some());
+    assert!(props.get("allowOverlap").is_some());
 }
 
 #[test]
-fn create_svg_object_requires_svg_x_y_width_height() {
+fn create_svg_object_requires_svg_width_height() {
     let tools = board_tools();
     let tool = tools.iter().find(|t| t.name == "createSvgObject").unwrap();
     let required: Vec<&str> = tool
@@ -175,7 +176,7 @@ fn create_svg_object_requires_svg_x_y_width_height() {
         .iter()
         .filter_map(|v| v.as_str())
         .collect();
-    assert_eq!(required, vec!["svg", "x", "y", "width", "height"]);
+    assert_eq!(required, vec!["svg", "width", "height"]);
 }
 
 #[test]

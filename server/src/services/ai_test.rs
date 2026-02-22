@@ -118,6 +118,131 @@ async fn tool_create_sticky_note() {
     }
 }
 
+#[tokio::test]
+async fn tool_create_sticky_note_without_coordinates_uses_viewport_anchor() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    {
+        let mut boards = state.boards.write().await;
+        let board = boards.get_mut(&board_id).expect("board should exist");
+        board.viewports.insert(
+            Uuid::new_v4(),
+            crate::state::ClientViewport {
+                camera_center_x: Some(500.0),
+                camera_center_y: Some(400.0),
+                ..Default::default()
+            },
+        );
+    }
+
+    let mut mutations = Vec::new();
+    let input = json!({ "text": "hello" });
+    let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created sticky note"));
+    assert_eq!(mutations.len(), 1);
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.x, 390.0);
+        assert_eq!(obj.y, 320.0);
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_create_sticky_note_coordinates_are_viewport_relative() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let viewer_id = Uuid::new_v4();
+    {
+        let mut boards = state.boards.write().await;
+        let board = boards.get_mut(&board_id).expect("board should exist");
+        board.viewports.insert(
+            viewer_id,
+            crate::state::ClientViewport {
+                camera_center_x: Some(100.0),
+                camera_center_y: Some(200.0),
+                camera_zoom: Some(2.0),
+                camera_rotation: Some(0.0),
+                camera_viewport_width: Some(1000.0),
+                camera_viewport_height: Some(600.0),
+                ..Default::default()
+            },
+        );
+    }
+
+    let mut mutations = Vec::new();
+    let input = json!({
+        "text": "viewport relative",
+        "x": 0,
+        "y": 0,
+        "_viewer_client_id": viewer_id.to_string()
+    });
+    let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created sticky note"));
+    assert_eq!(mutations.len(), 1);
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert!((obj.x - (-150.0)).abs() < f64::EPSILON);
+        assert!((obj.y - 50.0).abs() < f64::EPSILON);
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_create_sticky_note_avoids_overlap_by_default() {
+    let state = test_helpers::test_app_state();
+    let mut existing = test_helpers::dummy_object();
+    existing.kind = "sticky_note".to_owned();
+    existing.x = 0.0;
+    existing.y = 0.0;
+    existing.width = Some(220.0);
+    existing.height = Some(160.0);
+    existing.version = 2;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![existing]).await;
+
+    let mut mutations = Vec::new();
+    let input = json!({ "text": "next", "x": 0, "y": 0 });
+    let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created sticky note"));
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert!((obj.x - 0.0).abs() > f64::EPSILON || (obj.y - 0.0).abs() > f64::EPSILON);
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_create_sticky_note_allows_overlap_when_requested() {
+    let state = test_helpers::test_app_state();
+    let mut existing = test_helpers::dummy_object();
+    existing.kind = "sticky_note".to_owned();
+    existing.x = 0.0;
+    existing.y = 0.0;
+    existing.width = Some(220.0);
+    existing.height = Some(160.0);
+    existing.version = 2;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![existing]).await;
+
+    let mut mutations = Vec::new();
+    let input = json!({ "text": "next", "x": 0, "y": 0, "allowOverlap": true });
+    let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created sticky note"));
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.x, 0.0);
+        assert_eq!(obj.y, 0.0);
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
 // =========================================================================
 // execute_tool — createShape
 // =========================================================================
