@@ -639,12 +639,7 @@ fn sorted_objects_in_bounds_returns_only_intersecting_sorted() {
     store.insert(a);
     store.insert(b);
 
-    let visible = store.sorted_objects_in_bounds(WorldBounds {
-        min_x: 0.0,
-        min_y: 0.0,
-        max_x: 512.0,
-        max_y: 512.0,
-    });
+    let visible = store.sorted_objects_in_bounds(WorldBounds { min_x: 0.0, min_y: 0.0, max_x: 512.0, max_y: 512.0 });
 
     assert_eq!(visible.len(), 2);
     assert_eq!(visible[0].id, b_id);
@@ -660,32 +655,18 @@ fn sorted_objects_in_bounds_after_partial_move_updates_index() {
     let id = obj.id;
     store.insert(obj);
 
-    let near = store.sorted_objects_in_bounds(WorldBounds {
-        min_x: 0.0,
-        min_y: 0.0,
-        max_x: 128.0,
-        max_y: 128.0,
-    });
+    let near = store.sorted_objects_in_bounds(WorldBounds { min_x: 0.0, min_y: 0.0, max_x: 128.0, max_y: 128.0 });
     assert_eq!(near.len(), 1);
     assert_eq!(near[0].id, id);
 
     let moved = PartialBoardObject { x: Some(1024.0), y: Some(1024.0), ..Default::default() };
     assert!(store.apply_partial(&id, &moved));
 
-    let near_after = store.sorted_objects_in_bounds(WorldBounds {
-        min_x: 0.0,
-        min_y: 0.0,
-        max_x: 128.0,
-        max_y: 128.0,
-    });
+    let near_after = store.sorted_objects_in_bounds(WorldBounds { min_x: 0.0, min_y: 0.0, max_x: 128.0, max_y: 128.0 });
     assert!(near_after.is_empty());
 
-    let far_after = store.sorted_objects_in_bounds(WorldBounds {
-        min_x: 900.0,
-        min_y: 900.0,
-        max_x: 1200.0,
-        max_y: 1200.0,
-    });
+    let far_after =
+        store.sorted_objects_in_bounds(WorldBounds { min_x: 900.0, min_y: 900.0, max_x: 1200.0, max_y: 1200.0 });
     assert_eq!(far_after.len(), 1);
     assert_eq!(far_after[0].id, id);
 }
@@ -713,7 +694,7 @@ fn props_reads_all_values() {
     let value = json!({
         "fill": "#AABBCC",
         "stroke": "#112233",
-        "stroke_width": 3.0,
+        "strokeWidth": 3.0,
         "textColor": "#334455",
         "fontSize": 22.0,
         "head": "Title",
@@ -759,14 +740,14 @@ fn props_text_color_prefers_explicit_text_color() {
 
 #[test]
 fn props_stroke_width_integer_coerces() {
-    let value = json!({"stroke_width": 2});
+    let value = json!({"strokeWidth": 2});
     let p = Props::new(&value);
     assert_eq!(p.stroke_width(), 2.0);
 }
 
 #[test]
 fn props_wrong_type_uses_default() {
-    let value = json!({"fill": 42, "stroke_width": "thick"});
+    let value = json!({"fill": 42, "strokeWidth": "thick"});
     let p = Props::new(&value);
     assert_eq!(p.fill(), "#D94B4B"); // 42 is not a string
     assert_eq!(p.stroke_width(), 0.0); // "thick" is not a number
@@ -781,15 +762,8 @@ fn props_text_with_newlines() {
 }
 
 #[test]
-fn props_text_falls_back_to_content() {
-    let value = json!({"content": "legacy content"});
-    let p = Props::new(&value);
-    assert_eq!(p.text(), "legacy content");
-}
-
-#[test]
-fn props_text_prefers_text_over_content() {
-    let value = json!({"text": "primary", "content": "fallback"});
+fn props_text_reads_text_field() {
+    let value = json!({"text": "primary"});
     let p = Props::new(&value);
     assert_eq!(p.text(), "primary");
 }

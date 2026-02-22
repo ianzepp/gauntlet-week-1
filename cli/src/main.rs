@@ -271,7 +271,13 @@ async fn run_api_board(cli: &CliContext, board: BoardCommand) -> Result<(), CliE
                 body.insert("is_public".to_owned(), Value::Bool(is_public));
             }
             let path = format!("/api/board/{board_id}");
-            let json = api_request(cli, reqwest::Method::PATCH, &path, Some(Value::Object(body))).await?;
+            let json = api_request(
+                cli,
+                reqwest::Method::PATCH,
+                &path,
+                Some(Value::Object(body)),
+            )
+            .await?;
             print_json(&json)?;
             Ok(())
         }
@@ -299,7 +305,10 @@ async fn run_api_object(cli: &CliContext, object: ObjectCommand) -> Result<(), C
             print_json(&json)?;
             Ok(())
         }
-        ObjectSubcommand::Read { board_id, object_id } => {
+        ObjectSubcommand::Read {
+            board_id,
+            object_id,
+        } => {
             let path = format!("/api/board/{board_id}/objects/{object_id}");
             let json = api_request(cli, reqwest::Method::GET, &path, None).await?;
             print_json(&json)?;
@@ -392,10 +401,12 @@ async fn ws_object_create(cli: &CliContext, args: WsObjectCreateArgs) -> Result<
     let mut line = String::new();
     loop {
         line.clear();
-        let bytes = reader.read_line(&mut line).map_err(|error| CliError::ServerError {
-            syscall: "read input".to_owned(),
-            message: error.to_string(),
-        })?;
+        let bytes = reader
+            .read_line(&mut line)
+            .map_err(|error| CliError::ServerError {
+                syscall: "read input".to_owned(),
+                message: error.to_string(),
+            })?;
         if bytes == 0 {
             break;
         }
@@ -496,7 +507,9 @@ async fn api_request(
         HeaderValue::from_str(&format!("session_token={session_token}"))?,
     );
 
-    let client = reqwest::Client::builder().default_headers(headers).build()?;
+    let client = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()?;
     let url = format!("{}{}", cli.base_url.trim_end_matches('/'), path);
 
     let request = client.request(method, &url);
@@ -508,7 +521,10 @@ async fn api_request(
 
     let response = request.send().await?;
     let status = response.status();
-    let value = response.json::<Value>().await.unwrap_or_else(|_| Value::Null);
+    let value = response
+        .json::<Value>()
+        .await
+        .unwrap_or_else(|_| Value::Null);
 
     if !status.is_success() {
         return Err(CliError::ServerError {
@@ -521,8 +537,13 @@ async fn api_request(
 }
 
 async fn fetch_ws_ticket(cli: &CliContext) -> Result<String, CliError> {
-    let body = api_request(cli, reqwest::Method::POST, "/api/auth/ws-ticket", Some(Value::Object(Map::new())))
-        .await?;
+    let body = api_request(
+        cli,
+        reqwest::Method::POST,
+        "/api/auth/ws-ticket",
+        Some(Value::Object(Map::new())),
+    )
+    .await?;
 
     body.get("ticket")
         .and_then(Value::as_str)
@@ -599,7 +620,9 @@ async fn recv_next(
                 return Err(CliError::WsClosed);
             };
             match message.map_err(|error| CliError::WsConnect(Box::new(error)))? {
-                Message::Binary(bytes) => return frames::decode_frame(&bytes).map_err(CliError::from),
+                Message::Binary(bytes) => {
+                    return frames::decode_frame(&bytes).map_err(CliError::from);
+                }
                 Message::Close(_) => return Err(CliError::WsClosed),
                 _ => {}
             }

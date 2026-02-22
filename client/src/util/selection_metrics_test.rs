@@ -38,7 +38,7 @@ fn representative_color_and_text_accessors_use_selected_objects() {
             Some(100.0),
             serde_json::json!({
                 "baseFill": "#112233",
-                "borderColor": "#223344",
+                "stroke": "#223344",
                 "textColor": "#334455"
             }),
         ),
@@ -60,7 +60,7 @@ fn representative_lightness_and_border_width_average_and_clamp() {
             0.0,
             None,
             None,
-            serde_json::json!({ "lightnessShift": -2, "borderWidth": 2 }),
+            serde_json::json!({ "lightnessShift": -2, "strokeWidth": 2 }),
         ),
     );
     state.objects.insert(
@@ -70,7 +70,7 @@ fn representative_lightness_and_border_width_average_and_clamp() {
             0.0,
             None,
             None,
-            serde_json::json!({ "lightnessShift": 1, "borderWidth": 10 }),
+            serde_json::json!({ "lightnessShift": 1, "strokeWidth": 10 }),
         ),
     );
     state.selection = selection(&["a", "b"]);
@@ -152,8 +152,8 @@ fn representative_values_single_object() {
             serde_json::json!({
                 "baseFill": "#ff0000",
                 "lightnessShift": 0.5,
-                "borderColor": "#00ff00",
-                "borderWidth": 4,
+                "stroke": "#00ff00",
+                "strokeWidth": 4,
                 "textColor": "#0000ff",
                 "fontSize": 32,
                 "baseWidth": 200.0,

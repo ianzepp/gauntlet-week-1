@@ -78,7 +78,7 @@ async fn tool_create_sticky_note() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
     let mut mutations = Vec::new();
-    let input = json!({ "text": "hello", "x": 100, "y": 200, "backgroundColor": "#FF5722" });
+    let input = json!({ "text": "hello", "x": 100, "y": 200, "fill": "#FF5722" });
     let result = execute_tool(&state, board_id, "createStickyNote", &input, &mut mutations)
         .await
         .unwrap();
@@ -86,7 +86,6 @@ async fn tool_create_sticky_note() {
     assert_eq!(mutations.len(), 1);
     if let AiMutation::Created(obj) = &mutations[0] {
         assert_eq!(obj.kind, "sticky_note");
-        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#FF5722"));
         assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#FF5722"));
     } else {
         panic!("expected Created mutation");
@@ -102,19 +101,16 @@ async fn tool_create_shape() {
     let state = test_helpers::test_app_state();
     let board_id = test_helpers::seed_board(&state).await;
     let mut mutations = Vec::new();
-    let input =
-        json!({ "type": "rectangle", "x": 50, "y": 50, "width": 200, "height": 100, "backgroundColor": "#2196F3" });
+    let input = json!({ "type": "rectangle", "x": 50, "y": 50, "width": 200, "height": 100, "fill": "#2196F3" });
     let result = execute_tool(&state, board_id, "createShape", &input, &mut mutations)
         .await
         .unwrap();
     assert!(result.contains("created rectangle shape"));
     assert_eq!(mutations.len(), 1);
     if let AiMutation::Created(obj) = &mutations[0] {
-        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#2196F3"));
         assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#2196F3"));
-        assert_eq!(obj.props.get("borderColor").and_then(|v| v.as_str()), Some("#2196F3"));
         assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#2196F3"));
-        assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(0.0));
+        assert_eq!(obj.props.get("strokeWidth").and_then(|v| v.as_f64()), Some(0.0));
     } else {
         panic!("expected Created mutation");
     }
@@ -341,13 +337,12 @@ async fn tool_change_color() {
     let obj_id = obj.id;
     let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
     let mut mutations = Vec::new();
-    let input = json!({ "objectId": obj_id.to_string(), "backgroundColor": "#FF0000" });
+    let input = json!({ "objectId": obj_id.to_string(), "fill": "#FF0000" });
     let result = execute_tool(&state, board_id, "changeColor", &input, &mut mutations)
         .await
         .unwrap();
     assert!(result.contains("changed style"));
     if let AiMutation::Updated(obj) = &mutations[0] {
-        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#FF0000"));
         assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#FF0000"));
         assert_eq!(obj.version, 3);
     } else {
@@ -365,21 +360,18 @@ async fn tool_change_color_accepts_explicit_style_fields() {
     let mut mutations = Vec::new();
     let input = json!({
         "objectId": obj_id.to_string(),
-        "backgroundColor": "#00FF00",
-        "borderColor": "#0000FF",
-        "borderWidth": 3
+        "fill": "#00FF00",
+        "stroke": "#0000FF",
+        "strokeWidth": 3
     });
     let result = execute_tool(&state, board_id, "changeColor", &input, &mut mutations)
         .await
         .unwrap();
     assert!(result.contains("changed style"));
     if let AiMutation::Updated(obj) = &mutations[0] {
-        assert_eq!(obj.props.get("backgroundColor").and_then(|v| v.as_str()), Some("#00FF00"));
         assert_eq!(obj.props.get("fill").and_then(|v| v.as_str()), Some("#00FF00"));
-        assert_eq!(obj.props.get("borderColor").and_then(|v| v.as_str()), Some("#0000FF"));
         assert_eq!(obj.props.get("stroke").and_then(|v| v.as_str()), Some("#0000FF"));
-        assert_eq!(obj.props.get("borderWidth").and_then(|v| v.as_f64()), Some(3.0));
-        assert_eq!(obj.props.get("stroke_width").and_then(|v| v.as_f64()), Some(3.0));
+        assert_eq!(obj.props.get("strokeWidth").and_then(|v| v.as_f64()), Some(3.0));
     } else {
         panic!("expected Updated mutation");
     }

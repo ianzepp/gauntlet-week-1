@@ -54,16 +54,11 @@ pub fn InspectorPanel() -> impl IntoView {
             draft_body.set(read_prop_str(&obj, "text").unwrap_or_default());
             draft_font_size.set(read_prop_int(&obj, "fontSize", 13).to_string());
 
-            let bg = normalize_hex_color(
-                read_prop_str(&obj, "backgroundColor")
-                    .or_else(|| read_prop_str(&obj, "color"))
-                    .as_deref(),
-                "#d94b4b",
-            );
-            let border = normalize_hex_color(read_prop_str(&obj, "borderColor").as_deref(), &bg);
+            let bg = normalize_hex_color(read_prop_str(&obj, "fill").as_deref(), "#d94b4b");
+            let border = normalize_hex_color(read_prop_str(&obj, "stroke").as_deref(), &bg);
             draft_background.set(bg.clone());
             draft_border.set(border);
-            draft_border_width.set(read_prop_int(&obj, "borderWidth", 0).to_string());
+            draft_border_width.set(read_prop_int(&obj, "strokeWidth", 0).to_string());
         }
     });
 
@@ -195,8 +190,7 @@ pub fn InspectorPanel() -> impl IntoView {
         draft_background.set(next.clone());
 
         let mut patch = serde_json::Map::new();
-        patch.insert("color".to_owned(), serde_json::json!(next.clone()));
-        patch.insert("backgroundColor".to_owned(), serde_json::json!(next));
+        patch.insert("fill".to_owned(), serde_json::json!(next));
         commit_props(patch);
     };
 
@@ -205,7 +199,7 @@ pub fn InspectorPanel() -> impl IntoView {
         draft_border.set(next.clone());
 
         let mut patch = serde_json::Map::new();
-        patch.insert("borderColor".to_owned(), serde_json::json!(next));
+        patch.insert("stroke".to_owned(), serde_json::json!(next));
         commit_props(patch);
     };
 
@@ -214,12 +208,12 @@ pub fn InspectorPanel() -> impl IntoView {
             return;
         };
 
-        let current = read_prop_int(&obj, "borderWidth", 0).max(0);
+        let current = read_prop_int(&obj, "strokeWidth", 0).max(0);
         let next = parse_integer_input(&value).unwrap_or(current).max(0);
         draft_border_width.set(next.to_string());
 
         let mut patch = serde_json::Map::new();
-        patch.insert("borderWidth".to_owned(), serde_json::json!(next));
+        patch.insert("strokeWidth".to_owned(), serde_json::json!(next));
         commit_props(patch);
     };
 

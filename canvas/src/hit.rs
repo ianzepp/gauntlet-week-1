@@ -397,7 +397,8 @@ pub fn hit_test(world_pt: Point, doc: &DocStore, camera: &Camera, selected_id: O
     }
 
     // 2. Test all objects in reverse draw order (topmost first).
-    let sorted = doc.sorted_objects_in_bounds(WorldBounds::from_point(world_pt.x, world_pt.y).expand(handle_radius_world));
+    let sorted =
+        doc.sorted_objects_in_bounds(WorldBounds::from_point(world_pt.x, world_pt.y).expand(handle_radius_world));
     for obj in sorted.iter().rev() {
         if let Some(part) = hit_test_body(world_pt, obj, doc, handle_radius_world) {
             return Some(Hit { object_id: obj.id, part });

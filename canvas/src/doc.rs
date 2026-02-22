@@ -143,7 +143,7 @@ impl<'a> Props<'a> {
     #[must_use]
     pub fn stroke_width(&self) -> f64 {
         self.value
-            .get("stroke_width")
+            .get("strokeWidth")
             .and_then(serde_json::Value::as_f64)
             .unwrap_or(0.0)
     }
@@ -188,7 +188,6 @@ impl<'a> Props<'a> {
     pub fn text(&self) -> &str {
         self.value
             .get("text")
-            .or_else(|| self.value.get("content"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
     }
@@ -328,12 +327,7 @@ pub fn object_world_bounds(obj: &BoardObject) -> WorldBounds {
                 .and_then(|point| Some((point.get("x")?.as_f64()?, point.get("y")?.as_f64()?)));
 
             if let (Some((ax, ay)), Some((bx, by))) = (a, b) {
-                return WorldBounds {
-                    min_x: ax.min(bx),
-                    min_y: ay.min(by),
-                    max_x: ax.max(bx),
-                    max_y: ay.max(by),
-                };
+                return WorldBounds { min_x: ax.min(bx), min_y: ay.min(by), max_x: ax.max(bx), max_y: ay.max(by) };
             }
         }
         _ => {}

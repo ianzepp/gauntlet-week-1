@@ -32,10 +32,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             serde_json::json!({
                 "title": "New note",
                 "text": "",
-                "color": "#FFEB3B",
-                "backgroundColor": "#FFEB3B",
-                "borderColor": "#FFEB3B",
-                "borderWidth": 0
+                "fill": "#FFEB3B",
+                "stroke": "#FFEB3B",
+                "strokeWidth": 0
             }),
         )),
         ToolType::Rectangle => Some((
@@ -43,10 +42,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             160.0,
             100.0,
             serde_json::json!({
-                "color": "#D94B4B",
-                "backgroundColor": "#D94B4B",
-                "borderColor": "#D94B4B",
-                "borderWidth": 0
+                "fill": "#D94B4B",
+                "stroke": "#D94B4B",
+                "strokeWidth": 0
             }),
         )),
         ToolType::Frame => Some((
@@ -55,12 +53,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             320.0,
             serde_json::json!({
                 "title": "Frame",
-                "color": "#9AA3AD",
-                "backgroundColor": "rgba(154,163,173,0.08)",
-                "borderColor": "#1F1A17",
-                "borderWidth": 0,
+                "fill": "rgba(154,163,173,0.08)",
                 "stroke": "#1F1A17",
-                "stroke_width": 0
+                "strokeWidth": 0
             }),
         )),
         ToolType::Ellipse => Some((
@@ -68,10 +63,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             120.0,
             120.0,
             serde_json::json!({
-                "color": "#3B82F6",
-                "backgroundColor": "#3B82F6",
-                "borderColor": "#3B82F6",
-                "borderWidth": 0
+                "fill": "#3B82F6",
+                "stroke": "#3B82F6",
+                "strokeWidth": 0
             }),
         )),
         ToolType::Youtube => Some((
@@ -82,7 +76,7 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
                 "video_id": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1",
                 "title": "YouTube",
                 "stroke": "#1F1A17",
-                "stroke_width": 2
+                "strokeWidth": 2
             }),
         )),
         ToolType::Line => Some((
@@ -90,10 +84,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             180.0,
             0.0,
             serde_json::json!({
-                "color": "#D94B4B",
-                "backgroundColor": "#D94B4B",
-                "borderColor": "#D94B4B",
-                "borderWidth": 0
+                "fill": "#D94B4B",
+                "stroke": "#D94B4B",
+                "strokeWidth": 0
             }),
         )),
         ToolType::Connector => Some((
@@ -101,10 +94,9 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
             180.0,
             0.0,
             serde_json::json!({
-                "color": "#D94B4B",
-                "backgroundColor": "#D94B4B",
-                "borderColor": "#D94B4B",
-                "borderWidth": 0
+                "fill": "#D94B4B",
+                "stroke": "#D94B4B",
+                "strokeWidth": 0
             }),
         )),
         ToolType::Text => Some((

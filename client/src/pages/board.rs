@@ -242,7 +242,6 @@ pub fn BoardPage() -> impl IntoView {
         let text = obj
             .props
             .get("text")
-            .or_else(|| obj.props.get("content"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_owned();
@@ -356,7 +355,6 @@ pub fn BoardPage() -> impl IntoView {
 
         let mut props = obj.props.as_object().cloned().unwrap_or_default();
         props.insert("text".to_owned(), serde_json::json!(value.clone()));
-        props.insert("content".to_owned(), serde_json::json!(value));
         let next_props = serde_json::Value::Object(props);
 
         board.update(|b| {

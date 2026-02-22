@@ -576,34 +576,21 @@ async fn execute_create_sticky_note(
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
     let fill = input
-        .get("backgroundColor")
-        .or_else(|| input.get("fill"))
+        .get("fill")
         .and_then(|v| v.as_str())
         .unwrap_or("#FFEB3B");
-    let stroke = input
-        .get("borderColor")
-        .or_else(|| input.get("stroke"))
-        .and_then(|v| v.as_str())
-        .unwrap_or(fill);
+    let stroke = input.get("stroke").and_then(|v| v.as_str()).unwrap_or(fill);
     let stroke_width = input
-        .get("borderWidth")
+        .get("strokeWidth")
         .and_then(serde_json::Value::as_f64)
-        .or_else(|| {
-            input
-                .get("stroke_width")
-                .and_then(serde_json::Value::as_f64)
-        })
         .unwrap_or(0.0);
 
     let props = json!({
         "title": title,
         "text": text,
-        "backgroundColor": fill,
         "fill": fill,
-        "borderColor": stroke,
         "stroke": stroke,
-        "borderWidth": stroke_width,
-        "stroke_width": stroke_width
+        "strokeWidth": stroke_width
     });
     let obj =
         super::object::create_object(state, board_id, "sticky_note", x, y, None, None, 0.0, props, None, None).await?;
@@ -632,24 +619,17 @@ async fn execute_create_shape(
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
     let fill = input
-        .get("backgroundColor")
-        .or_else(|| input.get("fill"))
+        .get("fill")
         .and_then(|v| v.as_str())
         .unwrap_or("#4CAF50")
         .to_string();
     let stroke = input
-        .get("borderColor")
-        .or_else(|| input.get("stroke"))
+        .get("stroke")
         .and_then(|v| v.as_str())
         .map_or_else(|| fill.clone(), ToOwned::to_owned);
     let stroke_width = input
-        .get("borderWidth")
+        .get("strokeWidth")
         .and_then(serde_json::Value::as_f64)
-        .or_else(|| {
-            input
-                .get("stroke_width")
-                .and_then(serde_json::Value::as_f64)
-        })
         .unwrap_or(0.0);
 
     let props = if kind == "text" {
@@ -677,7 +657,7 @@ async fn execute_create_shape(
             "a": a,
             "b": b,
             "stroke": stroke,
-            "stroke_width": stroke_width
+            "strokeWidth": stroke_width
         })
     } else if kind == "youtube_embed" {
         json!({
@@ -688,16 +668,13 @@ async fn execute_create_shape(
                 .unwrap_or("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
             "title": input.get("title").and_then(|v| v.as_str()).unwrap_or("YouTube"),
             "stroke": stroke,
-            "stroke_width": stroke_width.max(1.0)
+            "strokeWidth": stroke_width.max(1.0)
         })
     } else {
         json!({
-            "backgroundColor": fill.clone(),
             "fill": fill,
-            "borderColor": stroke.clone(),
             "stroke": stroke,
-            "borderWidth": stroke_width,
-            "stroke_width": stroke_width
+            "strokeWidth": stroke_width
         })
     };
     let w = input.get("width").and_then(serde_json::Value::as_f64);
@@ -832,7 +809,7 @@ async fn execute_create_connector(
     );
     props.insert("style".into(), json!(style));
     props.insert("stroke".into(), json!("#D94B4B"));
-    props.insert("stroke_width".into(), json!(2.0));
+    props.insert("strokeWidth".into(), json!(2.0));
     if style.eq_ignore_ascii_case("dashed") {
         props.insert("dash".into(), json!([8.0, 6.0]));
     }
@@ -1084,52 +1061,36 @@ async fn execute_change_color(
         return Ok("error: missing or invalid objectId".into());
     };
 
-    let background = input
-        .get("backgroundColor")
-        .or_else(|| input.get("fill"))
+    let fill = input
+        .get("fill")
         .and_then(|v| v.as_str())
         .map(ToOwned::to_owned);
-    let border = input
-        .get("borderColor")
-        .or_else(|| input.get("stroke"))
+    let stroke = input
+        .get("stroke")
         .and_then(|v| v.as_str())
         .map(ToOwned::to_owned);
-    let border_width = input
-        .get("borderWidth")
-        .and_then(serde_json::Value::as_f64)
-        .or_else(|| {
-            input
-                .get("stroke_width")
-                .and_then(serde_json::Value::as_f64)
-        });
+    let stroke_width = input.get("strokeWidth").and_then(serde_json::Value::as_f64);
     let text_color = input
         .get("textColor")
         .and_then(|v| v.as_str())
         .map(ToOwned::to_owned);
 
-    if background.is_none() && border.is_none() && border_width.is_none() && text_color.is_none() {
-        return Ok(
-            "error: provide one of backgroundColor/fill/borderColor/stroke/borderWidth/stroke_width/textColor".into(),
-        );
+    if fill.is_none() && stroke.is_none() && stroke_width.is_none() && text_color.is_none() {
+        return Ok("error: provide one of fill/stroke/strokeWidth/textColor".into());
     }
 
     match update_object_with_retry(state, board_id, id, |snapshot| {
         let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
-        if let Some(width) = border_width {
-            props.insert("borderWidth".into(), json!(width));
-            props.insert("stroke_width".into(), json!(width));
+        if let Some(width) = stroke_width {
+            props.insert("strokeWidth".into(), json!(width));
         }
 
-        let effective_fill = background.clone();
-        if let Some(fill) = effective_fill {
-            props.insert("backgroundColor".into(), json!(fill.clone()));
-            props.insert("fill".into(), json!(fill));
+        if let Some(next_fill) = fill.clone() {
+            props.insert("fill".into(), json!(next_fill));
         }
 
-        let effective_stroke = border.clone();
-        if let Some(stroke) = effective_stroke {
-            props.insert("borderColor".into(), json!(stroke.clone()));
-            props.insert("stroke".into(), json!(stroke));
+        if let Some(next_stroke) = stroke.clone() {
+            props.insert("stroke".into(), json!(next_stroke));
         }
         if let Some(color) = text_color.clone() {
             props.insert("textColor".into(), json!(color));

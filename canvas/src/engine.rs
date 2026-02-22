@@ -194,8 +194,7 @@ impl EngineCore {
         let mut actions = Vec::new();
 
         // Middle button, space+drag, or hand tool always pans.
-        if button == Button::Middle
-            || (button == Button::Primary && (self.ui.space_pan || self.ui.tool == Tool::Hand))
+        if button == Button::Middle || (button == Button::Primary && (self.ui.space_pan || self.ui.tool == Tool::Hand))
         {
             self.input = InputState::Panning { last_screen: screen_pt };
             actions.push(Action::SetCursor("grab".into()));
@@ -848,7 +847,9 @@ impl EngineCore {
         let snap_radius = self.camera.screen_dist_to_world(EDGE_ATTACH_SNAP_PX);
         let mut best: Option<(ObjectId, f64, f64, Point, f64)> = None;
 
-        let objects = self.doc.sorted_objects_in_bounds(WorldBounds::from_point(world_pt.x, world_pt.y).expand(snap_radius));
+        let objects = self
+            .doc
+            .sorted_objects_in_bounds(WorldBounds::from_point(world_pt.x, world_pt.y).expand(snap_radius));
         for obj in objects.iter().rev() {
             if obj.id == edge_id {
                 continue;
@@ -913,7 +914,7 @@ impl EngineCore {
             serde_json::json!({
                 "fill": "#D94B4B",
                 "stroke": "#1F1A17",
-                "stroke_width": 0,
+                "strokeWidth": 0,
             })
         };
         BoardObject {

@@ -197,8 +197,7 @@ fn object_world_rect(obj: &crate::net::types::BoardObject) -> (f64, f64, f64, f6
 #[cfg(feature = "hydrate")]
 fn object_fill_color(obj: &crate::net::types::BoardObject) -> String {
     obj.props
-        .get("backgroundColor")
-        .or_else(|| obj.props.get("fill"))
+        .get("fill")
         .and_then(|v| v.as_str())
         .unwrap_or("#b8c5b0")
         .to_owned()

@@ -50,16 +50,14 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
             ToolType::Sticky => serde_json::json!({
                 "title": "New note",
                 "text": "",
-                "color": color,
-                "backgroundColor": color,
-                "borderColor": color,
-                "borderWidth": 0
+                "fill": color,
+                "stroke": color,
+                "strokeWidth": 0
             }),
             _ => serde_json::json!({
-                "color": color,
-                "backgroundColor": color,
-                "borderColor": color,
-                "borderWidth": 0
+                "fill": color,
+                "stroke": color,
+                "strokeWidth": 0
             }),
         };
 

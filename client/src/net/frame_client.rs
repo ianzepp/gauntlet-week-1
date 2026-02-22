@@ -494,8 +494,7 @@ fn handle_board_frame(
                     frame.parent_id.as_deref(),
                     b.pending_join_request_id.as_deref(),
                     b.pending_join_started_ms,
-                )
-                    && parent_id == pending_id
+                ) && parent_id == pending_id
                 {
                     #[cfg(feature = "hydrate")]
                     {

@@ -169,10 +169,9 @@ def main() -> int:
             "rotation": 0.0,
             "z_index": index,
             "props": {
-                "backgroundColor": fill,
-                "borderColor": border,
-                "borderWidth": "1",
-                "color": fill,
+                "fill": fill,
+                "stroke": border,
+                "strokeWidth": 1,
             },
         }
         try:

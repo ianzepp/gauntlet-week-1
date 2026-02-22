@@ -74,17 +74,18 @@ fn reset_wire_object_scale_baseline_uses_wire_defaults() {
 }
 
 #[test]
-fn upsert_color_props_writes_base_shift_fill_and_background() {
+fn upsert_color_props_writes_base_shift_and_fill() {
     let mut obj = make_obj(serde_json::Value::Null, Some(100.0), Some(80.0));
     upsert_object_color_props(&mut obj, "#ABC", 2.0);
     assert_eq!(obj.props["baseFill"], serde_json::json!("#aabbcc"));
     assert_eq!(obj.props["lightnessShift"], serde_json::json!(1.0));
-    assert_eq!(obj.props["fill"], obj.props["backgroundColor"]);
+    assert!(obj.props.get("fill").is_some());
+    assert!(obj.props.get("backgroundColor").is_none());
 }
 
 #[test]
-fn color_accessors_handle_fallbacks() {
-    let obj = make_obj(serde_json::json!({ "backgroundColor": "#123456" }), None, None);
+fn color_accessors_use_canonical_fill() {
+    let obj = make_obj(serde_json::json!({ "fill": "#123456" }), None, None);
     assert_eq!(object_fill_hex(&obj), "#123456");
     assert_eq!(object_base_fill_hex(&obj), "#123456");
     assert_eq!(object_lightness_shift(&obj), 0.0);
@@ -101,25 +102,20 @@ fn apply_lightness_shift_lightens_and_darkens() {
 fn border_props_roundtrip_and_clamp_width() {
     let mut obj = make_obj(serde_json::Value::Null, None, None);
     upsert_object_border_props(&mut obj, "#abc", 999.0);
-    assert_eq!(obj.props["borderColor"], serde_json::json!("#aabbcc"));
     assert_eq!(obj.props["stroke"], serde_json::json!("#aabbcc"));
-    assert_eq!(obj.props["borderWidth"], serde_json::json!(24.0));
-    assert_eq!(obj.props["stroke_width"], serde_json::json!(24.0));
+    assert_eq!(obj.props["strokeWidth"], serde_json::json!(24.0));
     assert_eq!(object_border_color_hex(&obj), "#aabbcc");
     assert_eq!(object_border_width(&obj), 24.0);
 }
 
 #[test]
 fn text_style_props_and_accessors_apply_defaults_and_clamps() {
-    let mut obj = make_obj(serde_json::json!({ "fill": "#abcdef" }), None, None);
+    let mut obj = make_obj(serde_json::json!({}), None, None);
     upsert_object_text_style_props(&mut obj, "invalid", 3.0);
     assert_eq!(obj.props["textColor"], serde_json::json!("#1f1a17"));
     assert_eq!(obj.props["fontSize"], serde_json::json!(8.0));
     assert_eq!(object_text_color_hex(&obj), "#1f1a17");
     assert_eq!(object_font_size(&obj), 8.0);
-
-    let fallback = make_obj(serde_json::json!({ "fill": "#445566" }), None, None);
-    assert_eq!(object_text_color_hex(&fallback), "#445566");
 }
 
 #[test]
@@ -147,19 +143,13 @@ fn apply_lightness_shift_neg_one_produces_black() {
 }
 
 #[test]
-fn object_border_width_falls_back_to_stroke_width() {
-    let obj = make_obj(serde_json::json!({ "stroke_width": 5 }), None, None);
+fn object_border_width_reads_stroke_width_canonical_key() {
+    let obj = make_obj(serde_json::json!({ "strokeWidth": 5 }), None, None);
     assert_eq!(object_border_width(&obj), 5.0);
 }
 
 #[test]
-fn object_text_color_hex_falls_back_to_color_prop() {
-    let obj = make_obj(serde_json::json!({ "color": "#112233" }), None, None);
-    assert_eq!(object_text_color_hex(&obj), "#112233");
-}
-
-#[test]
-fn object_fill_hex_falls_back_to_border_color() {
-    let obj = make_obj(serde_json::json!({ "borderColor": "#445566" }), None, None);
-    assert_eq!(object_fill_hex(&obj), "#445566");
+fn object_text_color_hex_defaults_when_absent() {
+    let obj = make_obj(serde_json::json!({ "fill": "#112233" }), None, None);
+    assert_eq!(object_text_color_hex(&obj), "#1F1A17");
 }

@@ -11,7 +11,7 @@ fn placement_shape_returns_expected_shape_defaults() {
 
     let (kind, _, _, props) = placement_shape(ToolType::Connector).expect("connector should have placement");
     assert_eq!(kind, "arrow");
-    assert_eq!(props["borderColor"], serde_json::json!("#D94B4B"));
+    assert_eq!(props["stroke"], serde_json::json!("#D94B4B"));
 }
 
 #[test]

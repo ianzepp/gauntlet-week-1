@@ -14,12 +14,12 @@ use super::types::Tool;
 /// Returns the standard board tools.
 #[must_use]
 pub fn gauntlet_week_1_tools() -> Vec<Tool> {
-    legacy_tools()
+    board_tools()
 }
 
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub(crate) fn legacy_tools() -> Vec<Tool> {
+pub(crate) fn board_tools() -> Vec<Tool> {
     vec![
         Tool {
             name: "createStickyNote".into(),
@@ -31,12 +31,9 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
                     "text": { "type": "string", "description": "Text content of the sticky note" },
                     "x": { "type": "number", "description": "X position on canvas" },
                     "y": { "type": "number", "description": "Y position on canvas" },
-                    "backgroundColor": { "type": "string", "description": "Background color (hex, e.g. #FFEB3B)" },
-                    "fill": { "type": "string", "description": "Canvas fill color (hex)" },
-                    "borderColor": { "type": "string", "description": "Border color (hex)" },
+                    "fill": { "type": "string", "description": "Fill color (hex, e.g. #FFEB3B)" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
-                    "borderWidth": { "type": "number", "description": "Border width in pixels" },
-                    "stroke_width": { "type": "number", "description": "Canvas stroke width in pixels" }
+                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
                 },
                 "required": ["text", "x", "y"]
             }),
@@ -61,12 +58,9 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
                     "textColor": { "type": "string", "description": "Text color hex (type=text)" },
                     "video_id": { "type": "string", "description": "YouTube URL or video ID (type=youtube_embed)" },
                     "title": { "type": "string", "description": "Title label (type=youtube_embed)" },
-                    "backgroundColor": { "type": "string", "description": "Background color (hex)" },
-                    "fill": { "type": "string", "description": "Canvas fill color (hex)" },
-                    "borderColor": { "type": "string", "description": "Border color (hex)" },
+                    "fill": { "type": "string", "description": "Fill color (hex)" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
-                    "borderWidth": { "type": "number", "description": "Border width in pixels" },
-                    "stroke_width": { "type": "number", "description": "Canvas stroke width in pixels" }
+                    "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }
                 },
                 "required": ["type", "x", "y", "width", "height"]
             }),
@@ -175,12 +169,9 @@ pub(crate) fn legacy_tools() -> Vec<Tool> {
                 "type": "object",
                 "properties": {
                     "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to recolor" },
-                    "backgroundColor": { "type": "string", "description": "New background color (hex)" },
                     "fill": { "type": "string", "description": "New canvas fill color (hex)" },
-                    "borderColor": { "type": "string", "description": "New border color (hex)" },
                     "stroke": { "type": "string", "description": "New canvas stroke color (hex)" },
-                    "borderWidth": { "type": "number", "description": "New border width in pixels" },
-                    "stroke_width": { "type": "number", "description": "New canvas stroke width in pixels" },
+                    "strokeWidth": { "type": "number", "description": "New stroke width in pixels" },
                     "textColor": { "type": "string", "description": "New text color hex" }
                 },
                 "required": ["objectId"]
