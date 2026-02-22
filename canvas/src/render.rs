@@ -845,12 +845,11 @@ fn apply_stroke_style(ctx: &CanvasRenderingContext2d, props: &Props<'_>) {
 
 #[cfg(test)]
 mod render_test {
-    use super::{attr_value, parse_svg_paths, parse_svg_number, svg_view_box};
+    use super::{attr_value, parse_svg_number, parse_svg_paths, svg_view_box};
 
     #[test]
     fn parse_svg_paths_extracts_path_attributes() {
-        let svg =
-            r##"<svg viewBox="0 0 100 100"><path d="M0 0 L10 10 Z" fill="#f00" stroke="#000" stroke-width="2"/></svg>"##;
+        let svg = r##"<svg viewBox="0 0 100 100"><path d="M0 0 L10 10 Z" fill="#f00" stroke="#000" stroke-width="2"/></svg>"##;
         let paths = parse_svg_paths(svg);
         assert_eq!(paths.len(), 1);
         assert_eq!(paths[0].d, "M0 0 L10 10 Z");
