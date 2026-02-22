@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CollabBoard — Build Sprint Field Report</title>
+  <meta name="description" content="A real-time collaborative whiteboard built entirely in Rust. 41,578 lines of code across 6 crates in 7 days.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- NAV BAR -->
+  <nav class="nav-bar" role="navigation" aria-label="Primary">
+    <div class="nav-left">
+      <span class="nav-icon" aria-hidden="true">&#8862;</span>
+      <span class="nav-site-name">COLLABBOARD</span>
+      <div class="nav-items">
+        <button class="nav-item active" data-page="overview" aria-current="page">OVERVIEW</button>
+        <button class="nav-item" data-page="architecture">ARCHITECTURE</button>
+        <button class="nav-item" data-page="timeline">TIMELINE</button>
+        <button class="nav-item" data-page="stack">STACK</button>
+        <button class="nav-item" data-page="demo">DEMO</button>
+      </div>
+    </div>
+    <div class="nav-divider" aria-hidden="true"></div>
+    <div class="nav-right">
+      <a class="nav-item nav-external" href="https://github.com/ianzepp/gauntlet-week-1" target="_blank" rel="noopener" aria-label="GitHub repository">&#8853; GITHUB</a>
+      <a class="nav-item nav-external" href="https://gauntlet-week-1-production.up.railway.app/" target="_blank" rel="noopener" aria-label="Live demo">&#8853; LIVE_DEMO</a>
+    </div>
+    <button class="nav-hamburger" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+  </nav>
+
+  <!-- STAT STRIP -->
+  <section class="stat-strip" aria-label="Project statistics">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL_LINES_OF_CODE</div>
+      <div class="stat-number" data-target="41578">0</div>
+      <div class="stat-caption">SOURCE + TEST ACROSS 6 CRATES</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">BUILD_DURATION</div>
+      <div class="stat-number" data-target="7">0</div>
+      <div class="stat-caption">DAYS &middot; 382 COMMITS</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TEST_RESULTS</div>
+      <div class="stat-number" data-target="989">0</div>
+      <div class="stat-caption">PASSED &middot; 0 FAILED</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CODE_COVERAGE</div>
+      <div class="stat-number" data-target="41.2" data-suffix="%" data-decimals="1">0</div>
+      <div class="stat-caption">LINE COVERAGE</div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- ============================================ -->
+    <!-- PAGE: OVERVIEW -->
+    <!-- ============================================ -->
+    <div class="page active" data-page="overview">
+      <div class="panel-left">
+        <div class="map-panel">
+          <div class="map-overlay">
+            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
+            <div class="map-overlay-title">GAUNTLET WEEK 1 &mdash; SPRINT REPORT</div>
+            <div class="map-overlay-meta">2026-02-14 &rarr; 2026-02-20</div>
+          </div>
+          <div class="map-content">
+            <div class="architecture-ascii">
+              <pre>
+    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+    &#9474;                BROWSER (WASM)               &#9474;
+    &#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
+    &#9474;  &#9474;   client   &#9474; &#9474;   canvas   &#9474; &#9474;   frames   &#9474;  &#9474;
+    &#9474;  &#9474; (Leptos)  &#9474; &#9474;  (Engine)  &#9474; &#9474; (Protobuf) &#9474;  &#9474;
+    &#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
+    &#9474;        &#9474;            &#9474;            &#9474;         &#9474;
+    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                 &#9474;            &#9474;            &#9474;
+              WebSocket     Events      Frames
+                 &#9474;            &#9474;            &#9474;
+    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+    &#9474;                                              &#9474;
+    &#9474;                SERVER (Axum)                  &#9474;
+    &#9474;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9474;
+    &#9474;  &#9474;   server   &#9474; &#9474;   traces   &#9474; &#9474;    perf    &#9474;  &#9474;
+    &#9474;  &#9474;  (Axum)   &#9474; &#9474;  (Events)  &#9474; &#9474;   (Load)   &#9474;  &#9474;
+    &#9474;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9474;
+    &#9474;        &#9474;                                      &#9474;
+    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                 &#9474;
+            PostgreSQL
+              </pre>
+            </div>
+          </div>
+          <div class="map-pagination">PROJECT 1 OF 1</div>
+        </div>
+      </div>
+      <div class="panel-right">
+        <div class="record-card">
+          <div class="record-header">
+            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-center">BUILD_SPRINT<br>FIELD REPORT</span>
+            <span class="record-header-right">R-001</span>
+          </div>
+          <div class="record-identity">
+            <div class="label">PROJECT / IDENTIFICATION</div>
+            <div class="display-script">CollabBoard</div>
+            <div class="record-subtitle">Ian &middot; Rust &middot; Leptos &middot; Axum &middot; 7 Days</div>
+          </div>
+          <div class="tab-bar" data-tabgroup="overview-card">
+            <button class="tab active" data-tab="overview-overview">OVERVIEW</button>
+            <button class="tab" data-tab="overview-quickfacts">QUICK_FACTS</button>
+            <button class="tab" data-tab="overview-metrics">METRICS</button>
+          </div>
+          <div class="tab-content active" data-tab-content="overview-overview">
+            <div class="section-heading">DISCOVERY_DESCRIPTION / SUMMARY</div>
+            <p class="body-text">
+              A real-time collaborative whiteboard where multiple users draw, chat, and let AI rearrange things on a shared canvas &mdash; built entirely in Rust, from the server all the way down to the browser.
+            </p>
+            <p class="body-text">
+              Open a board, grab a tool, start sketching. Rectangles, ellipses, diamonds, stars, lines, arrows, text elements, frames that group objects, and embedded YouTube tiles. Other users on the same board see every stroke as it happens. Type a prompt and the AI reads your board state, decides which tools to call, and mutates objects directly &mdash; you watch it happen live.
+            </p>
+            <p class="body-text">
+              Built in 7 days for The Gauntlet. The twist: do it all in Rust &mdash; server, frontend, canvas engine, wire protocol &mdash; no JavaScript runtime anywhere in the stack.
+            </p>
+          </div>
+          <div class="tab-content" data-tab-content="overview-quickfacts">
+            <div class="section-heading">QUICK_FACTS</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">LANGUAGE:</span><span class="kv-value">Rust (Edition 2024)</span></div>
+              <div class="kv-row"><span class="kv-key">FRONTEND:</span><span class="kv-value">Leptos 0.8 (SSR + WASM)</span></div>
+              <div class="kv-row"><span class="kv-key">BACKEND:</span><span class="kv-value">Axum 0.8 + SQLx 0.8</span></div>
+              <div class="kv-row"><span class="kv-key">DATABASE:</span><span class="kv-value">PostgreSQL</span></div>
+              <div class="kv-row"><span class="kv-key">WIRE_FORMAT:</span><span class="kv-value">Protobuf (Prost 0.13)</span></div>
+              <div class="kv-row"><span class="kv-key">AUTH:</span><span class="kv-value">GitHub OAuth + Email Codes</span></div>
+              <div class="kv-row"><span class="kv-key">AI:</span><span class="kv-value">Anthropic / OpenAI</span></div>
+              <div class="kv-row"><span class="kv-key">DEPLOY:</span><span class="kv-value">Railway + Docker</span></div>
+            </div>
+          </div>
+          <div class="tab-content" data-tab-content="overview-metrics">
+            <div class="section-heading">PROJECT_STATISTICS</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">TOTAL_LINES:</span><span class="kv-value">41,578</span></div>
+              <div class="kv-row"><span class="kv-key">SOURCE_LINES:</span><span class="kv-value">25,821</span></div>
+              <div class="kv-row"><span class="kv-key">TEST_LINES:</span><span class="kv-value">15,757</span></div>
+              <div class="kv-row"><span class="kv-key">CRATES:</span><span class="kv-value">6</span></div>
+              <div class="kv-row"><span class="kv-key">FUNCTIONS:</span><span class="kv-value">581 (316 pub, 265 priv)</span></div>
+              <div class="kv-row"><span class="kv-key">TESTS:</span><span class="kv-value">989 passed, 0 failed</span></div>
+              <div class="kv-row"><span class="kv-key">COVERAGE:</span><span class="kv-value">41.2% line coverage</span></div>
+              <div class="kv-row"><span class="kv-key">COMMITS:</span><span class="kv-value">382 over 6 days (~64/day)</span></div>
+              <div class="kv-row"><span class="kv-key">DEPENDENCIES:</span><span class="kv-value">67 total (66 + 1 dev)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE: ARCHITECTURE -->
+    <!-- ============================================ -->
+    <div class="page" data-page="architecture">
+      <div class="panel-left">
+        <div class="map-panel">
+          <div class="map-overlay">
+            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
+            <div class="map-overlay-title">CRATE_ARCHITECTURE &mdash; DEPENDENCY MAP</div>
+            <div class="map-overlay-meta">6 CRATES &middot; 67 DEPENDENCIES</div>
+          </div>
+          <div class="map-content">
+            <svg class="crate-map" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+              <!-- Connection lines -->
+              <line x1="300" y1="80" x2="150" y2="200" stroke="#A09080" stroke-width="1"/>
+              <line x1="300" y1="80" x2="300" y2="200" stroke="#A09080" stroke-width="1"/>
+              <line x1="300" y1="80" x2="450" y2="200" stroke="#A09080" stroke-width="1"/>
+              <line x1="150" y1="200" x2="300" y2="320" stroke="#A09080" stroke-width="1"/>
+              <line x1="300" y1="200" x2="300" y2="320" stroke="#A09080" stroke-width="1"/>
+              <line x1="450" y1="200" x2="300" y2="320" stroke="#A09080" stroke-width="1"/>
+              <line x1="150" y1="200" x2="450" y2="200" stroke="#A09080" stroke-width="1" stroke-dasharray="4,4"/>
+              <!-- client node -->
+              <rect x="240" y="50" width="120" height="56" fill="#F2ECE0" stroke="#6C6050" stroke-width="1"/>
+              <text x="300" y="73" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#2C2416" letter-spacing="0.08em">CLIENT</text>
+              <text x="300" y="92" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="9" fill="#5C5040">Leptos 0.8 &middot; 15,914 LOC</text>
+              <!-- canvas node -->
+              <rect x="90" y="172" width="120" height="56" fill="#F2ECE0" stroke="#6C6050" stroke-width="1"/>
+              <text x="150" y="195" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#2C2416" letter-spacing="0.08em">CANVAS</text>
+              <text x="150" y="214" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="9" fill="#5C5040">Engine &middot; 8,897 LOC</text>
+              <!-- frames node -->
+              <rect x="240" y="172" width="120" height="56" fill="#F2ECE0" stroke="#6C6050" stroke-width="1"/>
+              <text x="300" y="195" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#2C2416" letter-spacing="0.08em">FRAMES</text>
+              <text x="300" y="214" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="9" fill="#5C5040">Protobuf &middot; 610 LOC</text>
+              <!-- traces node -->
+              <rect x="390" y="172" width="120" height="56" fill="#F2ECE0" stroke="#6C6050" stroke-width="1"/>
+              <text x="450" y="195" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#2C2416" letter-spacing="0.08em">TRACES</text>
+              <text x="450" y="214" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="9" fill="#5C5040">Events &middot; 1,453 LOC</text>
+              <!-- server node -->
+              <rect x="240" y="292" width="120" height="56" fill="#F2ECE0" stroke="#6C6050" stroke-width="1"/>
+              <text x="300" y="315" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#2C2416" letter-spacing="0.08em">SERVER</text>
+              <text x="300" y="334" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="9" fill="#5C5040">Axum &middot; 14,006 LOC</text>
+              <!-- perf node (off to side) -->
+              <rect x="470" y="292" width="110" height="56" fill="#F2ECE0" stroke="#6C6050" stroke-width="1"/>
+              <text x="525" y="315" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#2C2416" letter-spacing="0.08em">PERF</text>
+              <text x="525" y="334" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="9" fill="#5C5040">Load &middot; 698 LOC</text>
+              <line x1="470" y1="320" x2="360" y2="320" stroke="#A09080" stroke-width="1" stroke-dasharray="4,4"/>
+              <!-- Site markers -->
+              <circle cx="300" cy="78" r="3" fill="#2C2416"/>
+              <circle cx="150" cy="200" r="3" fill="#2C2416"/>
+              <circle cx="300" cy="200" r="3" fill="#2C2416"/>
+              <circle cx="450" cy="200" r="3" fill="#2C2416"/>
+              <circle cx="300" cy="320" r="3" fill="#2C2416"/>
+              <circle cx="525" cy="320" r="3" fill="#2C2416"/>
+            </svg>
+          </div>
+          <div class="map-pagination">SURVEY MAP &mdash; 6 CRATES</div>
+        </div>
+      </div>
+      <div class="panel-right">
+        <div class="record-card">
+          <div class="record-header">
+            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-center">CRATE_ARCHITECTURE<br>SURVEY RECORD</span>
+            <span class="record-header-right">R-002</span>
+          </div>
+          <div class="record-identity">
+            <div class="label">SYSTEM / IDENTIFICATION</div>
+            <div class="display-script">Architecture</div>
+            <div class="record-subtitle">6 Crates &middot; Cargo Workspace &middot; Edition 2024</div>
+          </div>
+          <div class="tab-bar" data-tabgroup="arch-card">
+            <button class="tab active" data-tab="arch-overview">OVERVIEW</button>
+            <button class="tab" data-tab="arch-crates">CRATES</button>
+            <button class="tab" data-tab="arch-decisions">DECISIONS</button>
+          </div>
+          <div class="tab-content active" data-tab-content="arch-overview">
+            <div class="section-heading">SYSTEM_ARCHITECTURE</div>
+            <p class="body-text">
+              Six Rust crates in a Cargo workspace. The client compiles to WASM and runs in the browser via Leptos SSR + hydration. The canvas engine has zero browser dependencies in its core &mdash; it compiles to native Rust for testing and to WASM for the browser.
+            </p>
+            <p class="body-text">
+              Communication uses binary protobuf frames over WebSocket. The server routes by syscall prefix &mdash; board:*, object:*, cursor:*, chat:*, ai:* &mdash; and handlers return an Outcome enum. A single dispatch layer decides who gets what.
+            </p>
+            <p class="body-text">
+              Two-speed persistence: object dirty flush at 100ms intervals, frame log queue with batched writer at 5ms. AI integration runs a tool-call loop with 9 tools that read and mutate the board directly.
+            </p>
+          </div>
+          <div class="tab-content" data-tab-content="arch-crates">
+            <div class="section-heading">CRATE_INVENTORY</div>
+            <div class="inventory-list">
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">SERVER &mdash; THE BACKEND</span>
+                  <span class="inventory-meta">14,006 LOC</span>
+                </div>
+                <p class="inventory-desc">Axum HTTP server, WebSocket hub, and persistence layer. Handler functions return an Outcome enum and a single dispatch layer decides routing. Two-speed persistence with object dirty flush and frame log queue.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">CLIENT &mdash; THE FRONTEND</span>
+                  <span class="inventory-meta">15,914 LOC</span>
+                </div>
+                <p class="inventory-desc">Leptos 0.8 application that renders on the server (SSR) and hydrates in the browser as a WASM binary. Pure Rust, no TypeScript, no JS framework. Eight RwSignal contexts for state management.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">CANVAS &mdash; THE ENGINE</span>
+                  <span class="inventory-meta">8,897 LOC</span>
+                </div>
+                <p class="inventory-desc">From-scratch 2D whiteboard engine. Compiles to native Rust for testing, compiles to WASM for the browser. Zero browser dependencies in the core. Seven gesture states, nine shape kinds, full hit testing.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">FRAMES &mdash; THE WIRE PROTOCOL</span>
+                  <span class="inventory-meta">610 LOC</span>
+                </div>
+                <p class="inventory-desc">Shared crate defining the Frame type and encode/decode functions. Binary protobuf via Prost 0.13. Status lifecycle: Request &rarr; Item* &rarr; Done | Error | Cancel.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">TRACES &mdash; OBSERVABILITY</span>
+                  <span class="inventory-meta">1,453 LOC</span>
+                </div>
+                <p class="inventory-desc">Shared trace and event primitives for the observability UI. Syscall prefix-to-display mapping, trace filtering, frame-to-session grouping, waterfall timing, aggregate metrics.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">PERF &mdash; THE LOAD HARNESS</span>
+                  <span class="inventory-meta">698 LOC</span>
+                </div>
+                <p class="inventory-desc">End-to-end performance tests over real HTTP and WebSocket connections. Round-trip latency, board complexity scaling, and 25-user concurrent load scenarios.</p>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" data-tab-content="arch-decisions">
+            <div class="section-heading">DESIGN_DECISIONS</div>
+            <div class="decisions-list">
+              <div class="decision-item">
+                <div class="decision-key">WHY_RUST_END_TO_END:</div>
+                <p class="decision-value">"No JavaScript runtime anywhere in the stack. Server, frontend, canvas engine, wire protocol &mdash; one language, one type system, shared crates between client and server."</p>
+              </div>
+              <div class="decision-item">
+                <div class="decision-key">WHY_PROTOBUF:</div>
+                <p class="decision-value">"Binary wire format for WebSocket frames. Compact, typed, with a recursive serde_json::Value to prost_types::Value conversion for flexible data payloads."</p>
+              </div>
+              <div class="decision-item">
+                <div class="decision-key">WHY_OUTCOME_ENUM:</div>
+                <p class="decision-value">"Handlers return an Outcome &mdash; Broadcast, Reply, ReplyStream &mdash; and dispatch decides routing. Keeps handlers pure and testable. They never touch the socket directly."</p>
+              </div>
+              <div class="decision-item">
+                <div class="decision-key">WHY_TWO_SPEED_PERSISTENCE:</div>
+                <p class="decision-value">"Object dirty flush at 100ms, frame log queue with batched writer at 5ms. Each path tuned to its traffic pattern. Ephemeral frames never hit the database."</p>
+              </div>
+              <div class="decision-item">
+                <div class="decision-key">WHY_NATIVE_CANVAS_ENGINE:</div>
+                <p class="decision-value">"EngineCore has zero web-sys dependencies. The full test suite runs in cargo test without a browser. The WASM wrapper just forwards DOM events and calls render()."</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE: TIMELINE -->
+    <!-- ============================================ -->
+    <div class="page" data-page="timeline">
+      <div class="panel-left">
+        <div class="map-panel">
+          <div class="map-overlay">
+            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
+            <div class="map-overlay-title" id="timeline-overlay-title">DAY 1 &mdash; PROJECT BOOTSTRAP</div>
+            <div class="map-overlay-meta" id="timeline-overlay-date">2026-02-14</div>
+          </div>
+          <div class="carousel" id="timeline-carousel">
+            <button class="carousel-arrow carousel-prev" aria-label="Previous day">&#9665;</button>
+            <div class="carousel-track">
+              <div class="carousel-slide active" data-day="1">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 1 SCREENSHOT</div>
+                  <div class="placeholder-sub">PROJECT BOOTSTRAP &amp; INFRASTRUCTURE</div>
+                </div>
+              </div>
+              <div class="carousel-slide" data-day="2">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 2 SCREENSHOT</div>
+                  <div class="placeholder-sub">MVP &mdash; DRAWING &amp; WEBSOCKETS</div>
+                </div>
+              </div>
+              <div class="carousel-slide" data-day="3">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 3 SCREENSHOT</div>
+                  <div class="placeholder-sub">CANVAS ENGINE &amp; HIT TESTING</div>
+                </div>
+              </div>
+              <div class="carousel-slide" data-day="4">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 4 SCREENSHOT</div>
+                  <div class="placeholder-sub">AI INTEGRATION &amp; TOOL CALLS</div>
+                </div>
+              </div>
+              <div class="carousel-slide" data-day="5">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 5 SCREENSHOT</div>
+                  <div class="placeholder-sub">EARLY RELEASE &amp; POLISH</div>
+                </div>
+              </div>
+              <div class="carousel-slide" data-day="6">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 6 SCREENSHOT</div>
+                  <div class="placeholder-sub">OBSERVABILITY &amp; PERF TESTING</div>
+                </div>
+              </div>
+              <div class="carousel-slide" data-day="7">
+                <div class="screenshot-placeholder">
+                  <div class="placeholder-label">DAY 7 SCREENSHOT</div>
+                  <div class="placeholder-sub">FINAL POLISH &amp; DEPLOYMENT</div>
+                </div>
+              </div>
+            </div>
+            <button class="carousel-arrow carousel-next" aria-label="Next day">&#9655;</button>
+          </div>
+          <div class="map-pagination" id="timeline-pagination">DAY 1 OF 7</div>
+        </div>
+      </div>
+      <div class="panel-right">
+        <div class="record-card">
+          <div class="record-header">
+            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-center">BUILD_TIMELINE<br>FIELD LOG</span>
+            <span class="record-header-right">R-003</span>
+          </div>
+          <div class="record-identity">
+            <div class="label">EXPEDITION / TIMELINE</div>
+            <div class="display-script">Timeline</div>
+            <div class="record-subtitle">7 Days &middot; 382 Commits &middot; Feb 14&ndash;20, 2026</div>
+          </div>
+          <div class="tab-bar" data-tabgroup="timeline-card">
+            <button class="tab active" data-tab="timeline-overview">FIELD_NOTES</button>
+            <button class="tab" data-tab="timeline-videos">VIDEO_LOG</button>
+          </div>
+          <div class="tab-content active" data-tab-content="timeline-overview">
+            <div class="timeline-entries">
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 1 &mdash; PROJECT BOOTSTRAP</span>
+                  <span class="inventory-meta">FEB 14</span>
+                </div>
+                <p class="inventory-desc">Cargo workspace setup, PostgreSQL schema, Axum server scaffolding, Leptos SSR wiring, Docker Compose configuration. First successful server startup.</p>
+              </div>
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 2 &mdash; MVP DRAWING</span>
+                  <span class="inventory-meta">FEB 15</span>
+                </div>
+                <p class="inventory-desc">WebSocket frame protocol, basic shape drawing (rectangles, ellipses), real-time sync between clients. First Loom video recorded.</p>
+              </div>
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 3 &mdash; CANVAS ENGINE</span>
+                  <span class="inventory-meta">FEB 16</span>
+                </div>
+                <p class="inventory-desc">Dedicated canvas engine crate. Hit testing with per-shape geometry. Gesture state machine (7 states). Camera pan/zoom/rotate with viewport rotation.</p>
+              </div>
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 4 &mdash; AI INTEGRATION</span>
+                  <span class="inventory-meta">FEB 17</span>
+                </div>
+                <p class="inventory-desc">AI tool-call loop with 9 tools. Board state snapshot in system prompt. Real-time object mutation broadcast. Anthropic and OpenAI backend support.</p>
+              </div>
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 5 &mdash; EARLY RELEASE</span>
+                  <span class="inventory-meta">FEB 18</span>
+                </div>
+                <p class="inventory-desc">Auth system (GitHub OAuth + email codes). Dashboard with canvas-rendered thumbnails. Follow-camera sync. Chat system. Railway deployment. Second Loom video.</p>
+              </div>
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 6 &mdash; OBSERVABILITY</span>
+                  <span class="inventory-meta">FEB 19</span>
+                </div>
+                <p class="inventory-desc">Traces crate for event observability. Perf harness with latency benchmarks. Frame log queue optimization. Load testing with 25 concurrent clients.</p>
+              </div>
+              <div class="timeline-entry">
+                <div class="inventory-header">
+                  <span class="inventory-name">DAY 7 &mdash; FINAL POLISH</span>
+                  <span class="inventory-meta">FEB 20</span>
+                </div>
+                <p class="inventory-desc">Bug fixes, edge case handling, test coverage push, documentation, savepoint/rewind feature, viewport compass widget, final deployment.</p>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" data-tab-content="timeline-videos">
+            <div class="section-heading">VIDEO_RECORDINGS</div>
+            <div class="video-entry">
+              <div class="label">PLAYBACK_DEVICE &mdash; DAY 2 MVP</div>
+              <div class="video-frame">
+                <iframe src="https://www.loom.com/embed/613a53b528ae431a81873c41583a11c2" frameborder="0" allowfullscreen title="Day 2 MVP demo video"></iframe>
+              </div>
+            </div>
+            <div class="video-entry">
+              <div class="label">PLAYBACK_DEVICE &mdash; DAY 5 EARLY RELEASE</div>
+              <div class="video-frame">
+                <iframe src="https://www.loom.com/embed/5d38b03c2450418ab11c29e0bbd28e52" frameborder="0" allowfullscreen title="Day 5 early release demo video"></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE: STACK -->
+    <!-- ============================================ -->
+    <div class="page" data-page="stack">
+      <div class="panel-left">
+        <div class="map-panel">
+          <div class="map-overlay">
+            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
+            <div class="map-overlay-title">TECHNOLOGY_STRATIGRAPHY</div>
+            <div class="map-overlay-meta">FULL STACK &middot; RUST 2024</div>
+          </div>
+          <div class="map-content">
+            <div class="stratigraphy">
+              <div class="stratum" style="--depth: 0">
+                <span class="stratum-label">BROWSER</span>
+                <span class="stratum-tech">Leptos 0.8 (WASM) + Canvas2D API</span>
+              </div>
+              <div class="stratum" style="--depth: 1">
+                <span class="stratum-label">ENGINE</span>
+                <span class="stratum-tech">canvas crate &mdash; native Rust, zero web-sys core</span>
+              </div>
+              <div class="stratum" style="--depth: 2">
+                <span class="stratum-label">WIRE</span>
+                <span class="stratum-tech">Protobuf frames (Prost 0.13) over WebSocket</span>
+              </div>
+              <div class="stratum" style="--depth: 3">
+                <span class="stratum-label">SERVER</span>
+                <span class="stratum-tech">Axum 0.8 + tower middleware + SQLx 0.8</span>
+              </div>
+              <div class="stratum" style="--depth: 4">
+                <span class="stratum-label">STORAGE</span>
+                <span class="stratum-tech">PostgreSQL &mdash; objects + frame log + sessions</span>
+              </div>
+              <div class="stratum" style="--depth: 5">
+                <span class="stratum-label">AI</span>
+                <span class="stratum-tech">Anthropic / OpenAI &mdash; 9-tool loop, 10 turns max</span>
+              </div>
+              <div class="stratum" style="--depth: 6">
+                <span class="stratum-label">DEPLOY</span>
+                <span class="stratum-tech">Docker + Railway &mdash; auto-migrate on startup</span>
+              </div>
+            </div>
+          </div>
+          <div class="map-pagination">CROSS-SECTION &mdash; 7 LAYERS</div>
+        </div>
+      </div>
+      <div class="panel-right">
+        <div class="record-card">
+          <div class="record-header">
+            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-center">TECHNOLOGY_STACK<br>SURVEY RECORD</span>
+            <span class="record-header-right">R-004</span>
+          </div>
+          <div class="record-identity">
+            <div class="label">STRATIGRAPHY / IDENTIFICATION</div>
+            <div class="display-script">Stack</div>
+            <div class="record-subtitle">Rust &middot; Axum &middot; Leptos &middot; PostgreSQL &middot; Protobuf</div>
+          </div>
+          <div class="tab-bar" data-tabgroup="stack-card">
+            <button class="tab active" data-tab="stack-overview">OVERVIEW</button>
+            <button class="tab" data-tab="stack-deps">DEPENDENCIES</button>
+            <button class="tab" data-tab="stack-stats">STATS</button>
+          </div>
+          <div class="tab-content active" data-tab-content="stack-overview">
+            <div class="section-heading">STACK_NARRATIVE</div>
+            <p class="body-text">
+              The entire stack is Rust. The server is Axum with SQLx for database access. The frontend is Leptos &mdash; server-side rendered, then hydrated in the browser as WASM. No JavaScript runtime anywhere.
+            </p>
+            <p class="body-text">
+              The canvas engine compiles to both native Rust (for testing) and WASM (for the browser). Its core logic has zero web-sys dependencies. WebSocket communication uses binary protobuf frames via Prost.
+            </p>
+            <p class="body-text">
+              Auth supports GitHub OAuth and email access codes with single-use WebSocket tickets. AI features work with either Anthropic (Claude) or OpenAI-compatible backends. Deployed on Railway with Docker, migrations run automatically on startup.
+            </p>
+          </div>
+          <div class="tab-content" data-tab-content="stack-deps">
+            <div class="section-heading">DEPENDENCY_COUNTS</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">24 deps + 1 dev</span></div>
+              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">21 deps</span></div>
+              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">5 deps</span></div>
+              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">5 deps</span></div>
+              <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">8 deps</span></div>
+              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">3 deps</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">67 dependencies</span></div>
+            </div>
+            <div class="section-heading" style="margin-top: 24px;">KEY_LIBRARIES</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">AXUM:</span><span class="kv-value">0.8 (HTTP + WS)</span></div>
+              <div class="kv-row"><span class="kv-key">SQLX:</span><span class="kv-value">0.8 (PostgreSQL)</span></div>
+              <div class="kv-row"><span class="kv-key">LEPTOS:</span><span class="kv-value">0.8 (SSR + Hydrate)</span></div>
+              <div class="kv-row"><span class="kv-key">PROST:</span><span class="kv-value">0.13 (Protobuf)</span></div>
+              <div class="kv-row"><span class="kv-key">TOKIO:</span><span class="kv-value">1.x (Async Runtime)</span></div>
+              <div class="kv-row"><span class="kv-key">SERDE:</span><span class="kv-value">1.x (Serialization)</span></div>
+            </div>
+          </div>
+          <div class="tab-content" data-tab-content="stack-stats">
+            <div class="section-heading">LINES_OF_CODE_BY_CRATE</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">15,914 (13,165 src + 2,749 test)</span></div>
+              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">14,006 (8,241 src + 5,765 test)</span></div>
+              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">8,897 (3,188 src + 5,709 test)</span></div>
+              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">1,453 (549 src + 904 test)</span></div>
+              <div class="kv-row"><span class="kv-key">PERF:</span><span class="kv-value">698 (460 src + 238 test)</span></div>
+              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">610 (218 src + 392 test)</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">TOTAL:</span><span class="kv-value">41,578 lines</span></div>
+            </div>
+            <div class="section-heading" style="margin-top: 24px;">TEST_COVERAGE_BY_CRATE</div>
+            <div class="kv-list">
+              <div class="kv-row"><span class="kv-key">TRACES:</span><span class="kv-value">99.7%</span></div>
+              <div class="kv-row"><span class="kv-key">CANVAS:</span><span class="kv-value">59.5%</span></div>
+              <div class="kv-row"><span class="kv-key">FRAMES:</span><span class="kv-value">49.4%</span></div>
+              <div class="kv-row"><span class="kv-key">SERVER:</span><span class="kv-value">48.3%</span></div>
+              <div class="kv-row"><span class="kv-key">CLIENT:</span><span class="kv-value">24.5%</span></div>
+              <div class="kv-row kv-row-total"><span class="kv-key">OVERALL:</span><span class="kv-value">41.2%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE: DEMO -->
+    <!-- ============================================ -->
+    <div class="page" data-page="demo">
+      <div class="panel-left">
+        <div class="map-panel">
+          <div class="map-overlay">
+            <div class="label">LOCAL_SURVEY_VIEWPORT</div>
+            <div class="map-overlay-title">LIVE_DEMONSTRATION</div>
+            <div class="map-overlay-meta">RAILWAY DEPLOYMENT &middot; 2026-02-20</div>
+          </div>
+          <div class="map-content demo-video-panel">
+            <div class="label">PLAYBACK_DEVICE &mdash; PRIMARY</div>
+            <div class="video-frame video-frame-large">
+              <iframe src="https://www.loom.com/embed/5d38b03c2450418ab11c29e0bbd28e52" frameborder="0" allowfullscreen title="CollabBoard demo video"></iframe>
+            </div>
+          </div>
+          <div class="map-pagination">RECORDING 1 OF 2</div>
+        </div>
+      </div>
+      <div class="panel-right">
+        <div class="record-card">
+          <div class="record-header">
+            <span class="record-header-left">collabboard.dev</span>
+            <span class="record-header-center">DEMONSTRATION<br>FIELD LOG</span>
+            <span class="record-header-right">R-005</span>
+          </div>
+          <div class="record-identity">
+            <div class="label">EXHIBIT / IDENTIFICATION</div>
+            <div class="display-script">Demo</div>
+            <div class="record-subtitle">Live App &middot; Loom Recordings &middot; GitHub</div>
+          </div>
+          <div class="tab-bar" data-tabgroup="demo-card">
+            <button class="tab active" data-tab="demo-overview">OVERVIEW</button>
+            <button class="tab" data-tab="demo-features">FEATURES</button>
+            <button class="tab" data-tab="demo-links">LINKS</button>
+          </div>
+          <div class="tab-content active" data-tab-content="demo-overview">
+            <div class="section-heading">DEMONSTRATION_GUIDE</div>
+            <p class="body-text">
+              The live demo runs on Railway. Log in with GitHub or an email access code, create a board, and start drawing. Open the same board in a second browser tab to see real-time sync.
+            </p>
+            <p class="body-text">
+              Try the AI: click the AI button and type a natural language instruction like "arrange these sticky notes in a 3x3 grid" or "add a red diamond labeled URGENT." The AI reads your board, picks tools, and mutates objects live.
+            </p>
+            <p class="body-text">
+              Other features to explore: follow-camera (click another user's avatar to sync your viewport), chat (persistent per-board messaging), savepoints (rewind the board to an earlier state), and the compass widget (rotate the viewport).
+            </p>
+          </div>
+          <div class="tab-content" data-tab-content="demo-features">
+            <div class="section-heading">FEATURE_INVENTORY</div>
+            <div class="inventory-list">
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">DRAWING TOOLS</span>
+                </div>
+                <p class="inventory-desc">Rectangles, ellipses, diamonds, stars, lines, arrows, text, frames (grouping), YouTube embeds. Full resize, rotate, multi-select.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">REAL-TIME SYNC</span>
+                </div>
+                <p class="inventory-desc">WebSocket-based. Every object mutation broadcasts to all peers instantly. Cursor presence with deadband filtering. Smooth lerp on incoming drag events.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">AI INTEGRATION</span>
+                </div>
+                <p class="inventory-desc">Natural language board manipulation. 9 tools: create sticky notes, shapes, frames, connectors; move, resize, update text, change color, get board state.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">FOLLOW CAMERA</span>
+                </div>
+                <p class="inventory-desc">Click another user's avatar to sync your viewport to theirs. Pan, zoom, and rotation all sync. Click again to detach.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">CHAT &amp; PRESENCE</span>
+                </div>
+                <p class="inventory-desc">Persistent per-board chat. User presence with live cursor positions. Heartbeat-based connection status.</p>
+              </div>
+              <div class="inventory-item">
+                <div class="inventory-header">
+                  <span class="inventory-name">SAVEPOINTS</span>
+                </div>
+                <p class="inventory-desc">Snapshot the board state at any point. Rewind to a previous savepoint to undo bulk changes.</p>
+              </div>
+            </div>
+          </div>
+          <div class="tab-content" data-tab-content="demo-links">
+            <div class="section-heading">EXTERNAL_LINKS</div>
+            <div class="kv-list">
+              <div class="kv-row">
+                <span class="kv-key">LIVE_DEMO:</span>
+                <a class="kv-value kv-link" href="https://gauntlet-week-1-production.up.railway.app/" target="_blank" rel="noopener">gauntlet-week-1-production.up.railway.app</a>
+              </div>
+              <div class="kv-row">
+                <span class="kv-key">GITHUB:</span>
+                <a class="kv-value kv-link" href="https://github.com/ianzepp/gauntlet-week-1" target="_blank" rel="noopener">github.com/ianzepp/gauntlet-week-1</a>
+              </div>
+              <div class="kv-row">
+                <span class="kv-key">LOOM_DAY_2:</span>
+                <a class="kv-value kv-link" href="https://www.loom.com/share/613a53b528ae431a81873c41583a11c2" target="_blank" rel="noopener">MVP Demo (Day 2)</a>
+              </div>
+              <div class="kv-row">
+                <span class="kv-key">LOOM_DAY_5:</span>
+                <a class="kv-value kv-link" href="https://www.loom.com/share/5d38b03c2450418ab11c29e0bbd28e52" target="_blank" rel="noopener">Early Release (Day 5)</a>
+              </div>
+              <div class="kv-row">
+                <span class="kv-key">LEPTOS_APP:</span>
+                <a class="kv-value kv-link" href="/app" rel="noopener">CollabBoard App (/app)</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- STATUS BAR -->
+  <footer class="status-bar" role="contentinfo">
+    <div class="status-left">
+      <span class="status-dot" aria-label="System operational">&#9679;</span>
+      <span>BUILT_WITH: RUST_2024</span>
+      <span>FRAMEWORK: LEPTOS_0.8</span>
+      <span>SERVER: AXUM_0.8</span>
+      <span>DEPLOY: RAILWAY</span>
+    </div>
+    <div class="status-right">
+      BUILD_R-001-SPRINT
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

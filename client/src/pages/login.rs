@@ -87,7 +87,7 @@ pub fn LoginPage() -> impl IntoView {
             match crate::net::api::verify_email_login_code(&_email_value, &_code_value).await {
                 Ok(()) => {
                     if let Some(window) = web_sys::window() {
-                        let _ = window.location().set_href("/");
+                        let _ = window.location().set_href("/app");
                     }
                 }
                 Err(e) => {

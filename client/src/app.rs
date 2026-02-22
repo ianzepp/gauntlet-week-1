@@ -120,9 +120,9 @@ pub fn App() -> impl IntoView {
 
         <Router>
             <Routes fallback=|| "Page not found.".into_view()>
-                <Route path=StaticSegment("login") view=LoginPage/>
-                <Route path=StaticSegment("") view=DashboardPage/>
-                <Route path=(StaticSegment("board"), ParamSegment("id")) view=BoardPage/>
+                <Route path=StaticSegment("app") view=move || view! { <DashboardPage/> }/>
+                <Route path=(StaticSegment("app"), StaticSegment("login")) view=LoginPage/>
+                <Route path=(StaticSegment("app"), StaticSegment("board"), ParamSegment("id")) view=BoardPage/>
             </Routes>
         </Router>
     }

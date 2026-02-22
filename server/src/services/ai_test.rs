@@ -1028,8 +1028,14 @@ async fn handle_prompt_persists_trace_envelope_for_llm_and_tool_spans() {
                     trace.get("trace_id").and_then(serde_json::Value::as_str) == Some(root_str.as_str())
                         && trace.get("span_id").is_some()
                         && trace.get("kind").and_then(serde_json::Value::as_str) == Some("ai.llm_request")
-                        && trace.get("elapsed_ms").and_then(serde_json::Value::as_i64).is_some()
-                        && trace.get("duration_ms").and_then(serde_json::Value::as_i64).is_some()
+                        && trace
+                            .get("elapsed_ms")
+                            .and_then(serde_json::Value::as_i64)
+                            .is_some()
+                        && trace
+                            .get("duration_ms")
+                            .and_then(serde_json::Value::as_i64)
+                            .is_some()
                 })
     });
     assert!(has_llm_with_trace, "expected ai:llm_request frames with trace envelope");
@@ -1043,8 +1049,14 @@ async fn handle_prompt_persists_trace_envelope_for_llm_and_tool_spans() {
                     trace.get("trace_id").and_then(serde_json::Value::as_str) == Some(root_str.as_str())
                         && trace.get("span_id").is_some()
                         && trace.get("kind").and_then(serde_json::Value::as_str) == Some("ai.tool_call")
-                        && trace.get("elapsed_ms").and_then(serde_json::Value::as_i64).is_some()
-                        && trace.get("duration_ms").and_then(serde_json::Value::as_i64).is_some()
+                        && trace
+                            .get("elapsed_ms")
+                            .and_then(serde_json::Value::as_i64)
+                            .is_some()
+                        && trace
+                            .get("duration_ms")
+                            .and_then(serde_json::Value::as_i64)
+                            .is_some()
                 })
     });
     assert!(has_tool_with_trace, "expected tool:* frames with trace envelope");

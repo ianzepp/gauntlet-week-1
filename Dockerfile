@@ -33,9 +33,13 @@ COPY --from=server-builder /app/target/release/server /usr/local/bin/server
 # Leptos site assets (WASM + CSS + static)
 COPY --from=server-builder /app/target/site /app/site
 
+# Portfolio website (static HTML/CSS/JS)
+COPY website/ /app/website/
+
 ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV STATIC_DIR=/app/site
 ENV LEPTOS_SITE_ROOT=/app/site
+ENV WEBSITE_DIR=/app/website
 EXPOSE 3000
 CMD ["sh", "-c", "server --migrate-only && server"]

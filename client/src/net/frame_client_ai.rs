@@ -21,12 +21,7 @@ fn parse_tool_activity_message(frame: &Frame) -> Option<AiMessage> {
     if frame.syscall != "ai:prompt" || frame.status != FrameStatus::Item {
         return None;
     }
-    if frame
-        .data
-        .get("role")
-        .and_then(serde_json::Value::as_str)
-        != Some("tool")
-    {
+    if frame.data.get("role").and_then(serde_json::Value::as_str) != Some("tool") {
         return None;
     }
 

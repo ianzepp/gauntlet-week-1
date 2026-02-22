@@ -175,7 +175,7 @@ pub async fn github_callback(
         .max_age(Duration::ZERO);
 
     let jar = jar.add(session_cookie).add(clear_oauth_state_cookie);
-    (jar, Redirect::temporary("/")).into_response()
+    (jar, Redirect::temporary("/app")).into_response()
 }
 
 /// `GET /api/auth/me` — return current user.

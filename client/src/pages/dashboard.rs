@@ -77,7 +77,7 @@ pub fn DashboardPage() -> impl IntoView {
     Effect::new(move || {
         if let Some(board_id) = boards.get().created_board_id.clone() {
             boards.update(|s| s.created_board_id = None);
-            navigate_to_board(&format!("/board/{board_id}"), leptos_router::NavigateOptions::default());
+            navigate_to_board(&format!("/app/board/{board_id}"), leptos_router::NavigateOptions::default());
         }
     });
 
@@ -86,7 +86,7 @@ pub fn DashboardPage() -> impl IntoView {
         if let Some(board_id) = boards.get().redeemed_board_id.clone() {
             boards.update(|s| s.redeemed_board_id = None);
             show_join.set(false);
-            navigate_to_redeemed(&format!("/board/{board_id}"), leptos_router::NavigateOptions::default());
+            navigate_to_redeemed(&format!("/app/board/{board_id}"), leptos_router::NavigateOptions::default());
         }
     });
 
@@ -97,7 +97,7 @@ pub fn DashboardPage() -> impl IntoView {
                 crate::net::api::logout().await;
                 auth.update(|a| a.user = None);
                 if let Some(w) = web_sys::window() {
-                    let _ = w.location().set_href("/login");
+                    let _ = w.location().set_href("/app/login");
                 }
             });
         }

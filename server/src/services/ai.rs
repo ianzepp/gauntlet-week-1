@@ -245,9 +245,9 @@ pub async fn handle_prompt_with_parent(
             root_started_at,
             None,
         )
-            .as_object()
-            .cloned()
-            .unwrap_or_default();
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
         llm_req_trace.insert("iteration".into(), json!(iteration));
         llm_req.trace = Some(serde_json::Value::Object(llm_req_trace));
         super::persistence::enqueue_frame(state, &llm_req);
@@ -278,9 +278,9 @@ pub async fn handle_prompt_with_parent(
                     root_started_at,
                     Some(duration_ms),
                 )
-                    .as_object()
-                    .cloned()
-                    .unwrap_or_default();
+                .as_object()
+                .cloned()
+                .unwrap_or_default();
                 err_trace.insert("iteration".into(), json!(iteration));
                 err_frame.trace = Some(serde_json::Value::Object(err_trace));
                 super::persistence::enqueue_frame(state, &err_frame);
@@ -304,9 +304,9 @@ pub async fn handle_prompt_with_parent(
             root_started_at,
             Some(duration_ms),
         )
-            .as_object()
-            .cloned()
-            .unwrap_or_default();
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
         llm_trace.insert("iteration".into(), json!(iteration));
         llm_trace.insert("input_tokens".into(), json!(response.input_tokens));
         llm_trace.insert("output_tokens".into(), json!(response.output_tokens));
@@ -503,9 +503,9 @@ async fn execute_tool_via_syscall(
         root_started_at,
         None,
     )
-        .as_object()
-        .cloned()
-        .unwrap_or_default();
+    .as_object()
+    .cloned()
+    .unwrap_or_default();
     req_trace.insert("iteration".into(), json!(iteration));
     req.trace = Some(serde_json::Value::Object(req_trace));
     super::persistence::enqueue_frame(state, &req);
@@ -661,7 +661,12 @@ fn append_viewport_context(prompt: &mut String, viewport: Option<&ClientViewport
     let cos = radians.cos();
     let sin = radians.sin();
 
-    let corners = [(-half_w, -half_h), (half_w, -half_h), (half_w, half_h), (-half_w, half_h)];
+    let corners = [
+        (-half_w, -half_h),
+        (half_w, -half_h),
+        (half_w, half_h),
+        (-half_w, half_h),
+    ];
     let mut transformed = [(0.0_f64, 0.0_f64); 4];
     let mut min_x = f64::INFINITY;
     let mut min_y = f64::INFINITY;

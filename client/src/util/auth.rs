@@ -29,13 +29,13 @@ where
             #[cfg(feature = "hydrate")]
             if let Some(window) = web_sys::window() {
                 if let Ok(pathname) = window.location().pathname()
-                    && pathname != "/login"
+                    && pathname != "/app/login"
                 {
-                    let _ = window.location().set_href("/login");
+                    let _ = window.location().set_href("/app/login");
                     return;
                 }
             }
-            navigate("/login", NavigateOptions::default());
+            navigate("/app/login", NavigateOptions::default());
         }
     });
 }

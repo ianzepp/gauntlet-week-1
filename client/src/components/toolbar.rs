@@ -169,7 +169,7 @@ pub fn Toolbar() -> impl IntoView {
                 crate::net::api::logout().await;
                 auth.update(|a| a.user = None);
                 if let Some(w) = web_sys::window() {
-                    let _ = w.location().set_href("/login");
+                    let _ = w.location().set_href("/app/login");
                 }
             });
         }
@@ -182,7 +182,7 @@ pub fn Toolbar() -> impl IntoView {
 
     let on_share_cancel = Callback::new(move |()| show_share.set(false));
     let on_back = Callback::new(move |()| {
-        navigate("/", leptos_router::NavigateOptions::default());
+        navigate("/app", leptos_router::NavigateOptions::default());
     });
 
     let set_visibility_public = set_visibility;
@@ -197,14 +197,14 @@ pub fn Toolbar() -> impl IntoView {
                 style="display:none"
                 on:change=on_import_change
             />
-            <Show when=move || location.pathname.get().starts_with("/board/")>
+            <Show when=move || location.pathname.get().starts_with("/app/board/")>
                 <button class="toolbar__back" title="Back to dashboard" on:click=move |_| on_back.run(())>
                     "←"
                 </button>
             </Show>
 
             <span class="toolbar__board-name">{board_name}</span>
-            <Show when=move || location.pathname.get().starts_with("/board/")>
+            <Show when=move || location.pathname.get().starts_with("/app/board/")>
                 <div class="toolbar__segment" role="group" aria-label="Theme mode">
                     <button
                         class="btn toolbar__segment-btn"
@@ -237,7 +237,7 @@ pub fn Toolbar() -> impl IntoView {
                 </div>
             </Show>
 
-            <Show when=move || location.pathname.get().starts_with("/board/")>
+            <Show when=move || location.pathname.get().starts_with("/app/board/")>
                 <div class="toolbar__segment" role="group" aria-label="Board view mode">
                     <button
                         class="btn toolbar__segment-btn"
@@ -259,7 +259,7 @@ pub fn Toolbar() -> impl IntoView {
                     </button>
                 </div>
             </Show>
-            <Show when=move || location.pathname.get().starts_with("/board/") && can_toggle_visibility()>
+            <Show when=move || location.pathname.get().starts_with("/app/board/") && can_toggle_visibility()>
                 <div class="toolbar__segment" role="group" aria-label="Board visibility mode">
                     <button
                         class="btn toolbar__segment-btn"
@@ -282,17 +282,17 @@ pub fn Toolbar() -> impl IntoView {
                 </div>
             </Show>
 
-            <Show when=move || location.pathname.get().starts_with("/board/")>
+            <Show when=move || location.pathname.get().starts_with("/app/board/")>
                 <button class="btn toolbar__share" on:click=on_share title="Share board">
                     "Share"
                 </button>
             </Show>
-            <Show when=move || location.pathname.get().starts_with("/board/") && board.get().board_id.is_some()>
+            <Show when=move || location.pathname.get().starts_with("/app/board/") && board.get().board_id.is_some()>
                 <button class="btn toolbar__share" on:click=on_import_click title="Import board snapshot from JSONL">
                     "Import"
                 </button>
             </Show>
-            <Show when=move || location.pathname.get().starts_with("/board/") && board.get().board_id.is_some()>
+            <Show when=move || location.pathname.get().starts_with("/app/board/") && board.get().board_id.is_some()>
                 <button class="btn toolbar__share" on:click=on_export title="Export board as JSONL snapshot">
                     "Export"
                 </button>

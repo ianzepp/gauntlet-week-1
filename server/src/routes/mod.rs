@@ -3,12 +3,15 @@
 //! SYSTEM CONTEXT
 //! ==============
 //! This module binds HTTP + websocket endpoints and stitches API routes with
-//! Leptos SSR rendering under a single Axum router.
+//! Leptos SSR rendering under a single Axum router. The public portfolio site
+//! is served as static files at `/`, while the Leptos app lives under `/app`.
 
 pub mod auth;
 pub mod boards;
 pub mod users;
 pub mod ws;
+
+use std::path::PathBuf;
 
 use axum::Router;
 use axum::http::StatusCode;
@@ -16,6 +19,7 @@ use axum::routing::{get, patch, post};
 use leptos::prelude::*;
 use leptos_axum::{LeptosRoutes, generate_route_list};
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 use crate::state::AppState;
 
@@ -70,7 +74,14 @@ fn api_routes(state: AppState) -> Router {
         .with_state(state)
 }
 
-/// Leptos SSR frontend: API routes + Leptos SSR routes.
+/// Resolve the path to the portfolio website directory.
+fn website_dir() -> PathBuf {
+    std::env::var("WEBSITE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("../website"))
+}
+
+/// Leptos SSR frontend: API routes + Leptos SSR at `/app` + portfolio at `/`.
 ///
 /// # Errors
 ///
@@ -81,15 +92,25 @@ pub fn leptos_app(state: AppState) -> Result<Router, String> {
     let leptos_options = conf.leptos_options;
     let routes = generate_route_list(client::app::App);
 
+    // Leptos SSR routes (now under /app prefix via client-side route definitions).
     let leptos_router = Router::new()
         .leptos_routes(&leptos_options, routes, {
             let opts = leptos_options.clone();
             move || client::app::shell(opts.clone())
         })
-        .fallback(leptos_axum::file_and_error_handler(client::app::shell))
-        .with_state(leptos_options);
+        .with_state(leptos_options.clone());
 
-    Ok(api_routes(state).merge(leptos_router))
+    // Serve Leptos static assets (WASM, CSS, JS) from the site root /pkg directory.
+    let site_root_path = PathBuf::from(leptos_options.site_root.as_ref());
+
+    // Portfolio website served as static files at `/`.
+    let website_path = website_dir();
+    let website_service = ServeDir::new(&website_path).append_index_html_on_directories(true);
+
+    Ok(api_routes(state)
+        .merge(leptos_router)
+        .nest_service("/pkg", ServeDir::new(site_root_path.join("pkg")))
+        .fallback_service(website_service))
 }
 
 async fn healthz() -> StatusCode {

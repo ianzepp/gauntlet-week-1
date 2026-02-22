@@ -136,7 +136,10 @@ async fn run_ws(mut socket: WebSocket, state: AppState, user_id: Uuid) {
         .with_data("user_id", user_id.to_string())
         .with_data("user_name", user_name.clone())
         .with_data("user_color", user_color.clone());
-    if send_frame(&mut socket, &frame_for_client(&welcome, false)).await.is_err() {
+    if send_frame(&mut socket, &frame_for_client(&welcome, false))
+        .await
+        .is_err()
+    {
         return;
     }
     services::persistence::enqueue_frame(&state, &welcome);
@@ -1336,11 +1339,7 @@ fn handle_trace(trace_enabled: &mut bool, req: &Frame) -> Result<Outcome, Frame>
     let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
     match op {
         "config" => {
-            let Some(enabled) = req
-                .data
-                .get("enabled")
-                .and_then(serde_json::Value::as_bool)
-            else {
+            let Some(enabled) = req.data.get("enabled").and_then(serde_json::Value::as_bool) else {
                 return Err(req.error("enabled required"));
             };
             *trace_enabled = enabled;

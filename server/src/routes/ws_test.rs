@@ -187,7 +187,13 @@ async fn trace_config_toggles_per_connection_trace_flag() {
     assert_eq!(enable_reply.len(), 1);
     assert_eq!(enable_reply[0].syscall, "trace:config");
     assert_eq!(enable_reply[0].status, Status::Done);
-    assert_eq!(enable_reply[0].data.get("enabled").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(
+        enable_reply[0]
+            .data
+            .get("enabled")
+            .and_then(|v| v.as_bool()),
+        Some(true)
+    );
 
     let mut disable_data = Data::new();
     disable_data.insert("enabled".into(), json!(false));
@@ -210,7 +216,13 @@ async fn trace_config_toggles_per_connection_trace_flag() {
     assert_eq!(disable_reply.len(), 1);
     assert_eq!(disable_reply[0].syscall, "trace:config");
     assert_eq!(disable_reply[0].status, Status::Done);
-    assert_eq!(disable_reply[0].data.get("enabled").and_then(|v| v.as_bool()), Some(false));
+    assert_eq!(
+        disable_reply[0]
+            .data
+            .get("enabled")
+            .and_then(|v| v.as_bool()),
+        Some(false)
+    );
 }
 
 #[cfg(feature = "live-db-tests")]
@@ -535,8 +547,7 @@ async fn cursor_clear_broadcasts_to_peers() {
     moved_data.insert("x".into(), json!(12.0));
     moved_data.insert("y".into(), json!(34.0));
     let moved = request_bytes(board_id, "cursor:moved", moved_data);
-    let _ =
-        process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &moved).await;
+    let _ = process_inbound_bytes(&state, &mut current_board, sender_client_id, user_id, &sender_tx, &moved).await;
     let _ = recv_board_broadcast(&mut peer_rx).await;
 
     let text = request_bytes(board_id, "cursor:clear", Data::new());
@@ -1196,11 +1207,36 @@ async fn ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text() {
         .as_ref()
         .and_then(serde_json::Value::as_object)
         .expect("trace envelope on ai:prompt done");
-    assert!(trace.get("elapsed_ms").and_then(serde_json::Value::as_i64).is_some());
-    assert!(trace.get("total_duration_ms").and_then(serde_json::Value::as_i64).is_some());
-    assert!(trace.get("total_llm_duration_ms").and_then(serde_json::Value::as_i64).is_some());
-    assert!(trace.get("total_tool_duration_ms").and_then(serde_json::Value::as_i64).is_some());
-    assert!(trace.get("overhead_duration_ms").and_then(serde_json::Value::as_i64).is_some());
+    assert!(
+        trace
+            .get("elapsed_ms")
+            .and_then(serde_json::Value::as_i64)
+            .is_some()
+    );
+    assert!(
+        trace
+            .get("total_duration_ms")
+            .and_then(serde_json::Value::as_i64)
+            .is_some()
+    );
+    assert!(
+        trace
+            .get("total_llm_duration_ms")
+            .and_then(serde_json::Value::as_i64)
+            .is_some()
+    );
+    assert!(
+        trace
+            .get("total_tool_duration_ms")
+            .and_then(serde_json::Value::as_i64)
+            .is_some()
+    );
+    assert!(
+        trace
+            .get("overhead_duration_ms")
+            .and_then(serde_json::Value::as_i64)
+            .is_some()
+    );
     let assistant_item = sender_frames
         .iter()
         .find(|f| f.status == Status::Item && f.data.get("role").and_then(|v| v.as_str()) == Some("assistant"))

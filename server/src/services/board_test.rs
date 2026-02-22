@@ -68,8 +68,12 @@ async fn part_board_removes_client_but_keeps_board_with_other_clients() {
         let board = boards.get_mut(&board_id).expect("board should exist");
         board.clients.insert(client_a, tx_a);
         board.clients.insert(client_b, tx_b);
-        board.viewports.insert(client_a, crate::state::ClientViewport::default());
-        board.viewports.insert(client_b, crate::state::ClientViewport::default());
+        board
+            .viewports
+            .insert(client_a, crate::state::ClientViewport::default());
+        board
+            .viewports
+            .insert(client_b, crate::state::ClientViewport::default());
     }
 
     part_board(&state, board_id, client_a).await;
