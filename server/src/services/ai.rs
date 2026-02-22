@@ -8,6 +8,7 @@
 //!
 //! Tool names match the G4 Week 1 spec exactly (issue #19):
 //! createStickyNote, createShape, createFrame, createConnector,
+//! createSvgObject, updateSvgContent, importSvg, exportSelectionToSvg, deleteObject,
 //! moveObject, resizeObject, updateText, changeColor, getBoardState.
 
 use std::fmt::Write;
@@ -27,6 +28,7 @@ use crate::state::{AppState, BoardObject};
 const DEFAULT_AI_MAX_TOOL_ITERATIONS: usize = 10;
 const DEFAULT_AI_MAX_TOKENS: u32 = 4096;
 const MAX_SESSION_CONVERSATION_MESSAGES: usize = 20;
+const MAX_SVG_BYTES: usize = 200_000;
 const BASE_SYSTEM_PROMPT: &str = include_str!("../llm/system.md");
 
 fn env_parse<T>(key: &str, default: T) -> T
@@ -507,6 +509,11 @@ pub(crate) async fn execute_tool(
         "createShape" => execute_create_shape(state, board_id, input, mutations).await,
         "createFrame" => execute_create_frame(state, board_id, input, mutations).await,
         "createConnector" => execute_create_connector(state, board_id, input, mutations).await,
+        "createSvgObject" => execute_create_svg_object(state, board_id, input, mutations).await,
+        "updateSvgContent" => execute_update_svg_content(state, board_id, input, mutations).await,
+        "importSvg" => execute_import_svg(state, board_id, input, mutations).await,
+        "exportSelectionToSvg" => execute_export_selection_to_svg(state, board_id, input).await,
+        "deleteObject" => execute_delete_object(state, board_id, input, mutations).await,
         "rotateObject" => execute_rotate_object(state, board_id, input, mutations).await,
         "moveObject" => execute_move_object(state, board_id, input, mutations).await,
         "resizeObject" => execute_resize_object(state, board_id, input, mutations).await,
@@ -839,6 +846,357 @@ async fn execute_create_connector(
     let id = obj.id;
     mutations.push(AiMutation::Created(obj));
     Ok(format!("created connector {id} from {from_id} to {to_id}"))
+}
+
+async fn execute_create_svg_object(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let raw_svg = input
+        .get("svg")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    if raw_svg.is_empty() {
+        return Ok("error: missing svg".into());
+    }
+    let svg = match sanitize_svg_markup(raw_svg) {
+        Ok(s) => s,
+        Err(msg) => return Ok(format!("error: {msg}")),
+    };
+    let Some(x) = input.get("x").and_then(serde_json::Value::as_f64) else {
+        return Ok("error: missing x".into());
+    };
+    let Some(y) = input.get("y").and_then(serde_json::Value::as_f64) else {
+        return Ok("error: missing y".into());
+    };
+    let Some(width) = input.get("width").and_then(serde_json::Value::as_f64) else {
+        return Ok("error: missing width".into());
+    };
+    let Some(height) = input.get("height").and_then(serde_json::Value::as_f64) else {
+        return Ok("error: missing height".into());
+    };
+    let title = input.get("title").and_then(|v| v.as_str()).unwrap_or("");
+    let view_box = input.get("viewBox").and_then(|v| v.as_str());
+    let preserve_aspect_ratio = input.get("preserveAspectRatio").and_then(|v| v.as_str());
+
+    let mut props = serde_json::Map::new();
+    props.insert("svg".into(), json!(svg));
+    if !title.is_empty() {
+        props.insert("title".into(), json!(title));
+    }
+    if let Some(value) = view_box {
+        props.insert("viewBox".into(), json!(value));
+    }
+    if let Some(value) = preserve_aspect_ratio {
+        props.insert("preserveAspectRatio".into(), json!(value));
+    }
+
+    let obj = super::object::create_object(
+        state,
+        board_id,
+        "svg",
+        x,
+        y,
+        Some(width.max(1.0)),
+        Some(height.max(1.0)),
+        0.0,
+        serde_json::Value::Object(props),
+        None,
+        None,
+    )
+    .await?;
+    let id = obj.id;
+    mutations.push(AiMutation::Created(obj));
+    Ok(format!("created svg object {id}"))
+}
+
+async fn execute_update_svg_content(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let Some(id) = input
+        .get("objectId")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
+    else {
+        return Ok("error: missing or invalid objectId".into());
+    };
+    let raw_svg = input
+        .get("svg")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    if raw_svg.is_empty() {
+        return Ok("error: missing svg".into());
+    }
+    let svg = match sanitize_svg_markup(raw_svg) {
+        Ok(s) => s,
+        Err(msg) => return Ok(format!("error: {msg}")),
+    };
+    let snapshot = match get_object_snapshot(state, board_id, id).await {
+        Ok(obj) => obj,
+        Err(e) => {
+            warn!(error = %e, %id, "ai: updateSvgContent missing object");
+            return Ok(format!("error updating svg on {id}: {e}"));
+        }
+    };
+    if snapshot.kind != "svg" {
+        return Ok(format!("error updating svg on {id}: object is not svg"));
+    }
+
+    match update_object_with_retry(state, board_id, id, |snapshot| {
+        let mut props = snapshot.props.as_object().cloned().unwrap_or_default();
+        props.insert("svg".into(), json!(svg));
+        let mut data = Data::new();
+        data.insert("props".into(), json!(props));
+        data
+    })
+    .await
+    {
+        Ok(obj) => {
+            mutations.push(AiMutation::Updated(obj));
+            Ok(format!("updated svg content on {id}"))
+        }
+        Err(e) => {
+            warn!(error = %e, %id, "ai: updateSvgContent failed");
+            Ok(format!("error updating svg on {id}: {e}"))
+        }
+    }
+}
+
+async fn execute_import_svg(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let mode = input
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("single_object");
+    if mode != "single_object" {
+        return Ok("error: unsupported import mode".into());
+    }
+
+    let raw_svg = input
+        .get("svg")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    if raw_svg.is_empty() {
+        return Ok("error: missing svg".into());
+    }
+    let svg = match sanitize_svg_markup(raw_svg) {
+        Ok(s) => s,
+        Err(msg) => return Ok(format!("error: {msg}")),
+    };
+
+    let x = input
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let y = input
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let scale = input
+        .get("scale")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(1.0)
+        .clamp(0.1, 10.0);
+
+    let (base_width, base_height) = infer_svg_dimensions(&svg);
+    let width = (base_width * scale).max(1.0);
+    let height = (base_height * scale).max(1.0);
+    let props = json!({ "svg": svg });
+
+    let obj =
+        super::object::create_object(state, board_id, "svg", x, y, Some(width), Some(height), 0.0, props, None, None)
+            .await?;
+    let id = obj.id;
+    mutations.push(AiMutation::Created(obj));
+    Ok(format!("imported svg as object {id}"))
+}
+
+async fn execute_export_selection_to_svg(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+) -> Result<String, AiError> {
+    let Some(ids) = input.get("objectIds").and_then(serde_json::Value::as_array) else {
+        return Ok("error: missing objectIds".into());
+    };
+    if ids.is_empty() {
+        return Ok("error: objectIds is empty".into());
+    }
+
+    let wanted: Vec<Uuid> = ids
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .filter_map(|raw| raw.parse::<Uuid>().ok())
+        .collect();
+    if wanted.is_empty() {
+        return Ok("error: objectIds contains no valid UUIDs".into());
+    }
+
+    let boards = state.boards.read().await;
+    let Some(board) = boards.get(&board_id) else {
+        return Ok("error: board not loaded".into());
+    };
+    let selected: Vec<BoardObject> = wanted
+        .iter()
+        .filter_map(|id| board.objects.get(id).cloned())
+        .collect();
+    if selected.is_empty() {
+        return Ok("error: no matching objects found".into());
+    }
+
+    let min_x = selected.iter().map(|o| o.x).fold(f64::INFINITY, f64::min);
+    let min_y = selected.iter().map(|o| o.y).fold(f64::INFINITY, f64::min);
+    let max_x = selected
+        .iter()
+        .map(|o| o.x + o.width.unwrap_or(120.0).max(1.0))
+        .fold(f64::NEG_INFINITY, f64::max);
+    let max_y = selected
+        .iter()
+        .map(|o| o.y + o.height.unwrap_or(80.0).max(1.0))
+        .fold(f64::NEG_INFINITY, f64::max);
+    let view_w = (max_x - min_x).max(1.0);
+    let view_h = (max_y - min_y).max(1.0);
+
+    let mut body = String::new();
+    for obj in &selected {
+        let x = obj.x;
+        let y = obj.y;
+        let width = obj.width.unwrap_or(120.0).max(1.0);
+        let height = obj.height.unwrap_or(80.0).max(1.0);
+        if obj.kind == "svg"
+            && let Some(svg_text) = obj.props.get("svg").and_then(|v| v.as_str())
+        {
+            let _ = writeln!(
+                body,
+                "<g transform=\"translate({x:.2},{y:.2})\" data-object-id=\"{}\">{}</g>",
+                obj.id, svg_text
+            );
+            continue;
+        }
+
+        let fill = obj
+            .props
+            .get("fill")
+            .and_then(|v| v.as_str())
+            .unwrap_or("#D94B4B");
+        let stroke = obj
+            .props
+            .get("stroke")
+            .and_then(|v| v.as_str())
+            .unwrap_or("#1F1A17");
+        let stroke_width = obj
+            .props
+            .get("strokeWidth")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0);
+        let _ = writeln!(
+            body,
+            "<rect x=\"{x:.2}\" y=\"{y:.2}\" width=\"{width:.2}\" height=\"{height:.2}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{stroke_width:.2}\" data-object-id=\"{}\" />",
+            obj.id
+        );
+    }
+
+    Ok(format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{min_x:.2} {min_y:.2} {view_w:.2} {view_h:.2}\">\n{body}</svg>"
+    ))
+}
+
+async fn execute_delete_object(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let Some(id) = input
+        .get("objectId")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<Uuid>().ok())
+    else {
+        return Ok("error: missing or invalid objectId".into());
+    };
+
+    match super::object::delete_object(state, board_id, id).await {
+        Ok(()) => {
+            mutations.push(AiMutation::Deleted(id));
+            Ok(format!("deleted object {id}"))
+        }
+        Err(e) => {
+            warn!(error = %e, %id, "ai: deleteObject failed");
+            Ok(format!("error deleting {id}: {e}"))
+        }
+    }
+}
+
+fn infer_svg_dimensions(svg: &str) -> (f64, f64) {
+    fn attr_f64(svg: &str, name: &str) -> Option<f64> {
+        let needle = format!("{name}=\"");
+        let start = svg.find(&needle)? + needle.len();
+        let rest = &svg[start..];
+        let end = rest.find('"')?;
+        let raw = &rest[..end];
+        let trimmed = raw.trim_end_matches("px").trim();
+        trimmed.parse::<f64>().ok()
+    }
+
+    if let (Some(w), Some(h)) = (attr_f64(svg, "width"), attr_f64(svg, "height")) {
+        return (w.max(1.0), h.max(1.0));
+    }
+    if let Some(view_box) = svg.find("viewBox=\"").and_then(|start| {
+        let after = &svg[start + "viewBox=\"".len()..];
+        let end = after.find('"')?;
+        Some(after[..end].to_owned())
+    }) {
+        let nums: Vec<f64> = view_box
+            .split_whitespace()
+            .filter_map(|s| s.parse::<f64>().ok())
+            .collect();
+        if nums.len() == 4 {
+            return (nums[2].max(1.0), nums[3].max(1.0));
+        }
+    }
+    (320.0, 180.0)
+}
+
+fn sanitize_svg_markup(svg: &str) -> Result<String, &'static str> {
+    let trimmed = svg.trim();
+    if trimmed.is_empty() {
+        return Err("missing svg");
+    }
+    if trimmed.len() > MAX_SVG_BYTES {
+        return Err("svg too large");
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    if !lower.contains("<svg") {
+        return Err("svg must contain <svg root>");
+    }
+    if lower.contains("<script") {
+        return Err("svg contains disallowed script content");
+    }
+    if lower.contains("javascript:") {
+        return Err("svg contains disallowed javascript url");
+    }
+    if lower.contains("onload=")
+        || lower.contains("onerror=")
+        || lower.contains("onclick=")
+        || lower.contains("onmouseover=")
+    {
+        return Err("svg contains disallowed event handlers");
+    }
+
+    Ok(trimmed.to_owned())
 }
 
 async fn execute_rotate_object(

@@ -2191,6 +2191,7 @@ fn to_canvas_object(obj: &crate::net::types::BoardObject, active_board_id: Optio
         "star" => CanvasKind::Star,
         "line" => CanvasKind::Line,
         "arrow" => CanvasKind::Arrow,
+        "svg" => CanvasKind::Svg,
         _ => CanvasKind::Rect,
     };
 
@@ -2371,6 +2372,7 @@ fn canvas_kind_to_wire(kind: CanvasKind) -> &'static str {
         CanvasKind::Star => "star",
         CanvasKind::Line => "line",
         CanvasKind::Arrow => "arrow",
+        CanvasKind::Svg => "svg",
     }
 }
 

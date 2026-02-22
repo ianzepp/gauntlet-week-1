@@ -41,6 +41,8 @@ pub enum ObjectKind {
     Line,
     /// Directed arrow (line with an arrowhead) between two endpoints stored in `props`.
     Arrow,
+    /// Embedded SVG content rendered inside a rectangular bounding box.
+    Svg,
 }
 
 /// A board object as stored in the document and on the wire.

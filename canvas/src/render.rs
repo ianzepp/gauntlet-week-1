@@ -131,6 +131,7 @@ fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore
         ObjectKind::Ellipse => draw_ellipse(ctx, obj, &props),
         ObjectKind::Diamond => draw_diamond(ctx, obj, &props),
         ObjectKind::Star => draw_star(ctx, obj, &props),
+        ObjectKind::Svg => draw_svg_placeholder(ctx, obj, &props),
         ObjectKind::Line | ObjectKind::Arrow => {
             draw_edge(ctx, obj, doc, &props, obj.kind == ObjectKind::Arrow);
             Ok(())
@@ -219,6 +220,31 @@ fn draw_ellipse(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props
     ctx.stroke();
 
     draw_text(ctx, obj, props)?;
+    ctx.restore();
+    Ok(())
+}
+
+fn draw_svg_placeholder(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
+    ctx.save();
+    translate_and_rotate(ctx, obj)?;
+
+    ctx.set_fill_style_str(props.fill());
+    ctx.fill_rect(-obj.width / 2.0, -obj.height / 2.0, obj.width, obj.height);
+    apply_stroke_style(ctx, props);
+    ctx.stroke_rect(-obj.width / 2.0, -obj.height / 2.0, obj.width, obj.height);
+
+    let label = obj
+        .props
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("SVG");
+    ctx.set_fill_style_str(props.text_color());
+    ctx.set_text_align("center");
+    ctx.set_text_baseline("middle");
+    let font_size = (obj.height / 5.0).clamp(10.0, 20.0);
+    ctx.set_font(&format!("{font_size:.0}px sans-serif"));
+    ctx.fill_text(label, 0.0, 0.0)?;
+
     ctx.restore();
     Ok(())
 }

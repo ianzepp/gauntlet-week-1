@@ -210,6 +210,152 @@ async fn tool_create_connector() {
 }
 
 #[tokio::test]
+async fn tool_create_svg_object() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "svg": "<svg width=\"40\" height=\"20\"><rect width=\"40\" height=\"20\"/></svg>",
+        "x": 10,
+        "y": 20,
+        "width": 200,
+        "height": 120
+    });
+    let result = execute_tool(&state, board_id, "createSvgObject", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("created svg object"));
+    assert_eq!(mutations.len(), 1);
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "svg");
+        assert_eq!(obj.width, Some(200.0));
+        assert_eq!(obj.height, Some(120.0));
+        assert!(obj.props.get("svg").and_then(|v| v.as_str()).is_some());
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_create_svg_object_rejects_script_content() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "svg": "<svg><script>alert(1)</script></svg>",
+        "x": 10,
+        "y": 20,
+        "width": 100,
+        "height": 80
+    });
+    let result = execute_tool(&state, board_id, "createSvgObject", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("disallowed script"));
+    assert!(mutations.is_empty());
+}
+
+#[tokio::test]
+async fn tool_update_svg_content() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.kind = "svg".to_owned();
+    obj.props = json!({ "svg": "<svg width=\"10\" height=\"10\"></svg>" });
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input =
+        json!({ "objectId": obj_id.to_string(), "svg": "<svg width=\"20\" height=\"20\"><circle r=\"5\"/></svg>" });
+    let result = execute_tool(&state, board_id, "updateSvgContent", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("updated svg content"));
+    assert_eq!(mutations.len(), 1);
+    if let AiMutation::Updated(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "svg");
+        assert_eq!(
+            obj.props.get("svg").and_then(|v| v.as_str()),
+            Some("<svg width=\"20\" height=\"20\"><circle r=\"5\"/></svg>")
+        );
+    } else {
+        panic!("expected Updated mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_import_svg() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    let mut mutations = Vec::new();
+    let input = json!({
+        "svg": "<svg width=\"40\" height=\"20\"><rect width=\"40\" height=\"20\"/></svg>",
+        "x": 5,
+        "y": 6,
+        "scale": 2
+    });
+    let result = execute_tool(&state, board_id, "importSvg", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.contains("imported svg as object"));
+    assert_eq!(mutations.len(), 1);
+    if let AiMutation::Created(obj) = &mutations[0] {
+        assert_eq!(obj.kind, "svg");
+        assert_eq!(obj.x, 5.0);
+        assert_eq!(obj.y, 6.0);
+        assert_eq!(obj.width, Some(80.0));
+        assert_eq!(obj.height, Some(40.0));
+    } else {
+        panic!("expected Created mutation");
+    }
+}
+
+#[tokio::test]
+async fn tool_export_selection_to_svg() {
+    let state = test_helpers::test_app_state();
+    let mut rect = test_helpers::dummy_object();
+    rect.kind = "rectangle".to_owned();
+    rect.x = 0.0;
+    rect.y = 0.0;
+    rect.width = Some(100.0);
+    rect.height = Some(80.0);
+    rect.props = json!({"fill":"#00FF00","stroke":"#000000","strokeWidth":2});
+    rect.version = 2;
+    let id = rect.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![rect]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectIds": [id.to_string()] });
+    let result = execute_tool(&state, board_id, "exportSelectionToSvg", &input, &mut mutations)
+        .await
+        .unwrap();
+    assert!(result.starts_with("<svg "));
+    assert!(result.contains("<rect "));
+    assert!(result.contains("data-object-id="));
+    assert!(mutations.is_empty());
+}
+
+#[tokio::test]
+async fn tool_delete_object() {
+    let state = test_helpers::test_app_state();
+    let mut obj = test_helpers::dummy_object();
+    obj.version = 2;
+    let obj_id = obj.id;
+    let board_id = test_helpers::seed_board_with_objects(&state, vec![obj]).await;
+    let mut mutations = Vec::new();
+    let input = json!({ "objectId": obj_id.to_string() });
+    let result = execute_tool(&state, board_id, "deleteObject", &input, &mut mutations)
+        .await
+        .unwrap();
+    if result.contains("deleted object") {
+        assert_eq!(mutations.len(), 1);
+        assert!(matches!(mutations[0], AiMutation::Deleted(id) if id == obj_id));
+    } else {
+        assert!(result.contains("error deleting"));
+        assert!(mutations.is_empty());
+    }
+}
+
+#[tokio::test]
 async fn tool_rotate_object() {
     let state = test_helpers::test_app_state();
     let mut obj = test_helpers::dummy_object();
