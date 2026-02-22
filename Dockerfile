@@ -19,6 +19,7 @@ COPY client/ client/
 COPY frames/ frames/
 COPY perf/ perf/
 COPY traces/ traces/
+COPY cli/ cli/
 COPY public/ public/
 RUN cargo leptos build --release
 
