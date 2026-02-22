@@ -42,14 +42,14 @@ pub fn sync_viewport(engine: &mut Engine, canvas_ref: &NodeRef<leptos::html::Can
     engine.set_viewport(width, height, dpr);
 }
 
-/// Pan the camera so that world origin (0, 0) is at the viewport top-left.
+/// Pan the camera so that world origin (0, 0) is centred in the viewport.
 ///
-/// This matches board/import coordinate expectations where positive `x/y` grow
-/// right/down from the top-left origin.
+/// Useful during board initialisation before any objects are loaded, giving users a clean
+/// starting point rather than landing at the world origin in the top-left corner.
 #[cfg(feature = "hydrate")]
 pub fn center_world_origin(engine: &mut Engine) {
-    engine.core.camera.pan_x = 0.0;
-    engine.core.camera.pan_y = 0.0;
+    engine.core.camera.pan_x = engine.core.viewport_width * 0.5;
+    engine.core.camera.pan_y = engine.core.viewport_height * 0.5;
 }
 
 /// Position the camera so that `(center_x, center_y)` in world space is centred on screen.
