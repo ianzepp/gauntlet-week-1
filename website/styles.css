@@ -345,9 +345,13 @@ body {
 /* --- Crate Map SVG --- */
 .crate-map {
   width: 100%;
-  max-width: 600px;
+  max-width: 640px;
   height: auto;
 }
+
+.crate-node { cursor: pointer; }
+.crate-node rect { transition: fill 120ms ease-out, stroke 120ms ease-out; }
+.crate-node:hover rect { fill: #EDE6D8; stroke: var(--accent-active); stroke-width: 1.5; }
 
 /* --- Record Card (Right Panel) --- */
 .record-card {
