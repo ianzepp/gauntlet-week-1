@@ -41,8 +41,6 @@ pub enum ObjectKind {
     Line,
     /// Directed arrow (line with an arrowhead) between two endpoints stored in `props`.
     Arrow,
-    /// Embedded `YouTube` tile rendered as a retro TV shell.
-    Youtube,
 }
 
 /// A board object as stored in the document and on the wire.

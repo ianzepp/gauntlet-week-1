@@ -76,7 +76,6 @@ pub enum ToolType {
     Rectangle,
     Frame,
     Ellipse,
-    Youtube,
     Line,
     Connector,
     Text,

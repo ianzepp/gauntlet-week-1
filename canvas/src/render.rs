@@ -131,7 +131,6 @@ fn draw_object(ctx: &CanvasRenderingContext2d, obj: &BoardObject, doc: &DocStore
         ObjectKind::Ellipse => draw_ellipse(ctx, obj, &props),
         ObjectKind::Diamond => draw_diamond(ctx, obj, &props),
         ObjectKind::Star => draw_star(ctx, obj, &props),
-        ObjectKind::Youtube => draw_youtube(ctx, obj, &props),
         ObjectKind::Line | ObjectKind::Arrow => {
             draw_edge(ctx, obj, doc, &props, obj.kind == ObjectKind::Arrow);
             Ok(())
@@ -245,79 +244,6 @@ fn draw_diamond(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props
     ctx.stroke();
 
     draw_text(ctx, obj, props)?;
-    ctx.restore();
-    Ok(())
-}
-
-fn draw_youtube(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
-    if obj.width <= 0.0 || obj.height <= 0.0 {
-        return Ok(());
-    }
-
-    let shell = "#4a4037";
-    let bezel = "#2f2823";
-    let screen = "#111";
-    let glow = "#1d1d1d";
-
-    ctx.save();
-    translate_and_rotate(ctx, obj)?;
-
-    let hw = obj.width * 0.5;
-    let hh = obj.height * 0.5;
-
-    // TV shell
-    ctx.set_fill_style_str(shell);
-    ctx.fill_rect(-hw, -hh, obj.width, obj.height);
-    ctx.set_stroke_style_str(props.stroke());
-    ctx.set_line_width(props.stroke_width().max(1.0));
-    ctx.stroke_rect(-hw, -hh, obj.width, obj.height);
-
-    // Screen bezel
-    let bezel_pad_x = obj.width * 0.08;
-    let bezel_pad_y = obj.height * 0.14;
-    let bezel_w = obj.width - (bezel_pad_x * 2.0);
-    let bezel_h = obj.height - (bezel_pad_y * 2.0) - (obj.height * 0.10);
-    ctx.set_fill_style_str(bezel);
-    ctx.fill_rect(-bezel_w * 0.5, -hh + bezel_pad_y, bezel_w, bezel_h);
-
-    // Screen
-    let screen_pad = obj.width.min(obj.height) * 0.04;
-    let screen_w = bezel_w - (screen_pad * 2.0);
-    let screen_h = bezel_h - (screen_pad * 2.0);
-    let screen_x = -screen_w * 0.5;
-    let screen_y = -hh + bezel_pad_y + screen_pad;
-    ctx.set_fill_style_str(screen);
-    ctx.fill_rect(screen_x, screen_y, screen_w, screen_h);
-    ctx.set_fill_style_str(glow);
-    ctx.fill_rect(screen_x + 2.0, screen_y + 2.0, screen_w - 4.0, screen_h - 4.0);
-
-    // Play button
-    let play_r = obj.width.min(obj.height) * 0.12;
-    let play_center_x = 0.0;
-    let play_center_y = screen_y + (screen_h * 0.5);
-    ctx.set_fill_style_str("#fff");
-    ctx.begin_path();
-    ctx.arc(play_center_x, play_center_y, play_r, 0.0, 2.0 * PI)?;
-    ctx.fill();
-    ctx.set_fill_style_str("#d12b2b");
-    ctx.begin_path();
-    ctx.move_to(play_center_x - (play_r * 0.30), play_center_y - (play_r * 0.45));
-    ctx.line_to(play_center_x + (play_r * 0.50), play_center_y);
-    ctx.line_to(play_center_x - (play_r * 0.30), play_center_y + (play_r * 0.45));
-    ctx.close_path();
-    ctx.fill();
-
-    // Antennas
-    ctx.set_stroke_style_str(props.stroke());
-    ctx.set_line_width(2.0);
-    let ant_base_y = -hh + 2.0;
-    ctx.begin_path();
-    ctx.move_to(-obj.width * 0.20, ant_base_y);
-    ctx.line_to(-obj.width * 0.34, -hh - (obj.height * 0.18));
-    ctx.move_to(obj.width * 0.20, ant_base_y);
-    ctx.line_to(obj.width * 0.34, -hh - (obj.height * 0.18));
-    ctx.stroke();
-
     ctx.restore();
     Ok(())
 }

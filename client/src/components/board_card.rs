@@ -189,7 +189,6 @@ fn preview_fill_color(kind: &str) -> &'static str {
         "sticky_note" => "#f6d87c",
         "frame" => "#d6dbe4",
         "ellipse" => "#bdd7ff",
-        "youtube" => "#f0b1b1",
         _ => "#d5cfbf",
     }
 }

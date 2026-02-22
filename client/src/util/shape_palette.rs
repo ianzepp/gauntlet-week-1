@@ -68,17 +68,6 @@ pub fn placement_shape(tool: ToolType) -> Option<(&'static str, f64, f64, serde_
                 "strokeWidth": 0
             }),
         )),
-        ToolType::Youtube => Some((
-            "youtube_embed",
-            320.0,
-            220.0,
-            serde_json::json!({
-                "video_id": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1",
-                "title": "YouTube",
-                "stroke": "#1F1A17",
-                "strokeWidth": 2
-            }),
-        )),
         ToolType::Line => Some((
             "line",
             180.0,
@@ -126,7 +115,6 @@ pub fn placement_preview(tool: ToolType) -> Option<(f64, f64, &'static str)> {
         ToolType::Rectangle => Some((160.0, 100.0, "rgba(217, 75, 75, 0.5)")),
         ToolType::Frame => Some((520.0, 320.0, "rgba(154, 163, 173, 0.20)")),
         ToolType::Ellipse => Some((120.0, 120.0, "rgba(59, 130, 246, 0.5)")),
-        ToolType::Youtube => Some((320.0, 220.0, "rgba(217, 75, 75, 0.45)")),
         ToolType::Line | ToolType::Connector => Some((180.0, 2.0, "rgba(217, 75, 75, 0.65)")),
         ToolType::Text => Some((220.0, 56.0, "rgba(217, 75, 75, 0.22)")),
         _ => None,

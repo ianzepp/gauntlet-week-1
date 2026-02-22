@@ -46,7 +46,7 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                 "properties": {
                     "type": {
                         "type": "string",
-                        "enum": ["rectangle", "ellipse", "text", "line", "arrow", "youtube_embed"],
+                        "enum": ["rectangle", "ellipse", "text", "line", "arrow"],
                         "description": "Shape type"
                     },
                     "x": { "type": "number", "description": "X position on canvas" },
@@ -56,8 +56,6 @@ pub(crate) fn board_tools() -> Vec<Tool> {
                     "text": { "type": "string", "description": "Text content (used when type is text)" },
                     "fontSize": { "type": "number", "description": "Text font size in pixels (type=text)" },
                     "textColor": { "type": "string", "description": "Text color hex (type=text)" },
-                    "video_id": { "type": "string", "description": "YouTube URL or video ID (type=youtube_embed)" },
-                    "title": { "type": "string", "description": "Title label (type=youtube_embed)" },
                     "fill": { "type": "string", "description": "Fill color (hex)" },
                     "stroke": { "type": "string", "description": "Canvas stroke color (hex)" },
                     "strokeWidth": { "type": "number", "description": "Stroke width in pixels" }

@@ -18,7 +18,7 @@ use canvas::input::{Button as CanvasButton, Modifiers as CanvasModifiers, Tool a
 
 /// Map a UI `ToolType` to the canvas engine's `Tool` enum.
 ///
-/// Several UI tools (`Sticky`, `Rectangle`, `Frame`, `Youtube`, `Draw`, `Eraser`) do not have
+/// Several UI tools (`Sticky`, `Rectangle`, `Frame`, `Draw`, `Eraser`) do not have
 /// a dedicated canvas engine tool because object creation for those types is handled by the
 /// server-side placement path rather than the canvas drag-to-draw gesture. They are mapped to
 /// `Select` so that the canvas engine remains in select mode while the UI layer handles the
@@ -28,7 +28,7 @@ pub fn map_tool(tool: ToolType) -> CanvasTool {
     match tool {
         ToolType::Select => CanvasTool::Select,
         ToolType::Hand => CanvasTool::Hand,
-        ToolType::Sticky | ToolType::Rectangle | ToolType::Frame | ToolType::Youtube => CanvasTool::Select,
+        ToolType::Sticky | ToolType::Rectangle | ToolType::Frame => CanvasTool::Select,
         ToolType::Ellipse => CanvasTool::Ellipse,
         ToolType::Line | ToolType::Connector => CanvasTool::Line,
         ToolType::Text => CanvasTool::Text,

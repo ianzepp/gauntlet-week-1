@@ -64,7 +64,6 @@ fn kind_serde_all_variants() {
         (ObjectKind::Star, "\"star\""),
         (ObjectKind::Line, "\"line\""),
         (ObjectKind::Arrow, "\"arrow\""),
-        (ObjectKind::Youtube, "\"youtube\""),
     ];
     for (kind, expected) in cases {
         assert_eq!(serde_json::to_string(&kind).unwrap(), expected);
@@ -82,7 +81,6 @@ fn kind_deserialize_all_variants() {
         ("\"star\"", ObjectKind::Star),
         ("\"line\"", ObjectKind::Line),
         ("\"arrow\"", ObjectKind::Arrow),
-        ("\"youtube\"", ObjectKind::Youtube),
     ];
     for (input, expected) in cases {
         let kind: ObjectKind = serde_json::from_str(input).unwrap();

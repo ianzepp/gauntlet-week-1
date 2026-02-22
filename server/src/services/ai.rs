@@ -609,7 +609,9 @@ async fn execute_create_shape(
         .get("type")
         .and_then(|v| v.as_str())
         .unwrap_or("rectangle");
-    let kind = canonical_kind(requested_kind);
+    let Some(kind) = canonical_kind(requested_kind) else {
+        return Ok("error: unsupported shape type".into());
+    };
     let x = input
         .get("x")
         .and_then(serde_json::Value::as_f64)
@@ -659,17 +661,6 @@ async fn execute_create_shape(
             "stroke": stroke,
             "strokeWidth": stroke_width
         })
-    } else if kind == "youtube_embed" {
-        json!({
-            "video_id": input
-                .get("video_id")
-                .or_else(|| input.get("videoId"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
-            "title": input.get("title").and_then(|v| v.as_str()).unwrap_or("YouTube"),
-            "stroke": stroke,
-            "strokeWidth": stroke_width.max(1.0)
-        })
     } else {
         json!({
             "fill": fill,
@@ -683,8 +674,6 @@ async fn execute_create_shape(
         220.0
     } else if kind == "line" || kind == "arrow" {
         180.0
-    } else if kind == "youtube_embed" {
-        320.0
     } else {
         160.0
     };
@@ -692,8 +681,6 @@ async fn execute_create_shape(
         56.0
     } else if kind == "line" || kind == "arrow" {
         0.0
-    } else if kind == "youtube_embed" {
-        220.0
     } else {
         100.0
     };
@@ -1140,16 +1127,14 @@ async fn execute_get_board_state(state: &AppState, board_id: Uuid) -> Result<Str
     Ok(json!({ "objects": objects, "count": objects.len() }).to_string())
 }
 
-fn canonical_kind(kind: &str) -> String {
+fn canonical_kind(kind: &str) -> Option<String> {
     match kind.trim().to_ascii_lowercase().as_str() {
-        "rect" => "rectangle".to_owned(),
-        "circle" => "ellipse".to_owned(),
-        "textbox" | "text_box" | "label" => "text".to_owned(),
-        "connector" => "arrow".to_owned(),
-        "arrow" => "arrow".to_owned(),
-        "line" => "line".to_owned(),
-        "youtube" => "youtube_embed".to_owned(),
-        other => other.to_owned(),
+        "rectangle" => Some("rectangle".to_owned()),
+        "ellipse" => Some("ellipse".to_owned()),
+        "text" => Some("text".to_owned()),
+        "line" => Some("line".to_owned()),
+        "arrow" => Some("arrow".to_owned()),
+        _ => None,
     }
 }
 
