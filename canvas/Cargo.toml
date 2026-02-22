@@ -19,6 +19,7 @@ version = "0.3"
 features = [
     "HtmlCanvasElement",
     "CanvasRenderingContext2d",
+    "Path2d",
     "TextMetrics",
     "Window",
 ]

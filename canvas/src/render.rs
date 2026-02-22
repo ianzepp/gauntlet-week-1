@@ -10,7 +10,7 @@
 use std::f64::consts::PI;
 
 use wasm_bindgen::JsValue;
-use web_sys::CanvasRenderingContext2d;
+use web_sys::{CanvasRenderingContext2d, Path2d};
 
 use crate::camera::{Camera, Point};
 use crate::consts::{FRAC_PI_5, HANDLE_RADIUS_PX, STAR_INNER_RATIO};
@@ -225,6 +225,10 @@ fn draw_ellipse(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props
 }
 
 fn draw_svg_placeholder(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
+    if draw_inline_svg_paths(ctx, obj).is_ok() {
+        return Ok(());
+    }
+
     ctx.save();
     translate_and_rotate(ctx, obj)?;
 
@@ -247,6 +251,122 @@ fn draw_svg_placeholder(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props
 
     ctx.restore();
     Ok(())
+}
+
+fn draw_inline_svg_paths(ctx: &CanvasRenderingContext2d, obj: &BoardObject) -> Result<(), JsValue> {
+    let Some(svg) = obj.props.get("svg").and_then(serde_json::Value::as_str) else {
+        return Err(JsValue::from_str("missing svg prop"));
+    };
+    let paths = parse_svg_paths(svg);
+    if paths.is_empty() {
+        return Err(JsValue::from_str("no path elements"));
+    }
+
+    let (vb_min_x, vb_min_y, vb_w, vb_h) = svg_view_box(svg).unwrap_or((0.0, 0.0, obj.width, obj.height));
+    let vb_w = vb_w.max(1.0);
+    let vb_h = vb_h.max(1.0);
+    let sx = obj.width / vb_w;
+    let sy = obj.height / vb_h;
+    let stroke_scale = ((sx.abs() + sy.abs()) * 0.5).max(0.000_001);
+
+    ctx.save();
+    translate_and_rotate(ctx, obj)?;
+    ctx.translate(-obj.width * 0.5, -obj.height * 0.5)?;
+    ctx.scale(sx, sy)?;
+    ctx.translate(-vb_min_x, -vb_min_y)?;
+
+    for path in paths {
+        let shape = Path2d::new_with_path_string(&path.d)?;
+
+        if path.fill.as_deref() != Some("none") {
+            ctx.set_fill_style_str(path.fill.as_deref().unwrap_or("#000000"));
+            ctx.fill_with_path_2d(&shape);
+        }
+
+        if let Some(stroke) = path.stroke.as_deref() {
+            if stroke != "none" {
+                ctx.set_stroke_style_str(stroke);
+                let width = path.stroke_width.unwrap_or(1.0) / stroke_scale;
+                ctx.set_line_width(width.max(0.1));
+                ctx.stroke_with_path(&shape);
+            }
+        }
+    }
+
+    ctx.restore();
+    Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct SvgPathShape {
+    d: String,
+    fill: Option<String>,
+    stroke: Option<String>,
+    stroke_width: Option<f64>,
+}
+
+fn parse_svg_paths(svg: &str) -> Vec<SvgPathShape> {
+    let mut out = Vec::new();
+    let mut scan = svg;
+
+    while let Some(start) = scan.find("<path") {
+        let after_start = &scan[start..];
+        let Some(tag_end_rel) = after_start.find('>') else {
+            break;
+        };
+        let tag = &after_start[..=tag_end_rel];
+        if let Some(d) = attr_value(tag, "d") {
+            out.push(SvgPathShape {
+                d,
+                fill: attr_value(tag, "fill"),
+                stroke: attr_value(tag, "stroke"),
+                stroke_width: attr_value(tag, "stroke-width").and_then(|v| parse_svg_number(&v)),
+            });
+        }
+        scan = &after_start[tag_end_rel + 1..];
+    }
+
+    out
+}
+
+fn svg_view_box(svg: &str) -> Option<(f64, f64, f64, f64)> {
+    if let Some(vb) = attr_value(svg, "viewBox") {
+        let nums: Vec<f64> = vb
+            .split(|c: char| c.is_ascii_whitespace() || c == ',')
+            .filter_map(|s| (!s.is_empty()).then_some(s))
+            .filter_map(parse_svg_number)
+            .collect();
+        if nums.len() == 4 {
+            return Some((nums[0], nums[1], nums[2], nums[3]));
+        }
+    }
+
+    let w = attr_value(svg, "width").and_then(|v| parse_svg_number(&v))?;
+    let h = attr_value(svg, "height").and_then(|v| parse_svg_number(&v))?;
+    Some((0.0, 0.0, w, h))
+}
+
+fn attr_value(tag: &str, attr: &str) -> Option<String> {
+    let needle = format!("{attr}=");
+    let start = tag.find(&needle)?;
+    let after = &tag[start + needle.len()..];
+    let mut chars = after.chars();
+    let quote = chars.next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let rest = &after[quote.len_utf8()..];
+    let end = rest.find(quote)?;
+    Some(rest[..end].to_owned())
+}
+
+fn parse_svg_number(raw: &str) -> Option<f64> {
+    let trimmed = raw.trim();
+    let value = trimmed
+        .strip_suffix("px")
+        .or_else(|| trimmed.strip_suffix('%'))
+        .unwrap_or(trimmed);
+    value.parse::<f64>().ok()
 }
 
 fn draw_diamond(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {
@@ -721,4 +841,48 @@ fn translate_and_rotate(ctx: &CanvasRenderingContext2d, obj: &BoardObject) -> Re
 fn apply_stroke_style(ctx: &CanvasRenderingContext2d, props: &Props<'_>) {
     ctx.set_stroke_style_str(props.stroke());
     ctx.set_line_width(props.stroke_width());
+}
+
+#[cfg(test)]
+mod render_test {
+    use super::{attr_value, parse_svg_paths, parse_svg_number, svg_view_box};
+
+    #[test]
+    fn parse_svg_paths_extracts_path_attributes() {
+        let svg =
+            r##"<svg viewBox="0 0 100 100"><path d="M0 0 L10 10 Z" fill="#f00" stroke="#000" stroke-width="2"/></svg>"##;
+        let paths = parse_svg_paths(svg);
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].d, "M0 0 L10 10 Z");
+        assert_eq!(paths[0].fill.as_deref(), Some("#f00"));
+        assert_eq!(paths[0].stroke.as_deref(), Some("#000"));
+        assert_eq!(paths[0].stroke_width, Some(2.0));
+    }
+
+    #[test]
+    fn svg_view_box_prefers_viewbox() {
+        let svg = r#"<svg width="40" height="20" viewBox="2 3 100 50"></svg>"#;
+        assert_eq!(svg_view_box(svg), Some((2.0, 3.0, 100.0, 50.0)));
+    }
+
+    #[test]
+    fn svg_view_box_falls_back_to_dimensions() {
+        let svg = r#"<svg width="40px" height="20"></svg>"#;
+        assert_eq!(svg_view_box(svg), Some((0.0, 0.0, 40.0, 20.0)));
+    }
+
+    #[test]
+    fn attr_value_supports_single_or_double_quotes() {
+        let tag = "<path d='M0 0' fill=\"#fff\"/>";
+        assert_eq!(attr_value(tag, "d").as_deref(), Some("M0 0"));
+        assert_eq!(attr_value(tag, "fill").as_deref(), Some("#fff"));
+    }
+
+    #[test]
+    fn parse_svg_number_handles_px_and_percent() {
+        assert_eq!(parse_svg_number("10"), Some(10.0));
+        assert_eq!(parse_svg_number("10px"), Some(10.0));
+        assert_eq!(parse_svg_number("75%"), Some(75.0));
+        assert_eq!(parse_svg_number("x"), None);
+    }
 }
