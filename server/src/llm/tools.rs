@@ -96,6 +96,84 @@ pub(crate) fn board_tools() -> Vec<Tool> {
             }),
         },
         Tool {
+            name: "createSvgObject".into(),
+            description: "Create an SVG object on the board.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "svg": { "type": "string", "description": "Raw SVG markup string" },
+                    "x": { "type": "number", "description": "X position on canvas" },
+                    "y": { "type": "number", "description": "Y position on canvas" },
+                    "width": { "type": "number", "description": "Width in pixels" },
+                    "height": { "type": "number", "description": "Height in pixels" },
+                    "title": { "type": "string", "description": "Optional SVG object title" },
+                    "viewBox": { "type": "string", "description": "Optional SVG viewBox value" },
+                    "preserveAspectRatio": {
+                        "type": "string",
+                        "description": "Optional SVG preserveAspectRatio value"
+                    }
+                },
+                "required": ["svg", "x", "y", "width", "height"]
+            }),
+        },
+        Tool {
+            name: "updateSvgContent".into(),
+            description: "Replace the SVG content for an existing SVG object.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the SVG object to update" },
+                    "svg": { "type": "string", "description": "New raw SVG markup string" }
+                },
+                "required": ["objectId", "svg"]
+            }),
+        },
+        Tool {
+            name: "importSvg".into(),
+            description: "Import raw SVG into the board.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "svg": { "type": "string", "description": "Raw SVG markup string" },
+                    "x": { "type": "number", "description": "Optional X position on canvas" },
+                    "y": { "type": "number", "description": "Optional Y position on canvas" },
+                    "scale": { "type": "number", "description": "Optional uniform import scale factor" },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["single_object"],
+                        "description": "Import mode (single_object only in phase 1)"
+                    }
+                },
+                "required": ["svg"]
+            }),
+        },
+        Tool {
+            name: "exportSelectionToSvg".into(),
+            description: "Export selected objects to an SVG string.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objectIds": {
+                        "type": "array",
+                        "items": { "type": "string", "format": "uuid" },
+                        "description": "Object IDs to export as SVG"
+                    }
+                },
+                "required": ["objectIds"]
+            }),
+        },
+        Tool {
+            name: "deleteObject".into(),
+            description: "Delete an object from the board.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objectId": { "type": "string", "format": "uuid", "description": "ID of the object to delete" }
+                },
+                "required": ["objectId"]
+            }),
+        },
+        Tool {
             name: "rotateObject".into(),
             description: "Rotate an object to an absolute angle in degrees.".into(),
             input_schema: serde_json::json!({

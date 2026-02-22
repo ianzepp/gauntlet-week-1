@@ -10,6 +10,11 @@ fn gauntlet_tools_match_board_tools() {
     assert!(names.contains(&"createShape"));
     assert!(names.contains(&"createFrame"));
     assert!(names.contains(&"createConnector"));
+    assert!(names.contains(&"createSvgObject"));
+    assert!(names.contains(&"updateSvgContent"));
+    assert!(names.contains(&"importSvg"));
+    assert!(names.contains(&"exportSelectionToSvg"));
+    assert!(names.contains(&"deleteObject"));
     assert!(names.contains(&"rotateObject"));
     assert!(names.contains(&"moveObject"));
     assert!(names.contains(&"resizeObject"));
@@ -33,9 +38,9 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn board_tools_returns_all_eleven_tools() {
+fn board_tools_returns_all_sixteen_tools() {
     let tools = board_tools();
-    assert_eq!(tools.len(), 11);
+    assert_eq!(tools.len(), 16);
 }
 
 #[test]
@@ -46,6 +51,11 @@ fn board_tools_names_are_correct() {
     assert!(names.contains(&"createShape"));
     assert!(names.contains(&"createFrame"));
     assert!(names.contains(&"createConnector"));
+    assert!(names.contains(&"createSvgObject"));
+    assert!(names.contains(&"updateSvgContent"));
+    assert!(names.contains(&"importSvg"));
+    assert!(names.contains(&"exportSelectionToSvg"));
+    assert!(names.contains(&"deleteObject"));
     assert!(names.contains(&"rotateObject"));
     assert!(names.contains(&"moveObject"));
     assert!(names.contains(&"resizeObject"));
@@ -131,6 +141,89 @@ fn get_board_state_requires_nothing() {
     let tools = board_tools();
     let tool = tools.iter().find(|t| t.name == "getBoardState").unwrap();
     assert!(tool.input_schema.get("required").is_none());
+}
+
+#[test]
+fn create_svg_object_requires_svg_x_y_width_height() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "createSvgObject").unwrap();
+    let required: Vec<&str> = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(required, vec!["svg", "x", "y", "width", "height"]);
+}
+
+#[test]
+fn update_svg_content_requires_object_id_and_svg() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "updateSvgContent").unwrap();
+    let required: Vec<&str> = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(required, vec!["objectId", "svg"]);
+}
+
+#[test]
+fn import_svg_requires_only_svg() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "importSvg").unwrap();
+    let required: Vec<&str> = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(required, vec!["svg"]);
+}
+
+#[test]
+fn export_selection_to_svg_requires_object_ids() {
+    let tools = board_tools();
+    let tool = tools
+        .iter()
+        .find(|t| t.name == "exportSelectionToSvg")
+        .unwrap();
+    let required: Vec<&str> = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(required, vec!["objectIds"]);
+}
+
+#[test]
+fn delete_object_requires_object_id() {
+    let tools = board_tools();
+    let tool = tools.iter().find(|t| t.name == "deleteObject").unwrap();
+    let required: Vec<&str> = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(required, vec!["objectId"]);
 }
 
 #[test]
