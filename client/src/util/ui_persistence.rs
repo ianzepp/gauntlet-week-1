@@ -40,4 +40,3 @@ pub fn save_json<T: Serialize>(key: &str, value: &T) {
         let _ = (key, value);
     }
 }
-

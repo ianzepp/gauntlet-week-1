@@ -2489,7 +2489,8 @@ fn process_actions(
                     }),
                 };
                 board.update(|b| {
-                    b.pending_create_request_ids.insert(request_id, obj.id.to_string());
+                    b.pending_create_request_ids
+                        .insert(request_id, obj.id.to_string());
                 });
                 let _ = sender.get_untracked().send(&frame);
             }

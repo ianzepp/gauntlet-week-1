@@ -5,8 +5,8 @@
 //! Keeps creation tools and selection inspector co-located so editing controls
 //! remain spatially consistent with canvas interactions.
 
-use leptos::prelude::*;
 use crate::components::tool_rail::ToolRail;
+use leptos::prelude::*;
 
 /// Left sidebar with a fixed tool rail and expandable inspector panel.
 #[component]

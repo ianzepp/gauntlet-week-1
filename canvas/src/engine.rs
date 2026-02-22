@@ -617,7 +617,9 @@ impl EngineCore {
                         } else {
                             group_ids
                         };
-                        let all_selected = toggle_ids.iter().all(|id| self.ui.selected_ids.contains(id));
+                        let all_selected = toggle_ids
+                            .iter()
+                            .all(|id| self.ui.selected_ids.contains(id));
                         if all_selected {
                             for id in toggle_ids {
                                 self.ui.selected_ids.remove(&id);
@@ -636,7 +638,10 @@ impl EngineCore {
                     } else {
                         group_ids
                     };
-                    if !target_ids.iter().all(|id| self.ui.selected_ids.contains(id)) {
+                    if !target_ids
+                        .iter()
+                        .all(|id| self.ui.selected_ids.contains(id))
+                    {
                         self.ui.selected_ids.clear();
                         self.ui.selected_ids.extend(target_ids.iter().copied());
                     }

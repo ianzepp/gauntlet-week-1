@@ -94,9 +94,10 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
     let trace_filter_label = move || trace_filter_display(&trace.get());
     let trace_mode_label = move || trace_mode_display(&trace.get());
     let self_identity = move || {
-        auth.get()
-            .user
-            .map_or_else(|| "me (session)".to_owned(), |user| format!("{} ({})", user.name, user.auth_method))
+        auth.get().user.map_or_else(
+            || "me (session)".to_owned(),
+            |user| format!("{} ({})", user.name, user.auth_method),
+        )
     };
     let on_help_click = move |_| on_help.run(());
 
