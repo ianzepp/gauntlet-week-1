@@ -284,7 +284,7 @@ pub fn CanvasHost() -> impl IntoView {
                 return;
             }
 
-            let (board_id, snapshot) = board.with(|state| {
+            let snapshot = board.with(|state| {
                 let board_id = state.board_id.clone();
                 let mut snapshot = Vec::with_capacity(state.objects.len());
                 for (id, obj) in &state.objects {
@@ -293,7 +293,7 @@ pub fn CanvasHost() -> impl IntoView {
                         snapshot.push(mapped);
                     }
                 }
-                (board_id, snapshot)
+                snapshot
             });
 
             if let Some(engine) = engine.borrow_mut().as_mut() {
@@ -2039,6 +2039,7 @@ fn send_cursor_clear(board: RwSignal<BoardState>, sender: RwSignal<FrameSender>)
         from: None,
         syscall: "cursor:clear".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({}),
     };
     let _ = sender.get_untracked().send(&frame);
@@ -2081,6 +2082,7 @@ fn send_object_drag_if_needed(
             from: None,
             syscall: "object:drag".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({
                 "id": obj.id.to_string(),
                 "x": obj.x,
@@ -2116,6 +2118,7 @@ fn send_object_drag_end(ids: Vec<String>, board: RwSignal<BoardState>, sender: R
             from: None,
             syscall: "object:drag:end".to_owned(),
             status: FrameStatus::Request,
+            trace: None,
             data: serde_json::json!({ "id": id }),
         };
         let _ = sender.get_untracked().send(&frame);
@@ -2156,6 +2159,7 @@ fn place_shape_at_cursor(
         from: None,
         syscall: "object:create".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({
             "id": id,
             "kind": kind,
@@ -2251,6 +2255,7 @@ fn process_actions(
                     from: None,
                     syscall: "object:create".to_owned(),
                     status: FrameStatus::Request,
+                    trace: None,
                     data: serde_json::json!({
                         "id": obj.id.to_string(),
                         "kind": canvas_kind_to_wire(obj.kind),
@@ -2329,6 +2334,7 @@ fn process_actions(
                     from: None,
                     syscall: "object:update".to_owned(),
                     status: FrameStatus::Request,
+                    trace: None,
                     data: serde_json::Value::Object(data),
                 };
                 let _ = sender.get_untracked().send(&frame);
@@ -2352,6 +2358,7 @@ fn process_actions(
                     from: None,
                     syscall: "object:delete".to_owned(),
                     status: FrameStatus::Request,
+                    trace: None,
                     data: serde_json::json!({ "id": id_string }),
                 };
                 let _ = sender.get_untracked().send(&frame);

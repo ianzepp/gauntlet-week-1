@@ -168,6 +168,7 @@ pub fn send_cursor_presence_if_needed(
         from: None,
         syscall: "cursor:moved".to_owned(),
         status: FrameStatus::Request,
+        trace: None,
         data: serde_json::json!({
             "x": cursor_world.as_ref().map(|p| p.x),
             "y": cursor_world.as_ref().map(|p| p.y),
