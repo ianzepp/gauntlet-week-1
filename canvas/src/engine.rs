@@ -610,19 +610,35 @@ impl EngineCore {
                     actions.push(Action::RenderNeeded);
                 }
                 HitPart::Body | HitPart::EdgeBody => {
+                    let group_ids = self.grouped_ids_for_object(h.object_id);
                     if modifiers.shift {
-                        if self.ui.selected_ids.contains(&h.object_id) {
-                            self.ui.selected_ids.remove(&h.object_id);
+                        let toggle_ids = if group_ids.is_empty() {
+                            vec![h.object_id]
                         } else {
-                            self.ui.selected_ids.insert(h.object_id);
+                            group_ids
+                        };
+                        let all_selected = toggle_ids.iter().all(|id| self.ui.selected_ids.contains(id));
+                        if all_selected {
+                            for id in toggle_ids {
+                                self.ui.selected_ids.remove(&id);
+                            }
+                        } else {
+                            for id in toggle_ids {
+                                self.ui.selected_ids.insert(id);
+                            }
                         }
                         actions.push(Action::RenderNeeded);
                         return;
                     }
 
-                    if !self.ui.selected_ids.contains(&h.object_id) {
+                    let target_ids = if group_ids.is_empty() {
+                        vec![h.object_id]
+                    } else {
+                        group_ids
+                    };
+                    if !target_ids.iter().all(|id| self.ui.selected_ids.contains(id)) {
                         self.ui.selected_ids.clear();
-                        self.ui.selected_ids.insert(h.object_id);
+                        self.ui.selected_ids.extend(target_ids.iter().copied());
                     }
                     let mut drag_ids = self.ui.selected_ids.iter().copied().collect::<Vec<_>>();
                     drag_ids.sort_unstable();
@@ -947,6 +963,21 @@ impl EngineCore {
 
     fn primary_selection(&self) -> Option<ObjectId> {
         self.ui.selected_ids.iter().copied().min()
+    }
+
+    fn grouped_ids_for_object(&self, id: ObjectId) -> Vec<ObjectId> {
+        let Some(obj) = self.doc.get(&id) else {
+            return Vec::new();
+        };
+        let Some(group_id) = obj.group_id else {
+            return Vec::new();
+        };
+        self.doc
+            .sorted_objects()
+            .into_iter()
+            .filter(|candidate| candidate.group_id == Some(group_id))
+            .map(|candidate| candidate.id)
+            .collect()
     }
 
     fn duplicate_objects(&mut self, ids: &[ObjectId]) -> Vec<ObjectId> {

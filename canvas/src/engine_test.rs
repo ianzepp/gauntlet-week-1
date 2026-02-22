@@ -558,6 +558,35 @@ fn select_click_body_stores_original_position() {
     }
 }
 
+#[test]
+fn select_click_grouped_body_selects_and_drags_group() {
+    let mut core = EngineCore::new();
+    let group_id = Uuid::new_v4();
+
+    let mut a = make_object_at(ObjectKind::Rect, 0.0, 0.0, 100.0, 80.0);
+    a.group_id = Some(group_id);
+    let a_id = a.id;
+    core.apply_create(a);
+
+    let mut b = make_object_at(ObjectKind::Rect, 180.0, 0.0, 100.0, 80.0);
+    b.group_id = Some(group_id);
+    let b_id = b.id;
+    core.apply_create(b);
+
+    // Click object A: both grouped objects should become selected and dragged together.
+    let actions = core.on_pointer_down(pt(50.0, 40.0), Button::Primary, no_modifiers());
+    assert!(has_render_needed(&actions));
+    assert!(core.ui.selected_ids.contains(&a_id));
+    assert!(core.ui.selected_ids.contains(&b_id));
+    match &core.input {
+        InputState::DraggingObject { ids, .. } => {
+            assert!(ids.contains(&a_id));
+            assert!(ids.contains(&b_id));
+        }
+        other => panic!("Expected DraggingObject, got {other:?}"),
+    }
+}
+
 // =============================================================
 // Pointer down — Select tool on edge body
 // =============================================================
