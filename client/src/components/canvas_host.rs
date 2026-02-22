@@ -75,6 +75,8 @@ use canvas::engine::{Action, Engine};
 use canvas::input::{InputState as CanvasInputState, Key as CanvasKey, WheelDelta};
 #[cfg(feature = "hydrate")]
 use js_sys::Date;
+#[cfg(feature = "hydrate")]
+use wasm_bindgen::{JsCast, closure::Closure};
 
 #[cfg(feature = "hydrate")]
 fn render_and_track(engine: &mut Engine, canvas_view: RwSignal<CanvasViewState>) {
@@ -84,6 +86,46 @@ fn render_and_track(engine: &mut Engine, canvas_view: RwSignal<CanvasViewState>)
     canvas_view.update(|view| {
         view.last_render_ms = Some(elapsed_ms);
     });
+}
+
+#[cfg(feature = "hydrate")]
+fn request_render(
+    engine: &Rc<RefCell<Option<Engine>>>,
+    canvas_view: RwSignal<CanvasViewState>,
+    raf_pending: RwSignal<bool>,
+) {
+    if raf_pending.get_untracked() {
+        return;
+    }
+    raf_pending.set(true);
+
+    let Some(window) = web_sys::window() else {
+        raf_pending.set(false);
+        if let Some(engine) = engine.borrow_mut().as_mut() {
+            render_and_track(engine, canvas_view);
+        }
+        return;
+    };
+
+    let engine = Rc::clone(engine);
+    let holder: Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>> = Rc::new(RefCell::new(None));
+    let holder_for_cb = Rc::clone(&holder);
+    let cb = Closure::wrap(Box::new(move |_ts: f64| {
+        raf_pending.set(false);
+        if let Some(engine) = engine.borrow_mut().as_mut() {
+            render_and_track(engine, canvas_view);
+        }
+        holder_for_cb.borrow_mut().take();
+    }) as Box<dyn FnMut(f64)>);
+
+    if window.request_animation_frame(cb.as_ref().unchecked_ref()).is_ok() {
+        *holder.borrow_mut() = Some(cb);
+    } else {
+        raf_pending.set(false);
+        if let Some(engine) = engine.borrow_mut().as_mut() {
+            render_and_track(engine, canvas_view);
+        }
+    }
 }
 
 /// Canvas host component.
@@ -140,6 +182,8 @@ pub fn CanvasHost() -> impl IntoView {
     let last_center_override_seq = RwSignal::new(0_u64);
     #[cfg(feature = "hydrate")]
     let last_scene_sync_key = RwSignal::new((None::<String>, 0_u64));
+    #[cfg(feature = "hydrate")]
+    let render_raf_pending = RwSignal::new(false);
     #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
@@ -217,24 +261,32 @@ pub fn CanvasHost() -> impl IntoView {
     {
         let engine = Rc::clone(&engine);
         let canvas_ref_sync = canvas_ref.clone();
+        let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let state = board.get();
-            if state.join_streaming {
+            let Some(scene_key) = board.with(|state| {
+                if state.join_streaming {
+                    None
+                } else {
+                    Some((state.board_id.clone(), state.scene_rev))
+                }
+            }) else {
                 return;
-            }
-            let scene_key = (state.board_id.clone(), state.scene_rev);
+            };
             if last_scene_sync_key.get_untracked() == scene_key {
                 return;
             }
 
-            let mut snapshot = Vec::new();
-            let board_id = state.board_id.clone();
-            for (id, obj) in &state.objects {
-                let source = state.drag_objects.get(id).unwrap_or(obj);
-                if let Some(mapped) = to_canvas_object(source, board_id.as_deref()) {
-                    snapshot.push(mapped);
+            let (board_id, snapshot) = board.with(|state| {
+                let board_id = state.board_id.clone();
+                let mut snapshot = Vec::with_capacity(state.objects.len());
+                for (id, obj) in &state.objects {
+                    let source = state.drag_objects.get(id).unwrap_or(obj);
+                    if let Some(mapped) = to_canvas_object(source, board_id.as_deref()) {
+                        snapshot.push(mapped);
+                    }
                 }
-            }
+                (board_id, snapshot)
+            });
 
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 engine.load_snapshot(snapshot);
@@ -254,8 +306,8 @@ pub fn CanvasHost() -> impl IntoView {
                     );
                 }
                 sync_canvas_view_state(engine, canvas_view, None);
-                render_and_track(engine, canvas_view);
             }
+            request_render(&engine, canvas_view, render_raf_pending);
             last_scene_sync_key.set(scene_key);
         });
     }
@@ -275,6 +327,7 @@ pub fn CanvasHost() -> impl IntoView {
     {
         let engine = Rc::clone(&engine);
         let canvas_ref_home = canvas_ref.clone();
+        let render_raf_pending = render_raf_pending;
         Effect::new(move || {
             let seq = _ui.get().home_viewport_seq;
             if seq == last_home_viewport_seq.get_untracked() {
@@ -294,8 +347,8 @@ pub fn CanvasHost() -> impl IntoView {
                     None,
                     true,
                 );
-                render_and_track(engine, canvas_view);
             }
+            request_render(&engine, canvas_view, render_raf_pending);
             last_home_viewport_seq.set(seq);
         });
     }
@@ -304,6 +357,7 @@ pub fn CanvasHost() -> impl IntoView {
     {
         let engine = Rc::clone(&engine);
         let canvas_ref_zoom = canvas_ref.clone();
+        let render_raf_pending = render_raf_pending;
         Effect::new(move || {
             let ui_state = _ui.get();
             let seq = ui_state.zoom_override_seq;
@@ -311,6 +365,7 @@ pub fn CanvasHost() -> impl IntoView {
                 return;
             }
             let target_zoom = ui_state.zoom_override;
+            let mut should_render = false;
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 if let Some(zoom) = target_zoom {
                     sync_viewport(engine, &canvas_ref_zoom);
@@ -331,8 +386,11 @@ pub fn CanvasHost() -> impl IntoView {
                         None,
                         true,
                     );
-                    render_and_track(engine, canvas_view);
+                    should_render = true;
                 }
+            }
+            if should_render {
+                request_render(&engine, canvas_view, render_raf_pending);
             }
             last_zoom_override_seq.set(seq);
         });
@@ -342,6 +400,7 @@ pub fn CanvasHost() -> impl IntoView {
     {
         let engine = Rc::clone(&engine);
         let canvas_ref_center = canvas_ref.clone();
+        let render_raf_pending = render_raf_pending;
         Effect::new(move || {
             let ui_state = _ui.get();
             let seq = ui_state.view_center_override_seq;
@@ -349,6 +408,7 @@ pub fn CanvasHost() -> impl IntoView {
                 return;
             }
             let target_center = ui_state.view_center_override;
+            let mut should_render = false;
             if let Some(engine) = engine.borrow_mut().as_mut()
                 && let Some((center_x, center_y)) = target_center
             {
@@ -367,7 +427,10 @@ pub fn CanvasHost() -> impl IntoView {
                     None,
                     true,
                 );
-                render_and_track(engine, canvas_view);
+                should_render = true;
+            }
+            if should_render {
+                request_render(&engine, canvas_view, render_raf_pending);
             }
             last_center_override_seq.set(seq);
         });
@@ -377,15 +440,16 @@ pub fn CanvasHost() -> impl IntoView {
     {
         let engine = Rc::clone(&engine);
         let canvas_ref_follow = canvas_ref.clone();
+        let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let follow_client = board.get().follow_client_id.clone();
-            let jump_client = board.get().jump_to_client_id.clone();
-            let target_client = jump_client.or(follow_client);
-            let Some(target_client) = target_client else {
-                return;
-            };
-            let target_view = board.get().presence.get(&target_client).cloned();
-            let Some(target) = target_view else {
+            let Some((target_client, target)) = board.with(|state| {
+                let target_client = state
+                    .jump_to_client_id
+                    .clone()
+                    .or_else(|| state.follow_client_id.clone())?;
+                let target = state.presence.get(&target_client).cloned()?;
+                Some((target_client, target))
+            }) else {
                 return;
             };
             let Some(center) = target.camera_center else {
@@ -395,14 +459,18 @@ pub fn CanvasHost() -> impl IntoView {
                 return;
             };
             let rotation = target.camera_rotation.unwrap_or(0.0);
+            let mut should_render = false;
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 sync_viewport(engine, &canvas_ref_follow);
                 set_camera_view(engine, center.x, center.y, zoom, rotation);
                 sync_canvas_view_state(engine, canvas_view, None);
-                render_and_track(engine, canvas_view);
+                should_render = true;
                 if board.get_untracked().jump_to_client_id.as_deref() == Some(target_client.as_str()) {
                     board.update(|b| b.jump_to_client_id = None);
                 }
+            }
+            if should_render {
+                request_render(&engine, canvas_view, render_raf_pending);
             }
         });
     }
