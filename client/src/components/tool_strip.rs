@@ -86,6 +86,7 @@ pub fn ToolStrip(tool_type: ToolType, open_strip: RwSignal<Option<ToolType>>) ->
             b.objects.insert(id.clone(), new_object.clone());
             b.selection.clear();
             b.selection.insert(id.clone());
+            b.bump_scene_rev();
         });
 
         let frame = Frame {

@@ -104,6 +104,7 @@ fn flush_join_items(board: leptos::prelude::RwSignal<BoardState>) {
         for obj in drained {
             b.objects.insert(obj.id.clone(), obj);
         }
+        b.bump_scene_rev();
     });
 }
 
@@ -459,6 +460,7 @@ fn handle_board_frame(
                         b.drag_objects.clear();
                         b.drag_updated_at.clear();
                         b.join_streaming = true;
+                        b.bump_scene_rev();
                         JOIN_ITEM_BUFFER.with(|buf| buf.borrow_mut().clear());
                     }
                 });
@@ -491,11 +493,13 @@ fn handle_board_frame(
                     for obj in objs {
                         b.objects.insert(obj.id.clone(), obj);
                     }
+                    b.bump_scene_rev();
                 } else if !b.join_streaming {
                     // Empty stream: clear stale data from prior board snapshot.
                     b.objects.clear();
                     b.drag_objects.clear();
                     b.drag_updated_at.clear();
+                    b.bump_scene_rev();
                 }
                 b.join_streaming = false;
                 b.is_public = frame
@@ -685,6 +689,8 @@ fn handle_deleted_board_eject(frame: &Frame, board: leptos::prelude::RwSignal<Bo
             b.join_streaming = false;
             b.selection.clear();
             b.presence.clear();
+            b.join_round_trip_ms = None;
+            b.bump_scene_rev();
         });
         if let Some(window) = web_sys::window() {
             let _ = window.location().set_href("/");

@@ -109,6 +109,7 @@ pub fn InspectorPanel() -> impl IntoView {
                 } else {
                     existing.height = Some(next);
                 }
+                b.bump_scene_rev();
             }
         });
 
@@ -149,6 +150,7 @@ pub fn InspectorPanel() -> impl IntoView {
         board.update(|b| {
             if let Some(existing) = b.objects.get_mut(&obj.id) {
                 existing.props = next_props.clone();
+                b.bump_scene_rev();
             }
         });
 
@@ -232,6 +234,7 @@ pub fn InspectorPanel() -> impl IntoView {
         board.update(|b| {
             b.objects.remove(&obj.id);
             b.selection.remove(&obj.id);
+            b.bump_scene_rev();
         });
     };
 

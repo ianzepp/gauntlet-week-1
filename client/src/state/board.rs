@@ -44,6 +44,8 @@ pub struct BoardState {
     pub drag_objects: HashMap<String, BoardObject>,
     /// Timestamp of the last drag position update per object ID.
     pub drag_updated_at: HashMap<String, i64>,
+    /// Monotonic revision for structural scene changes (objects/drag geometry).
+    pub scene_rev: u64,
     /// True while the initial `board:join` object stream is still in flight.
     pub join_streaming: bool,
     /// Access code generated for sharing, if any.
@@ -66,4 +68,11 @@ pub enum ConnectionStatus {
     Connecting,
     /// WebSocket is open and the server sent `session:connected`.
     Connected,
+}
+
+impl BoardState {
+    /// Mark that the visual scene changed and canvas sync should re-run.
+    pub fn bump_scene_rev(&mut self) {
+        self.scene_rev = self.scene_rev.saturating_add(1);
+    }
 }

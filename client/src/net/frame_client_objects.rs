@@ -98,6 +98,7 @@ pub(super) fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
         "object:create" if frame.status == FrameStatus::Done => {
             if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
                 board.objects.insert(obj.id.clone(), obj);
+                board.bump_scene_rev();
             }
         }
         "object:update" if frame.status == FrameStatus::Done => {
@@ -106,6 +107,7 @@ pub(super) fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
                     merge_object_update(existing, &frame.data);
                     board.drag_objects.remove(id);
                     board.drag_updated_at.remove(id);
+                    board.bump_scene_rev();
                 } else {
                     // Defensive: don't keep stale selection for unknown objects.
                     board.selection.remove(id);
@@ -118,6 +120,7 @@ pub(super) fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
                 board.selection.remove(id);
                 board.drag_objects.remove(id);
                 board.drag_updated_at.remove(id);
+                board.bump_scene_rev();
             }
         }
         "object:drag" => {
@@ -138,12 +141,14 @@ pub(super) fn apply_object_frame(frame: &Frame, board: &mut BoardState) {
                 }
                 board.drag_objects.insert(id.to_owned(), dragged);
                 board.drag_updated_at.insert(id.to_owned(), frame.ts);
+                board.bump_scene_rev();
             }
         }
         "object:drag:end" => {
             if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
                 board.drag_objects.remove(id);
                 board.drag_updated_at.remove(id);
+                board.bump_scene_rev();
             }
         }
         "cursor:moved" => apply_cursor_moved(board, &frame.data, frame.ts),
@@ -217,6 +222,7 @@ pub(super) fn cleanup_stale_drags(board: &mut BoardState, now_ts: i64) {
     for id in stale {
         board.drag_updated_at.remove(&id);
         board.drag_objects.remove(&id);
+        board.bump_scene_rev();
     }
 }
 

@@ -139,6 +139,8 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     let last_center_override_seq = RwSignal::new(0_u64);
     #[cfg(feature = "hydrate")]
+    let last_scene_sync_key = RwSignal::new((None::<String>, 0_u64));
+    #[cfg(feature = "hydrate")]
     let preview_cursor = RwSignal::new(None::<CanvasPoint>);
     let active_youtube = RwSignal::new(None::<(String, String)>);
     #[cfg(feature = "hydrate")]
@@ -220,6 +222,10 @@ pub fn CanvasHost() -> impl IntoView {
             if state.join_streaming {
                 return;
             }
+            let scene_key = (state.board_id.clone(), state.scene_rev);
+            if last_scene_sync_key.get_untracked() == scene_key {
+                return;
+            }
 
             let mut snapshot = Vec::new();
             let board_id = state.board_id.clone();
@@ -230,10 +236,8 @@ pub fn CanvasHost() -> impl IntoView {
                 }
             }
 
-            let tool = map_tool(_ui.get().active_tool);
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 engine.load_snapshot(snapshot);
-                engine.set_tool(tool);
                 sync_viewport(engine, &canvas_ref_sync);
                 if last_centered_board.get_untracked() != board_id {
                     center_world_origin(engine);
@@ -251,6 +255,18 @@ pub fn CanvasHost() -> impl IntoView {
                 }
                 sync_canvas_view_state(engine, canvas_view, None);
                 render_and_track(engine, canvas_view);
+            }
+            last_scene_sync_key.set(scene_key);
+        });
+    }
+
+    #[cfg(feature = "hydrate")]
+    {
+        let engine = Rc::clone(&engine);
+        Effect::new(move || {
+            let tool = map_tool(_ui.get().active_tool);
+            if let Some(engine) = engine.borrow_mut().as_mut() {
+                engine.set_tool(tool);
             }
         });
     }
@@ -2384,6 +2400,8 @@ fn process_actions(
     board: RwSignal<BoardState>,
     sender: RwSignal<FrameSender>,
 ) {
+    const LOCAL_OBJECT_PATCH_LIMIT: usize = 500;
+
     for action in actions {
         match action {
             Action::ObjectCreated(obj) => {
@@ -2395,6 +2413,7 @@ fn process_actions(
                         b.objects.insert(local.id.clone(), local.clone());
                         b.selection.clear();
                         b.selection.insert(local.id.clone());
+                        b.bump_scene_rev();
                     });
                 }
 
@@ -2425,7 +2444,9 @@ fn process_actions(
                     continue;
                 };
                 let geometry_changed = fields.width.is_some() || fields.height.is_some();
-                if let Some(obj) = engine.object(&id)
+                let can_patch_local = board.get_untracked().objects.len() <= LOCAL_OBJECT_PATCH_LIMIT;
+                if can_patch_local
+                    && let Some(obj) = engine.object(&id)
                     && let Some(mut local) = to_wire_object(obj, &board_id)
                 {
                     if geometry_changed {
@@ -2433,6 +2454,7 @@ fn process_actions(
                     }
                     board.update(|b| {
                         b.objects.insert(local.id.clone(), local);
+                        b.bump_scene_rev();
                     });
                 }
 
@@ -2493,6 +2515,7 @@ fn process_actions(
                 board.update(|b| {
                     b.objects.remove(&id_string);
                     b.selection.remove(&id_string);
+                    b.bump_scene_rev();
                 });
 
                 let frame = Frame {

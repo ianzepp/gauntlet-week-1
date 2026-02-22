@@ -37,6 +37,7 @@ use crate::pages::board_prompt_bar::{BoardPromptBar, PromptBarStatus};
 use crate::state::ai::{AiMessage, AiState};
 use crate::state::auth::AuthState;
 use crate::state::board::BoardState;
+use crate::state::canvas_view::CanvasViewState;
 use crate::state::ui::{RightTab, UiState, ViewMode};
 use crate::util::auth::install_unauth_redirect;
 use crate::util::frame::request_frame;
@@ -63,8 +64,10 @@ fn reset_board_for_route_change(board: &mut BoardState, next_board_id: Option<St
     board.join_streaming = false;
     board.selection.clear();
     board.presence.clear();
+    board.join_round_trip_ms = None;
     board.pending_join_request_id = None;
     board.pending_join_started_ms = None;
+    board.scene_rev = 0;
 }
 
 /// Board page — composes toolbar, panels, canvas placeholder, and status bar
@@ -75,6 +78,7 @@ pub fn BoardPage() -> impl IntoView {
     let ai = expect_context::<RwSignal<AiState>>();
     let auth = expect_context::<RwSignal<AuthState>>();
     let board = expect_context::<RwSignal<BoardState>>();
+    let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
     let ui = expect_context::<RwSignal<UiState>>();
     let sender = expect_context::<RwSignal<FrameSender>>();
     let params = use_params_map();
@@ -117,6 +121,7 @@ pub fn BoardPage() -> impl IntoView {
         // WHY: board data is board-id scoped, but websocket client identity is
         // connection-scoped and intentionally preserved.
         board.update(|b| reset_board_for_route_change(b, next_id.clone()));
+        canvas_view.set(CanvasViewState::default());
         last_join_key.set(None);
         last_route_board_id.set(next_id);
     });
@@ -176,9 +181,12 @@ pub fn BoardPage() -> impl IntoView {
             b.join_streaming = false;
             b.selection.clear();
             b.presence.clear();
+            b.join_round_trip_ms = None;
             b.pending_join_request_id = None;
             b.pending_join_started_ms = None;
+            b.scene_rev = 0;
         });
+        canvas_view.set(CanvasViewState::default());
     });
 
     let navigate = leptos_router::hooks::use_navigate();
@@ -354,6 +362,7 @@ pub fn BoardPage() -> impl IntoView {
         board.update(|b| {
             if let Some(existing) = b.objects.get_mut(&id) {
                 existing.props = next_props.clone();
+                b.bump_scene_rev();
             }
         });
 
