@@ -138,7 +138,7 @@
 
 .ai-panel__input {
     flex: 1;
-    background: var(--bg-primary);
+    background: var(--bg-tertiary);
     border: 1px solid var(--border-default);
     color: var(--text-primary);
     font-family: var(--font-mono);
