@@ -425,29 +425,25 @@ pub fn BoardPage() -> impl IntoView {
                 }
             }}
             <div class="board-page__canvas">
-                {move || {
-                    if ui.get().view_mode == ViewMode::Canvas {
-                        view! {
-                            <CanvasHost/>
-                            <BoardStamp/>
-                            <div class="board-page__input-overlay">
-                                <BoardPromptBar
-                                    prompt_input=prompt_input
-                                    prompt_status=prompt_status
-                                    prompt_preview_user=prompt_preview_user
-                                    prompt_preview_assistant=prompt_preview_assistant
-                                    prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
-                                    prompt_preview_assistant_error=prompt_preview_assistant_error
-                                    on_submit=on_prompt_submit
-                                    on_read_more=on_prompt_read_more
-                                />
-                            </div>
-                        }
-                            .into_any()
-                    } else {
-                        view! { <TraceView/> }.into_any()
-                    }
-                }}
+                <div style=move || if ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }>
+                    <CanvasHost/>
+                    <BoardStamp/>
+                    <div class="board-page__input-overlay">
+                        <BoardPromptBar
+                            prompt_input=prompt_input
+                            prompt_status=prompt_status
+                            prompt_preview_user=prompt_preview_user
+                            prompt_preview_assistant=prompt_preview_assistant
+                            prompt_preview_assistant_has_more=prompt_preview_assistant_has_more
+                            prompt_preview_assistant_error=prompt_preview_assistant_error
+                            on_submit=on_prompt_submit
+                            on_read_more=on_prompt_read_more
+                        />
+                    </div>
+                </div>
+                <div style=move || if ui.get().view_mode == ViewMode::Trace { "" } else { "display:none;" }>
+                    <TraceView/>
+                </div>
             </div>
             <div class="board-page__right-panel">
                 <RightPanel/>
