@@ -1,3 +1,5 @@
+#![recursion_limit = "512"]
+
 //! # client
 //!
 //! Leptos + WASM frontend for the collaborative whiteboard application.
