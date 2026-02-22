@@ -64,7 +64,7 @@ use crate::util::selection_metrics::{
 use crate::util::shape_palette::{materialize_shape_props, placement_shape};
 
 #[cfg(feature = "hydrate")]
-use gloo_timers::callback::Interval;
+use gloo_timers::callback::{Interval, Timeout};
 #[cfg(feature = "hydrate")]
 use std::cell::RefCell;
 #[cfg(feature = "hydrate")]
@@ -139,6 +139,25 @@ fn request_render(
         if let Some(engine) = engine.borrow_mut().as_mut() {
             render_and_track(engine, canvas_view);
         }
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn mount_dials_into_panels() {
+    let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    if let (Some(host), Some(mount)) = (
+        document.get_element_by_id("left-dials-host"),
+        document.get_element_by_id("left-dials-mount"),
+    ) {
+        let _ = mount.append_child(&host);
+    }
+    if let (Some(host), Some(mount)) = (
+        document.get_element_by_id("right-dials-host"),
+        document.get_element_by_id("right-dials-mount"),
+    ) {
+        let _ = mount.append_child(&host);
     }
 }
 
@@ -245,21 +264,18 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     {
         Effect::new(move || {
-            let Some(document) = web_sys::window().and_then(|w| w.document()) else {
-                return;
-            };
-            if let (Some(host), Some(mount)) = (
-                document.get_element_by_id("left-dials-host"),
-                document.get_element_by_id("left-dials-mount"),
-            ) {
-                let _ = mount.append_child(&host);
-            }
-            if let (Some(host), Some(mount)) = (
-                document.get_element_by_id("right-dials-host"),
-                document.get_element_by_id("right-dials-mount"),
-            ) {
-                let _ = mount.append_child(&host);
-            }
+            // Re-run on route/mode transitions so dial hosts are re-parented
+            // even when board navigation changes mount timing.
+            let _ = _ui.get().view_mode;
+            let _ = board.get().board_id.clone();
+            mount_dials_into_panels();
+
+            // Also retry on the next tick to handle cases where panel mounts
+            // are inserted slightly after this effect first runs.
+            Timeout::new(0, move || {
+                mount_dials_into_panels();
+            })
+            .forget();
         });
     }
 
