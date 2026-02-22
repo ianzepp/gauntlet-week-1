@@ -138,12 +138,7 @@
   /* --- Timeline Day Data --- */
   var timelineDays = [
     {
-      day: 1, date: '2026-02-15', title: 'PLANNING & PRE-SEARCH', commits: 0,
-      fieldNote: 'Scope definition, architecture research, and pre-search documentation. No code committed \u2014 all planning, all day.',
-      clusters: []
-    },
-    {
-      day: 2, date: '2026-02-16', title: 'FULL-STACK SCAFFOLD', commits: 40,
+      day: 1, date: '2026-02-16', title: 'FULL-STACK SCAFFOLD', commits: 40,
       fieldNote: 'Stood up the entire stack in a single day: Rust/Axum backend, React/Konva frontend, GitHub OAuth, WebSocket sync, AI tool loop, and frame persistence. Iterated the DB flush strategy three times before settling on direct writes.',
       clusters: [
         { name: 'BUG_FIXES_AND_INFRA', commits: 7, summary: 'Fixed a stream of integration issues: Frame deserialization with null handling and valid UUIDs, AI "stuck on thinking" from unfiltered blocks, and canvas object selection/transform bugs. Added dotenvy for .env loading, structured logging, static file serving with SPA fallback, and a docker-compose file.' },
@@ -157,7 +152,7 @@
       ]
     },
     {
-      day: 3, date: '2026-02-17', title: 'CANVAS REBUILD & PANEL LAYOUT', commits: 76,
+      day: 2, date: '2026-02-17', title: 'CANVAS REBUILD & PANEL LAYOUT', commits: 76,
       fieldNote: 'Gutted the canvas and rebuilt from scratch with full-viewport rendering, hit-testing, and inline text editing. Redesigned the right panel into a tabbed layout with chat, AI, and inspector. Added board dashboard and deployment pipeline.',
       clusters: [
         { name: 'RIGHT_PANEL_REDESIGN', commits: 12, summary: 'Replaced the right panel toggle with an always-visible collapsed icon rail, then iterated heavily \u2014 extracting tabs for Boards, Chat, AI, and Inspector. Added real-time chat, board switcher, and open/close chevron.' },
@@ -173,7 +168,7 @@
       ]
     },
     {
-      day: 4, date: '2026-02-18', title: 'LEPTOS CLIENT FULL INTEGRATION', commits: 84,
+      day: 3, date: '2026-02-18', title: 'LEPTOS CLIENT FULL INTEGRATION', commits: 84,
       fieldNote: 'Biggest day of the sprint. Replaced React/Konva with Leptos 0.8 SSR across eight sequential phases. Built the canvas engine with hit-testing (99 tests), input state machine (55 tests), and full Canvas2D rendering. Added multiplayer presence, placement tools, and frame grouping.',
       clusters: [
         { name: 'LEPTOS_CLIENT_PHASES', commits: 12, summary: 'Built the Leptos 0.8 + Axum SSR client across eight sequential phases: scaffold, SSR integration, pages/auth/REST, WebSocket frame client, toolbar/statusbar, left panel, right panel, and dark mode polish.' },
@@ -188,7 +183,7 @@
       ]
     },
     {
-      day: 5, date: '2026-02-19', title: 'OBSERVABILITY, AI & ROTATION', commits: 104,
+      day: 4, date: '2026-02-19', title: 'OBSERVABILITY, AI & ROTATION', commits: 104,
       fieldNote: 'Highest commit count of the sprint. Built the traces crate for observability, migrated to protobuf wire format, implemented viewport rotation with compass widget, rebuilt AI integration with YAML grammar, and shipped auth, board sharing, and perf benchmarks.',
       clusters: [
         { name: 'OBSERVABILITY_AND_TRACING', commits: 14, summary: 'Added a traces crate with derivation helpers and client-side trace view UI. Linked AI tool calls and object frames into a prompt trace tree, emitted per-round LLM spans with metrics, and iterated heavily on the trace UI.' },
@@ -204,7 +199,7 @@
       ]
     },
     {
-      day: 6, date: '2026-02-20', title: 'DIALS, REFACTORS & POLISH', commits: 68,
+      day: 5, date: '2026-02-20', title: 'DIALS, REFACTORS & POLISH', commits: 68,
       fieldNote: 'Focused on code quality and UX refinement. Extracted reusable dial controls, decomposed the monolithic canvas host and frame client into smaller modules, split CSS into themed layers, and added multi-select, minimap, board import/export, and broad client test coverage.',
       clusters: [
         { name: 'DIAL_CONTROL_SYSTEM', commits: 10, summary: 'Extracted reusable dial primitives, migrated compass and zoom controls to the new system. Added object-level rotation, color, and text style dials with snap-click routing and reset controls.' },
@@ -219,8 +214,8 @@
       ]
     },
     {
-      day: 7, date: '2026-02-21', title: 'PERFORMANCE, CLI & AI TOOLS', commits: 52,
-      fieldNote: 'Final sprint day. Tackled large-board rendering performance with spatial indexing and viewport culling. Stood up a CLI crate, cleaned up AI tool schemas, added SVG rendering, and ran a full correctness audit with doc coverage push.',
+      day: 6, date: '2026-02-21', title: 'PERFORMANCE, CLI & AI TOOLS', commits: 52,
+      fieldNote: 'Tackled large-board rendering performance with spatial indexing and viewport culling. Stood up a CLI crate, cleaned up AI tool schemas, added SVG rendering, and ran a full correctness audit with doc coverage push.',
       clusters: [
         { name: 'CANVAS_PERFORMANCE', commits: 8, summary: 'Tackled large-board rendering end to end: disabled auto savepoints during bulk loads, added join/render timing metrics, gated scene sync on revision numbers, and coalesced redraws. Introduced spatial bucket indexing with viewport culling.' },
         { name: 'AI_TOOL_SCHEMA_CLEANUP', commits: 8, summary: 'Refactored server LLM config, centralized provider wiring, and aligned AI tool schemas with canonical UI object properties. Removed legacy batch operations, shape aliases, and youtube_embed.' },
@@ -230,6 +225,16 @@
         { name: 'CLI_AND_STRESS_TOOLING', commits: 4, summary: 'Stood up a CLI crate with clap subcommands covering REST board CRUD and WebSocket JSONL object streaming. Added a stress JSONL generator with a spiral pattern mode.' },
         { name: 'CANVAS_INPUT_FIXES', commits: 4, summary: 'Fixed a tool-switch pan jump bug, moved default viewport origin to top-left. Added a hand (pan) tool and preserved camera state across canvas host re-initialization.' },
         { name: 'TESTING_HARDENING', commits: 3, summary: 'Extracted pure server logic into testable functions. Added exhaustive edge-case tests across canvas, frames, and traces crates, then fixed compile errors surfaced by the surgeon pass.' }
+      ]
+    },
+    {
+      day: 7, date: '2026-02-22', title: 'TRACING & PORTFOLIO SITE', commits: 9,
+      fieldNote: 'Final day. Promoted trace to a top-level frame field, built the portfolio website with vintage field-survey aesthetic, then iterated on design spec compliance and navigation. Replaced the timeline placeholder carousel with a commit-log view driven by actual git history.',
+      clusters: [
+        { name: 'FRAME_TRACE_PROMOTION', commits: 3, summary: 'Promoted the trace field from a nested data property to a top-level frame field with backend gating. Auto-enabled trace config before board list requests and removed legacy data.trace read fallbacks.' },
+        { name: 'PORTFOLIO_POLISH_AND_NAV', commits: 3, summary: 'Closed visual gaps between the portfolio implementation and design spec \u2014 font sizes, carousel arrows, dot grid opacity, transitions, and missing CSS variables. Added hash-based URL routing so browser back/forward works.' },
+        { name: 'PORTFOLIO_SITE_LAUNCH', commits: 2, summary: 'Built a vintage "Field Survey Terminal" portfolio site in plain HTML/CSS/JS and mounted it at the root path, relocating the Leptos SSR app to /app. Fixed routing issues and aligned live demo links.' },
+        { name: 'TIMELINE_COMMIT_LOG', commits: 1, summary: 'Replaced the placeholder screenshot carousel with a vertically scrolling commit log panel showing themed clusters for each build day, driven by actual git history analysis.' }
       ]
     }
   ];
