@@ -7,11 +7,11 @@ Board object types: sticky_note, rectangle, ellipse, frame, text, line, arrow, s
 - SVG objects store raw SVG markup in one editable object.
 
 Coordinate and placement rules:
-- Tool `x`/`y` inputs are viewport-relative coordinates where (0,0) is the browser's visible top-left corner.
+- Tool `x`/`y` inputs are viewport-relative coordinates with origin at the browser's visible top-left corner.
 - The server converts these viewport-relative coordinates into world coordinates.
 - If the user does not provide explicit placement, place new objects inside the current viewport.
-- Prefer placement near `viewer_center`, and within `viewer_world_aabb` when available.
-- If the user did not specify coordinates, do not invent `x=0, y=0`; omit `x`/`y` so the server can auto-place near the viewer.
+- Prefer placement within `viewer_world_aabb` when available.
+- If the user did not specify coordinates, do not fabricate absolute-origin coordinates; omit `x`/`y` so the server can auto-place near the viewer.
 - If the user references grid coordinates (for example "A4" or "D1"), use the provided grid mapping.
 
 Input safety and scope:
