@@ -1,0 +1,2238 @@
+📋 Session: 5e68654b-ba94-4f35-bb9f-7ca8654a490b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T18:06:28.861+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 Read the full contents of ALL React component .tsx files in:
+/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/
+/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/pages/
+
+Return ALL content verbatim, do not summarize. I need exact HTML structure, class names, event handlers, and state management patterns.
+📋 Model: haiku-4.5
+🤖 I'll search for all React component .tsx files in those directories and read their full contents.
+✅ Glob: pattern="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/**/*.tsx"
+✅ Glob: pattern="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/pages/**/*.tsx"
+🤖 Now I'll read all of these files:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/AiPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/BoardCard.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/BoardStamp.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/ChatPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/InspectorPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/LeftPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/MissionControl.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/RightPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/StatusBar.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/ToolRail.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/ToolStrip.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/Toolbar.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/components/UserFieldReport.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/pages/BoardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/pages/DashboardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/.worktrees/leptos-ui/client/src/pages/LoginPage.tsx"
+🤖 Here are ALL the React component .tsx files from the specified directories:
+
+## Components Directory
+
+### AiPanel.tsx
+```tsx
+import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
+import { useAI } from "../hooks/useAI";
+import type { Frame } from "../lib/types";
+import type { AiMessage } from "../store/board";
+import { useBoardStore } from "../store/board";
+import styles from "./AiPanel.module.css";
+
+export function AiPanel() {
+    const messages = useBoardStore((s) => s.aiMessages);
+    const loading = useBoardStore((s) => s.aiLoading);
+    const frameClient = useBoardStore((s) => s.frameClient);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const boardId = useBoardStore((s) => s.boardId);
+    const { sendPrompt } = useAI();
+
+    const [input, setInput] = useState("");
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const loadedBoardRef = useRef<string | null>(null);
+
+    // Load AI conversation history on mount or board switch
+    useEffect(() => {
+        if (!frameClient || connectionStatus !== "connected" || !boardId) return;
+        if (loadedBoardRef.current === boardId) return;
+        loadedBoardRef.current = boardId;
+
+        const requestId = crypto.randomUUID();
+
+        const handler = (frame: Frame) => {
+            if (frame.parent_id !== requestId) return;
+            if (frame.status === "done" && Array.isArray(frame.data.messages)) {
+                const history = (frame.data.messages as { role: string; text: string; mutations?: number }[]).map((m) => ({
+                    role: m.role as AiMessage["role"],
+                    text: m.text,
+                    mutations: m.mutations,
+                }));
+                // Replace instead of prepending to avoid duplicate history on remount.
+                useBoardStore.setState({ aiMessages: history });
+                frameClient.off("ai:history", handler);
+            }
+        };
+
+        frameClient.on("ai:history", handler);
+        frameClient.send({
+            id: requestId,
+            parent_id: null,
+            ts: Date.now(),
+            board_id: boardId,
+            from: null,
+            syscall: "ai:history",
+            status: "request",
+            data: {},
+        });
+
+        return () => {
+            frameClient.off("ai:history", handler);
+        };
+    }, [frameClient, connectionStatus, boardId]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages, loading]);
+
+    const handleSubmit = () => {
+        const text = input.trim();
+        if (!text || loading) return;
+        setInput("");
+        sendPrompt(text);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
+
+    return (
+        <div className={styles.panel}>
+            <div className={styles.messages}>
+                {messages.length === 0 && !loading && (
+                    <div className={styles.empty}>No field notes yet</div>
+                )}
+                {messages.map((msg, i) => (
+                    <div
+                        key={i}
+                        className={`${styles.message} ${
+                            msg.role === "user"
+                                ? styles.messageUser
+                                : msg.role === "error"
+                                  ? styles.messageError
+                                  : styles.messageAssistant
+                        }`}
+                    >
+                        {msg.role === "assistant" ? (
+                            <div className={styles.markdown}><Markdown>{msg.text}</Markdown></div>
+                        ) : (
+                            msg.text
+                        )}
+                        {msg.mutations != null && msg.mutations > 0 && (
+                            <div className={styles.mutations}>
+                                {msg.mutations} object
+                                {msg.mutations !== 1 ? "s" : ""} modified
+                            </div>
+                        )}
+                    </div>
+                ))}
+                {loading && (
+                    <div className={styles.loading}>Thinking...</div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+            <div className={styles.inputArea}>
+                <input
+                    className={styles.input}
+                    type="text"
+                    placeholder="Ask AI to modify the board..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={loading}
+                />
+                <button
+                    type="button"
+                    className={styles.sendButton}
+                    onClick={handleSubmit}
+                    disabled={loading || !input.trim()}
+                >
+                    Send
+                </button>
+            </div>
+        </div>
+    );
+}
+```
+
+### BoardCard.tsx
+```tsx
+import styles from "./BoardCard.module.css";
+
+interface BoardCardProps {
+    id: string;
+    name: string;
+    onClick: () => void;
+    active?: boolean;
+    variant?: "full" | "mini";
+}
+
+export function BoardCard({
+    id,
+    name,
+    onClick,
+    active = false,
+    variant = "full",
+}: BoardCardProps) {
+    const className = [
+        styles.card,
+        variant === "mini" ? styles.mini : "",
+        active ? styles.active : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
+
+    return (
+        <div
+            className={className}
+            onClick={onClick}
+            onKeyDown={(e) => {
+                if (e.key === "Enter") onClick();
+            }}
+            role="button"
+            tabIndex={0}
+        >
+            <div className={styles.cardName}>{name}</div>
+            <div className={styles.cardId}>{id.slice(0, 8)}</div>
+            <div className={styles.cardPreview} />
+        </div>
+    );
+}
+```
+
+### BoardStamp.tsx
+```tsx
+import { useBoardStore } from "../store/board";
+import styles from "./BoardStamp.module.css";
+
+export function BoardStamp() {
+    const boardName = useBoardStore((s) => s.boardName);
+    const objects = useBoardStore((s) => s.objects);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const presence = useBoardStore((s) => s.presence);
+    const user = useBoardStore((s) => s.user);
+
+    const isConnected = connectionStatus === "connected";
+    const userCount = (user ? 1 : 0) + presence.size;
+
+    return (
+        <div className={styles.stamp}>
+            <div className={styles.stampLabel}>Station Log</div>
+            <div className={styles.stampTitle}>{boardName ?? "Untitled"}</div>
+            <div className={styles.stampMeta}>
+                <div className={styles.stampRow}>
+                    <span className={styles.stampKey}>Objects</span>
+                    <span className={styles.stampValue}>{objects.size}</span>
+                </div>
+                <div className={styles.stampRow}>
+                    <span className={styles.stampKey}>Users</span>
+                    <span className={styles.stampValue}>{userCount}</span>
+                </div>
+                <div className={styles.stampRow}>
+                    <span className={styles.stampKey}>Status</span>
+                    <span className={styles.stampValue}>
+                        <span
+                            className={`${styles.statusDot} ${isConnected ? styles.active : styles.offline}`}
+                        />
+                        {isConnected ? "Active" : "Offline"}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+```
+
+### ChatPanel.tsx
+```tsx
+import { useEffect, useRef, useState } from "react";
+import type { Frame } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import styles from "./ChatPanel.module.css";
+
+export function ChatPanel() {
+    const messages = useBoardStore((s) => s.chatMessages);
+    const frameClient = useBoardStore((s) => s.frameClient);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const boardId = useBoardStore((s) => s.boardId);
+    const user = useBoardStore((s) => s.user);
+    const setChatMessages = useBoardStore((s) => s.setChatMessages);
+
+    const [input, setInput] = useState("");
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const loadedBoardRef = useRef<string | null>(null);
+
+    // Load chat history on mount or board switch
+    useEffect(() => {
+        if (!frameClient || connectionStatus !== "connected" || !boardId) return;
+        if (loadedBoardRef.current === boardId) return;
+        loadedBoardRef.current = boardId;
+
+        const requestId = crypto.randomUUID();
+
+        const handler = (frame: Frame) => {
+            if (frame.parent_id !== requestId) return;
+            if (frame.status === "done" && Array.isArray(frame.data.messages)) {
+                const s = useBoardStore.getState();
+                const history = (frame.data.messages as { id: string; ts: number; from: string; message: string }[]).map((m) => {
+                    let fromName = "Anonymous";
+                    let fromColor = "#6366f1";
+                    if (s.user && s.user.id === m.from) {
+                        fromName = s.user.name;
+                        fromColor = s.user.color;
+                    } else {
+                        const p = s.presence.get(m.from);
+                        if (p) {
+                            fromName = p.name;
+                            fromColor = p.color;
+                        }
+                    }
+                    return {
+                        id: m.id,
+                        ts: m.ts,
+                        from: m.from,
+                        fromName,
+                        fromColor,
+                        message: m.message,
+                    };
+                });
+                setChatMessages(history);
+                frameClient.off("chat:history", handler);
+            }
+        };
+
+        frameClient.on("chat:history", handler);
+        frameClient.send({
+            id: requestId,
+            parent_id: null,
+            ts: Date.now(),
+            board_id: boardId,
+            from: null,
+            syscall: "chat:history",
+            status: "request",
+            data: {},
+        });
+
+        return () => {
+            frameClient.off("chat:history", handler);
+        };
+    }, [frameClient, connectionStatus, boardId, setChatMessages]);
+
+    // Auto-scroll on new messages
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    const handleSubmit = () => {
+        const text = input.trim();
+        if (!text || !frameClient || connectionStatus !== "connected") return;
+        setInput("");
+
+        frameClient.send({
+            id: crypto.randomUUID(),
+            parent_id: null,
+            ts: Date.now(),
+            board_id: boardId,
+            from: null,
+            syscall: "chat:message",
+            status: "request",
+            data: { message: text },
+        });
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
+
+    return (
+        <div className={styles.panel}>
+            <div className={styles.messages}>
+                {messages.length === 0 && (
+                    <div className={styles.empty}>No messages yet</div>
+                )}
+                {messages.map((msg) => (
+                    <div key={msg.id} className={styles.message}>
+                        <span
+                            className={styles.name}
+                            style={{ color: msg.fromColor }}
+                        >
+                            {msg.fromName}
+                        </span>
+                        <span className={styles.text}>{msg.message}</span>
+                    </div>
+                ))}
+                <div ref={messagesEndRef} />
+            </div>
+            <div className={styles.inputArea}>
+                <input
+                    className={styles.input}
+                    type="text"
+                    placeholder={user?.name ? `Message as ${user.name}...` : "Type a message..."}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                />
+                <button
+                    type="button"
+                    className={styles.sendButton}
+                    onClick={handleSubmit}
+                    disabled={!input.trim()}
+                >
+                    Send
+                </button>
+            </div>
+        </div>
+    );
+}
+```
+
+### InspectorPanel.tsx
+```tsx
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { deleteObjectsWithConfirm } from "../lib/objectActions";
+import type { BoardObject } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import styles from "./InspectorPanel.module.css";
+
+function normalizeHexColor(value: string | undefined, fallback: string): string {
+    if (!value) return fallback;
+    const trimmed = value.trim();
+    const short = /^#([0-9a-fA-F]{3})$/;
+    const full = /^#([0-9a-fA-F]{6})$/;
+
+    const shortMatch = trimmed.match(short);
+    if (shortMatch) {
+        const s = shortMatch[1];
+        return `#${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}`.toLowerCase();
+    }
+    if (full.test(trimmed)) return trimmed.toLowerCase();
+    return fallback;
+}
+
+function formatNumberInput(value: number | null): string {
+    if (value == null || Number.isNaN(value)) return "";
+    return String(Math.round(value));
+}
+
+function parseIntegerInput(value: string): number | null {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed)) return null;
+    return parsed;
+}
+
+export function InspectorPanel() {
+    const selection = useBoardStore((s) => s.selection);
+    const objects = useBoardStore((s) => s.objects);
+
+    const selectedObjects = useMemo(
+        () => Array.from(selection).map((id) => objects.get(id)).filter(Boolean) as BoardObject[],
+        [objects, selection],
+    );
+
+    const obj = selectedObjects.length === 1 ? selectedObjects[0] : null;
+
+    const [draftWidth, setDraftWidth] = useState("");
+    const [draftHeight, setDraftHeight] = useState("");
+    const [draftTitle, setDraftTitle] = useState("");
+    const [draftText, setDraftText] = useState("");
+    const [draftFontSize, setDraftFontSize] = useState("13");
+    const [draftBackground, setDraftBackground] = useState("#d94b4b");
+    const [draftBorder, setDraftBorder] = useState("#d94b4b");
+    const [draftBorderWidth, setDraftBorderWidth] = useState("1");
+
+    useEffect(() => {
+        if (!obj) return;
+        setDraftWidth(formatNumberInput(obj.width));
+        setDraftHeight(formatNumberInput(obj.height));
+        setDraftTitle((obj.props.title as string) ?? "");
+        setDraftText((obj.props.text as string) ?? "");
+        setDraftFontSize(formatNumberInput((obj.props.fontSize as number) ?? 13));
+
+        const background = normalizeHexColor(
+            (obj.props.backgroundColor as string) ?? (obj.props.color as string) ?? "#D94B4B",
+            "#d94b4b",
+        );
+        const border = normalizeHexColor((obj.props.borderColor as string) ?? background, background);
+        setDraftBackground(background);
+        setDraftBorder(border);
+        setDraftBorderWidth(formatNumberInput((obj.props.borderWidth as number) ?? 1));
+    }, [obj]);
+
+    const sendObjectUpdate = useCallback(
+        (objectId: string, patch: Partial<BoardObject>) => {
+            const state = useBoardStore.getState();
+            const current = state.objects.get(objectId);
+            if (!current) return;
+
+            state.updateObject(objectId, patch);
+            if (!state.frameClient) return;
+
+            const data: Record<string, unknown> = {
+                id: objectId,
+                version: current.version,
+            };
+
+            if (patch.x != null) data.x = patch.x;
+            if (patch.y != null) data.y = patch.y;
+            if (patch.width != null) data.width = patch.width;
+            if (patch.height != null) data.height = patch.height;
+            if (patch.rotation != null) data.rotation = patch.rotation;
+            if (patch.props != null) data.props = patch.props;
+
+            state.frameClient.send({
+                id: crypto.randomUUID(),
+                parent_id: null,
+                ts: Date.now(),
+                board_id: current.board_id,
+                from: null,
+                syscall: "object:update",
+                status: "request",
+                data,
+            });
+        },
+        [],
+    );
+
+    const commitDimension = (key: "width" | "height", value: string) => {
+        if (!obj) return;
+        const parsed = parseIntegerInput(value);
+        const fallback = key === "width" ? obj.width ?? 0 : obj.height ?? 0;
+        const next = Math.max(1, parsed ?? fallback);
+        const current = key === "width" ? obj.width ?? 0 : obj.height ?? 0;
+        if (Math.round(current) === Math.round(next)) {
+            if (key === "width") setDraftWidth(formatNumberInput(current));
+            else setDraftHeight(formatNumberInput(current));
+            return;
+        }
+        if (key === "width") sendObjectUpdate(obj.id, { width: next });
+        else sendObjectUpdate(obj.id, { height: next });
+        if (key === "width") setDraftWidth(String(next));
+        else setDraftHeight(String(next));
+    };
+
+    const commitText = () => {
+        if (!obj) return;
+        const current = (obj.props.text as string) ?? "";
+        if (draftText === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, text: draftText } });
+    };
+
+    const commitTitle = () => {
+        if (!obj) return;
+        const current = (obj.props.title as string) ?? "";
+        if (draftTitle === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, title: draftTitle } });
+    };
+
+    const commitFontSize = (value: string) => {
+        if (!obj) return;
+        const parsed = parseIntegerInput(value);
+        const current = Math.max(1, Math.round((obj.props.fontSize as number) ?? 13));
+        const next = Math.max(1, parsed ?? current);
+        setDraftFontSize(String(next));
+        if (next === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, fontSize: next } });
+    };
+
+    const commitBackground = (value: string) => {
+        if (!obj) return;
+        const next = normalizeHexColor(value, "#d94b4b");
+        const current = normalizeHexColor(
+            (obj.props.backgroundColor as string) ?? (obj.props.color as string) ?? "#d94b4b",
+            "#d94b4b",
+        );
+        setDraftBackground(next);
+        if (next === current) return;
+        sendObjectUpdate(obj.id, {
+            props: { ...obj.props, color: next, backgroundColor: next },
+        });
+    };
+
+    const commitBorder = (value: string) => {
+        if (!obj) return;
+        const next = normalizeHexColor(value, draftBackground);
+        const current = normalizeHexColor((obj.props.borderColor as string) ?? draftBackground, draftBackground);
+        setDraftBorder(next);
+        if (next === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, borderColor: next } });
+    };
+
+    const commitBorderWidth = (value: string) => {
+        if (!obj) return;
+        const parsed = parseIntegerInput(value);
+        const current = Math.max(0, Math.round((obj.props.borderWidth as number) ?? 1));
+        const next = Math.max(0, parsed ?? current);
+        setDraftBorderWidth(String(next));
+        if (next === current) return;
+        sendObjectUpdate(obj.id, { props: { ...obj.props, borderWidth: next } });
+    };
+
+    if (selectedObjects.length === 0) {
+        return (
+            <div className={styles.panel}>
+                <div className={styles.empty}>
+                    <span className={styles.emptyLabel}>No selection</span>
+                    <span className={styles.emptyHint}>Double click an object to inspect it.</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (!obj) {
+        return (
+            <div className={styles.panel}>
+                <div className={styles.section}>
+                    <span className={styles.objectKind}>{selectedObjects.length} objects selected</span>
+                </div>
+            </div>
+        );
+    }
+
+    const kindLabel = obj.kind.replace("_", " ");
+
+    return (
+        <div className={styles.panel}>
+            <div className={styles.section}>
+                <span className={styles.objectKind}>{kindLabel}</span>
+            </div>
+
+            <div className={styles.section}>
+                <span className={styles.sectionTitle}>Object Size</span>
+                <div className={styles.sizeSummary}>
+                    {Math.round(obj.width ?? 0)} x {Math.round(obj.height ?? 0)}
+                </div>
+                <div className={styles.fieldGrid}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-width">W</label>
+                    <input
+                        id="inspector-width"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftWidth}
+                        onChange={(e) => setDraftWidth(e.currentTarget.value)}
+                        onBlur={() => commitDimension("width", draftWidth)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitDimension("width", draftWidth);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                    <label className={styles.fieldLabel} htmlFor="inspector-height">H</label>
+                    <input
+                        id="inspector-height"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftHeight}
+                        onChange={(e) => setDraftHeight(e.currentTarget.value)}
+                        onBlur={() => commitDimension("height", draftHeight)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitDimension("height", draftHeight);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className={styles.section}>
+                <span className={styles.sectionTitle}>Text Content</span>
+                {obj.kind === "sticky_note" && (
+                    <div className={styles.inlineControl}>
+                        <label className={styles.fieldLabel} htmlFor="inspector-title">Title</label>
+                        <input
+                            id="inspector-title"
+                            className={styles.fieldInput}
+                            value={draftTitle}
+                            onChange={(e) => setDraftTitle(e.currentTarget.value)}
+                            onBlur={commitTitle}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    commitTitle();
+                                    e.currentTarget.blur();
+                                }
+                            }}
+                        />
+                    </div>
+                )}
+                <textarea
+                    className={styles.textArea}
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.currentTarget.value)}
+                    onBlur={commitText}
+                    placeholder="Type object text"
+                />
+                <div className={styles.inlineControl}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-font-size">Font Size</label>
+                    <input
+                        id="inspector-font-size"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftFontSize}
+                        onChange={(e) => setDraftFontSize(e.currentTarget.value)}
+                        onBlur={() => commitFontSize(draftFontSize)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitFontSize(draftFontSize);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className={styles.section}>
+                <span className={styles.sectionTitle}>Appearance</span>
+                <div className={styles.colorRow}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-background">Background</label>
+                    <input
+                        id="inspector-background"
+                        className={styles.colorInput}
+                        type="color"
+                        value={draftBackground}
+                        onChange={(e) => commitBackground(e.currentTarget.value)}
+                    />
+                </div>
+                <div className={styles.colorRow}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-border">Border</label>
+                    <input
+                        id="inspector-border"
+                        className={styles.colorInput}
+                        type="color"
+                        value={draftBorder}
+                        onChange={(e) => commitBorder(e.currentTarget.value)}
+                    />
+                </div>
+                <div className={styles.inlineControl}>
+                    <label className={styles.fieldLabel} htmlFor="inspector-border-width">Border Width</label>
+                    <input
+                        id="inspector-border-width"
+                        className={styles.fieldInput}
+                        inputMode="numeric"
+                        value={draftBorderWidth}
+                        onChange={(e) => setDraftBorderWidth(e.currentTarget.value)}
+                        onBlur={() => commitBorderWidth(draftBorderWidth)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitBorderWidth(draftBorderWidth);
+                                e.currentTarget.blur();
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className={`${styles.section} ${styles.metaSection}`}>
+                <span className={styles.sectionTitle}>Position / Meta</span>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>X</span>
+                    <span className={styles.rowValue}>{Math.round(obj.x)}</span>
+                </div>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>Y</span>
+                    <span className={styles.rowValue}>{Math.round(obj.y)}</span>
+                </div>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>Rot</span>
+                    <span className={styles.rowValue}>{Math.round(obj.rotation)}°</span>
+                </div>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>Z</span>
+                    <span className={styles.rowValue}>{obj.z_index}</span>
+                </div>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>Ver</span>
+                    <span className={styles.rowValue}>{obj.version}</span>
+                </div>
+                <div className={styles.row}>
+                    <span className={styles.rowLabel}>ID</span>
+                    <span className={styles.rowValue}>{obj.id.slice(0, 8)}</span>
+                </div>
+                <button
+                    type="button"
+                    className={styles.deleteButton}
+                    onClick={() => deleteObjectsWithConfirm([obj.id])}
+                >
+                    Delete Object
+                </button>
+            </div>
+        </div>
+    );
+}
+```
+
+### LeftPanel.tsx
+```tsx
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import type { ToolType } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import { InspectorPanel } from "./InspectorPanel";
+import styles from "./LeftPanel.module.css";
+import { ToolStrip } from "./ToolStrip";
+
+interface ToolDef {
+    type: ToolType;
+    label: string;
+    icon: ReactNode;
+    disabled?: boolean;
+}
+
+const TOOLS: ToolDef[] = [
+    {
+        type: "select",
+        label: "Select",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M4 2 L4 16 L8 12 L12 18 L14 17 L10 11 L15 11 Z" />
+            </svg>
+        ),
+    },
+];
+
+const SHAPE_TOOLS: ToolDef[] = [
+    {
+        type: "sticky",
+        label: "Note",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="2" width="16" height="16" />
+                <line x1="5" y1="7" x2="15" y2="7" />
+                <line x1="5" y1="11" x2="12" y2="11" />
+            </svg>
+        ),
+    },
+    {
+        type: "rectangle",
+        label: "Rect",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="4" width="16" height="12" />
+            </svg>
+        ),
+    },
+    {
+        type: "ellipse",
+        label: "Ellipse",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <ellipse cx="10" cy="10" rx="8" ry="6" />
+            </svg>
+        ),
+    },
+    {
+        type: "line",
+        label: "Line",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <line x1="3" y1="17" x2="17" y2="3" />
+            </svg>
+        ),
+    },
+    {
+        type: "connector",
+        label: "Arrow",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <line x1="3" y1="17" x2="17" y2="3" />
+                <polyline points="10,3 17,3 17,10" />
+            </svg>
+        ),
+    },
+    {
+        type: "text",
+        label: "Text",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <line x1="4" y1="4" x2="16" y2="4" />
+                <line x1="10" y1="4" x2="10" y2="17" />
+                <line x1="7" y1="17" x2="13" y2="17" />
+            </svg>
+        ),
+    },
+];
+
+const DRAW_TOOLS: ToolDef[] = [
+    {
+        type: "draw",
+        label: "Draw",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M3 17 L14 6 L16 4 L17 3 L14 6" />
+                <path d="M14 6 L16 8" />
+                <line x1="3" y1="17" x2="5" y2="15" />
+            </svg>
+        ),
+    },
+    {
+        type: "eraser",
+        label: "Eraser",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M8 16 L3 11 L11 3 L18 10 L13 16 Z" />
+                <line x1="3" y1="16" x2="13" y2="16" />
+            </svg>
+        ),
+    },
+];
+
+/** Tools that open a strip flyout instead of setting activeTool */
+const STRIP_TOOLS = new Set<ToolType>(["sticky", "rectangle"]);
+
+function ToolGroup({
+    tools,
+    openStrip,
+    onStripToggle,
+}: {
+    tools: ToolDef[];
+    openStrip: ToolType | null;
+    onStripToggle: (type: ToolType, el: HTMLButtonElement) => void;
+}) {
+    const activeTool = useBoardStore((s) => s.activeTool);
+    const setTool = useBoardStore((s) => s.setTool);
+
+    return (
+        <>
+            {tools.map((tool) => {
+                const isStripTool = STRIP_TOOLS.has(tool.type);
+                const isActive = isStripTool
+                    ? openStrip === tool.type
+                    : activeTool === tool.type;
+
+                return (
+                    <button
+                        key={tool.type}
+                        type="button"
+                        className={`${styles.toolButton} ${isActive ? styles.toolButtonActive : ""} ${tool.disabled ? styles.toolButtonDisabled : ""}`}
+                        onClick={(e) => {
+                            if (tool.disabled) return;
+                            if (isStripTool) {
+                                onStripToggle(tool.type, e.currentTarget);
+                            } else {
+                                setTool(tool.type);
+                            }
+                        }}
+                        title={tool.disabled ? `${tool.label} (coming soon)` : tool.label}
+                        disabled={tool.disabled}
+                    >
+                        {tool.icon}
+                    </button>
+                );
+            })}
+        </>
+    );
+}
+
+export function LeftPanel() {
+    const expanded = useBoardStore((s) => s.leftPanelExpanded);
+    const collapseLeftPanel = useBoardStore((s) => s.collapseLeftPanel);
+    const expandLeftPanel = useBoardStore((s) => s.expandLeftPanel);
+    const [openStrip, setOpenStrip] = useState<ToolType | null>(null);
+    const railRef = useRef<HTMLDivElement | null>(null);
+    const stripButtonRef = useRef<HTMLButtonElement | null>(null);
+    const [stripLeft, setStripLeft] = useState(52);
+    const [stripTop, setStripTop] = useState(0);
+
+    const updateStripPosition = useCallback(() => {
+        const buttonEl = stripButtonRef.current;
+        if (!buttonEl) return;
+        const buttonRect = buttonEl.getBoundingClientRect();
+        const railRect = railRef.current?.getBoundingClientRect();
+        setStripLeft(railRect?.right ?? buttonRect.right);
+        setStripTop(buttonRect.top);
+    }, []);
+
+    const handleStripToggle = (type: ToolType, el: HTMLButtonElement) => {
+        if (openStrip === type) {
+            setOpenStrip(null);
+            stripButtonRef.current = null;
+        } else {
+            stripButtonRef.current = el;
+            setOpenStrip(type);
+            updateStripPosition();
+        }
+    };
+
+    useEffect(() => {
+        if (!openStrip) return;
+        updateStripPosition();
+
+        const onLayoutChange = () => updateStripPosition();
+        window.addEventListener("resize", onLayoutChange);
+        window.addEventListener("scroll", onLayoutChange, true);
+        return () => {
+            window.removeEventListener("resize", onLayoutChange);
+            window.removeEventListener("scroll", onLayoutChange, true);
+        };
+    }, [expanded, openStrip, updateStripPosition]);
+
+    return (
+        <div className={styles.wrapper}>
+            {expanded && (
+                <div className={styles.panel}>
+                    <div className={styles.header}>
+                        <span className={styles.title}>Inspector</span>
+                        <button
+                            type="button"
+                            className={styles.closeButton}
+                            onClick={collapseLeftPanel}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className={styles.content}>
+                        <InspectorPanel />
+                    </div>
+                </div>
+            )}
+            <div ref={railRef} className={styles.rail}>
+                <ToolGroup tools={TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
+                <div className={styles.separator} />
+                <ToolGroup tools={SHAPE_TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
+                <div className={styles.separator} />
+                <ToolGroup tools={DRAW_TOOLS} openStrip={openStrip} onStripToggle={handleStripToggle} />
+                <div className={styles.railSpacer} />
+                <button
+                    type="button"
+                    className={styles.railToggle}
+                    onClick={() =>
+                        expanded ? collapseLeftPanel() : expandLeftPanel("inspector")
+                    }
+                    title={expanded ? "Collapse panel" : "Expand panel"}
+                >
+                    <svg viewBox="0 0 20 20">
+                        {expanded ? (
+                            <path d="M13 4 L7 10 L13 16" />
+                        ) : (
+                            <path d="M7 4 L13 10 L7 16" />
+                        )}
+                    </svg>
+                </button>
+            </div>
+            {openStrip && (
+                <div
+                    className={styles.stripAnchor}
+                    style={{ top: stripTop, left: stripLeft }}
+                >
+                    <ToolStrip
+                        toolType={openStrip === "sticky" ? "sticky" : "rectangle"}
+                        onClose={() => {
+                            setOpenStrip(null);
+                            stripButtonRef.current = null;
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### MissionControl.tsx
+```tsx
+import { useEffect, useState } from "react";
+import type { Frame } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import { BoardCard } from "./BoardCard";
+import styles from "./MissionControl.module.css";
+
+interface Board {
+    id: string;
+    name: string;
+}
+
+export function MissionControl() {
+    const [boards, setBoards] = useState<Board[]>([]);
+    const frameClient = useBoardStore((s) => s.frameClient);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const boardId = useBoardStore((s) => s.boardId);
+    const navigateToBoard = useBoardStore((s) => s.navigateToBoard);
+
+    useEffect(() => {
+        if (!frameClient || connectionStatus !== "connected") return;
+
+        const requestId = crypto.randomUUID();
+
+        const handler = (frame: Frame) => {
+            if (frame.parent_id !== requestId) return;
+            if (frame.status === "done" && Array.isArray(frame.data.boards)) {
+                const list = frame.data.boards as unknown as Board[];
+                setBoards(list);
+            }
+        };
+
+        frameClient.on("board:list", handler);
+
+        frameClient.send({
+            id: requestId,
+            parent_id: null,
+            ts: Date.now(),
+            board_id: null,
+            from: null,
+            syscall: "board:list",
+            status: "request",
+            data: {},
+        });
+
+        return () => {
+            frameClient.off("board:list", handler);
+        };
+    }, [frameClient, connectionStatus]);
+
+    return (
+        <div className={styles.bar}>
+            <div className={styles.barInner}>
+                {boards.map((board) => (
+                    <BoardCard
+                        key={board.id}
+                        id={board.id}
+                        name={board.name}
+                        active={board.id === boardId}
+                        onClick={() => navigateToBoard?.(board.id, board.name)}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+```
+
+### RightPanel.tsx
+```tsx
+import React from "react";
+import { useBoardStore } from "../store/board";
+import type { RightTab } from "../store/board";
+import { AiPanel } from "./AiPanel";
+import { ChatPanel } from "./ChatPanel";
+import { MissionControl } from "./MissionControl";
+import styles from "./RightPanel.module.css";
+
+const TABS: { id: RightTab; label: string; icon: React.ReactNode }[] = [
+    {
+        id: "boards",
+        label: "Boards",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="2" width="7" height="7" rx="1" />
+                <rect x="11" y="2" width="7" height="7" rx="1" />
+                <rect x="2" y="11" width="7" height="7" rx="1" />
+                <rect x="11" y="11" width="7" height="7" rx="1" />
+            </svg>
+        ),
+    },
+    {
+        id: "chat",
+        label: "Chat",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M3 4 h14 a1 1 0 0 1 1 1 v8 a1 1 0 0 1 -1 1 h-9 l-4 3 v-3 h-1 a1 1 0 0 1 -1 -1 v-8 a1 1 0 0 1 1 -1 z" />
+            </svg>
+        ),
+    },
+    {
+        id: "ai",
+        label: "Field Notes",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M10 2 L12 8 L18 8 L13 12 L15 18 L10 14 L5 18 L7 12 L2 8 L8 8 Z" />
+            </svg>
+        ),
+    },
+];
+
+export function RightPanel() {
+    const activeTab = useBoardStore((s) => s.activeRightTab);
+    const expanded = useBoardStore((s) => s.rightPanelExpanded);
+    const collapseRightPanel = useBoardStore((s) => s.collapseRightPanel);
+    const expandRightPanel = useBoardStore((s) => s.expandRightPanel);
+
+    const handleRailClick = (tabId: RightTab) => {
+        if (expanded && activeTab === tabId) {
+            collapseRightPanel();
+        } else {
+            expandRightPanel(tabId);
+        }
+    };
+
+    return (
+        <div className={styles.wrapper}>
+            <div className={styles.rail}>
+                {TABS.map((tab) => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        className={`${styles.railButton} ${expanded && activeTab === tab.id ? styles.railButtonActive : ""}`}
+                        onClick={() => handleRailClick(tab.id)}
+                        title={tab.label}
+                    >
+                        {tab.icon}
+                    </button>
+                ))}
+                <div className={styles.railSpacer} />
+                <button
+                    type="button"
+                    className={styles.railToggle}
+                    onClick={() =>
+                        expanded ? collapseRightPanel() : expandRightPanel(activeTab)
+                    }
+                    title={expanded ? "Collapse panel" : "Expand panel"}
+                >
+                    <svg viewBox="0 0 20 20">
+                        {expanded ? (
+                            <path d="M7 4 L13 10 L7 16" />
+                        ) : (
+                            <path d="M13 4 L7 10 L13 16" />
+                        )}
+                    </svg>
+                </button>
+            </div>
+            {expanded && (
+                <div className={styles.panel}>
+                    <div className={styles.header}>
+                        <span className={styles.title}>
+                            {TABS.find((t) => t.id === activeTab)?.label}
+                        </span>
+                        <button
+                            type="button"
+                            className={styles.closeButton}
+                            onClick={collapseRightPanel}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className={styles.content}>
+                        {activeTab === "ai" && <AiPanel />}
+                        {activeTab === "chat" && <ChatPanel />}
+                        {activeTab === "boards" && <MissionControl />}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### StatusBar.tsx
+```tsx
+import { useBoardStore } from "../store/board";
+import styles from "./StatusBar.module.css";
+
+function IconMouse() {
+    return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+        </svg>
+    );
+}
+
+function IconCrosshair() {
+    return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+        </svg>
+    );
+}
+
+export function StatusBar() {
+    const objects = useBoardStore((s) => s.objects);
+    const viewport = useBoardStore((s) => s.viewport);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const user = useBoardStore((s) => s.user);
+    const boardName = useBoardStore((s) => s.boardName);
+    const cursorPosition = useBoardStore((s) => s.cursorPosition);
+    const viewportCenter = useBoardStore((s) => s.viewportCenter);
+
+    const objectCount = objects.size;
+    const zoom = Math.round(viewport.scale * 100);
+    const isConnected = connectionStatus === "connected";
+
+    return (
+        <div className={styles.statusBar}>
+            <div className={styles.section}>
+                <span className={styles.item}>
+                    <span
+                        className={`${styles.dot} ${isConnected ? styles.connected : ""}`}
+                    />
+                </span>
+                {boardName && (
+                    <>
+                        <span className={styles.divider} />
+                        <span className={styles.boardName}>{boardName}</span>
+                    </>
+                )}
+                <span className={styles.divider} />
+                <span className={styles.item}>
+                    {objectCount} {objectCount === 1 ? "obj" : "objs"}
+                </span>
+            </div>
+            <div className={styles.section}>
+                {cursorPosition && (
+                    <span className={styles.item}>
+                        <IconMouse />
+                        ({cursorPosition.x}, {cursorPosition.y})
+                    </span>
+                )}
+                <span className={styles.divider} />
+                <span className={styles.item}>
+                    <IconCrosshair />
+                    ({viewportCenter.x}, {viewportCenter.y})
+                </span>
+                <span className={styles.divider} />
+                {user && (
+                    <span className={styles.userChip}>
+                        <span
+                            className={styles.userDot}
+                            style={{ background: user.color }}
+                        />
+                        {user.name}
+                    </span>
+                )}
+                <span className={styles.divider} />
+                <span className={styles.item}>{zoom}%</span>
+            </div>
+        </div>
+    );
+}
+```
+
+### ToolRail.tsx
+```tsx
+import type { ReactNode } from "react";
+import type { ToolType } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import styles from "./ToolRail.module.css";
+
+interface ToolDef {
+    type: ToolType;
+    label: string;
+    icon: ReactNode;
+    disabled?: boolean;
+}
+
+const TOOLS: ToolDef[] = [
+    {
+        type: "select",
+        label: "Select",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M4 2 L4 16 L8 12 L12 18 L14 17 L10 11 L15 11 Z" />
+            </svg>
+        ),
+    },
+];
+
+const SHAPE_TOOLS: ToolDef[] = [
+    {
+        type: "sticky",
+        label: "Note",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="2" width="16" height="16" />
+                <line x1="5" y1="7" x2="15" y2="7" />
+                <line x1="5" y1="11" x2="12" y2="11" />
+            </svg>
+        ),
+    },
+    {
+        type: "rectangle",
+        label: "Rect",
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="4" width="16" height="12" />
+            </svg>
+        ),
+    },
+    {
+        type: "ellipse",
+        label: "Ellipse",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <ellipse cx="10" cy="10" rx="8" ry="6" />
+            </svg>
+        ),
+    },
+    {
+        type: "line",
+        label: "Line",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <line x1="3" y1="17" x2="17" y2="3" />
+            </svg>
+        ),
+    },
+    {
+        type: "connector",
+        label: "Arrow",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <line x1="3" y1="17" x2="17" y2="3" />
+                <polyline points="10,3 17,3 17,10" />
+            </svg>
+        ),
+    },
+    {
+        type: "text",
+        label: "Text",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <line x1="4" y1="4" x2="16" y2="4" />
+                <line x1="10" y1="4" x2="10" y2="17" />
+                <line x1="7" y1="17" x2="13" y2="17" />
+            </svg>
+        ),
+    },
+];
+
+const DRAW_TOOLS: ToolDef[] = [
+    {
+        type: "draw",
+        label: "Draw",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M3 17 L14 6 L16 4 L17 3 L14 6" />
+                <path d="M14 6 L16 8" />
+                <line x1="3" y1="17" x2="5" y2="15" />
+            </svg>
+        ),
+    },
+    {
+        type: "eraser",
+        label: "Eraser",
+        disabled: true,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <path d="M8 16 L3 11 L11 3 L18 10 L13 16 Z" />
+                <line x1="3" y1="16" x2="13" y2="16" />
+            </svg>
+        ),
+    },
+];
+
+function ToolGroup({ tools }: { tools: ToolDef[] }) {
+    const activeTool = useBoardStore((s) => s.activeTool);
+    const setTool = useBoardStore((s) => s.setTool);
+
+    return (
+        <>
+            {tools.map((tool) => (
+                <button
+                    key={tool.type}
+                    type="button"
+                    className={`${styles.toolButton} ${activeTool === tool.type ? styles.active : ""} ${tool.disabled ? styles.disabled : ""}`}
+                    onClick={() => !tool.disabled && setTool(tool.type)}
+                    title={tool.disabled ? `${tool.label} (coming soon)` : tool.label}
+                    disabled={tool.disabled}
+                >
+                    {tool.icon}
+                </button>
+            ))}
+        </>
+    );
+}
+
+export function ToolRail() {
+    return (
+        <div className={styles.rail}>
+            <ToolGroup tools={TOOLS} />
+            <div className={styles.separator} />
+            <ToolGroup tools={SHAPE_TOOLS} />
+            <div className={styles.separator} />
+            <ToolGroup tools={DRAW_TOOLS} />
+        </div>
+    );
+}
+```
+
+### ToolStrip.tsx
+```tsx
+import { useState } from "react";
+import { sendObjectCreate } from "../hooks/useFrameClient";
+import type { BoardObject } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import styles from "./ToolStrip.module.css";
+
+interface ShapePreset {
+    label: string;
+    width: number;
+    height: number;
+    icon: React.ReactNode;
+}
+
+const SHAPE_PRESETS: ShapePreset[] = [
+    {
+        label: "Square",
+        width: 120,
+        height: 120,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="3" y="3" width="14" height="14" />
+            </svg>
+        ),
+    },
+    {
+        label: "Tall",
+        width: 100,
+        height: 160,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="5" y="2" width="10" height="16" />
+            </svg>
+        ),
+    },
+    {
+        label: "Wide",
+        width: 200,
+        height: 100,
+        icon: (
+            <svg viewBox="0 0 20 20">
+                <rect x="2" y="5" width="16" height="10" />
+            </svg>
+        ),
+    },
+];
+
+interface ColorPreset {
+    label: string;
+    value: string;
+}
+
+const COLOR_PRESETS: ColorPreset[] = [
+    { label: "Red", value: "#D94B4B" },
+    { label: "Blue", value: "#4B7DD9" },
+    { label: "Green", value: "#4BAF6E" },
+];
+
+interface ToolStripProps {
+    toolType?: "rectangle" | "sticky";
+    onClose: () => void;
+}
+
+export function ToolStrip({ toolType = "rectangle", onClose }: ToolStripProps) {
+    const [shapeIndex, setShapeIndex] = useState(0);
+    const [colorIndex, setColorIndex] = useState(0);
+
+    const handleAdd = () => {
+        const store = useBoardStore.getState();
+        const { viewport, objects, boardId, viewportCenter } = store;
+
+        const preset = SHAPE_PRESETS[shapeIndex];
+        const color = COLOR_PRESETS[colorIndex];
+
+        const newObj: BoardObject = {
+            id: crypto.randomUUID(),
+            board_id: boardId ?? "",
+            kind: toolType === "sticky" ? "sticky_note" : "rectangle",
+            x: viewportCenter.x - preset.width / 2,
+            y: viewportCenter.y - preset.height / 2,
+            width: preset.width,
+            height: preset.height,
+            rotation: 0,
+            z_index: objects.size,
+            props:
+                toolType === "sticky"
+                    ? {
+                        title: "New note",
+                        text: "",
+                        color: color.value,
+                        backgroundColor: color.value,
+                        borderColor: color.value,
+                        borderWidth: 1,
+                    }
+                    : {
+                        color: color.value,
+                        backgroundColor: color.value,
+                        borderColor: color.value,
+                        borderWidth: 1,
+                    },
+            created_by: "local",
+            version: 1,
+        };
+
+        store.addObject(newObj);
+        sendObjectCreate(newObj);
+        store.setSelection(new Set([newObj.id]));
+        onClose();
+    };
+
+    return (
+        <div className={styles.strip}>
+            <div className={styles.options}>
+                {SHAPE_PRESETS.map((preset, i) => (
+                    <button
+                        key={preset.label}
+                        type="button"
+                        className={`${styles.option} ${i === shapeIndex ? styles.optionActive : ""}`}
+                        onClick={() => setShapeIndex(i)}
+                        title={preset.label}
+                    >
+                        {preset.icon}
+                    </button>
+                ))}
+            </div>
+            <div className={styles.divider} />
+            <div className={styles.options}>
+                {COLOR_PRESETS.map((color, i) => (
+                    <button
+                        key={color.label}
+                        type="button"
+                        className={`${styles.swatch} ${i === colorIndex ? styles.swatchActive : ""}`}
+                        onClick={() => setColorIndex(i)}
+                        title={color.label}
+                    >
+                        <span
+                            className={styles.swatchColor}
+                            style={{ background: color.value }}
+                        />
+                    </button>
+                ))}
+            </div>
+            <div className={styles.divider} />
+            <button
+                type="button"
+                className={styles.addButton}
+                style={{ background: COLOR_PRESETS[colorIndex].value }}
+                onClick={handleAdd}
+            >
+                Add
+            </button>
+        </div>
+    );
+}
+```
+
+### Toolbar.tsx
+```tsx
+import { useCallback, useRef, useState } from "react";
+import { useBoardStore } from "../store/board";
+import styles from "./Toolbar.module.css";
+import { UserFieldReport } from "./UserFieldReport";
+
+interface ToolbarProps {
+    onBack?: () => void;
+    onLogout?: () => void;
+}
+
+export function Toolbar({ onBack, onLogout }: ToolbarProps) {
+    const presence = useBoardStore((s) => s.presence);
+    const user = useBoardStore((s) => s.user);
+
+    const [activeReport, setActiveReport] = useState<{
+        userId: string;
+        anchorX: number;
+    } | null>(null);
+
+    const chipRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+
+    const allUsers = [
+        ...(user ? [{ id: user.id, name: user.name, color: user.color }] : []),
+        ...Array.from(presence.values()).map((p) => ({
+            id: p.user_id,
+            name: p.name,
+            color: p.color,
+        })),
+    ];
+
+    const handleChipClick = useCallback((userId: string) => {
+        const el = chipRefs.current.get(userId);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setActiveReport({
+            userId,
+            anchorX: rect.left + rect.width / 2,
+        });
+    }, []);
+
+    return (
+        <div className={styles.toolbar}>
+            <div className={styles.left}>
+                {onBack && (
+                    <button
+                        type="button"
+                        className={styles.actionButton}
+                        onClick={onBack}
+                        title="Back to Dashboard"
+                    >
+                        <svg viewBox="0 0 20 20" className={styles.actionIcon}>
+                            <path d="M12 4 L6 10 L12 16" />
+                        </svg>
+                    </button>
+                )}
+                <span className={styles.boardName}>CollabBoard</span>
+                <span className={styles.userDivider} />
+                {allUsers.map((u) => (
+                    <span
+                        key={u.id}
+                        ref={(el) => {
+                            if (el) chipRefs.current.set(u.id, el);
+                            else chipRefs.current.delete(u.id);
+                        }}
+                        className={styles.presenceChip}
+                        style={{ borderColor: u.color }}
+                        title={u.name}
+                        onClick={() => handleChipClick(u.id)}
+                    >
+                        <span
+                            className={styles.presenceDot}
+                            style={{ background: u.color }}
+                        />
+                        {u.name}
+                    </span>
+                ))}
+            </div>
+            <div className={styles.right}>
+                <button
+                    type="button"
+                    className={styles.actionButton}
+                    onClick={onLogout}
+                    title="Log Out"
+                >
+                    <svg viewBox="0 0 20 20" className={styles.actionIcon}>
+                        <path d="M9 4 L4 4 L4 16 L9 16" />
+                        <path d="M10 10 L17 10" />
+                        <path d="M14 7 L17 10 L14 13" />
+                    </svg>
+                </button>
+            </div>
+
+            {activeReport && (
+                <UserFieldReport
+                    userId={activeReport.userId}
+                    anchorX={activeReport.anchorX}
+                    direction="down"
+                    onClose={() => setActiveReport(null)}
+                />
+            )}
+        </div>
+    );
+}
+```
+
+### UserFieldReport.tsx
+```tsx
+import { useEffect, useState } from "react";
+import { fetchUserProfile } from "../lib/api";
+import type { UserProfile } from "../lib/types";
+import styles from "./UserFieldReport.module.css";
+
+interface UserFieldReportProps {
+    userId: string;
+    anchorX: number;
+    direction?: "up" | "down";
+    onClose: () => void;
+}
+
+export function UserFieldReport({
+    userId,
+    anchorX,
+    direction = "up",
+    onClose,
+}: UserFieldReportProps) {
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setLoading(true);
+        fetchUserProfile(userId).then((p) => {
+            setProfile(p);
+            setLoading(false);
+        });
+    }, [userId]);
+
+    // Position popover centered on the anchor, clamped to viewport
+    const left = Math.max(8, Math.min(anchorX - 120, window.innerWidth - 248));
+    const posStyle: React.CSSProperties =
+        direction === "down"
+            ? { left, top: 36, bottom: "auto" }
+            : { left, bottom: 32, top: "auto" };
+
+    return (
+        <>
+            <div className={styles.backdrop} onClick={onClose} />
+            <div className={styles.popover} style={posStyle}>
+                {loading ? (
+                    <div className={styles.loading}>Loading field report...</div>
+                ) : profile ? (
+                    <>
+                        <div className={styles.header}>
+                            {profile.avatar_url && (
+                                <img
+                                    className={styles.avatar}
+                                    src={profile.avatar_url}
+                                    alt={profile.name}
+                                />
+                            )}
+                            <div className={styles.headerInfo}>
+                                <span className={styles.name}>
+                                    {profile.name}
+                                </span>
+                                <span className={styles.badge}>
+                                    Field Agent
+                                    {profile.member_since
+                                        ? ` // Since ${profile.member_since}`
+                                        : ""}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className={styles.section}>
+                            <div className={styles.sectionTitle}>
+                                Activity Log
+                            </div>
+                            <div className={styles.row}>
+                                <span className={styles.rowLabel}>
+                                    Transmissions
+                                </span>
+                                <span className={styles.rowValue}>
+                                    {profile.stats.total_frames}
+                                </span>
+                            </div>
+                            <div className={styles.row}>
+                                <span className={styles.rowLabel}>
+                                    Objects Created
+                                </span>
+                                <span className={styles.rowValue}>
+                                    {profile.stats.objects_created}
+                                </span>
+                            </div>
+                            <div className={styles.row}>
+                                <span className={styles.rowLabel}>
+                                    Boards Active
+                                </span>
+                                <span className={styles.rowValue}>
+                                    {profile.stats.boards_active}
+                                </span>
+                            </div>
+                            {profile.stats.last_active && (
+                                <div className={styles.row}>
+                                    <span className={styles.rowLabel}>
+                                        Last Signal
+                                    </span>
+                                    <span className={styles.rowValue}>
+                                        {profile.stats.last_active}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {profile.stats.top_syscalls.length > 0 && (
+                            <div className={styles.section}>
+                                <div className={styles.sectionTitle}>
+                                    Top Operations
+                                </div>
+                                {profile.stats.top_syscalls.map((s) => (
+                                    <div
+                                        key={s.syscall}
+                                        className={styles.syscallBar}
+                                    >
+                                        <span className={styles.syscallName}>
+                                            {s.syscall}
+                                        </span>
+                                        <span className={styles.syscallCount}>
+                                            {s.count}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <div className={styles.loading}>Agent not found</div>
+                )}
+            </div>
+        </>
+    );
+}
+```
+
+## Pages Directory
+
+### BoardPage.tsx
+```tsx
+import { useEffect } from "react";
+import { Canvas } from "../canvas/Canvas";
+import { BoardStamp } from "../components/BoardStamp";
+import { LeftPanel } from "../components/LeftPanel";
+import { RightPanel } from "../components/RightPanel";
+import { StatusBar } from "../components/StatusBar";
+import { Toolbar } from "../components/Toolbar";
+import { useBoardStore } from "../store/board";
+
+interface BoardPageProps {
+    boardId: string;
+    boardName: string;
+    onBack?: () => void;
+    onLogout?: () => void;
+    onNavigate?: (id: string | null, name: string | null) => void;
+}
+
+export function BoardPage({ boardId, boardName, onBack, onLogout, onNavigate }: BoardPageProps) {
+    const setBoardId = useBoardStore((s) => s.setBoardId);
+    const setBoardName = useBoardStore((s) => s.setBoardName);
+    const clearPresence = useBoardStore((s) => s.clearPresence);
+    const frameClient = useBoardStore((s) => s.frameClient);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+    const setNavigateToBoard = useBoardStore((s) => s.setNavigateToBoard);
+
+    useEffect(() => {
+        setBoardId(boardId);
+        setBoardName(boardName);
+        // Clear per-board state so history reloads for the new board
+        useBoardStore.setState({ aiMessages: [], chatMessages: [] });
+        return () => {
+            setBoardId(null);
+            setBoardName(null);
+            clearPresence();
+        };
+    }, [boardId, boardName, setBoardId, setBoardName, clearPresence]);
+
+    // Expose navigate callback so MissionControl (in RightPanel) can trigger navigation
+    useEffect(() => {
+        if (onNavigate) {
+            setNavigateToBoard((id: string, name: string) => onNavigate(id, name));
+        }
+        return () => setNavigateToBoard(null);
+    }, [onNavigate, setNavigateToBoard]);
+
+    // Send board:join when connected and boardId is set
+    useEffect(() => {
+        if (!frameClient || connectionStatus !== "connected") return;
+
+        frameClient.send({
+            id: crypto.randomUUID(),
+            parent_id: null,
+            ts: Date.now(),
+            board_id: boardId,
+            from: null,
+            syscall: "board:join",
+            status: "request",
+            data: {},
+        });
+    }, [frameClient, connectionStatus, boardId]);
+
+    return (
+        <>
+            <Canvas />
+            <div
+                style={{
+                    position: "relative",
+                    zIndex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100vh",
+                    pointerEvents: "none",
+                }}
+            >
+                <Toolbar onBack={onBack} onLogout={onLogout} />
+                <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+                    <LeftPanel />
+                    <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+                        <BoardStamp />
+                    </div>
+                    <RightPanel />
+                </div>
+                <StatusBar />
+            </div>
+        </>
+    );
+}
+```
+
+### DashboardPage.tsx
+```tsx
+import { useCallback, useEffect, useState } from "react";
+import { BoardCard } from "../components/BoardCard";
+import type { Frame } from "../lib/types";
+import { useBoardStore } from "../store/board";
+import styles from "./DashboardPage.module.css";
+
+interface Board {
+    id: string;
+    name: string;
+}
+
+interface DashboardPageProps {
+    onOpenBoard: (id: string, name: string) => void;
+}
+
+export function DashboardPage({ onOpenBoard }: DashboardPageProps) {
+    const [boards, setBoards] = useState<Board[]>([]);
+    const [showCreate, setShowCreate] = useState(false);
+    const [newName, setNewName] = useState("");
+    const frameClient = useBoardStore((s) => s.frameClient);
+    const connectionStatus = useBoardStore((s) => s.connectionStatus);
+
+    useEffect(() => {
+        if (!frameClient || connectionStatus !== "connected") return;
+
+        const requestId = crypto.randomUUID();
+
+        const handler = (frame: Frame) => {
+            if (frame.parent_id !== requestId) return;
+            if (frame.status === "done" && Array.isArray(frame.data.boards)) {
+                const list = frame.data.boards as unknown as Board[];
+                setBoards(list);
+            }
+        };
+
+        frameClient.on("board:list", handler);
+
+        frameClient.send({
+            id: requestId,
+            parent_id: null,
+            ts: Date.now(),
+            board_id: null,
+            from: null,
+            syscall: "board:list",
+            status: "request",
+            data: {},
+        });
+
+        return () => {
+            frameClient.off("board:list", handler);
+        };
+    }, [frameClient, connectionStatus]);
+
+    const handleCreate = useCallback(() => {
+        if (!frameClient || !newName.trim()) return;
+
+        const requestId = crypto.randomUUID();
+
+        const handler = (frame: Frame) => {
+            if (frame.parent_id !== requestId) return;
+            if (frame.status === "done") {
+                const boardId = frame.data.id as string;
+                if (boardId) {
+                    frameClient.off("board:create", handler);
+                    onOpenBoard(boardId, newName.trim());
+                }
+            }
+        };
+
+        frameClient.on("board:create", handler);
+
+        frameClient.send({
+            id: requestId,
+            parent_id: null,
+            ts: Date.now(),
+            board_id: null,
+            from: null,
+            syscall: "board:create",
+            status: "request",
+            data: { name: newName.trim() },
+        });
+    }, [frameClient, newName, onOpenBoard]);
+
+    return (
+        <div className={styles.page}>
+            <div className={styles.header}>
+                <span className={styles.headerTitle}>CollabBoard</span>
+            </div>
+            <div className={styles.grid}>
+                <button
+                    type="button"
+                    className={styles.newCard}
+                    onClick={() => {
+                        setNewName("");
+                        setShowCreate(true);
+                    }}
+                >
+                    <svg viewBox="0 0 24 24" className={styles.newIcon}>
+                        <path d="M12 5 L12 19 M5 12 L19 12" />
+                    </svg>
+                </button>
+                {boards.map((board) => (
+                    <BoardCard
+                        key={board.id}
+                        id={board.id}
+                        name={board.name}
+                        onClick={() => onOpenBoard(board.id, board.name)}
+                    />
+                ))}
+            </div>
+
+            {showCreate && (
+                <div
+                    className={styles.backdrop}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setShowCreate(false);
+                    }}
+                    onKeyDown={() => {}}
+                    role="presentation"
+                >
+                    <div className={styles.dialog}>
+                        <label className={styles.dialogLabel}>Board Name</label>
+                        <input
+                            className={styles.dialogInput}
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") handleCreate();
+                            }}
+                            placeholder="Untitled Board"
+                            autoFocus
+                        />
+                        <div className={styles.dialogActions}>
+                            <button
+                                type="button"
+                                className={styles.dialogCancel}
+                                onClick={() => setShowCreate(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.dialogButton}
+                                onClick={handleCreate}
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+```
+
+### LoginPage.tsx
+```tsx
+export function LoginPage() {
+    const handleLogin = () => {
+        window.location.href = "/auth/github";
+    };
+
+    return (
+        <div
+            style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100vh",
+                background: "var(--bg-nav)",
+            }}
+        >
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "var(--space-lg)",
+                }}
+            >
+                <h1
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "var(--text-nav-active)",
+                    }}
+                >
+                    CollabBoard
+                </h1>
+                <button
+                    type="button"
+                    onClick={handleLogin}
+                    style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        padding: "var(--space-sm) var(--space-md)",
+                        background: "var(--accent-green)",
+                        color: "var(--text-nav-active)",
+                        border: "1px solid var(--accent-green)",
+                        cursor: "pointer",
+                    }}
+                >
+                    Login with GitHub
+                </button>
+            </div>
+        </div>
+    );
+}
+```
+
+---
+
+## Key Patterns Observed
+
+**State Management:**
+- Uses Zustand (`useBoardStore`) for global state
+- Selector pattern to extract specific slices
+- Direct state mutation via callbacks (`setState`, custom action methods)
+
+**Event Handlers:**
+- `onChange` for text inputs and textareas
+- `onKeyDown` with conditional key checking (Enter, Shift+Enter)
+- `onBlur` for input validation/commit
+- `onClick` for buttons and interactive elements
+- Custom handlers destructured from hooks
+
+**HTML/CSS Classes:**
+- Module imports (`import styles from "./Component.module.css"`)
+- Dynamic class construction via template literals and ternary operators
+- Conditional className application with `.filter(Boolean).join(" ")`
+- Inline styles for dynamic values (colors, positions, dimensions)
+
+**Component Communication:**
+- Props-based callbacks (`onClose`, `onNavigate`, `onOpenBoard`)
+- Frame client for server communication (event-based: `on()`, `off()`, `send()`)
+- History state tracking with `useRef` and `useEffect` dependencies
+
+**Data Structures:**
+- Maps for object lookups (`objects.get(id)`)
+- Sets for selections
+- Arrays of preset definitions (tools, shapes, colors)
+- Frame message format with `id`, `parent_id`, `ts`, `board_id`, `syscall`, `status`, `data`
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 3 assistant
+📋 Tool calls: 18 total, 0 failed
+📋 Files: 16 read
+📋 Tokens: 135 in, 44 out
+📋 Cache: 242.0K read, 49.7K created

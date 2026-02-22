@@ -1,0 +1,804 @@
+📋 Session: 0b18f779-672e-4526-b42d-0d9240d37c64
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T13:26:17.180+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 Implement the following plan:
+
+# Plan: Create `canvas/` Rust Crate (Scaffolding)
+
+## Context
+
+The design doc (`konva-rust-revised.md`) specifies a canvas engine crate to replace the React/Konva front-end. This plan creates the initial crate scaffolding — type definitions, module structure, stub implementations — so the API surface compiles and tests pass. No rendering or hit-testing logic yet.
+
+## Files to Create
+
+### 1. Workspace root: `Cargo.toml`
+- `[workspace]` with `resolver = "2"`, members: `server`, `canvas`
+- `[profile.dev] debug = 0` (moved from server — workspaces require profiles at root)
+
+### 2. `canvas/Cargo.toml`
+- Edition 2024, rust-version 1.85
+- `crate-type = ["cdylib", "rlib"]` (cdylib for WASM, rlib for native tests)
+- Deps: `wasm-bindgen`, `web-sys` (HtmlCanvasElement, CanvasRenderingContext2d, Window), `serde`, `serde_json`, `uuid`, `js-sys`
+- Same clippy lints as server
+
+### 3. `canvas/clippy.toml` + `canvas/rustfmt.toml`
+- Mirrors server conventions
+
+### 4. `canvas/src/lib.rs`
+- Crate root: mod declarations for `camera`, `doc`, `engine`, `hit`, `input`, `render`
+
+### 5. `canvas/src/doc.rs` + `doc_test.rs`
+- `ObjectId = Uuid`, `ObjectKind` enum (Rect/Ellipse/Diamond/Star/Line/Arrow, serde lowercase)
+- `BoardObject` struct, `PartialBoardObject` for sparse updates
+- `Props<'a>` helper for typed access to props JSON (fill, stroke, stroke_width, head, text, foot)
+- `DocStore` — HashMap with insert/remove/apply_partial/load_snapshot/sorted_objects
+- Tests: kind serde, store operations, props defaults
+
+### 6. `canvas/src/camera.rs` + `camera_test.rs`
+- `Point { x, y }`, `Camera { pan_x, pan_y, zoom }`
+- `screen_to_world`, `world_to_screen`, `screen_dist_to_world`
+- Tests: round-trip, zoom, pan, distance conversion
+
+### 7. `canvas/src/render.rs`
+- `draw(ctx, doc, camera, ui)` — `todo!()` stub
+
+### 8. `canvas/src/hit.rs`
+- `HitPart` enum (Body, ResizeHandle, RotateHandle, EdgeEndpoint, EdgeBody)
+- `ResizeAnchor` enum (N/Ne/E/Se/S/Sw/W/Nw), `EdgeEnd` enum (A/B)
+- `Hit { object_id, part }`, `hit_test()` — `todo!()` stub
+
+### 9. `canvas/src/input.rs`
+- `Tool` enum (Select/Rect/Ellipse/Diamond/Star/Line/Arrow)
+- `Modifiers`, `Button`, `Key`, `WheelDelta` types
+- `UiState { tool, selected_id }`, `InputState` enum (Idle/Panning/DraggingObject/DrawingShape/DraggingEdgeEndpoint)
+
+### 10. `canvas/src/engine.rs`
+- `Action` enum (None/ObjectCreated/ObjectUpdated/ObjectDeleted/EditTextRequested/SetCursor/RenderNeeded)
+- `Engine` struct owning canvas, doc, camera, ui, input, viewport dims
+- Full API surface with `todo!()` stubs for input handlers, set_viewport, render
+- Implemented: load_snapshot, apply_create/update/delete (delegate to DocStore), set_tool, selection/camera/object queries
+
+## File to Modify
+
+### `server/Cargo.toml`
+- Remove `[profile.dev] debug = 0` (now in workspace root)
+
+## Verification
+
+1. `cargo check -p canvas` — compiles (WASM deps resolve, types are consistent)
+2. `cargo test -p canvas` — doc and camera tests pass
+3. `cargo check -p gauntlet-week-1` — server still compiles under workspace
+4. `cargo clippy -p canvas` — no warnings
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-ianzepp-gauntlet-week-1/1876a3f8-4642-464c-a258-a1536b874a5d.jsonl
+📋 Model: opus-4.6
+🤖 I'll start by reading the existing server Cargo.toml and the design doc to get the exact details I need, then create all the files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/konva-rust-revised.md"
+✅ Glob: pattern="server/clippy.toml"
+✅ Glob: pattern="server/rustfmt.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/clippy.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/rustfmt.toml"
+🤖 Now I have all the context I need. Let me create all the files. I'll set up tasks to track progress and then create everything.
+✅ TaskCreate: {"activeForm":"Creating workspace configuration","description":"Create workspace Cargo.toml, remove profile.dev from server/Cargo.toml","subject":"Cre...
+✅ TaskCreate: {"activeForm":"Creating canvas crate files","description":"Create canvas/Cargo.toml, clippy.toml, rustfmt.toml, and all src modules","subject":"Create...
+✅ TaskCreate: {"activeForm":"Verifying compilation and tests","description":"Run cargo check, cargo test, cargo clippy for both crates","subject":"Verify compilatio...
+✅ TaskUpdate: {"status":"in_progress","taskId":"1"}
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/Cargo.toml"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/Cargo.toml"
+✅ TaskUpdate: {"status":"completed","taskId":"1"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"2"}
+🤖 Now let me create all the canvas crate files in parallel.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/Cargo.toml"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/clippy.toml"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/rustfmt.toml"
+🤖 Now let me create all the source files.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera_test.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc_test.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"2"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"3"}
+🤖 All files created. Now let me verify compilation and tests.
+✅ Bash: cargo check -p canvas 2>&1
+❌ Bash: cargo test -p canvas 2>&1
+❌ Bash: cargo check -p gauntlet-week-1 2>&1
+🤖 The test module paths need to be `#[path]`-annotated since the test files are siblings, not in subdirectories. Let me fix that.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+✅ Bash: cargo test -p canvas 2>&1
+✅ Bash: cargo check -p gauntlet-week-1 2>&1
+🤖 All 18 tests pass, server compiles. Now run clippy.
+✅ Bash: cargo clippy -p canvas 2>&1
+🤖 There are clippy warnings — mostly `#[must_use]` and one `redundant_closure` and one `struct_excessive_bools`. Let me fix them all.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+🤖 Now fix doc.rs — add `#[must_use]` and fix the redundant closure.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+🤖 Now fix engine.rs, hit.rs, and input.rs.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+🤖 Now run clippy and tests again to verify clean.
+✅ Bash: cargo clippy -p canvas 2>&1
+✅ Bash: cargo test -p canvas 2>&1
+🤖 All clean. Let me verify the server still compiles too.
+✅ Bash: cargo check -p gauntlet-week-1 2>&1
+✅ TaskUpdate: {"status":"completed","taskId":"3"}
+🤖 All four verification checks pass:
+
+1. `cargo check -p canvas` — compiles clean
+2. `cargo test -p canvas` — **18 tests pass** (7 camera, 11 doc)
+3. `cargo check -p gauntlet-week-1` — server compiles under workspace
+4. `cargo clippy -p canvas` — **0 warnings**
+
+### Summary of created/modified files
+
+**Created:**
+- `Cargo.toml` — workspace root with `resolver = "2"`, members `[server, canvas]`, `[profile.dev] debug = 0`
+- `canvas/Cargo.toml` — edition 2024, cdylib+rlib, deps: wasm-bindgen, web-sys, serde, uuid, js-sys
+- `canvas/clippy.toml` + `canvas/rustfmt.toml` — mirrors server conventions
+- `canvas/src/lib.rs` — mod declarations for all 6 modules
+- `canvas/src/camera.rs` + `camera_test.rs` — `Point`, `Camera`, coordinate conversions, 7 tests
+- `canvas/src/doc.rs` + `doc_test.rs` — `ObjectId`, `ObjectKind`, `BoardObject`, `PartialBoardObject`, `Props`, `DocStore`, 11 tests
+- `canvas/src/render.rs` — `draw()` stub
+- `canvas/src/hit.rs` — `HitPart`, `ResizeAnchor`, `EdgeEnd`, `Hit`, `hit_test()` stub
+- `canvas/src/input.rs` — `Tool`, `Modifiers`, `Button`, `Key`, `WheelDelta`, `UiState`, `InputState`
+- `canvas/src/engine.rs` — `Action` enum, `Engine` struct with full API surface (implemented queries + data methods, `todo!()` stubs for input/render)
+
+**Modified:**
+- `server/Cargo.toml` — removed `[profile.dev]` section (now in workspace root)
+👤 How much of the doc was implemented?
+🤖 Looking at what was implemented versus what the design doc specifies:
+
+**Fully implemented (compiles, tested, ready to build on):**
+- `doc` module — `ObjectId`, `ObjectKind` (all 6 variants with serde), `BoardObject`, `PartialBoardObject` (with shallow props merge), `Props<'a>` helper with defaults, `DocStore` with all operations
+- `camera` module — `Point`, `Camera` with `screen_to_world`, `world_to_screen`, `screen_dist_to_world`
+- `input` module — all type definitions: `Tool`, `Modifiers`, `Button`, `Key`, `WheelDelta`, `UiState`, `InputState`
+- `hit` module — all type definitions: `HitPart`, `ResizeAnchor`, `EdgeEnd`, `Hit`
+- `engine` module — `Action` enum (all 7 variants), `Engine` struct, query methods (`selection`, `camera`, `object`), data methods (`load_snapshot`, `apply_create/update/delete`, `set_tool`, `set_text`)
+
+**Stubbed with `todo!()` (API surface exists, no logic):**
+- `engine.set_viewport` — canvas sizing / DPR setup
+- `engine.on_pointer_down/move/up` — input state machine
+- `engine.on_wheel` — pan/zoom handling
+- `engine.on_key_down/up` — keyboard shortcuts
+- `engine.render` — delegates to render module
+- `render::draw` — grid, shapes, edges, selection UI, text
+- `hit::hit_test` — geometric hit testing
+
+**Not started (future modules/features from the doc):**
+- Actual rendering (grid, shape drawing, text via `fillText`, selection UI, arrowheads)
+- Hit-test algorithms (point-in-rotated-rect, ellipse equation, edge distance)
+- Input state machine (drag, resize, rotate, create shape, pan/zoom gestures)
+- Canvas DPR sizing and transform setup
+- Edge endpoint (`props.a`/`props.b`) typed access in `Props`
+
+In short: **all types, data structures, and the public API boundary are done**. The scaffolding matches the design doc's module split exactly. What remains is the behavioral logic — rendering, hit-testing, and the input state machine — which is the bulk of the v0 work.
+👤 Let's start laying the groundwork for exhaustive tests, and I mean exhaustive. All tests should be in *_test.rs dedicated files, all non-test code should be designed with limited scope per function so aggressive unit testing can be performed. State is passed as neccessary. Do these ground rules make sense?
+🤖 Yes, those ground rules are clear:
+
+1. **All tests in `*_test.rs` files** — already the pattern from scaffolding (`camera_test.rs`, `doc_test.rs`)
+2. **Small, focused functions** — each does one thing, easy to test in isolation
+3. **State passed in, not hidden** — functions take their dependencies as parameters rather than reaching into global/struct state, so tests can construct exactly the inputs they need
+
+This means when implementing the `todo!()` stubs, I should decompose them into small pure functions (e.g., `hit_test_rect(point, x, y, w, h, rotation) -> bool` rather than one giant `hit_test` that reads everything from `DocStore`) and wire them together at the top level.
+
+Want me to start implementing a specific module? The design doc's implementation order suggests camera/render first, but hit-testing and input have the most decomposable logic to test. What's your priority?
+👤 Let's save these groundrules to CLAUDE.md and/or a memory.
+🤖 I'll save to both — project-level CLAUDE.md for this repo and memory for cross-session recall.
+✅ Glob: pattern="CLAUDE.md"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/CLAUDE.md"
+✅ Write: file="/Users/ianzepp/.claude/projects/-Users-ianzepp-github-ianzepp-gauntlet-week-1/memory/MEMORY.md"
+🤖 Done. Ground rules are saved in:
+- **`CLAUDE.md`** (project root) — will be loaded automatically for this repo
+- **`memory/MEMORY.md`** — persists across sessions as context
+👤 Before moving on with implementation, what tests are required for the initial code you created?
+🤖 Looking at the existing code, here's what's missing test coverage for:
+
+### `camera` — mostly covered, missing:
+- Default camera values (pan 0, zoom 1)
+- `screen_to_world` with combined pan + zoom (not just separate)
+- Zero/negative zoom edge cases (degenerate but should be defined)
+
+### `doc` — good coverage, missing:
+- `BoardObject` full serde round-trip (serialize -> deserialize)
+- `PartialBoardObject` serde — verify `skip_serializing_if` works (None fields omitted)
+- `apply_partial` for every individual field (width, height, rotation, z_index, version — currently only tests x/y)
+- `apply_partial` props merge with new keys (not just update/remove)
+- `DocStore::remove` on nonexistent ID returns `None`
+- `DocStore::get` on nonexistent ID returns `None`
+- `sorted_objects` with identical z_index verifies id-based tiebreak deterministically
+- `sorted_objects` on empty store
+- `load_snapshot` replaces (not appends to) existing data — partially tested but could be more explicit
+- `Props` with partial fields set (e.g., fill set but stroke missing — should get default for stroke)
+- `Default` for `DocStore` and `PartialBoardObject`
+
+### `input` — zero tests:
+- `Tool::default()` is `Select`
+- `InputState::default()` is `Idle`
+- `UiState::default()` — tool is Select, selected_id is None
+- `Modifiers::default()` — all false
+
+### `hit` — zero tests for types:
+- `HitPart`, `ResizeAnchor`, `EdgeEnd` equality/clone/debug (derive correctness)
+
+### `engine` — zero tests:
+- `load_snapshot` populates doc, queryable via `object()`
+- `apply_create` then `object()` returns it
+- `apply_update` modifies fields
+- `apply_delete` removes object and clears selection if it was selected
+- `set_tool` changes tool state
+- `set_text` updates props and returns `ObjectUpdated` action
+- `selection()` returns `None` initially
+- `camera()` returns default initially
+
+That's roughly **30-40 additional tests** across the five modules. Want me to write them all?
+👤 Please proceed.
+🤖 I'll write all the tests in parallel across the modules. Engine tests need special handling since `Engine::new` requires an `HtmlCanvasElement` which is only available in WASM — let me check how that's structured first.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+🤖 The `Engine` struct requires `HtmlCanvasElement` which won't be available in native tests. I need to refactor Engine to make it testable — extract the logic from the canvas dependency. Let me restructure engine to separate the testable logic, then write all the tests.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+🤖 Now let me write all the test files in parallel.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera_test.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc_test.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input_test.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit_test.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine_test.rs"
+🤖 Now I need to add the test module declarations for `input` and `hit` (they didn't have them before).
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+🤖 Now let's build and test.
+✅ Bash: cargo test -p canvas 2>&1
+🤖 Now let me verify clippy is still clean.
+✅ Bash: cargo clippy -p canvas 2>&1
+🤖 **131 tests passing, 0 clippy warnings.** Here's the breakdown by module:
+
+| Module | Tests | Coverage areas |
+|--------|-------|----------------|
+| `camera` | 27 | Point construction/equality/debug, Camera defaults, screen_to_world (identity/zoom/pan/combined/negative/origin), world_to_screen (same), round-trips (identity/pan+zoom/fractional/both directions), screen_dist_to_world (identity/zoom/fractional/zero/pan-independent) |
+| `doc` | 48 | ObjectKind serde (roundtrip/all variants/deserialize/invalid/clone/debug), BoardObject serde (roundtrip/null created_by/lowercase kind), PartialBoardObject (default/skip-none/roundtrip), DocStore insert/get/remove (basic/nonexistent/overwrite/isolation), apply_partial (each field individually/multiple/missing id/empty noop), props merge (add/update/null-remove/combined), load_snapshot (replace/empty), sorted_objects (empty/z_index/tiebreak-by-id/single/negative), Props (defaults/all values/partial/integer coerce/wrong type/newlines) |
+| `engine` | 24 | EngineCore defaults (selection/camera/tool/doc/viewport), load_snapshot (populate/replace/empty), apply_create (single/multiple), apply_update (modify/nonexistent), apply_delete (remove/clears selection/preserves other selection/nonexistent), set_tool (change/all variants), set_text (updates props/returns action/preserves other props/empty strings), queries (missing/correct) |
+| `hit` | 13 | HitPart equality/variants/debug, ResizeAnchor all-variants-distinct/clone, EdgeEnd equality/clone, Hit construction/resize/edge/debug/clone |
+| `input` | 18 | Tool default/equality/clone/debug/all-distinct, Modifiers default/flags/clone, Button equality/distinct/debug, Key equality/clone/value, WheelDelta values/clone, UiState defaults, InputState default/debug |
+
+Key refactor: extracted `EngineCore` from `Engine` to separate testable logic from the WASM-only `HtmlCanvasElement` dependency. `Engine` now wraps `EngineCore` and delegates.
+👤 Please commit all
+✅ Bash: git status
+✅ Bash: git diff
+✅ Bash: git log --oneline -5
+✅ Bash: git add CLAUDE.md Cargo.toml Cargo.lock canvas/ server/Cargo.toml
+✅ Bash: git commit -m "$(cat <<'EOF' ↵ Add canvas crate scaffolding with exhaustive tests (131 passing) ↵  ↵ Workspace setup with canvas and server crates. Canvas crate includes ↵ doc store, camera, hit-testing types...
+🤖 Committed as `f76a2df` — 19 files, 5182 insertions. 131 tests passing, 0 clippy warnings.
+👤 One more rule: no panic capable code. no dangerous unwraps, etc..
+🤖 I'll add that rule and then audit the existing code for violations.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/CLAUDE.md"
+✅ Edit: file="/Users/ianzepp/.claude/projects/-Users-ianzepp-github-ianzepp-gauntlet-week-1/memory/MEMORY.md"
+🤖 Now let me audit the existing non-test code for violations.
+✅ Grep: pattern="\.(unwrap|expect)\(|panic!\(|todo!\(|unreachable!\(" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+🤖 Current violations are all `todo!()` stubs — which are the unimplemented placeholders from scaffolding. No `.unwrap()` or `.expect()` in production code.
+
+Rules saved. The existing `todo!()` stubs will be replaced with real implementations (returning `Vec::new()`, `Option::None`, etc.) as each module gets built out.
+👤 can I have a hygiene test to enforce that rule? see ../prior (hygiene file) as an example
+✅ Glob: pattern="**/prior/**/hygiene*" path="/Users/ianzepp/github/ianzepp"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/tests/hygiene.rs"
+🤖 Good reference. Now let me create the hygiene test for the canvas crate, adapted to this project's conventions (test files are `*_test.rs`, not `*.test.rs`).
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/tests/hygiene.rs"
+❌ Bash: cargo test -p canvas --test hygiene 2>&1
+🤖 There's an `#[allow(dead_code)]` in engine.rs. Let me check what it's on and fix it — these fields are genuinely unused right now but will be used when stubs are implemented. The cleanest fix is to prefix them with `_` instead of using the allow attribute.
+✅ Grep: pattern="#\[allow\(dead_code\)\]" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Bash: cargo test -p canvas 2>&1
+🤖 **140 tests passing** (131 unit + 9 hygiene), 0 failures.
+
+The hygiene test enforces:
+- **Zero budget**: `.unwrap()`, `.expect()`, `panic!()`, `unreachable!()`, `unimplemented!()`, `let _ =`, `.ok()`, `#[allow(dead_code)]`
+- **Ratcheted budget**: `todo!()` at 10 (current stub count) — must decrease as stubs get implemented, never grow
+
+Each failure reports the exact file and count so you know where to look.
+👤 another project rule: when implementing a feature or scope of work, at the end always cargo fmt, clippy, pass tests, and then autocommit.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/CLAUDE.md"
+✅ Edit: file="/Users/ianzepp/.claude/projects/-Users-ianzepp-github-ianzepp-gauntlet-week-1/memory/MEMORY.md"
+🤖 Now let me follow the rule and commit the work done so far (hygiene tests + CLAUDE.md updates).
+✅ Bash: cargo fmt -p canvas
+✅ Bash: cargo clippy -p canvas 2>&1
+✅ Bash: cargo test -p canvas 2>&1
+🤖 All green. Auto-committing.
+✅ Bash: git add CLAUDE.md canvas/tests/hygiene.rs canvas/src/engine.rs canvas/src/camera.rs canvas/src/doc.rs canvas/src/doc_test.rs canvas/src/hit.rs canvas/src/input.rs canvas/src/input_test.rs canvas/src/e...
+🤖 Done. Committed as `e53bf58`. Rule saved to CLAUDE.md and memory — I'll follow the fmt/clippy/test/commit workflow automatically from now on.
+👤 ok, what's the next phase for canvas/
+🤖 Based on the design doc's implementation order and current state:
+
+**Done:** Types, data structures, API surface, exhaustive tests, hygiene enforcement
+
+**Next logical phase:** Implement the `todo!()` stubs, starting with the ones that don't require rendering or browser APIs.
+
+I'd suggest this order:
+
+1. **Camera helpers** — `set_viewport` (store width/height/dpr) — trivial, unblocks render later
+2. **Hit-testing primitives** — decomposed pure functions:
+   - `point_in_rect(pt, x, y, w, h, rotation) -> bool`
+   - `point_in_ellipse(pt, x, y, w, h, rotation) -> bool`
+   - `point_in_diamond(pt, x, y, w, h, rotation) -> bool`
+   - `point_in_star(pt, x, y, w, h, rotation) -> bool`
+   - `distance_to_segment(pt, a, b) -> f64`
+   - `point_near_circle(pt, center, radius) -> bool`
+   - Then wire into `hit_test()` with handle/endpoint checking
+3. **Input state machine** — pointer down/move/up, wheel, key handlers — emits `Action` values
+4. **Render** — last, since it needs browser APIs and is harder to unit test
+
+Phase 2 (hit-testing) is the best bang-for-buck next step — it's pure math, highly testable, and every input handler depends on it. Want me to start there?
+👤 proceed with 1 and 2. extensive tests for both.
+✅ TaskCreate: {"activeForm":"Implementing set_viewport","description":"Store width/height/dpr in EngineCore. Replace todo!() stub. Add tests for set_viewport.","sub...
+✅ TaskCreate: {"activeForm":"Implementing hit-testing primitives","description":"Decomposed pure geometry functions: point_in_rect, point_in_ellipse, point_in_diamo...
+✅ TaskUpdate: {"status":"in_progress","taskId":"4"}
+🤖 Let me start with set_viewport — straightforward, then move to hit-testing.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+🤖 Now I'll implement `set_viewport` on `EngineCore` and delegate from `Engine`, replacing the `todo!()`.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+🤖 Now add set_viewport tests to the engine test file.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine_test.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine_test.rs"
+🤖 Quick check that set_viewport works before moving to the big hit-testing implementation.
+✅ Bash: cargo test -p canvas --lib engine 2>&1
+✅ TaskUpdate: {"status":"completed","taskId":"4"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"5"}
+🤖 Now for the big one — hit-testing. I need to build out `hit.rs` with pure geometry functions and wire them into `hit_test()`. Let me also check what edge endpoint data looks like in the props.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+🤖 Now let me write the full hit-testing module with decomposed pure functions and the wired-up `hit_test`.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+🤖 Now let me write extensive tests for all the primitives and the composite hit_test.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit_test.rs"
+❌ Bash: cargo test -p canvas --lib hit 2>&1
+🤖 No `FRAC_PI_5` constant — I need to compute it manually. For a 10-point star polygon, the angular step is `2*PI / 10 = PI / 5`.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+❌ Bash: cargo test -p canvas --lib hit 2>&1
+👤 [Request interrupted by user]
+👤 continue
+🤖 The star tip at (50, 0) is exactly on a vertex — ray-casting is unreliable on exact boundaries. I'll fix the test to use a point just inside the tip instead.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit_test.rs"
+✅ Bash: cargo test -p canvas --lib hit 2>&1
+🤖 99 hit tests passing. Now run the full pipeline: fmt, clippy, all tests, then commit.
+✅ Bash: cargo fmt -p canvas && cargo clippy -p canvas 2>&1
+🤖 4 clippy warnings to fix. Let me address them.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+🤖 Now the `cast_precision_loss` warning — the `i as f64` cast. For a loop over 0..10, this is perfectly safe. I'll allow it locally.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Bash: cargo clippy -p canvas 2>&1
+🤖 Clean. Now full test suite.
+✅ Bash: cargo test -p canvas 2>&1
+🤖 **230 tests passing** (221 unit + 9 hygiene), 0 clippy warnings. Auto-committing.
+✅ Bash: git add canvas/src/engine.rs canvas/src/engine_test.rs canvas/src/hit.rs canvas/src/hit_test.rs && git commit -m "$(cat <<'EOF' ↵ Implement set_viewport and full hit-testing with 99 geometry tests ↵  ↵ Engi...
+🤖 Now let me ratchet down the hygiene todo budget since we removed one `todo!()`.
+✅ Grep: pattern="todo!\(" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+🤖 Down from 10 to 8 (removed `set_viewport` todo + `hit_test` todo).
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/tests/hygiene.rs"
+✅ Bash: cargo fmt -p canvas && cargo clippy -p canvas 2>&1 && cargo test -p canvas --test hygiene 2>&1
+✅ Bash: git add canvas/tests/hygiene.rs && git commit -m "$(cat <<'EOF' ↵ Ratchet todo budget from 10 to 8 after hit-test implementation ↵  ↵ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com> ↵ EOF ↵ )"
+✅ TaskUpdate: {"status":"completed","taskId":"5"}
+🤖 Done. Here's the summary:
+
+### Phase 1: `set_viewport`
+- Implemented on `EngineCore`, delegated from `Engine`
+- 4 tests (store dimensions, overwrite, zero, fractional DPR)
+
+### Phase 2: Hit-testing
+**Pure geometry primitives** (each independently testable):
+- `rotate_point` — rotate around arbitrary origin (8 tests)
+- `world_to_local` — transform into unrotated local space (3 tests)
+- `point_in_rect` / `point_in_local_rect` — AABB + rotation (7 tests)
+- `point_in_ellipse` / `point_in_local_ellipse` — ellipse equation (9 tests)
+- `point_in_diamond` / `point_in_local_diamond` — L1 norm diamond (7 tests)
+- `point_in_star` / `point_in_local_star` — 10-vertex polygon (7 tests)
+- `point_in_polygon` — ray-casting even-odd (6 tests)
+- `distance_to_segment` / `distance_sq_to_segment` — point-to-segment (9 tests)
+- `point_near_point` — circle proximity (4 tests)
+- `edge_endpoint_a/b` — extract endpoints from props JSON (5 tests)
+- `resize_handle_positions` — 8 handles in world space (3 tests)
+- `rotate_handle_position` — above N handle, zoom-aware (2 tests)
+
+**Composite `hit_test`** (wires everything together):
+- Tests handles on selected objects first (resize, rotate, edge endpoints)
+- Falls back to body hit in reverse draw order
+- 16 integration tests (all shapes, edges, handles, priority, zoom scaling, empty doc)
+
+**Total: 230 tests passing, 0 clippy warnings, todo budget ratcheted to 8.**
+👤 let's add a "constants" file someplace to capture constants (like FRAC_PI_5) that aren't in the std lib
+🤖 Good idea — a single place for shared numeric constants.
+✅ Grep: pattern="const " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+🤖 Let me also check what math constants are used.
+✅ Grep: pattern="std::f64::consts" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/consts.rs"
+🤖 Now update `lib.rs` to declare the module, and update `hit.rs` to use the shared constants.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs"
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs"
+🤖 Now update `hit.rs` to use the constants from `consts`.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+🤖 Now replace the inline constants in `point_in_local_star`:
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Bash: cargo fmt -p canvas && cargo clippy -p canvas 2>&1
+✅ Bash: cargo test -p canvas 2>&1
+🤖 230 passing, 0 warnings.
+✅ Bash: git add canvas/src/consts.rs canvas/src/lib.rs canvas/src/hit.rs && git commit -m "$(cat <<'EOF' ↵ Extract shared constants into canvas/src/consts.rs ↵  ↵ Centralizes FRAC_PI_5, HANDLE_RADIUS_PX, ROTATE_HAN...
+🤖 Done. `canvas/src/consts.rs` now holds:
+
+- `FRAC_PI_5` — π/5 (36°), the angular step for star polygons
+- `HANDLE_RADIUS_PX` — screen-space hit slop for handles/edges (8px)
+- `ROTATE_HANDLE_OFFSET_PX` — rotate handle distance from bounding box (24px)
+- `STAR_INNER_RATIO` — inner/outer radius ratio for 5-point stars (0.5)
+
+Any future math or layout constants go here rather than being inlined.
+👤 tell me about the rac-tracing comment from earlier.. and why you changed the test.
+🤖 The ray-casting (even-odd) algorithm works by casting a horizontal ray from the test point and counting how many polygon edges it crosses. If odd, the point is inside; if even, it's outside.
+
+The problem is when the ray passes exactly through a vertex — it intersects two edges that share that vertex, and depending on floating-point evaluation, it might count as 0, 1, or 2 crossings. The result is undefined/unreliable at exact boundary points.
+
+The star's top tip vertex is at exactly `(50.0, 0.0)`. The horizontal ray from that point grazes the vertex where two edges meet, so the crossing count is ambiguous. That's why the test failed — not because the geometry logic is wrong, but because exact-vertex points are a degenerate case for ray-casting.
+
+I moved the test point to `(50.0, 1.0)` — just 1 unit inside the tip — which is unambiguously interior and avoids the boundary degeneracy.
+
+This is a known limitation of ray-casting polygon tests. The alternatives are:
+- **Winding number** algorithm (handles boundaries better but more complex)
+- **Epsilon offset** the ray slightly to avoid vertex alignment
+- **Accept the limitation** and don't rely on exact-boundary behavior
+
+For hit-testing in a whiteboard, the practical impact is zero — a user clicking exactly on a pixel-perfect vertex would be within the handle slop radius anyway. So accepting the limitation is the right call here.
+👤 This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me chronologically analyze the entire conversation:
+
+1. **Initial plan implementation request**: User provided a detailed plan to create a `canvas/` Rust crate scaffolding. This included workspace setup, module structure, type definitions, and stub implementations.
+
+2. **File creation phase**: I created all the files specified in the plan:
+   - Workspace root `Cargo.toml`
+   - Modified `server/Cargo.toml` (removed profile.dev)
+   - `canvas/Cargo.toml`, `clippy.toml`, `rustfmt.toml`
+   - All source modules: `lib.rs`, `camera.rs`, `doc.rs`, `render.rs`, `hit.rs`, `input.rs`, `engine.rs`
+   - Test files: `camera_test.rs`, `doc_test.rs`
+
+3. **Errors encountered during scaffolding**:
+   - Test module path issue: `mod camera_test;` and `mod doc_test;` couldn't find files because they were siblings, not in subdirectories. Fixed with `#[path = "camera_test.rs"]`.
+   - Clippy warnings: `#[must_use]`, `redundant_closure_for_method_calls`, `struct_excessive_bools`. All fixed.
+
+4. **User asked about doc coverage**: I analyzed what was implemented vs what the design doc specifies.
+
+5. **User established ground rules for testing**:
+   - All tests in `*_test.rs` files
+   - Small focused functions with limited scope
+   - State passed as parameters, not hidden
+   - User confirmed these rules
+
+6. **User asked to save ground rules**: Saved to `CLAUDE.md` and `memory/MEMORY.md`.
+
+7. **User asked what tests are required**: I enumerated ~30-40 missing tests across all modules.
+
+8. **User said "Please proceed"**: I wrote extensive tests for all modules. Key refactor: extracted `EngineCore` from `Engine` to separate testable logic from WASM-only `HtmlCanvasElement`. All 131 tests passing, committed.
+
+9. **User said "no panic capable code"**: Added safety rules to CLAUDE.md and memory. Created `canvas/tests/hygiene.rs` with budget-based enforcement. Fixed `#[allow(dead_code)]` in engine.rs by renaming `canvas` to `_canvas`. Committed.
+
+10. **User established workflow rule**: "cargo fmt, clippy, pass tests, and then autocommit" after completing any feature. Saved to CLAUDE.md and memory.
+
+11. **User asked about next phase**: I suggested implementation order: set_viewport, hit-testing, input state machine, render. User chose to proceed with 1 and 2.
+
+12. **Implementation of set_viewport**: Trivial - store width/height/dpr on EngineCore, delegate from Engine. 4 tests added.
+
+13. **Implementation of hit-testing**: Major implementation with decomposed pure functions:
+    - `rotate_point`, `world_to_local`, `point_in_rect`, `point_in_ellipse`, `point_in_diamond`, `point_in_star`, `point_in_polygon`, `distance_to_segment`, `distance_sq_to_segment`, `point_near_point`, `edge_endpoint_a/b`, `resize_handle_positions`, `rotate_handle_position`
+    - Composite `hit_test` function wiring everything together
+    - 99 hit tests
+
+14. **Errors during hit-testing**:
+    - `FRAC_PI_5` doesn't exist in std::f64::consts - replaced with `std::f64::consts::PI / 5.0`
+    - `star_tip_hit` test failed - exact vertex is degenerate for ray-casting, changed to test just inside
+    - Clippy warnings: `similar_names`, `needless_range_loop`, `cast_precision_loss` - all fixed
+
+15. **Constants extraction**: User asked for a `consts.rs` file. Created with `FRAC_PI_5`, `HANDLE_RADIUS_PX`, `ROTATE_HANDLE_OFFSET_PX`, `STAR_INNER_RATIO`.
+
+16. **Ray-casting discussion**: User asked about the star tip test change. I explained the vertex degeneracy issue with ray-casting even-odd algorithm.
+
+Final state: 230 tests (221 unit + 9 hygiene), 0 clippy warnings, todo budget at 8.
+
+Summary:
+1. Primary Request and Intent:
+   - Implement a `canvas/` Rust crate scaffolding based on the design doc `konva-rust-revised.md`, which describes a Rust/WASM whiteboard canvas engine to replace a React/Konva front-end
+   - Establish and enforce strict project ground rules: exhaustive tests in dedicated `*_test.rs` files, small focused functions with state passed as parameters, no panic-capable code in production, and auto-commit workflow (fmt → clippy → test → commit)
+   - Implement `set_viewport` and full hit-testing with decomposed pure geometry functions and extensive tests
+   - Extract shared constants into a dedicated `consts.rs` file
+
+2. Key Technical Concepts:
+   - Rust workspace with two crates: `server` (gauntlet-week-1) and `canvas`
+   - WASM target: `crate-type = ["cdylib", "rlib"]` for both WASM and native tests
+   - `EngineCore` / `Engine` split pattern: separates testable logic from browser-only `HtmlCanvasElement` dependency
+   - Ray-casting (even-odd) polygon containment algorithm — known vertex degeneracy limitation
+   - World/screen coordinate system with Camera (pan_x, pan_y, zoom) transformations
+   - Hit-testing priority: selected object handles first, then reverse draw-order body tests
+   - Hygiene tests with ratcheting budgets to enforce code quality rules
+   - Design doc specifies: `doc`, `camera`, `render`, `hit`, `input`, `engine` module split
+   - All geometry in world coordinates; camera converts world ↔ screen
+   - Props are JSON with typed access via `Props<'a>` helper with defaults
+   - Partial updates use shallow merge (null removes keys)
+
+3. Files and Code Sections:
+
+   - **`Cargo.toml` (workspace root)**
+     - Created: workspace with resolver 2, members server + canvas, profile.dev debug=0
+     ```toml
+     [workspace]
+     resolver = "2"
+     members = ["server", "canvas"]
+     [profile.dev]
+     debug = 0
+     ```
+
+   - **`server/Cargo.toml`**
+     - Modified: removed `[profile.dev] debug = 0` (moved to workspace root)
+
+   - **`canvas/Cargo.toml`**
+     - Edition 2024, rust-version 1.85, cdylib+rlib, deps: wasm-bindgen, web-sys, serde, serde_json, uuid, js-sys
+     - Same clippy pedantic lints as server
+
+   - **`canvas/clippy.toml`** and **`canvas/rustfmt.toml`**
+     - Mirror server conventions (cognitive-complexity-threshold=10, max_width=120, edition=2024)
+
+   - **`canvas/src/lib.rs`**
+     - Module declarations for camera, consts, doc, engine, hit, input, render
+
+   - **`canvas/src/consts.rs`**
+     - Shared numeric constants extracted from hit.rs
+     ```rust
+     pub const FRAC_PI_5: f64 = std::f64::consts::PI / 5.0;
+     pub const HANDLE_RADIUS_PX: f64 = 8.0;
+     pub const ROTATE_HANDLE_OFFSET_PX: f64 = 24.0;
+     pub const STAR_INNER_RATIO: f64 = 0.5;
+     ```
+
+   - **`canvas/src/camera.rs`** + **`camera_test.rs`**
+     - `Point { x, y }` with new/Clone/Copy/PartialEq/Debug
+     - `Camera { pan_x, pan_y, zoom }` with Default (0,0,1)
+     - `screen_to_world`, `world_to_screen`, `screen_dist_to_world` — all `#[must_use]`
+     - 27 tests covering defaults, conversions, round-trips, edge cases
+
+   - **`canvas/src/doc.rs`** + **`doc_test.rs`**
+     - `ObjectId = Uuid`, `ObjectKind` enum (Rect/Ellipse/Diamond/Star/Line/Arrow, serde lowercase)
+     - `BoardObject` struct with all wire fields, `PartialBoardObject` for sparse updates with skip_serializing_if
+     - `Props<'a>` helper for typed access with defaults (#D94B4B fill, #1F1A17 stroke, 1.0 stroke_width, empty strings for text)
+     - `DocStore` with HashMap, insert/remove/get/apply_partial (shallow merge)/load_snapshot/sorted_objects
+     - 48 tests covering serde, CRUD, partial updates per field, props merge, sorting
+
+   - **`canvas/src/engine.rs`** + **`engine_test.rs`**
+     - `Action` enum: None, ObjectCreated, ObjectUpdated, ObjectDeleted, EditTextRequested, SetCursor, RenderNeeded
+     - `EngineCore` struct (testable without WASM): owns doc, camera, ui, input, viewport dims
+     - `Engine` struct wraps `EngineCore` + `_canvas: HtmlCanvasElement`, delegates all methods
+     - Implemented: load_snapshot, apply_create/update/delete, set_tool, set_text, set_viewport, queries
+     - `todo!()` stubs remain for: on_pointer_down/move/up, on_wheel, on_key_down/up, render (7 in engine + 1 in render)
+     - 28 tests covering defaults, data operations, viewport, tool switching, text, queries
+
+   - **`canvas/src/hit.rs`** + **`hit_test.rs`**
+     - Types: HitPart, ResizeAnchor (N/Ne/E/Se/S/Sw/W/Nw), EdgeEnd (A/B), Hit
+     - Pure geometry primitives (all `#[must_use]`):
+       - `rotate_point(pt, origin, angle_deg)` — rotation around arbitrary origin
+       - `world_to_local(pt, x, y, w, h, rotation_deg)` — transform to unrotated local space
+       - `point_in_local_rect/rect` — AABB test with rotation support
+       - `point_in_local_ellipse/ellipse` — ellipse equation (dx/cx)²+(dy/cy)²≤1
+       - `point_in_local_diamond/diamond` — L1 norm |dx/cx|+|dy/cy|≤1
+       - `point_in_local_star/star` — 10-vertex polygon with STAR_INNER_RATIO
+       - `point_in_polygon` — ray-casting even-odd algorithm
+       - `distance_sq_to_segment/distance_to_segment` — point-to-segment with clamped projection
+       - `point_near_point` — circle proximity test
+       - `edge_endpoint_a/b` — extract endpoints from props JSON via Option chaining
+       - `resize_handle_positions` — 8 handle positions with rotation
+       - `rotate_handle_position` — above N handle, zoom-aware offset
+     - Composite `hit_test(world_pt, doc, camera, selected_id)`:
+       1. Tests selected object handles first (resize, rotate, edge endpoints)
+       2. Tests all objects in reverse draw order for body hits
+     - `RESIZE_ANCHORS` constant array mapping index to anchor variant
+     - 99 tests covering all primitives, composite behavior, handle priority, zoom effects
+
+   - **`canvas/src/input.rs`** + **`input_test.rs`**
+     - `Tool` enum (Select default, Rect, Ellipse, Diamond, Star, Line, Arrow)
+     - `Modifiers { shift, ctrl, alt, meta }` with `#[allow(clippy::struct_excessive_bools)]`
+     - `Button` (Primary/Middle/Secondary), `Key(String)`, `WheelDelta { dx, dy }`
+     - `UiState { tool, selected_id }`, `InputState` enum (Idle/Panning/DraggingObject/DrawingShape/DraggingEdgeEndpoint)
+     - 18 tests covering defaults, equality, clone, debug
+
+   - **`canvas/src/render.rs`**
+     - Single `draw()` stub with `todo!()`, depends on CanvasRenderingContext2d
+
+   - **`canvas/tests/hygiene.rs`**
+     - Scans `canvas/src/` excluding `*_test.rs` files
+     - Zero budgets: unwrap, expect, panic, unreachable, unimplemented, let_=, .ok(), allow(dead_code)
+     - Ratcheted budget: `MAX_TODO = 8` (was 10, ratcheted down as stubs implemented)
+     - Reports file-level hit counts on failure for easy debugging
+
+   - **`CLAUDE.md`** (project root)
+     - Testing ground rules, safety rules (no panic-capable code), workflow rules (fmt→clippy→test→commit), code conventions
+
+   - **`memory/MEMORY.md`**
+     - Persistent session memory with ground rules, project structure, module status
+
+4. Errors and Fixes:
+   - **Test module path resolution**: `mod camera_test;` expected files in subdirectory `camera/camera_test.rs`. Fixed with `#[path = "camera_test.rs"]` annotation.
+   - **Clippy `must_use_candidate` warnings** (23 warnings): Added `#[must_use]` to all pure query/conversion functions across camera, doc, hit, engine modules.
+   - **Clippy `redundant_closure_for_method_calls`**: Changed `|v| v.as_f64()` to `serde_json::Value::as_f64` in Props::stroke_width.
+   - **Clippy `struct_excessive_bools`**: Added `#[allow(clippy::struct_excessive_bools)]` on Modifiers struct (4 bool fields for keyboard modifiers is intentional).
+   - **`#[allow(dead_code)]` on engine.rs canvas field**: Hygiene test caught this. Renamed `canvas` to `_canvas` instead of using the allow attribute.
+   - **`FRAC_PI_5` not in std**: `std::f64::consts::FRAC_PI_5` doesn't exist. Replaced with `std::f64::consts::PI / 5.0`, later extracted to `consts::FRAC_PI_5`.
+   - **`star_tip_hit` test failure**: Ray-casting even-odd algorithm is unreliable at exact polygon vertices due to floating-point edge crossing ambiguity. Changed test from exact vertex `(50.0, 0.0)` to just inside `(50.0, 1.0)`.
+   - **Clippy `similar_names`** (rx_outer/ry_outer): Refactored to use tuple `outer = (cx, cy)` and `inner = (cx * STAR_INNER_RATIO, cy * STAR_INNER_RATIO)`.
+   - **Clippy `needless_range_loop`**: Changed `for i in 0..10` to `for (i, vertex) in vertices.iter_mut().enumerate()`.
+   - **Clippy `cast_precision_loss`**: Added `#[allow(clippy::cast_precision_loss)]` with comment "i is at most 9".
+
+5. Problem Solving:
+   - **WASM testability**: `Engine::new` requires `HtmlCanvasElement` which isn't available in native tests. Solved by extracting `EngineCore` with all logic, making `Engine` a thin wrapper that delegates. All tests run against `EngineCore`.
+   - **Ray-casting vertex degeneracy**: Documented as a known limitation. Practical impact is zero for whiteboard hit-testing because handle slop radius covers any boundary ambiguity.
+   - **Hygiene enforcement**: Created ratcheting budget system that prevents regression. Budget must decrease over time as stubs are replaced, never grow.
+
+6. All User Messages:
+   - "Implement the following plan: [detailed canvas crate scaffolding plan]"
+   - "How much of the doc was implemented?"
+   - "Let's start laying the groundwork for exhaustive tests, and I mean exhaustive. All tests should be in *_test.rs dedicated files, all non-test code should be designed with limited scope per function so aggressive unit testing can be performed. State is passed as neccessary. Do these ground rules make sense?"
+   - "Let's save these groundrules to CLAUDE.md and/or a memory."
+   - "Before moving on with implementation, what tests are required for the initial code you created?"
+   - "Please proceed."
+   - "Please commit all"
+   - "One more rule: no panic capable code. no dangerous unwraps, etc.."
+   - "can I have a hygiene test to enforce that rule? see ../prior (hygiene file) as an example"
+   - "another project rule: when implementing a feature or scope of work, at the end always cargo fmt, clippy, pass tests, and then autocommit."
+   - "ok, what's the next phase for canvas/"
+   - "proceed with 1 and 2. extensive tests for both."
+   - "continue" (after interrupted star_tip_hit failure)
+   - "let's add a 'constants' file someplace to capture constants (like FRAC_PI_5) that aren't in the std lib"
+   - "tell me about the ray-tracing comment from earlier.. and why you changed the test."
+
+7. Pending Tasks:
+   - No explicitly pending tasks. The user's most recent requests (constants file, ray-casting explanation) were completed.
+   - Remaining `todo!()` stubs (8 total): `on_pointer_down/move/up`, `on_wheel`, `on_key_down/up`, `render` in engine.rs, and `draw` in render.rs
+
+8. Current Work:
+   The most recent work was explaining the ray-casting vertex degeneracy issue to the user — why `point_in_local_star(Point::new(50.0, 0.0), 100.0, 100.0)` failed and why the test was changed to use `(50.0, 1.0)`. This was a Q&A response, not an implementation task.
+   
+   Prior to that, the last implementation work completed was extracting shared constants into `canvas/src/consts.rs` (committed as `4a1027a`).
+
+9. Optional Next Step:
+   No explicit next step was requested. The previous implementation phases (1: set_viewport, 2: hit-testing) were completed. From the earlier discussion about phases, the next logical steps would be phase 3 (input state machine) and phase 4 (render), but the user has not explicitly asked to proceed with these. The user should be asked what they'd like to work on next.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-ianzepp-gauntlet-week-1/0b18f779-672e-4526-b42d-0d9240d37c64.jsonl
+👤 It looks like these are next:
+
+ 3. Input state machine — pointer down/move/up, wheel, key handlers — emits Action values
+  4. Render — last, since it needs browser APIs and is harder to unit test
+🤖 Right. The input state machine is the big one — it turns raw pointer/key/wheel events into `Action` values that drive the engine. Let me look at what's currently stubbed and the design doc to plan this out.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/konva-rust-revised.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input_test.rs"
+🤖 Now I have a clear picture. Let me plan this implementation.
+✅ EnterPlanMode: {}
+🤖 Let me explore the current `InputState` enum more carefully and understand what data each state needs to carry, based on the design doc's state machine description.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+🤖 Now I have a thorough understanding of the codebase. Let me write the plan.
+✅ Read: file="/Users/ianzepp/.claude/plans/mossy-skipping-koala.md"
+✅ Write: file="/Users/ianzepp/.claude/plans/mossy-skipping-koala.md"
+✅ ExitPlanMode: {"allowedPrompts":[{"prompt":"run cargo fmt, clippy, and test commands","tool":"Bash"},{"prompt":"run git add and commit","tool":"Bash"}],"plan":"# Pl...
+🤖 Let me start implementing. I'll create task tracking and work through the plan systematically.
+✅ TaskCreate: {"activeForm":"Updating InputState enum","description":"Enrich InputState variants to carry context: Panning{last_world}, DraggingObject{id, start_wor...
+✅ TaskCreate: {"activeForm":"Adding input constants","description":"Add MIN_SHAPE_SIZE (2.0) and ZOOM_FACTOR (1.1) and zoom clamp range to consts.rs","subject":"Add...
+✅ TaskCreate: {"activeForm":"Implementing input handlers","description":"Implement on_pointer_down, on_pointer_move, on_pointer_up, on_wheel, on_key_down, on_key_up...
+✅ TaskCreate: {"activeForm":"Writing input state machine tests","description":"Add tests to engine_test.rs for all state transitions: pointer down (select tool hits...
+✅ TaskCreate: {"activeForm":"Running verification and committing","description":"Update MAX_TODO in hygiene.rs to 2. Run cargo fmt, clippy, test. Auto-commit.","sub...
+✅ TaskUpdate: {"status":"in_progress","taskId":"6"}
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+🤖 Now let me implement all the changes. Starting with `input.rs`, `consts.rs`, then `engine.rs`.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"6"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"7"}
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/consts.rs"
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/consts.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"7"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"8"}
+🤖 Now the big one — implementing the handlers on `EngineCore` and updating `Engine` delegation.
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"8"}
+🤖 Now let me check it compiles before writing tests.
+✅ Bash: cargo check -p canvas 2>&1
+🤖 Good, compiles clean. Now the big test file.
+✅ TaskUpdate: {"status":"in_progress","taskId":"9"}
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine_test.rs"
+🤖 Now update the input_test.rs for the new variants:
+✅ Write: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input_test.rs"
+🤖 Now let's compile and test:
+✅ Bash: cargo test -p canvas 2>&1
+🤖 All 305 tests pass plus 9 hygiene tests. Now let me run clippy and update hygiene:
+✅ TaskUpdate: {"status":"completed","taskId":"9"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"10"}
+✅ Bash: cargo clippy -p canvas 2>&1
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+🤖 Now ratchet down the todo budget. Let me check how many `todo!()` remain:
+✅ Grep: pattern="todo!\(\)" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+🤖 Only 2 `todo!()` remain — `render()` on `Engine` and `draw()` in render.rs.
+✅ Edit: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/tests/hygiene.rs"
+🤖 Now run the full verification pipeline:
+✅ Bash: cargo fmt -p canvas && cargo clippy -p canvas 2>&1
+🤖 Clean. Now run tests to make sure everything still passes:
+✅ Bash: cargo test -p canvas 2>&1
+🤖 All 314 tests pass (305 unit + 9 hygiene), zero clippy warnings. Time to commit.
+✅ Bash: git status
+✅ Bash: git add canvas/src/consts.rs canvas/src/engine.rs canvas/src/engine_test.rs canvas/src/input.rs canvas/src/input_test.rs canvas/tests/hygiene.rs && git commit -m "$(cat <<'EOF' ↵ Implement input state m...
+✅ TaskUpdate: {"status":"completed","taskId":"10"}
+🤖 Done. Here's what was implemented:
+
+**Input State Machine** — 6 files changed, 1884 lines added
+
+- **`input.rs`** — `InputState` now carries gesture context: `Panning{last_screen}`, `DraggingObject{id, last_world, orig_x/y}`, `DrawingShape{id, anchor_world}`, `ResizingObject{id, anchor, last_world, orig_x/y/w/h}`, `RotatingObject{id, center, orig_rotation}`, `DraggingEdgeEndpoint{id, end}`. Added `Tool::is_shape()` and `Tool::is_edge()` helpers.
+
+- **`engine.rs`** — All 6 `on_*` handlers implemented on `EngineCore`:
+  - `on_pointer_down`: Select tool (hit-test → drag/resize/rotate/endpoint), shape tools (create object), edge tools (create line/arrow), middle-button pan
+  - `on_pointer_move`: Updates position/dimensions/rotation/endpoints per active state
+  - `on_pointer_up`: Commits actions (`ObjectCreated`/`ObjectUpdated`), discards tiny shapes, resets tool to Select
+  - `on_wheel`: Pan (no modifier) or zoom-to-cursor (ctrl/meta), clamped 0.1–10.0
+  - `on_key_down`: Delete/Backspace removes selected, Escape deselects/cancels gesture
+  - `on_key_up`: No-op for v0
+
+- **`consts.rs`** — Added `MIN_SHAPE_SIZE`, `ZOOM_FACTOR`, `ZOOM_MIN`, `ZOOM_MAX`
+
+- **305 unit tests + 9 hygiene tests**, all passing. `todo!()` budget ratcheted from 8 → 2 (only `render()` and `draw()` stubs remain).
+
+The only remaining phase is **render** — drawing to the `<canvas>` via `CanvasRenderingContext2d`.
+👤 how edge-case-ish are the tests?
+🤖 Looking at the engine_test.rs tests honestly, they're mostly **happy path** with light coverage of edge cases. Let me break it down:
+
+**What's well-covered:**
+- Every state transition (Idle → each active state → Idle)
+- Every tool type creating the right object kind
+- Full gesture sequences (down → move → up)
+- Camera pan/zoom math (accumulation, zoom-to-cursor invariant, clamping)
+
+**What's missing or thin:**
+
+- **Resize**: Only tested each anchor direction once with positive deltas. No tests for rapid direction reversal, zero-size collapse, or resizing while zoomed/panned.
+- **Rotation**: Only two angle cases (right-of-center, above-center). No tests for full 360° sweep, near-180° discontinuity, or negative angles.
+- **Drawing shapes**: Negative direction tested once. No test for exactly-at-threshold size (2.0), or drawing while zoomed/panned (only tested down, not the full draw gesture with camera offset).
+- **Edge dragging**: No test for dragging endpoint to same position as the other endpoint (degenerate zero-length edge).
+- **Concurrent state**: No test for what happens if a server `apply_delete` arrives while you're dragging that object.
+- **Wheel zoom**: No test for many rapid zooms hitting the clamp boundary, or zooming at extreme pan offsets.
+- **Key events**: No test for Delete during an active gesture (e.g., dragging), or Escape during DrawingShape (should the half-drawn object be cleaned up?).
+- **Hit-test integration**: The select-click tests use simple unrotated objects. No test for clicking on a rotated object or near handle boundaries.
+
+Want me to add a round of edge-case hardening? I'd focus on boundary conditions, degenerate inputs, and cross-cutting scenarios (server events during gestures, camera offsets affecting all gesture types).
+👤 I would please. let's get edge cases covered before we have too much implementation code. Probably worth a new plan.
+✅ EnterPlanMode: {}
+🤖 I already have a thorough understanding of the codebase from this session. Let me read the current test files to catalog exactly what's covered and identify all gaps systematically.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine_test.rs"
+🤖 Good. I have a comprehensive view of all existing tests. Now let me write the plan directly — I know the gaps well from my earlier analysis.
+✅ Write: file="/Users/ianzepp/.claude/plans/mossy-skipping-koala.md"
+❌ ExitPlanMode: {"allowedPrompts":[{"prompt":"run cargo fmt, clippy, and test commands","tool":"Bash"},{"prompt":"run git add and commit","tool":"Bash"}],"plan":"# Pl...
+👤 [Request interrupted by user for tool use]
+
+📋 --- Summary ---
+📋 Duration: 41m
+📋 Messages: 21 user, 82 assistant
+📋 Tool calls: 176 total, 6 failed
+📋 Files: 15 read, 21 written, 12 edited
+📋 Tokens: 326 in, 24.5K out
+📋 Cache: 22.1M read, 588.3K created

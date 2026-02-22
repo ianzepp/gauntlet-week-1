@@ -1,0 +1,609 @@
+📋 Session: 9a04995e-dee1-4263-b5ed-9fce4b1ad8af
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T00:24:44.496+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 In /Users/ianzepp/github/gauntlet/collaboard/server/src, find how the WebSocket frame protocol works. I need to know:
+1. What syscalls exist (board:join, object:create, object:update, cursor:moved, etc.)
+2. What data each expects in the request frame
+3. What data each returns in response frames
+4. How board:join returns the list of objects
+
+Search thoroughly in handler files, ws files, frame files. Be very thorough.
+📋 Model: haiku-4.5
+🤖 I'll help you understand the WebSocket frame protocol in the collaboard server. Let me search thoroughly through the relevant files.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -type f -name "*.rs" | head -20
+🤖 Perfect! I can see the key files. Let me read the frame.rs file first to understand the protocol, then the ws.rs to understand how handlers work.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Excellent! Now let me search for the services to understand what data structures are returned. Let me check the board, object, and cursor services.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+🤖 Now let me check the state.rs file to see the BoardObject structure and other relevant types:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+🤖 Perfect! Now let me check if there's a cursor service to get the complete picture:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src/services -type f -name "*.rs"
+🤖 Let me read the cursor service:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/cursor.rs"
+🤖 Perfect! Now let me check if there are any additional frame patterns or error handling I should be aware of:
+✅ Grep: pattern="syscall|Frame::request" path="/Users/ianzepp/github/gauntlet/collaboard/server/src"
+🤖 Let me check the services module to understand all available services:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+🤖 Now let me check the AI service to understand what ai:prompt expects and returns:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+🤖 Perfect! Now I have a comprehensive understanding of the WebSocket frame protocol. Let me compile all the information in a clear, organized report.
+
+## WebSocket Frame Protocol - Complete Analysis
+
+Based on my thorough examination of the collaboard server code, here's the complete specification of the WebSocket frame protocol:
+
+### Overview
+
+Every message in CollaBoard is a **Frame** - a flat JSON structure with:
+- `id`: UUID (auto-generated)
+- `parent_id`: UUID (None for requests, set in responses to correlate)
+- `ts`: Milliseconds since Unix epoch
+- `board_id`: Optional UUID
+- `from`: Optional string (client identifier)
+- `syscall`: String identifying the operation (e.g., "board:join", "object:create")
+- `status`: One of `request`, `item`, `done`, `error`, `cancel`
+- `data`: Map<String, Value> (flat key-value payload, never nested)
+
+**Response Pattern**: `request → item* → done` OR `request → error`
+
+---
+
+## Syscalls Reference
+
+### BOARD PREFIX: `board:*`
+
+#### 1. **board:create**
+
+**Request:**
+```json
+{
+  "syscall": "board:create",
+  "status": "request",
+  "data": {
+    "name": "Board Name"  // Optional; defaults to "Untitled Board"
+  }
+}
+```
+
+**Response (Item):**
+```json
+{
+  "syscall": "board:create",
+  "status": "item",
+  "parent_id": "<request_id>",
+  "data": {
+    "id": "<uuid>",
+    "name": "Board Name"
+  }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "board:create",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "data": {}
+}
+```
+
+---
+
+#### 2. **board:join**
+
+**Request:**
+```json
+{
+  "syscall": "board:join",
+  "status": "request",
+  "board_id": "<uuid>",  // OR in data: "board_id": "<uuid>"
+  "data": {}
+}
+```
+
+**Response (Item) - Returns list of all board objects:**
+```json
+{
+  "syscall": "board:join",
+  "status": "item",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {
+    "objects": [
+      {
+        "id": "<uuid>",
+        "board_id": "<uuid>",
+        "kind": "sticky_note",  // or "rectangle", "ellipse", "frame", "connector"
+        "x": 100.0,
+        "y": 200.0,
+        "width": null,  // Optional; null if not set
+        "height": null,
+        "rotation": 0.0,
+        "z_index": 0,
+        "props": {
+          "text": "My note",
+          "color": "#FFEB3B"
+        },
+        "version": 1,
+        "created_by": "<uuid>"  // Optional
+      }
+      // ... more objects
+    ]
+  }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "board:join",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {}
+}
+```
+
+**Errors:**
+- `board_id required` - No board_id in request or data
+- `E_BOARD_NOT_FOUND` - Board doesn't exist
+
+---
+
+#### 3. **board:list**
+
+**Request:**
+```json
+{
+  "syscall": "board:list",
+  "status": "request",
+  "data": {}
+}
+```
+
+**Response (Item):**
+```json
+{
+  "syscall": "board:list",
+  "status": "item",
+  "parent_id": "<request_id>",
+  "data": {
+    "boards": [
+      { "id": "<uuid>", "name": "My Board" },
+      { "id": "<uuid>", "name": "Another Board" }
+    ]
+  }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "board:list",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "data": {}
+}
+```
+
+---
+
+#### 4. **board:delete**
+
+**Request:**
+```json
+{
+  "syscall": "board:delete",
+  "status": "request",
+  "data": {
+    "board_id": "<uuid>"
+  }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "board:delete",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "data": {}
+}
+```
+
+**Errors:**
+- `board_id required` - No board_id in data
+- `E_BOARD_NOT_FOUND` - Board doesn't exist
+
+---
+
+### OBJECT PREFIX: `object:*`
+
+#### 1. **object:create**
+
+**Precondition:** Must have joined a board first (`board:join`)
+
+**Request:**
+```json
+{
+  "syscall": "object:create",
+  "status": "request",
+  "board_id": "<uuid>",  // Set automatically from joined board
+  "data": {
+    "kind": "sticky_note",  // "sticky_note", "rectangle", "ellipse", "frame", "connector"
+    "x": 100.0,             // Position X
+    "y": 200.0,             // Position Y
+    "props": {              // Optional; object-specific properties
+      "text": "My note",
+      "color": "#FFEB3B"
+    }
+  }
+}
+```
+
+**Response (Item) - Full object:**
+```json
+{
+  "syscall": "object:create",
+  "status": "item",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {
+    "id": "<uuid>",
+    "board_id": "<board_uuid>",
+    "kind": "sticky_note",
+    "x": 100.0,
+    "y": 200.0,
+    "width": null,
+    "height": null,
+    "rotation": 0.0,
+    "z_index": 0,
+    "props": { "text": "My note", "color": "#FFEB3B" },
+    "version": 1,
+    "created_by": "<user_uuid>"
+  }
+}
+```
+
+**Broadcast (to other clients):**
+```json
+{
+  "syscall": "object:created",
+  "status": "request",
+  "board_id": "<board_uuid>",
+  "data": { /* same as response item */ }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "object:create",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {}
+}
+```
+
+**Errors:**
+- `must join a board first` - No active board join
+- `E_BOARD_NOT_LOADED` - Board not in memory
+
+---
+
+#### 2. **object:update**
+
+**Request:**
+```json
+{
+  "syscall": "object:update",
+  "status": "request",
+  "board_id": "<uuid>",
+  "data": {
+    "id": "<uuid>",              // Object ID to update
+    "version": 1,                // Current version (LWW conflict resolution)
+    "x": 150.0,                  // Optional: new X
+    "y": 250.0,                  // Optional: new Y
+    "width": 200.0,              // Optional: new width
+    "height": 100.0,             // Optional: new height
+    "rotation": 45.0,            // Optional: new rotation
+    "z_index": 5,                // Optional: new z_index
+    "props": { "text": "Updated" }  // Optional: replace props entirely
+  }
+}
+```
+
+**Response (Item) - Updated object:**
+```json
+{
+  "syscall": "object:update",
+  "status": "item",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {
+    "id": "<uuid>",
+    "board_id": "<board_uuid>",
+    "kind": "sticky_note",
+    "x": 150.0,
+    "y": 250.0,
+    "width": null,
+    "height": null,
+    "rotation": 0.0,
+    "z_index": 5,
+    "props": { "text": "Updated" },
+    "version": 2,  // Incremented automatically
+    "created_by": "<user_uuid>"
+  }
+}
+```
+
+**Broadcast (to other clients, excluding sender):**
+```json
+{
+  "syscall": "object:updated",
+  "status": "request",
+  "board_id": "<board_uuid>",
+  "data": { /* same as response item */ }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "object:update",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {}
+}
+```
+
+**Errors:**
+- `id required` - No object ID in data
+- `must join a board first` - No active board
+- `E_OBJECT_NOT_FOUND` - Object doesn't exist
+- `E_STALE_UPDATE` - Incoming version < current version (LWW conflict)
+
+---
+
+#### 3. **object:delete**
+
+**Request:**
+```json
+{
+  "syscall": "object:delete",
+  "status": "request",
+  "board_id": "<uuid>",
+  "data": {
+    "id": "<uuid>"  // Object ID to delete
+  }
+}
+```
+
+**Broadcast (to all clients):**
+```json
+{
+  "syscall": "object:deleted",
+  "status": "request",
+  "board_id": "<board_uuid>",
+  "data": {
+    "id": "<uuid>"  // Just the ID
+  }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "object:delete",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {}
+}
+```
+
+**Errors:**
+- `id required` - No object ID in data
+- `must join a board first` - No active board
+- `E_OBJECT_NOT_FOUND` - Object doesn't exist
+
+---
+
+### CURSOR PREFIX: `cursor:*`
+
+#### **cursor:moved**
+
+**Request:**
+```json
+{
+  "syscall": "cursor:moved",
+  "status": "request",
+  "board_id": "<uuid>",  // Implied from joined board
+  "data": {
+    "x": 500.0,           // Cursor X position
+    "y": 300.0,           // Cursor Y position
+    "name": "Alice"       // User name (optional; defaults to "anonymous")
+  }
+}
+```
+
+**Broadcast (to other clients, excluding sender):**
+```json
+{
+  "syscall": "cursor:moved",
+  "status": "request",
+  "board_id": "<board_uuid>",
+  "data": {
+    "client_id": "<uuid>",  // Who moved the cursor
+    "x": 500.0,
+    "y": 300.0,
+    "name": "Alice"
+  }
+}
+```
+
+**Note:** No response sent back to sender (fire-and-forget). Silently ignored if no board joined.
+
+---
+
+### AI PREFIX: `ai:*`
+
+#### **ai:prompt**
+
+**Precondition:** 
+- Must have joined a board
+- AI must be configured (env vars set)
+
+**Request:**
+```json
+{
+  "syscall": "ai:prompt",
+  "status": "request",
+  "board_id": "<uuid>",
+  "data": {
+    "prompt": "Create a SWOT analysis board"
+  }
+}
+```
+
+**Response (Item) - Text response:**
+```json
+{
+  "syscall": "ai:prompt",
+  "status": "item",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {
+    "text": "I've created a SWOT board with Strengths, Weaknesses...",
+    "mutations": 5  // Count of mutations (objects created/updated/deleted)
+  }
+}
+```
+
+**Broadcasts (intermediate during tool execution):**
+
+For each tool call that mutates the board:
+```json
+{
+  "syscall": "object:created",  // or "object:updated", "object:deleted"
+  "status": "request",
+  "board_id": "<board_uuid>",
+  "data": { /* full object */ }
+}
+```
+
+**Response (Done):**
+```json
+{
+  "syscall": "ai:prompt",
+  "status": "done",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {}
+}
+```
+
+**Errors:**
+- `prompt required` - No prompt text provided
+- `must join a board first` - No active board
+- `AI features not configured` - LLM env vars not set
+- `E_BOARD_NOT_LOADED` - Board not in memory
+- `E_RATE_LIMITED` - Rate limit exceeded (per-client or token budget)
+- `E_LLM_ERROR` - LLM request failed
+
+**AI Tool Calls** (executed via LLM, broadcast as mutations):
+1. `createStickyNote` - Input: `{text, x, y, color}`
+2. `createShape` - Input: `{type, x, y, width?, height?, color}`
+3. `createFrame` - Input: `{title, x, y, width?, height?}`
+4. `createConnector` - Input: `{fromId, toId, style}`
+5. `moveObject` - Input: `{objectId, x?, y?}`
+6. `resizeObject` - Input: `{objectId, width?, height?}`
+7. `updateText` - Input: `{objectId, newText}`
+8. `changeColor` - Input: `{objectId, color}`
+9. `getBoardState` - Input: `{}` (returns list of board objects)
+
+---
+
+## Session & Connection
+
+#### **session:connected** (Server → Client on upgrade)
+
+**Sent immediately after WebSocket upgrade:**
+```json
+{
+  "syscall": "session:connected",
+  "status": "request",
+  "data": {
+    "client_id": "<uuid>",  // Unique per connection
+    "user_id": "<uuid>"     // From JWT/session
+  }
+}
+```
+
+---
+
+## Error Response Format
+
+**Terminal error frame (for any syscall):**
+```json
+{
+  "syscall": "<original_syscall>",
+  "status": "error",
+  "parent_id": "<request_id>",
+  "board_id": "<board_uuid>",
+  "data": {
+    "code": "E_OBJECT_NOT_FOUND",    // Structured error code
+    "message": "object not found: ...",
+    "retryable": false                // Whether client should retry
+  }
+}
+```
+
+Or for unstructured errors:
+```json
+{
+  "data": {
+    "message": "board_id required"
+  }
+}
+```
+
+---
+
+## Key Design Principles
+
+1. **Flat Data**: All payloads are `Map<String, Value>`, never nested objects
+2. **Stateful Board Context**: Client tracks joined board (`current_board`). All `object:*` and `cursor:*` calls require it
+3. **Correlation**: Responses use `parent_id` to tie back to originating request
+4. **Broadcast Pattern**: Mutations emit separate `object:created`, `object:updated`, `object:deleted` frames to all peers
+5. **LWW Conflict Resolution**: `object:update` rejects incoming version < current version
+6. **Version Tracking**: All objects track version (incremented on update)
+7. **Ephemeral Cursors**: Cursor positions are broadcast only, not persisted
+8. **Request → Response Flow**: Every request triggers 0+ item frames + 1 terminal frame (done/error/cancel)
+
+---
+
+**File locations:**
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs` - Frame definition and builders
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` - WebSocket handler and dispatcher
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs` - Board operations
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs` - Object mutations
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/cursor.rs` - Cursor broadcast
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` - AI prompt handling
+
+📋 --- Summary ---
+📋 Duration: 47s
+📋 Messages: 1 user, 10 assistant
+📋 Tool calls: 11 total, 0 failed
+📋 Files: 8 read
+📋 Tokens: 71 in, 72 out
+📋 Cache: 512.1K read, 77.6K created

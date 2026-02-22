@@ -1,0 +1,230 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T13:29:05.463+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 You are the rust-correctness-surgeon agent. Your full instructions:
+
+You are a Rust correctness analyst with the combined instincts of a Staff Engineer at a top-tier tech company and a systems engineer from a high-frequency trading firm. You don't review code for style — you hunt for incorrectness. Every line of code is guilty until proven correct.
+
+## Project Context
+- Workspace: root Cargo.toml with members: server, client, canvas, frames, traces, perf
+- Edition 2024, rust-version 1.90, clippy pedantic
+- No panic-capable code in non-test code. No .unwrap(), .expect(), panic!(), todo!() in production code.
+
+## Your Task
+Analyze the SERVER crate for correctness issues. Focus on these recently-changed files:
+- server/src/routes/boards.rs
+- server/src/routes/ws.rs
+- server/src/routes/mod.rs
+- server/src/services/board.rs
+- server/src/services/ai.rs
+- server/src/services/object.rs
+- server/src/services/savepoint.rs
+- server/src/state.rs
+
+Read the CLAUDE.md first, then read each file above. Apply the full analysis framework:
+1. Soundness & Safety (unwrap, overflow, bounds, unsafe)
+2. Error Handling Integrity (Result handling, silent drops, context)
+3. Data Flow & Invariants (preconditions, state consistency, TOCTOU)
+4. Logic Correctness (match arms, conditions, loops, defaults)
+5. Resource & Lifetime Management
+6. Architectural Violations
+
+Output findings in this format:
+**[SEVERITY] Description**
+- **Location**: file:line
+- **What's wrong**: precise description
+- **Why it matters**: concrete failure scenario
+- **Fix**: specific code change
+
+DO NOT modify any files. This is a read-only audit. Report findings only.
+📋 Model: opus-4.6
+🤖 I'll start by reading the CLAUDE.md and then systematically analyze each file in the server crate.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/CLAUDE.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/Cargo.toml"
+🤖 Now let me read all the target files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/savepoint.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+🤖 Now let me check for a few additional items I noticed.
+✅ Grep: pattern="\.unwrap\(\)|\.expect\(|panic!\(|todo!\(\)" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes"
+✅ Grep: pattern="\.unwrap\(\)|\.expect\(|panic!\(|todo!\(\)" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services"
+✅ Grep: pattern="\.unwrap\(\)|\.expect\(|panic!\(|todo!\(\)" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+🤖 Let me check one more important file.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs"
+🤖 Now I have all the data I need. Here is the full audit report.
+
+---
+
+# Server Crate Correctness Audit Report
+
+## 1. Soundness & Safety Violations
+
+**[HIGH] `.expect()` in production code — `routes/mod.rs`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs:57`
+- **What's wrong**: `get_configuration(None).expect("leptos configuration")` will panic at runtime if Leptos configuration is missing or malformed.
+- **Why it matters**: This runs during server startup. A missing or invalid `Cargo.toml` Leptos section, or a missing config file, will crash the entire server with an unrecoverable panic instead of a graceful error. The project CLAUDE.md explicitly forbids `.expect()` in non-test code.
+- **Fix**: Return a `Result` from `leptos_app()` and propagate the error, or log and return a fallback router.
+
+**[HIGH] `.expect()` in production code — `services/auth.rs`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs:39`
+- **What's wrong**: `reqwest::Url::parse("https://github.com/login/oauth/authorize").expect(...)` panics if parsing fails. While this is a static URL and practically safe, the project rules strictly prohibit `.expect()` in non-test code.
+- **Why it matters**: Violates the project's safety rules. The URL is indeed static so the risk is low, but this sets a precedent for rule violations.
+- **Fix**: Use `.map_err()` and return a `Result`, or use a `const` verified at compile time.
+
+**[MEDIUM] `unwrap_or(-1)` hides database errors — `routes/ws.rs`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs:602`
+- **What's wrong**: `sqlx::query_scalar::<_, i64>("SELECT COUNT(*) ...")...fetch_one(&state.pool).await.unwrap_or(-1)` silently swallows database errors and substitutes `-1`.
+- **Why it matters**: If Postgres is unreachable during `board:list`, the persisted count will silently report `-1` which could be misleading in logs and masks a real infrastructure problem. This N+1 query pattern (one per board) also amplifies the impact.
+- **Fix**: Log the error at warn level when using the fallback, or propagate it.
+
+**[MEDIUM] Integer truncation without bounds check — `services/object.rs`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs:71`
+- **What's wrong**: `let z_index = board.objects.len() as i32;` — if there are more than `i32::MAX` objects (2.1 billion), this wraps to a negative number. The `#[allow(clippy::cast_possible_truncation)]` silences the lint.
+- **Why it matters**: While 2.1 billion objects is unlikely in practice, the pattern is unsound. More realistically, if `objects.len()` exceeds `i32::MAX` due to a bug elsewhere, this creates negative z-indices silently.
+- **Fix**: Use `i32::try_from(board.objects.len()).unwrap_or(i32::MAX)`.
+
+**[MEDIUM] Unchecked `as i64` cast from `f64` — `services/object.rs`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs:146`
+- **What's wrong**: `value.as_f64().filter(|v| v.fract() == 0.0).map(|v| v as i64)` — The `fract() == 0.0` check passes for values like `f64::INFINITY` and very large f64 values (> `i64::MAX`), where `as i64` is undefined behavior via saturation to `i64::MIN` or `i64::MAX` depending on the platform.
+- **Why it matters**: A malicious or buggy client could send `z_index: 1e308` which passes the fract check and saturates to `i64::MIN/MAX`, then truncates to `i32` in an uncontrolled way.
+- **Fix**: Add a range check: `.filter(|v| v.fract() == 0.0 && *v >= i64::MIN as f64 && *v <= i64::MAX as f64)`.
+
+**[LOW] Same `as i64` issue in `routes/boards.rs`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs:253` and `:265`
+- **What's wrong**: Same pattern: `value.as_f64().map(|float| float as i64)` without range check on the import path.
+- **Why it matters**: Import data could contain extreme float values causing silent integer saturation.
+- **Fix**: Add bounds checking before the `as i64` cast.
+
+## 2. Error Handling Integrity
+
+**[HIGH] Silent data loss on import — in-memory state not created when board not loaded**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs:326-333`
+- **What's wrong**: After `flush_objects` succeeds (writing to Postgres), the code does `if let Some(board_state) = boards.get_mut(&board_id)` — if the board is not currently loaded in memory, the objects are written to the DB but never inserted into in-memory state. The broadcast at line 350 will still fire, but if someone later joins the board, they'll hydrate from Postgres (correct). However, other currently-connected clients won't see the imported objects until they reconnect, because the broadcast sends frames referencing objects that aren't in the `board_state.objects` map.
+- **Why it matters**: If a user imports objects while the board is loaded by other clients, those clients receive `object:create` broadcast frames but the server's in-memory state doesn't have the objects. Any subsequent `object:update` on those imported objects will fail with `NotFound`.
+- **Fix**: Ensure the board is loaded before import, or return an error if it's not.
+
+**[MEDIUM] `flush_objects` is not atomic — partial writes possible**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs:851-877`
+- **What's wrong**: `flush_objects` iterates over objects and executes individual SQL queries. If the 50th of 100 objects fails (e.g., connection drop), the first 49 are committed but the remaining 51 are not. The caller in `part_board` retains dirty flags for all objects, but the ones already written are now in a mixed state (persisted but still marked dirty).
+- **Why it matters**: On retry, the already-persisted objects will be written again (idempotent due to upsert, so not catastrophic), but if the board is evicted before retry, the un-flushed objects are lost forever.
+- **Fix**: Wrap the loop in a database transaction, or use a batch INSERT.
+
+**[MEDIUM] `delete_object` holds write lock during database I/O**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs:179-197`
+- **What's wrong**: `delete_object` acquires `state.boards.write().await`, then while still holding the write lock, performs `sqlx::query(...).execute(&state.pool).await`. This blocks all other board operations (reads and writes to ANY board) for the entire duration of the Postgres round-trip.
+- **Why it matters**: Under load or with a slow database, this creates a global bottleneck. Every websocket handler waiting on `state.boards.read()` or `state.boards.write()` is blocked. This affects all boards, not just the board being deleted from.
+- **Fix**: Remove from memory first (releasing the lock), then delete from Postgres. If the DB delete fails, re-insert the object and return an error, or use a two-phase approach similar to how `part_board` handles dirty flushing.
+
+## 3. Data Flow & Invariants
+
+**[HIGH] Race condition in `join_board` — hydration snapshot may be stale**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs:649-658`
+- **What's wrong**: `hydrate_objects` is called outside the write lock, then applied inside the lock only `if board_state.clients.is_empty()`. However, between the time the snapshot is fetched and the write lock is acquired, another concurrent `join_board` could have already hydrated and clients could have mutated objects. The check `if board_state.clients.is_empty()` mitigates this somewhat, but there's a window where two concurrent first-joiners both call `hydrate_objects`, one wins the lock, hydrates, and the second discards its snapshot — which is correct. However, if a client joins, mutates objects, and parts before the second joiner acquires the lock, `board_state.clients.is_empty()` is true again and the stale snapshot overwrites the mutations.
+- **Why it matters**: A rapid join-mutate-part-join sequence could cause the second joiner's hydration to overwrite in-memory mutations that haven't been flushed to Postgres yet.
+- **Fix**: Check both `clients.is_empty()` and `objects.is_empty()` before hydrating, or always hydrate from Postgres when `clients.is_empty()` (fetching within the lock for correctness, accepting the performance cost).
+
+**[MEDIUM] `object:drag` handler bypasses version check and in-memory state**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs:1007-1025`
+- **What's wrong**: The `object:drag` handler broadcasts position changes to peers but never updates the server's in-memory state. This means the server's `BoardObject` for that ID still has the old x/y/width/height. If another client joins during a drag, they'll see the pre-drag position.
+- **Why it matters**: This is likely intentional for ephemeral performance (drag is high-frequency), but the `object:drag:end` handler also doesn't update state. The expectation appears to be that a final `object:update` follows, but there's no enforcement of this — a client that sends `drag:end` without a subsequent `update` leaves server state inconsistent.
+- **Fix**: Either have `drag:end` apply the final position to in-memory state, or document this as an explicit client contract.
+
+**[MEDIUM] `handle_board_list` mutates `previews` HashMap during iteration**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs:620`
+- **What's wrong**: `previews.remove(&b.id)` is called inside `boards.iter().map(...)`. While Rust prevents data races, the semantic issue is that the iterator borrows `boards` immutably but each `.remove()` mutates `previews`. This works because they're separate collections, but the `.remove()` means the order of iteration determines which board gets its preview data. If a board ID appears twice in the list (shouldn't happen but isn't enforced), only the first gets the preview.
+- **Why it matters**: Minor correctness concern — the `.remove()` is used as an optimization to avoid cloning, but it means the method is not idempotent if called with duplicate board IDs.
+- **Fix**: Use `.get()` with `.cloned()` instead of `.remove()`, or ensure board IDs are deduplicated.
+
+**[MEDIUM] TOCTOU in `ensure_board_permission` during `join_board`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs:640-646`
+- **What's wrong**: Three separate `ensure_board_permission` calls are made (View, Edit, Admin), each performing independent database queries. Between these queries, permissions could change (e.g., admin removes the user). The `can_edit` and `can_admin` flags captured here could be stale by the time the client sends their first frame.
+- **Why it matters**: A user removed from a board between the View check and the Edit check would still get `can_edit = true` cached in their `ConnectedClient`.
+- **Fix**: Fetch the user's role once and derive all permissions from it, or accept this as an inherent limitation of the caching approach and document it.
+
+## 4. Logic Correctness
+
+**[MEDIUM] `execute_batch` runs tools concurrently with shared mutable state**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs:577-635`
+- **What's wrong**: `join_all(tasks)` executes all batch tool calls concurrently. Each call can mutate board state through `create_object`/`update_object`/`delete_object`, which all acquire `state.boards.write().await`. While the RwLock prevents data races, concurrent creates can produce conflicting `z_index` values (both see the same `objects.len()` before either inserts), and concurrent updates to the same object can cause stale version conflicts.
+- **Why it matters**: A batch of `[moveObject(A, x=10), moveObject(A, x=20)]` will race — both read the same version, one succeeds, one fails with `StaleUpdate`. The AI gets confusing error messages.
+- **Fix**: Execute batch calls sequentially (change `join_all` to a sequential loop), or at minimum document that batch calls are not ordered.
+
+**[LOW] Session message truncation may split user/assistant pairs**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs:484-488`
+- **What's wrong**: `entry.drain(0..extra)` trims messages from the front. If `extra` is odd, this splits a user/assistant pair, leaving an orphaned assistant message at the start. The Anthropic API requires messages to start with a user role.
+- **Why it matters**: A truncated session starting with an assistant message will cause an LLM API error on the next prompt, breaking the conversation.
+- **Fix**: Round `extra` up to the nearest even number: `let extra = ((entry.len() - MAX_SESSION_CONVERSATION_MESSAGES) + 1) & !1;` or ensure drain always removes pairs.
+
+**[LOW] `z_index` assigned using `as i32` after truncation to `i64`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs:149-152`
+- **What's wrong**: After converting the JSON value to `i64`, `z as i32` truncates silently. An `i64` value of `3_000_000_000` becomes a meaningless negative `i32`.
+- **Why it matters**: The `#[allow]` annotation acknowledges this, but no bounds check is applied. A client sending `z_index: 3000000000` will get an unexpected negative z-index.
+- **Fix**: Use `i32::try_from(z).unwrap_or(i32::MAX)`.
+
+## 5. Resource & Lifetime Management
+
+**[HIGH] N+1 query pattern in `handle_board_list`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs:597-603`
+- **What's wrong**: For every board in the list, an individual `SELECT COUNT(*) FROM board_objects WHERE board_id = $1` query is executed. This is in addition to the aggregate query already performed at lines 525-541.
+- **Why it matters**: If a user has 50 boards, this fires 50 additional database queries per `board:list` call. These appear to be purely for logging (`persisted_counts`). Under load, this significantly increases database pressure for debug information.
+- **Fix**: Remove the N+1 loop or batch it into a single query. The aggregate at line 525 already computes the total count.
+
+**[MEDIUM] Write lock held across broadcast in `import_jsonl`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs:325-333`
+- **What's wrong**: The write lock on `state.boards` is held in a block (`{ let mut boards = state.boards.write().await; ... }`), and correctly released before the broadcast loop. This is actually fine. However, the broadcast loop at line 335-351 calls `board::broadcast()` which acquires a read lock for each object — if there are many imported objects, this is many lock acquisitions.
+- **Why it matters**: Performance concern rather than correctness. Many sequential broadcasts could be batched.
+- **Fix**: Consider batching the broadcast into a single frame with all imported objects.
+
+**[MEDIUM] `RwLock` held across await point in `handle_board_list`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs:564-586`
+- **What's wrong**: `let live_boards = state.boards.read().await;` acquires a read lock, then the code iterates over all boards and clones their objects. This read lock is held for the entire duration of the iteration and cloning.
+- **Why it matters**: While read locks are less contention-prone than write locks, holding a read lock across a potentially large iteration prevents any write operations (object creates/updates/deletes, board joins/parts) on ANY board from proceeding.
+- **Fix**: Clone the needed data quickly and drop the lock, then process the cloned data.
+
+## 6. Architectural Violations
+
+**[MEDIUM] Raw SQL queries scattered in route handlers**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs:448-455` (board name query), `:598` (count query), `:834-847` (chat history)
+- **What's wrong**: Multiple raw SQL queries are embedded directly in WebSocket handler functions rather than being encapsulated in service modules.
+- **Why it matters**: This violates the separation of concerns — the WS handler should dispatch to services, not contain database logic. It makes testing harder (the ws handler now has a direct Postgres dependency for these queries) and creates maintenance burden when schema changes occur.
+- **Fix**: Move these queries into `services::board` or a dedicated service module.
+
+**[LOW] `props` replacement semantics may cause data loss**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs:154-156`
+- **What's wrong**: `if let Some(p) = updates.get("props") { obj.props = p.clone(); }` does a full replacement of the props object. There is no merge logic.
+- **Why it matters**: If a client sends `{ "props": { "text": "hello" } }`, any other props (like `backgroundColor`, `stroke`, etc.) are silently lost. This is a design choice, but it means every client must send the complete props object on every update, which is fragile and bandwidth-inefficient.
+- **Fix**: Consider a merge strategy (deep merge or shallow merge) for props updates, or document clearly that props updates are full replacements.
+
+---
+
+## Summary
+
+| Severity | Count |
+|----------|-------|
+| HIGH     | 5     |
+| MEDIUM   | 10    |
+| LOW      | 4     |
+
+The most critical findings are:
+1. **Panic-capable code** in production (`.expect()` in `mod.rs` and `auth.rs`) violating project safety rules.
+2. **Race condition in `join_board`** where a rapid join-mutate-part-join sequence can overwrite unflushed mutations.
+3. **Silent data inconsistency on import** when board state isn't loaded in memory.
+4. **Concurrent batch tool execution** producing stale version conflicts and non-deterministic results.
+5. **N+1 query pattern** in `board:list` creating unnecessary database load.
+6. **Session message truncation** potentially breaking user/assistant message pairing for the LLM API.
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 5 assistant
+📋 Tool calls: 14 total, 0 failed
+📋 Files: 11 read
+📋 Tokens: 25 in, 63 out
+📋 Cache: 379.7K read, 310.5K created

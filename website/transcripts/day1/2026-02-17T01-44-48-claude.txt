@@ -1,0 +1,323 @@
+📋 Session: 665ca551-2d30-4c12-ac6e-64b9e2b4e8be
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T01:44:48.627+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Explore the Rust backend at /Users/ianzepp/github/gauntlet/collaboard/server/src/. I need to understand:
+1. How routes are organized (look for router setup, API handlers)
+2. The database schema / models (users table, frames table)
+3. How the existing auth endpoints work (GET /api/auth/me etc.)
+4. The DB connection / pool setup
+
+Give me file paths and key code snippets for all of these.
+📋 Model: haiku-4.5
+🤖 I'll systematically explore the Rust backend structure to understand the routing, database schema, auth endpoints, and connection setup.
+❌ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src"
+❌ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/server/src/**/*.rs"
+🤖 Let me fix that by using Bash to list the directory structure first:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -type f -name "*.rs" | head -30
+🤖 Now let me read the key files to understand the architecture:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/mod.rs"
+🤖 Great! Now let me check the database migrations and models:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src/db -type f -name "*.sql" | sort
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Now let me read all the migration files to understand the database schema:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/001_users.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/004_frames.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/005_sessions.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+🤖 Perfect! Let me also check the other migration files for completeness:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/002_boards.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/003_board_objects.sql"
+🤖 Excellent! Now I have a comprehensive understanding. Let me provide you with a detailed summary of the backend structure:
+
+## Rust Backend Architecture Overview
+
+### 1. **Route Organization**
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs`
+
+Routes are organized in an Axum router with clear public and authenticated endpoints:
+
+```rust
+Router::new()
+    // Public OAuth routes.
+    .route("/auth/github", get(auth::github_redirect))
+    .route("/auth/github/callback", get(auth::github_callback))
+    // Authenticated API routes.
+    .route("/api/auth/me", get(auth::me))
+    .route("/api/auth/logout", post(auth::logout))
+    .route("/api/auth/ws-ticket", post(auth::ws_ticket))
+    // WebSocket (ticket-gated).
+    .route("/api/ws", get(ws::handle_ws))
+    // Health check.
+    .route("/healthz", get(healthz))
+```
+
+All routes use Axum's `State` extractor to access `AppState` (database pool, LLM client, GitHub config).
+
+---
+
+### 2. **Database Schema & Models**
+
+The database uses PostgreSQL with 5 migration files. Key tables:
+
+**Users Table** (`001_users.sql`):
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    github_id   BIGINT UNIQUE,
+    name        TEXT NOT NULL,
+    avatar_url  TEXT,
+    color       TEXT NOT NULL DEFAULT '#4CAF50',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**Boards Table** (`002_boards.sql`):
+```sql
+CREATE TABLE IF NOT EXISTS boards (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    owner_id    UUID REFERENCES users(id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**Board Objects Table** (`003_board_objects.sql`) — shapes, sticky notes, drawings:
+```sql
+CREATE TABLE IF NOT EXISTS board_objects (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    board_id    UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL,
+    x           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    y           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    width       DOUBLE PRECISION,
+    height      DOUBLE PRECISION,
+    rotation    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    z_index     INTEGER NOT NULL DEFAULT 0,
+    props       JSONB NOT NULL DEFAULT '{}',
+    created_by  UUID REFERENCES users(id),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    version     INTEGER NOT NULL DEFAULT 1
+);
+```
+
+**Frames Table** (`004_frames.sql`) — frame history for real-time sync:
+```sql
+CREATE TABLE IF NOT EXISTS frames (
+    seq         BIGSERIAL PRIMARY KEY,
+    ts          BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT,
+    id          UUID NOT NULL,
+    parent_id   UUID,
+    syscall     TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    board_id    UUID,
+    "from"      TEXT,
+    data        JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_frames_board_seq ON frames(board_id, seq);
+```
+
+**Sessions & WebSocket Tickets Table** (`005_sessions.sql`):
+```sql
+CREATE TABLE IF NOT EXISTS sessions (
+    token       TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 days')
+);
+
+CREATE TABLE IF NOT EXISTS ws_tickets (
+    ticket      TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 seconds')
+);
+```
+
+**In-Memory Board State** (`/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs`):
+```rust
+pub struct BoardState {
+    pub objects: HashMap<Uuid, BoardObject>,
+    pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,
+    pub dirty: HashSet<Uuid>,
+}
+```
+
+---
+
+### 3. **Authentication Flow**
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs`
+
+**Auth Endpoints:**
+
+- **`GET /auth/github`** — Redirects to GitHub OAuth authorization page
+  ```rust
+  pub async fn github_redirect(State(state): State<AppState>) -> Response
+  ```
+
+- **`GET /auth/github/callback`** — OAuth callback: exchanges code, fetches user, upserts to DB, creates session, sets HttpOnly cookie
+  ```rust
+  pub async fn github_callback(
+      State(state): State<AppState>,
+      axum::extract::Query(params): axum::extract::Query<CallbackQuery>,
+  ) -> Response
+  ```
+  Flow:
+  1. Exchange code for access token via `auth_svc::exchange_code()`
+  2. Fetch GitHub user profile via `auth_svc::fetch_github_user()`
+  3. Upsert user via `auth_svc::upsert_user()` → returns user UUID
+  4. Create session via `session::create_session()` → returns token
+  5. Set HttpOnly cookie `session_token` with 30-day expiry
+  6. Redirect to `/`
+
+- **`GET /api/auth/me`** — Requires `AuthUser` extractor; returns current user
+  ```rust
+  pub async fn me(auth: AuthUser) -> Json<session::SessionUser>
+  ```
+
+- **`POST /api/auth/logout`** — Requires auth; deletes session, clears cookie
+  ```rust
+  pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse
+  ```
+
+- **`POST /api/auth/ws-ticket`** — Requires auth; creates short-lived WS ticket (30s)
+  ```rust
+  pub async fn ws_ticket(State(state): State<AppState>, auth: AuthUser) 
+      -> Result<Json<serde_json::Value>, StatusCode>
+  ```
+
+**Auth Extractor** — `AuthUser` struct validates session token from cookie:
+```rust
+pub struct AuthUser {
+    pub user: session::SessionUser,
+    pub token: String,
+}
+
+impl<S> axum::extract::FromRequestParts<S> for AuthUser {
+    async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let jar = CookieJar::from_headers(&parts.headers);
+        let token = jar.get(COOKIE_NAME).map(Cookie::value).unwrap_or_default();
+        let user = session::validate_session(&app_state.pool, token).await?;
+        Ok(Self { user, token: token.to_owned() })
+    }
+}
+```
+
+---
+
+### 4. **Session & Auth Services**
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs`
+
+```rust
+pub async fn create_session(pool: &PgPool, user_id: Uuid) -> Result<String, sqlx::Error>
+
+pub async fn validate_session(pool: &PgPool, token: &str) -> Result<Option<SessionUser>, sqlx::Error> {
+    // Joins sessions → users, returns user if token valid and not expired
+}
+
+pub async fn delete_session(pool: &PgPool, token: &str) -> Result<(), sqlx::Error>
+
+pub async fn create_ws_ticket(pool: &PgPool, user_id: Uuid) -> Result<String, sqlx::Error>
+
+pub async fn consume_ws_ticket(pool: &PgPool, ticket: &str) -> Result<Option<Uuid>, sqlx::Error>
+```
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs`
+
+```rust
+pub struct GitHubConfig {
+    pub client_id: String,
+    pub client_secret: String,
+    pub redirect_uri: String,
+}
+
+impl GitHubConfig {
+    pub fn from_env() -> Option<Self>  // Loads from env vars
+    pub fn authorize_url(&self) -> String  // Builds GitHub OAuth URL
+}
+
+pub async fn exchange_code(config: &GitHubConfig, code: &str) -> Result<String, AuthError>
+    // Exchanges auth code for access token
+
+pub async fn fetch_github_user(access_token: &str) -> Result<GitHubUser, AuthError>
+    // Fetches user from https://api.github.com/user
+
+pub async fn upsert_user(pool: &PgPool, gh: &GitHubUser) -> Result<Uuid, AuthError>
+    // INSERT ... ON CONFLICT to upsert user, returns UUID
+```
+
+---
+
+### 5. **Database Connection & Pool Setup**
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/db/mod.rs`
+
+```rust
+pub async fn init_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(database_url)
+        .await?;
+
+    sqlx::migrate!("src/db/migrations").run(&pool).await?;
+
+    Ok(pool)
+}
+```
+
+**Initialization in main.rs:**
+```rust
+let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL required");
+let pool = db::init_pool(&database_url)
+    .await
+    .expect("database init failed");
+
+let state = state::AppState::new(pool, llm, github);
+```
+
+**AppState** (`/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs`):
+```rust
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: PgPool,
+    pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+    pub llm: Option<Arc<dyn LlmChat>>,
+    pub rate_limiter: RateLimiter,
+    pub github: Option<GitHubConfig>,
+    pub dirty_frames: Arc<Mutex<Vec<Frame>>>,
+}
+```
+
+---
+
+### Summary of File Paths
+
+| Component | File Path |
+|-----------|-----------|
+| Route definitions | `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs` |
+| Auth routes & extractors | `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs` |
+| Auth service (OAuth, upsert) | `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs` |
+| Session service | `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs` |
+| DB pool init & migrations | `/Users/ianzepp/github/gauntlet/collaboard/server/src/db/mod.rs` |
+| App state (in-memory boards) | `/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs` |
+| Users migration | `/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/001_users.sql` |
+| Sessions migration | `/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/005_sessions.sql` |
+| Frames migration | `/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/004_frames.sql` |
+| Main entry point | `/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs` |
+
+📋 --- Summary ---
+📋 Duration: 31s
+📋 Messages: 1 user, 7 assistant
+📋 Tool calls: 16 total, 2 failed
+📋 Files: 12 read
+📋 Tokens: 238 in, 47 out
+📋 Cache: 321.2K read, 52.7K created

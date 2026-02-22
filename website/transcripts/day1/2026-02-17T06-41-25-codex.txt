@@ -1,0 +1,45 @@
+📋 Session: 019c6b67-b933-7ab2-a6a2-62a37ea29d42
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T11:41:25.683+00:00
+📋 CLI: codex 0.101.0
+📋 Branch: main
+
+👤 Independently review frame persistence path and provide only defensible findings with file:line evidence. Focus on real bugs/risks in reliability, ordering, and observability. If a concern is speculative, label it explicitly as low confidence.
+📋 Model: gpt-5.1-codex-mini
+✅ exec_command: {"cmd":"pwd"}
+✅ exec_command: {"cmd":"ls"}
+✅ exec_command: {"cmd":"echo \"Reviewing frame persistence path; first step: inventorying repo structure to identify relevant files.\""}
+✅ exec_command: {"cmd":"rg -n \"frame\" server -n"}
+✅ exec_command: {"cmd":"echo \"Investigating frame persistence path; opening websocket route and persistence service files to capture data flow.\""}
+✅ exec_command: {"cmd":"sed -n '480,580p' server/src/routes/ws.rs"}
+✅ exec_command: {"cmd":"sed -n '1,160p' server/src/services/persistence.rs"}
+✅ exec_command: {"cmd":"sed -n '1,200p' server/src/db/migrations/004_frames.sql"}
+✅ exec_command: {"cmd":"sed -n '1,220p' server/src/frame.rs"}
+✅ exec_command: {"cmd":"sed -n '1,260p' server/src/services/board.rs"}
+✅ exec_command: {"cmd":"rg -n \"send_frame\" -n server/src/routes/ws.rs"}
+✅ exec_command: {"cmd":"sed -n '120,230p' server/src/routes/ws.rs"}
+✅ exec_command: {"cmd":"sed -n '230,340p' server/src/routes/ws.rs"}
+✅ exec_command: {"cmd":"nl -ba server/src/routes/ws.rs | sed -n '500,580p'"}
+✅ exec_command: {"cmd":"nl -ba server/src/services/board.rs | sed -n '180,230p'"}
+✅ exec_command: {"cmd":"sed -n '340,520p' server/src/routes/ws.rs"}
+✅ exec_command: {"cmd":"rg -n \"frames\" -n server/src -g'*.*'"}
+✅ exec_command: {"cmd":"sed -n '1,200p' server/src/routes/users.rs"}
+✅ exec_command: {"cmd":"echo \"Gathered frame send/persistence hooks and metrics query; next step is drafting defensible findings with file:line references.\""}
+🤖 **Findings**
+
+1. Duplicate persistence per broadcast recipient causes inflated counts and ordering noise. `services::board::broadcast` clones the same logical frame for every connected client (`server/src/services/board.rs:192‑205`), and each client’s receive loop runs `send_frame`, which unconditionally persists the frame whenever the per‑socket send succeeds (`server/src/routes/ws.rs:520‑553`). Because every client that successfully receives the frame triggers its own `persist_frame` call, the `frames` table ends up with N identical rows for each broadcast where N is the number of recipients. `routes/users::user_profile` then aggregates `frames` directly to compute `total_frames`, `boards_active`, and top syscalls (`server/src/routes/users.rs:58‑95`), so those user stats are now multiplied by the number of listeners (and the exact `frames.seq` ordering shifts depending on which socket persisted first). This breaks reliability of persisted ordering and any analytics that rely on a single stored copy per logical frame.
+
+2. Low confidence: frames are not recorded when the TCP/WS send fails, even though the server already mutated state. `send_frame` only calls `persist_fire_and_forget` after the outbound `socket.send(...)` returns `Ok` (`server/src/routes/ws.rs:546‑553`), and `persist_fire_and_forget` is the sole writer into `frames` (`server/src/routes/ws.rs:556‑565`). If a client disconnects just before or during the send, the request has already been processed and board state updated, yet no row is ever inserted to `frames`. That leaves a hole in observability/audit logs for every such disconnect and makes total frame counts underreport actual work when clients drop mid‑send. (Labelled low confidence because it’s possible the missing rows are intentional to avoid persisting undelivered frames, but the doc comments describe this service as “background flush for dirty objects” and “Frames are persisted immediately on send,” so the behavior looks unintentional.)
+
+**Next steps**
+
+1. Persist each logical frame exactly once (e.g., persist when the handler finishes and annotate the owner/client) rather than during each WebSocket send, so broadcast recipients do not multiply entries.
+2. Decouple persistence from the socket send result or persist before sending, so transient network failures do not drop audit records.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Model: gpt-5.1-codex-mini
+📋 Messages: 1 user, 1 assistant
+📋 Function calls: 19 total, 0 failed
+📋 Tokens: 379.1K in, 14.2K out
+📋 Cache: 295.2K read, 0 created

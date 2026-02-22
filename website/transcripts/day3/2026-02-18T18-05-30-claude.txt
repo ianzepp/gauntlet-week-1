@@ -1,0 +1,114 @@
+📋 Session: 5e68654b-ba94-4f35-bb9f-7ca8654a490b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T18:05:30.654+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 Implement the following plan:
+
+# Plan: Complete client-rust Implementation (Finish Phases 5-8)
+
+## Context
+
+The `client-rust/PLAN.md` defined 9 phases. Phases 1-4 were implemented (scaffold, Leptos integration, pages+auth, WebSocket frame client). Phases 5-8 were left incomplete — components exist but with stubbed behavior, no CSS port, and missing WebSocket syscalls. This plan completes those phases.
+
+Canvas integration (Phase 9) remains deferred per the original plan.
+
+---
+
+## Phase 5 Gaps: Toolbar + Status Bar
+
+**Files:** `toolbar.rs`, `status_bar.rs`, `user_field_report.rs`
+
+- Toolbar: Add local user to presence chips, click-to-open UserFieldReport popover with positioned backdrop
+- StatusBar: Add cursor position placeholder, viewport center placeholder, user chip with color dot
+- UserFieldReport: Add avatar image, member_since, last_active, backdrop click-to-close
+
+## Phase 6 Gaps: Left Panel (Tools + Inspector)
+
+**Files:** `left_panel.rs`, `tool_rail.rs`, `tool_strip.rs`, `inspector_panel.rs`, `state/ui.rs`
+
+- LeftPanel: Restructure to 52px icon rail + 160px expandable panel (currently flat tabbed panel)
+- ToolRail: Match React tool set (select, sticky, rectangle, ellipse/line/connector/text/draw/eraser disabled), SVG icons, separator groups, `::after` active indicator. Sticky/Rect clicks open ToolStrip flyout
+- ToolStrip: Add shape presets (Square/Tall/Wide), match React colors (#D94B4B/#4B7DD9/#4BAF6E), send correct `props` fields, close after add, optimistic local add
+- InspectorPanel: Add editable inputs (width, height, title, text, font size, bg color, border color, border width), send `object:update` on blur/Enter, multi-select count
+
+## Phase 7 Gaps: Right Panel (Chat + AI + Boards)
+
+**Files:** `right_panel.rs`, `chat_panel.rs`, `ai_panel.rs`, `mission_control.rs`, `frame_client.rs`, `state/ai.rs`
+
+- RightPanel: Restructure to 52px rail + 320px panel, click active tab to collapse, SVG tab icons, panel header with close button, rename "AI" → "Field Notes"
+- ChatPanel: Send `chat:history` on mount, handle response in dispatch_frame, auto-scroll, username placeholder, disable send when empty
+- AiPanel: Send `ai:history` on mount, add `ai:prompt` response handler in dispatch_frame, mutations count, markdown rendering, disable while loading, auto-scroll
+- MissionControl: Use BoardCard components, highlight active board
+
+## Phase 8 Gaps: Polish + Styling
+
+**Files:** `styles/main.css`, `board_stamp.rs`, various component HTML updates
+
+- **CSS full rewrite**: Port all 40+ design tokens from React `global.css` (warm parchment palette, --radius:0, --shadow:none, IBM Plex Mono + Caveat fonts, spacing scale, z-index layers, dark mode overrides)
+- Port all component CSS modules to BEM in single main.css
+- BoardStamp: Move to top-right, add Station Log label, user count, connection status, Caveat font
+- LoginPage: Title "CollabBoard" not "Gauntlet"
+- DashboardPage: Full-viewport flex layout, nav header, dashed "+" card, wire board:create, Enter to submit, backdrop dismiss
+- BoardCard: aspect-ratio 4/3, Caveat name, mono ID, active+mini variants
+- BoardPage: Send `board:join` on connect, cleanup on unmount
+
+## Missing WebSocket Handlers (across phases)
+
+**File:** `frame_client.rs`
+
+Add to `dispatch_frame`:
+- `ai:prompt` (done/error) → append to AiState
+- `ai:history` (done) → populate AiState
+- `chat:history` (done) → populate ChatState
+- `board:create` (done) → navigate to new board
+- Peer `board:join` broadcast → add presence
+- Error status frames → log
+
+Add outbound sends:
+- `board:join` from BoardPage on connect/reconnect
+- `board:create` from DashboardPage
+- `chat:history` from ChatPanel on mount
+- `ai:history` from AiPanel on mount
+
+---
+
+## Execution Order
+
+1. **CSS first** (Phase 8 styling) — so we can visually verify everything after
+2. **Structural layout** (Phases 6+7 panel restructuring) — rail+panel architecture
+3. **WebSocket wiring** (Phase 7 frame handlers + Phase 3 board:join/create)
+4. **Component polish** (Phases 5-7 behavioral details)
+5. **Minor fixes** (login title, board card variants, etc.)
+
+## Verification
+
+After each batch:
+- `cargo check -p client-rust --features hydrate --target wasm32-unknown-unknown`
+- `cargo check -p client-rust --features ssr`
+- `cargo test --workspace`
+- `docker compose up --build` and visually compare against React client
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-ianzepp-gauntlet-week-1/38ed0faf-2f3b-47b6-9511-1ec8e7c4c594.jsonl
+📋 Model: opus-4.6
+🤖 I'll start by understanding the current state of the codebase before implementing. Let me read the key files in parallel.
+✅ Task: Explore: "Read React CSS reference"
+✅ Task: Explore: "Read React components reference"
+✅ Task: Explore: "Explore client-rust structure"
+🤖 Good, I have a comprehensive understanding of the codebase. Now let me read all the current Rust source files to understand what exists and needs changing.
+✅ Task: Explore: "Read React CSS modules"
+✅ Task: Explore: "Read React component sources"
+✅ Task: Explore: "Read all current Rust files"
+🤖 Now let me read the actual React CSS modules to get exact styling.
+✅ Glob: pattern="**/*.module.css" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src"
+❌ Task: Explore: "Read all React CSS modules"
+👤 [Request interrupted by user for tool use]
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 2 user, 3 assistant
+📋 Tool calls: 8 total, 1 failed
+📋 Tokens: 56.7K in, 151 out
+📋 Cache: 269.5K read, 112.8K created

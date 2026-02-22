@@ -1,0 +1,459 @@
+📋 Session: 0d21b26d-320b-4788-9d5e-40e15fede544
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T18:22:42.858+00:00
+📋 Version: 2.1.42
+📋 Branch: HEAD
+
+👤 i need to use this folder as a polyglot monorepo for a collection of related projects. Please git init, add the current .claude and CLAUDE.md files, and push to a new public repo at ianzepp/gauntlet
+📋 Model: opus-4.6
+✅ Bash: git init
+✅ Bash: gh repo create ianzepp/gauntlet --public --confirm 2>&1
+✅ Bash: git remote add origin git@github.com:ianzepp/gauntlet.git 2>&1 || git remote set-url origin git@github.com:ianzepp/gauntlet.git
+✅ Bash: git add CLAUDE.md .claude && git status
+✅ Bash: git commit -m "$(cat <<'EOF' ↵ Initial commit: monorepo setup with Claude Code configuration ↵  ↵ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com> ↵ EOF ↵ )"
+✅ Bash: git push -u origin main 2>&1
+🤖 Done. Repo is live at https://github.com/ianzepp/gauntlet with `CLAUDE.md` and `.claude/` committed and pushed.
+👤 As an extension of the agent files, I need a test auditor: an agent (any language) that reviews a project codebase's tests (just the tests) and reviews the tests for exhaustiveness and correctness. LLMs will often just write a test case to satisfy a happy path, but neglect all the other paths. So this agent should identify gaps in tests and suggest new cases. The agent should NOT modify the codebase, this is purely a review-and-report-back process.
+✅ Read: file="/Users/ianzepp/github/gauntlet/.claude/agents/ts-correctness-surgeon.md"
+✅ Read: file="/Users/ianzepp/github/gauntlet/.claude/agents/rust-correctness-surgeon.md"
+🤖 Now I have a good sense of the style and format. Let me also check the technical-writer agent for completeness.
+✅ Read: file="/Users/ianzepp/github/gauntlet/.claude/agents/technical-writer.md"
+🤖 Good. I now understand the agent format and the existing style. Let me write the test-auditor agent.
+✅ Write: file="/Users/ianzepp/github/gauntlet/.claude/agents/test-auditor.md"
+🤖 Done. The new agent is at `.claude/agents/test-auditor.md`. Key characteristics:
+
+- **Read-only** — it never modifies files, only reports findings
+- **Language-agnostic** — works with any test framework/language, orients itself by reading project config
+- **Focuses on the gaps LLMs create** — happy-path-only coverage, weak assertions (`toBeTruthy`), over-mocking, missing error/boundary/auth tests
+- **Structured output** — Summary, Critical Gaps, Weak Tests, Structural Issues, and a prioritized Suggested Test Cases list
+- **Same severity levels and format** as your existing correctness-surgeon agents
+- **Reads production code alongside tests** to understand what *should* be tested, not just what *is* tested
+
+Want me to commit and push this?
+👤 please
+✅ Bash: git add .claude/agents/test-auditor.md && git commit -m "$(cat <<'EOF' ↵ Add test-auditor agent for exhaustive test suite review ↵  ↵ Read-only agent that audits tests for coverage gaps, weak assertions, ↵ mi...
+🤖 Committed and pushed.
+👤 please evaluate @"collaboard/G4 Week 1 - CollabBoard.pdf"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/G4 Week 1 - CollabBoard.pdf"
+🤖 Here's my evaluation of the CollabBoard spec:
+
+## Project Summary
+
+A one-week sprint to build a real-time collaborative whiteboard (Miro clone) with an AI agent that manipulates the board via natural language. It's a gate for Austin admission.
+
+## What's Actually Required
+
+**4 deadlines:** Pre-Search (Mon, 1hr), MVP (Tue, 24hr hard gate), Early Submission (Fri), Final (Sun 10:59 PM CT)
+
+**MVP hard gate (24hr)** — all 9 items or you fail:
+1. Infinite board with pan/zoom
+2. Sticky notes with editable text
+3. At least one shape type
+4. Create, move, edit objects
+5. Real-time sync (2+ users)
+6. Multiplayer cursors with name labels
+7. Presence awareness
+8. User auth
+9. Deployed publicly
+
+**Full build** adds: connectors, frames, text elements, multi-select, rotate, copy/paste, disconnect recovery, persistence, and the AI agent (6+ commands across creation/manipulation/layout/complex).
+
+**Deliverables beyond code:** Pre-Search doc, AI Dev Log, AI Cost Analysis (dev spend + projections at 100/1K/10K/100K users), 3-5 min demo video, social post tagging @GauntletAI.
+
+## Key Constraints & Observations
+
+**The hard part is sync, not features.** The doc says it explicitly: *"A simple whiteboard with bulletproof multiplayer beats a feature-rich board with broken sync."* The build order confirms this — cursors first, then object sync, then conflict handling, then persistence, then features, then AI last.
+
+**Performance targets are concrete and testable:**
+- 60 FPS during pan/zoom
+- <100ms object sync, <50ms cursor sync
+- 500+ objects, 5+ concurrent users
+
+**They will test adversarially:** network throttling, mid-edit refreshes, rapid operations, 5+ simultaneous users.
+
+**AI agent scope is well-defined** — 9 tool functions minimum, 6+ command types, must handle multi-step commands (e.g., "Create a SWOT analysis" = 4 quadrants). AI results must sync to all users in real-time.
+
+## Stack Fit Against Your Conventions
+
+The spec is stack-agnostic, but your `CLAUDE.md` conventions (Bun + Hono + htmx + SQLite) create some tension:
+
+- **htmx is the wrong tool here.** This is a canvas-heavy, real-time interactive app. You need a real client-side framework or raw Canvas/WebGL. React + Konva.js or raw HTML5 Canvas are the pragmatic choices.
+- **Hono works fine** as the backend — WebSocket support via `hono/ws` or a separate Bun WebSocket server alongside it.
+- **SQLite works for persistence** but you'll need a real-time layer on top (WebSockets, not polling).
+- **Supabase Realtime** would shortcut a lot of the sync/auth/presence work but creates vendor lock-in. A custom Bun WebSocket server gives you more control and fits the "build it yourself" spirit.
+
+## Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Sync bugs under concurrent edits | **Critical** | Build sync first, test multi-window from hour 1 |
+| 24hr MVP deadline is tight | **High** | Use Supabase or Firebase for auth + DB to save time, or go minimal custom auth |
+| AI agent is a time sink | **Medium** | Build it last, keep tool functions thin wrappers over existing board operations |
+| Canvas performance at 500+ objects | **Medium** | Use a scene graph library (Konva/Fabric) rather than raw canvas |
+| Deployment complexity with WebSockets | **Medium** | Render or Railway handle WS natively; avoid Vercel for the WS server |
+
+## My Recommendation
+
+Want me to run the Pre-Search process and produce the architecture decision document, or jump straight into scaffolding the project with a specific stack? Given your conventions, I'd lean toward:
+
+- **Bun + Hono** backend with native Bun WebSockets
+- **React + Konva.js** frontend (exception to the htmx default — this genuinely needs rich client interactivity)
+- **SQLite via Drizzle** for persistence
+- **Simple JWT or session auth** (not a full auth service, to keep it self-contained)
+- **Anthropic Claude** for the AI agent with function calling
+👤 Ignore my conventions for the moment. Run the pre-search.
+🤖 I'll run the Pre-Search across all three phases in parallel — constraints analysis, architecture discovery, and post-stack refinement.
+✅ Task: general-purpose: "Pre-Search Phase 1: Constraints"
+✅ Task: general-purpose: "Pre-Search Phase 2: Architecture"
+✅ Task: general-purpose: "Pre-Search Phase 3: Refinement"
+🤖 All three phases are running in parallel. Let me check on progress.
+✅ TaskOutput: {"block":true,"task_id":"aa93daa","timeout":120000}
+✅ TaskOutput: {"block":true,"task_id":"a9b4514","timeout":120000}
+✅ TaskOutput: {"block":true,"task_id":"a6e7d61","timeout":120000}
+🤖 All three phases are complete. Let me compile the full Pre-Search document.
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 The Pre-Search document is at `collaboard/PRE-SEARCH.md`. Here's the TL;DR of the key decisions:
+
+| Layer | Decision |
+|-------|----------|
+| **Runtime** | Bun |
+| **Backend** | Elysia (not Hono — first-class WebSocket support) |
+| **Database** | SQLite via Drizzle + in-memory Map for live state |
+| **Sync** | Last-write-wins, server-authoritative, object-level granularity |
+| **Frontend** | React + Konva.js (via react-konva) + Zustand |
+| **Auth** | Anonymous sessions for MVP, Lucia + GitHub OAuth for Full |
+| **AI** | Claude Sonnet with function calling, server-side |
+| **Hosting** | Fly.io free tier |
+| **Linting** | Biome (not ESLint) |
+
+The most opinionated calls:
+- **Elysia over Hono** — WebSockets are 80% of this app's traffic; Hono's WS adapter is secondary, Elysia's is native
+- **No CRDTs** — LWW is sufficient for discrete whiteboard objects; CRDTs add complexity without proportional benefit here
+- **No tests until day 6** — manual testing only during the sprint; the 24hr MVP gate demands every hour go to features
+- **In-memory state with debounced flush** — simple, fast, single-server-only (which is fine for 5 users)
+
+Want me to commit this, or do you want to revise any of the decisions first?
+🤖 The Pre-Search is complete and written to `collaboard/PRE-SEARCH.md`. I shared the summary in my previous message. Want me to commit it, or revise any decisions first?
+🤖 All phases were already incorporated into the document. It's ready at `collaboard/PRE-SEARCH.md`. Want me to commit it or make any changes?
+🤖 All three phases already landed in `collaboard/PRE-SEARCH.md`. Ready to commit whenever you give the word, or let me know if you want to adjust any decisions.
+👤 Now, a lot of the backend infrastructure seems to overlap with one of my personal projects. Perhaps we can steal some ideas from there: ~/github/ianzepp/prior/ .. I'm thinking frames as a core communication method. I'm thinking a monokernel instead of a microkernel, and the monokernel runs the api server. I'm thinking /api/auth and /api/ws as core HTTPD methods, where the ws/ endpoint is bidirectional frames. I'm thinking PG as the backend.
+🤖 Let me explore your prior project to understand the architecture you want to port over.
+✅ Task: Explore: "Explore prior project architecture"
+🤖 That's a deep architecture. Let me check one thing about the existing collaboard code to understand what's already there.
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/ 2>/dev/null
+🤖 Good — nothing built yet, just docs. Here's how I see your Prior patterns mapping to CollabBoard:
+
+## Prior -> CollabBoard Translation
+
+| Prior (Rust) | CollabBoard (TypeScript/Bun) | Notes |
+|---|---|---|
+| **Frame** struct | `Frame` type — same `id, parent_id, syscall, status, data` shape | Port the protocol directly |
+| **Status enum** | `request \| item \| done \| error \| cancel` | Identical lifecycle |
+| **Kernel router** | Monokernel that routes by `syscall.prefix()` | Single Bun process, `Map<prefix, handler>` |
+| **PipeEnd / Caller** | Subsystem interface via async channels or EventEmitter | Lighter-weight in TS, but same pattern |
+| **Door** | `/api/auth` + session/room management | WebSocket session lifecycle, board = room |
+| **EMS** | Board object CRUD (the "entities" are board objects) | Postgres instead of SQLite |
+| **Room** | Board worker — one per active board | Manages participants, routes mutations, coordinates AI |
+| **LLM subsystem** | AI service — Claude tool calling | Subsystem registered as `ai:*` |
+| **Bridge** | Not needed — single process | Skip for now |
+| **axum gateway** | Elysia serving `/api/auth/*` and `/api/ws` | Same two-endpoint pattern |
+| **frame_db** | Postgres `frames` table — append-only log | Upgrade from SQLite |
+
+**Key architectural ports:**
+- **Frames as the universal wire format** — every WS message is a Frame, every internal subsystem call is a Frame
+- **`Request -> Item* -> Done/Error` lifecycle** — canvas operations, AI responses, everything follows this
+- **Kernel routes by prefix only** — `board:create`, `object:move`, `ai:prompt`, `cursor:move`
+- **Door pattern** — `/api/ws` upgrade, `door:connect` creates session, `door:join` enters a board, `door:message` forwards mutations
+- **Postgres as the backend** — `frames` table for audit log, `boards`/`objects`/`users` tables for relational data
+
+The big question: how deep do you want to port the Pipe/Caller/CallStream concurrency model to TypeScript? In Rust those channels are essential because of ownership. In TypeScript, you could simplify to:
+1. **Full port** — async iterables mimicking CallStream, a dispatcher, pending maps
+2. **Simplified** — just the Frame protocol + routing table, use plain async/await for subsystem calls
+
+My instinct is the simplified version — you get 90% of the architecture's value without porting Rust concurrency primitives that TS doesn't need. The Frame protocol and kernel routing are the real wins.
+
+Want me to update the PRE-SEARCH.md with these revised architecture decisions (Elysia + Frame protocol + Postgres + monokernel), or jump straight to scaffolding?
+👤 Simplified. Plus rust on the API side.
+🤖 So: Rust monokernel with the Frame protocol, Axum for HTTP/WS (like Prior), Postgres backend, React+Konva frontend. Let me update the Pre-Search to reflect this.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now I have the full document. Let me rewrite it with the revised architecture.
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Pre-Search updated. The revised architecture:
+
+- **Rust monokernel + Axum** (ported from Prior) — frame-routed subsystems, `/api/auth` + `/api/ws` as the only HTTP endpoints
+- **Frame protocol** as the universal wire format — `{ id, parent_id, syscall, status, data }` with `Request -> Item* -> Done/Error` lifecycle
+- **PostgreSQL** (Neon/Supabase free tier) — `frames` table for audit log, `board_objects` for persistence, relational tables for users/boards
+- **Door subsystem** for session lifecycle and board membership (same pattern as Prior)
+- **5 subsystems:** `door`, `board`, `object`, `cursor`, `ai` — kernel routes by prefix, subsystems are opaque to each other
+- **Simplified from Prior** — no Pipe/Caller/CallStream concurrency primitives, just the frame protocol + routing table + async/await
+
+Frontend stays React + Konva + Zustand, with a `Frame Client` that speaks the same protocol.
+
+Want me to commit this update?
+👤 Commit, then walk me through the presearch questions in batches for my review.
+✅ Bash: git add collaboard/PRE-SEARCH.md && git status
+✅ Bash: git commit -m "$(cat <<'EOF' ↵ Add CollabBoard Pre-Search document ↵  ↵ Rust monokernel (ported from Prior) with frame-routed subsystems, ↵ Axum gateway (/api/auth + /api/ws), PostgreSQL backend, ↵ React+Konva+...
+🤖 Committed and pushed. Now let's walk through the Pre-Search questions. I'll batch them by phase.
+
+---
+
+## Batch 1: Constraints (Questions 1-5)
+
+### 1. Scale & Load Profile
+
+| Question | Our Answer |
+|----------|-----------|
+| Users at launch? | 5-20 concurrent per board, ~50 registered total |
+| Traffic pattern? | Spiky (demo-driven) |
+| Real-time requirements? | WebSockets, <100ms object sync, <50ms cursor sync |
+| Cold start tolerance? | 2-3 seconds acceptable |
+
+**Needs your input:** Are you comfortable with single-process, no horizontal scaling? The ceiling is ~100 concurrent connections.
+
+### 2. Budget & Cost Ceiling
+
+| Question | Our Answer |
+|----------|-----------|
+| Monthly spend? | $0 infra, $20 hard ceiling |
+| Pay-per-use? | Yes (LLM only, ~$5-10 total) |
+| Money for time? | Managed Postgres (Neon/Supabase free), Fly.io free |
+
+**Needs your input:** Neon vs Supabase for managed Postgres? Neon has branching (nice for dev), Supabase has a dashboard + auth you could optionally use later.
+
+### 3. Time to Ship
+
+| Question | Our Answer |
+|----------|-----------|
+| MVP timeline? | 24 hours (hard gate) |
+| Priority? | Ship speed only |
+| Tests? | Manual until day 6 |
+
+**Needs your input:** The time allocation puts Rust scaffold + Axum gateway in the first 8 hours, frontend in hours 12-16. Does that ordering feel right, or would you rather get the frontend rendering first and stub the WS?
+
+### 4. Compliance
+
+**Answer:** None. Zero compliance work. Acceptable?
+
+### 5. Team & Skill Constraints
+
+**Answer:** Solo, Rust backend ported from Prior, React+Konva frontend.
+
+**Needs your input:** How comfortable are you with Konva.js specifically? Have you used it before, or would you prefer raw Canvas 2D (like the Phase 1 agent suggested)?
+
+---
+
+What are your thoughts on this batch before I move to Architecture (6-11)?
+👤 (1) agreed, no changes. 
+(2) $0 is too free. Bump that to $100/mo for API keys and server / database hosting to start.
+(3) MVP feature list is a hard requirement. Is that feasible with a 24 build time? Using prior as reference material? Tests need to done (unit tests, happy path + smoke) as part of the MVP, for my own sanity.
+(4) Agreed.
+(5) Solo. I have no experience with konva.js. Iteration speed and developer usability is key here, so I defer to you.
+🤖 Good feedback. Let me address each:
+
+**(2)** Updated to $100/mo. That unlocks a real Fly.io machine ($5-7/mo), Neon Pro or Supabase Pro if needed, and comfortable headroom for Anthropic API usage during dev and demo.
+
+**(3)** Let me think about this honestly. The MVP checklist:
+
+- Infinite board with pan/zoom
+- Sticky notes with editable text
+- At least one shape type
+- Create, move, edit objects
+- Real-time sync (2+ users)
+- Multiplayer cursors with name labels
+- Presence awareness
+- User auth
+- Deployed publicly
+- **Plus:** unit tests (happy path + smoke)
+
+With Prior as reference material for the kernel/frame/gateway layer, **yes, feasible but tight.** The kernel routing, frame protocol, and Axum WS gateway are largely copy-and-adapt from Prior — that saves ~4-6 hours of from-scratch architecture. The risk is the frontend: canvas + Konva + real-time sync is the unknown.
+
+I'd revise the time allocation to front-load the backend harder (since it's the known quantity) and interleave tests as you build, not defer them:
+
+| Block | Hours | Deliverable |
+|-------|-------|-------------|
+| 0-3 | 3h | Cargo workspace, Frame type, kernel router, Postgres schema + migrations |
+| 3-5 | 2h | Door subsystem + `/api/auth/connect` + `/api/ws` frame relay |
+| 5-6 | 1h | **Tests: kernel routing, door connect/join, frame serialization** |
+| 6-9 | 3h | Board + Object subsystems (CRUD, in-memory state, Postgres persist) |
+| 9-10 | 1h | **Tests: object CRUD, board state hydration, LWW** |
+| 10-14 | 4h | React+Konva frontend: canvas, sticky notes, shapes, toolbar |
+| 14-18 | 4h | Frame client (WS), real-time sync, cursor broadcast, presence UI |
+| 18-19 | 1h | **Tests: frame client dispatch, multi-client sync smoke test** |
+| 19-22 | 3h | Deploy to Fly.io, integration testing, bug fixes |
+| 22-24 | 2h | Buffer |
+
+That's 3 hours of tests woven in, covering kernel routing, object CRUD, LWW, and a sync smoke test.
+
+**(5)** On Konva vs alternatives — I'll stick with **Konva.js + react-konva** as the recommendation. Here's why for someone with no Konva experience:
+
+- **Konva gives you the hardest whiteboard primitives for free:** drag-and-drop, `Transformer` (resize/rotate handles), hit detection, text editing overlays. On raw Canvas you'd spend 2+ days building these from scratch.
+- **react-konva** means you write React components, not imperative canvas code. The learning curve is "React components that render to canvas" — not a new paradigm.
+- **The API is small.** `Stage`, `Layer`, `Rect`, `Circle`, `Line`, `Text`, `Group`, `Transformer`. That's basically the whole surface area you'll touch.
+- **Debugging is visual** — if something renders wrong, you see it immediately.
+
+The iteration speed cost of raw Canvas would be much higher than the learning cost of Konva.
+
+Let me update the Pre-Search with these changes.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now update the testing strategy in Phase 3 to match:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Also update the budget in the decision summary and pricing sections:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Good. Now let's move to the next batch.
+
+---
+
+## Batch 2: Architecture Discovery (Questions 6-11)
+
+### 6. Hosting & Deployment
+
+**Decision:** Fly.io, dedicated machine, `fly deploy` from terminal, no CI/CD.
+
+**Needs your input:** Any preference on region? Fly defaults to the nearest, but if evaluators are US-based, `iad` (Virginia) or `dfw` (Dallas) makes sense.
+
+### 7. Authentication & Authorization
+
+**Decision:** Anonymous sessions for MVP (Door subsystem generates session UUID, client picks name + color). Boards shared via link. No RBAC beyond owner/collaborator.
+
+**Needs your input:** For the Full phase, email/password or GitHub OAuth? Or just keep anonymous for the whole sprint and call it done?
+
+### 8. Database & Data Layer
+
+**Decision:** PostgreSQL (Neon or Supabase) + in-memory board state. LWW sync. `frames` table for audit log, `board_objects` for persistence.
+
+**Needs your input:** Neon vs Supabase? Neon is pure Postgres with branching. Supabase adds a dashboard, auth service, and REST API on top of Postgres — but we'd only use the Postgres part.
+
+### 9. Backend / API Architecture
+
+**Decision:** Rust monokernel, Axum, two endpoints (`/api/auth/*`, `/api/ws`). Five subsystems: `door`, `board`, `object`, `cursor`, `ai`. Frame protocol over WebSocket. AI agent is just another subsystem making mutations through the kernel.
+
+**Needs your input:** Any syscall prefixes or subsystem boundaries you'd change? The current split is `board` for CRUD metadata vs `object` for canvas element mutations.
+
+### 10. Frontend
+
+**Decision:** React (Vite SPA) + Konva.js (react-konva) + Zustand. Frame Client speaks the same protocol as the server.
+
+**Needs your input:** Comfortable with Zustand for state management, or prefer something else?
+
+### 11. Third-Party Integrations
+
+**Decision:** Anthropic Claude Sonnet via `reqwest` (direct HTTP to Messages API). 7 tool definitions. No other external services.
+
+**Needs your input:** Any preference on calling the Anthropic API from Rust? Direct `reqwest` + JSON, or find/use a Rust SDK crate?
+👤 (6) Evaluators are Austin, so DWF. Will fly deploy rust servers? What about digitalocean?
+(7) MVP requires auth. Use github from the start, google as a possible secondary. No local auth.
+(8) Whichever is faster. Latency and load is the concern here.
+(9) I would present two options: (a) kernel + syscalls + subsystems, or (b) traditional API server with route handlers (in rust) and shared code for LLM tools. Option b is still frame based, just not kernel style.
+(10) I have no preference here.
+(11) I need an adapter later, anthropic + openai formats. Provider/model defs in a config or env server-side. Prior has reference implementations for both.
+🤖 Good questions. Let me address each:
+
+**(6) Fly.io + Rust:** Yes, Fly deploys Docker containers — you just provide a Dockerfile with a Rust build stage. Works great for Rust since the final image is just a static binary (~10-20MB). DigitalOcean App Platform also supports Docker and has a $5/mo basic tier, but Fly has better WebSocket support (persistent connections, no idle timeouts). Fly also has a `dfw` region (Dallas). I'd stick with Fly.
+
+**(7)** GitHub OAuth from day one, got it. That actually simplifies things — no password hashing, no email verification. Just `POST /api/auth/github` -> redirect -> callback -> session. Google as secondary if time allows.
+
+**(8)** For latency with a Dallas-based server: **Neon** has a `us-east` region but not Dallas specifically. **Supabase** has `us-east-1` (Virginia). Both add ~20-30ms round-trip from Dallas. For a whiteboard where DB is the durable store (not the hot path), this is fine — the in-memory state handles the real-time reads. I'll go **Neon** — it's lighter weight (pure Postgres, no extra services), faster to provision, and the branching is nice for dev.
+
+**(9)** This is the most important architecture decision. Let me lay out both honestly:
+✅ AskUserQuestion: {"questions":[{"header":"Architecture","multiSelect":false,"options":[{"description":"Port Prior's monokernel pattern. Channel-routed subsystems, pref...
+🤖 **(9)** Good call. Option B for MVP: standard Axum with shared services, frames on the wire. If subsystem isolation becomes valuable later, refactor.
+
+**(11)** Multi-provider LLM adapter with config-driven provider/model selection. I'll port the pattern from Prior's `llm/client.rs` + `llm/openai_client.rs` — trait-based dispatch with provider config in env/toml.
+
+Let me update the Pre-Search with all of these.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now the big one — rewrite the backend architecture section:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now update the LLM integration section:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Update the full stack summary table and decision summary:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now update the file structure to match option B:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Update the time allocation to account for GitHub OAuth:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Good. All updates applied. Ready for the last batch.
+
+---
+
+## Batch 3: Post-Stack Refinement (Questions 12-16)
+
+### 12. Security
+
+**Current answers:**
+- WS auth: validate session on upgrade, verify board membership
+- XSS: Konva canvas is inherently safe, sanitize DOM text inputs
+- CORS: explicit origin allowlist via `tower-http`
+- AI: rate limiting (10/min/user), narrow tool definitions, XML-wrapped user input
+
+**Needs your input:** Anything else you want hardened for the demo? Or is this sufficient?
+
+### 13. File Structure
+
+Updated above — single Rust crate (not a workspace), `src/routes/`, `src/services/`, `src/llm/`, plus `client/` for React. Clean flat structure.
+
+**Needs your input:** Happy with single crate, or prefer a Cargo workspace (lib + binary)?
+
+### 14. Naming Conventions
+
+- Rust: standard (`snake_case` functions, `PascalCase` types, `cargo fmt` + `clippy`)
+- TypeScript: Biome, PascalCase components, camelCase hooks
+
+**Needs your input:** Any strong preferences I should capture?
+
+### 15. Testing
+
+Updated: 3 test checkpoints woven into the MVP (hours 5-6, 9-10, 18-19). Covers frame serialization, session lifecycle, object CRUD, LWW, and multi-client sync smoke test.
+
+**Needs your input:** Is the test scope right, or do you want specific scenarios covered?
+
+### 16. Tooling & DX
+
+- `cargo watch -x run` for backend hot reload
+- Vite dev server with proxy for frontend
+- `tracing` for structured logging
+- `wscat` for WS debugging
+- Biome for TS lint/format
+
+**Needs your input:** Any tools you want added or removed?
+👤 (12) nothing at the moment.
+(13) agreed.
+(14) agreed. cargo fmt & clippy mandatory. for TS, K&R 4-space. 
+(15) minimum pre-search test scope if fine, test will be added in flight.
+(16) log all frames to a frames.db. Add a rust CLI tool towards the end of the implementation, doesn't need to be designed now.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now commit.
+✅ Bash: git add collaboard/PRE-SEARCH.md && git commit -m "$(cat <<'EOF' ↵ Update Pre-Search after review: budget, auth, architecture, testing ↵  ↵ - Budget: $100/mo ceiling (was $0) ↵ - Auth: GitHub OAuth from day o...
+🤖 Committed and pushed. Pre-Search is complete — all 16 questions reviewed and answered. Here's the final state:
+
+| Decision | Final Answer |
+|----------|-------------|
+| Scale | 5-20 users, single server |
+| Budget | $100/mo ceiling |
+| Timeline | 24hr MVP with 3 test checkpoints |
+| Auth | GitHub OAuth from day one |
+| Backend | Rust + Axum route handlers (kernel refactor later if needed) |
+| Wire protocol | Frames over WebSocket |
+| Database | Neon Postgres (`us-east`) |
+| Frontend | React + Konva.js + Zustand |
+| AI | Multi-provider (Anthropic + OpenAI), config-driven |
+| Hosting | Fly.io dedicated, `dfw` (Dallas) |
+| Style | `cargo fmt` + `clippy` mandatory, Biome K&R 4-space for TS |
+| DX | Frame logging to Postgres, CLI tool later |
+
+Ready to scaffold the project when you are.
+
+📋 --- Summary ---
+📋 Duration: 51m
+📋 Messages: 11 user, 34 assistant
+📋 Tool calls: 44 total, 0 failed
+📋 Files: 5 read, 2 written, 1 edited
+📋 Tokens: 122 in, 16.6K out
+📋 Cache: 7.7M read, 218.2K created

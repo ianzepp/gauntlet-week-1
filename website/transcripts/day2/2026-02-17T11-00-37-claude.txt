@@ -1,0 +1,280 @@
+📋 Session: b40c65cc-c444-4d92-917e-1866992c8d61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T11:00:37.126+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 In /Users/ianzepp/github/gauntlet/collaboard/server, I need to understand:
+
+1. src/frame.rs — the full Frame struct, Status enum, all methods (reply, item, done, error, error_from, etc.), and how parent_id / board_id are set
+2. src/state.rs — AppState, BoardState, BoardObject structs
+3. src/services/object.rs — create_object, update_object, delete_object signatures and what they return
+4. src/services/persistence.rs — persist_frame implementation
+
+Show me the full code for these files.
+📋 Model: sonnet-4.5
+🤖 I'll read all four files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs"
+🤖 Here is the full annotated breakdown of all four files.
+
+---
+
+## `/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs`
+
+### Struct: `Frame`
+
+```rust
+pub struct Frame {
+    pub id: Uuid,
+    pub parent_id: Option<Uuid>,   // correlates response → request
+    pub ts: i64,                   // ms since Unix epoch, set at construction
+    pub board_id: Option<Uuid>,    // skipped in serialization if None
+    pub from: Option<String>,      // who sent it (user/client identifier)
+    pub syscall: String,           // e.g. "object:create", "board:join"
+    pub status: Status,            // defaults to Request on deserialize
+    pub data: Data,                // HashMap<String, serde_json::Value>
+}
+```
+
+### Enum: `Status`
+
+```rust
+pub enum Status { Request, Item, Done, Error, Cancel }
+```
+
+- `is_terminal()` — returns `true` for `Done | Error | Cancel`
+- Serialized as lowercase strings ("request", "item", etc.)
+
+### Constructors and Methods
+
+| Method | Status set | parent_id | Notes |
+|---|---|---|---|
+| `Frame::request(syscall, data)` | `Request` | `None` | Entry point; fresh frame |
+| `Frame::cancel(target_id)` | `Cancel` | `Some(target_id)` | Cancels in-flight request; empty syscall |
+| `frame.item(data)` | `Item` | `Some(self.id)` | One result in a stream; calls `reply()` |
+| `frame.done()` | `Done` | `Some(self.id)` | Terminal; empty data; calls `reply()` |
+| `frame.error(msg)` | `Error` | `Some(self.id)` | Inserts `"message"` key; calls `reply()` |
+| `frame.error_from(&err)` | `Error` | `Some(self.id)` | Inserts `"code"`, `"message"`, `"retryable"`; calls `reply()` |
+
+### Private `reply()` — how parent_id / board_id are set
+
+```rust
+fn reply(&self, status: Status, data: Data) -> Self {
+    Self {
+        id: Uuid::new_v4(),
+        parent_id: Some(self.id),    // response always points back at request
+        ts: now_ms(),
+        board_id: self.board_id,     // inherited from the request frame
+        from: self.from.clone(),     // inherited from the request frame
+        syscall: self.syscall.clone(), // inherited
+        status,
+        data,
+    }
+}
+```
+
+`parent_id` is always `Some(self.id)` on any reply. `board_id` is copied directly from the originating frame so responses carry the same board context.
+
+### Builder Methods
+
+```rust
+.with_board_id(board_id: Uuid) -> Self   // sets board_id
+.with_from(from: impl Into<String>)       // sets from
+.with_content(content: impl Into<String>) // inserts "content" key into data
+.with_data(key, value)                    // inserts arbitrary key into data
+```
+
+### Routing
+
+```rust
+pub fn prefix(&self) -> &str  // returns everything before first ':' in syscall
+// e.g. "object:create" → "object"
+```
+
+### Constants
+
+```rust
+FRAME_MESSAGE  = "message"
+FRAME_CODE     = "code"
+FRAME_RETRYABLE = "retryable"
+FRAME_CONTENT  = "content"
+```
+
+---
+
+## `/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs`
+
+### `BoardObject`
+
+```rust
+pub struct BoardObject {
+    pub id: Uuid,
+    pub board_id: Uuid,
+    pub kind: String,          // "sticky_note", "rectangle", "ellipse", etc.
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+    pub props: serde_json::Value, // freeform JSON blob
+    pub created_by: Option<Uuid>,
+    pub version: i32,             // LWW version counter, starts at 1
+}
+```
+
+Mirrors the `board_objects` Postgres table. Fully `Serialize`/`Deserialize`.
+
+### `BoardState`
+
+```rust
+pub struct BoardState {
+    pub objects: HashMap<Uuid, BoardObject>,       // live objects keyed by ID
+    pub clients: HashMap<Uuid, mpsc::Sender<Frame>>, // connected WS clients
+    pub dirty: HashSet<Uuid>,                      // object IDs pending flush
+}
+```
+
+`BoardState::new()` / `Default` gives empty maps. No Postgres interaction here — this is pure in-memory state.
+
+### `AppState`
+
+```rust
+pub struct AppState {
+    pub pool: PgPool,                                   // Postgres connection pool
+    pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>, // board_id → live state
+    pub llm: Option<Arc<dyn LlmChat>>,                  // optional LLM client
+    pub rate_limiter: RateLimiter,                      // AI request rate limiter
+    pub github: Option<GitHubConfig>,                   // optional OAuth config
+}
+```
+
+`AppState` is `Clone` (Axum requirement) — the inner fields are `Arc`-wrapped. Constructed via `AppState::new(pool, llm, github)`.
+
+---
+
+## `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs`
+
+### Error Type
+
+```rust
+pub enum ObjectError {
+    NotFound(Uuid),                             // E_OBJECT_NOT_FOUND
+    BoardNotLoaded(Uuid),                       // E_BOARD_NOT_LOADED
+    StaleUpdate { incoming: i32, current: i32 }, // E_STALE_UPDATE
+    Database(#[from] sqlx::Error),              // E_DATABASE
+}
+```
+
+Implements `ErrorCode` so it can be passed directly to `frame.error_from(&err)`.
+
+### `create_object`
+
+```rust
+pub async fn create_object(
+    state: &AppState,
+    board_id: Uuid,
+    kind: &str,
+    x: f64,
+    y: f64,
+    props: serde_json::Value,
+    created_by: Option<Uuid>,
+) -> Result<BoardObject, ObjectError>
+```
+
+- Acquires a write lock on `state.boards`
+- Returns `BoardNotLoaded` if `board_id` not in memory
+- Sets `z_index = board.objects.len()`, `version = 1`, `rotation = 0.0`, `width/height = None`
+- Inserts object into `board.objects` and marks it in `board.dirty`
+- Returns cloned `BoardObject` — does NOT write to Postgres (persistence is deferred)
+
+### `update_object`
+
+```rust
+pub async fn update_object(
+    state: &AppState,
+    board_id: Uuid,
+    object_id: Uuid,
+    updates: &Data,
+    incoming_version: i32,
+) -> Result<BoardObject, ObjectError>
+```
+
+- Returns `BoardNotLoaded` or `NotFound` as appropriate
+- LWW check: if `incoming_version < obj.version` → `StaleUpdate`; equal-or-greater is accepted
+- Applies fields from the `Data` map: `x`, `y`, `width`, `height`, `rotation`, `z_index`, `props` — each only if present in the map (partial updates are safe)
+- Increments `obj.version += 1` after applying
+- Marks `object_id` dirty; returns cloned updated `BoardObject`
+
+### `delete_object`
+
+```rust
+pub async fn delete_object(
+    state: &AppState,
+    board_id: Uuid,
+    object_id: Uuid,
+) -> Result<(), ObjectError>
+```
+
+- Returns `BoardNotLoaded` or `NotFound` as appropriate
+- Removes from `board.objects` and `board.dirty` (clears the dirty entry)
+- Immediately executes `DELETE FROM board_objects WHERE id = $1` against Postgres — this is the only function that hits the DB directly (no deferral)
+- Returns `()` on success
+
+---
+
+## `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs`
+
+### Background task: `spawn_persistence_task`
+
+```rust
+pub fn spawn_persistence_task(state: AppState) -> JoinHandle<()>
+```
+
+Spawns a `tokio::spawn` loop: calls `flush_all_dirty`, then sleeps 100ms, forever.
+
+### `flush_all_dirty` (private)
+
+```rust
+async fn flush_all_dirty(state: &AppState)
+```
+
+1. Acquires write lock on `state.boards`
+2. For each board with a non-empty `dirty` set: collects all dirty `BoardObject`s by ID lookup, clears `board_state.dirty`, accumulates into `all_dirty`
+3. Releases the lock
+4. If `all_dirty` is non-empty, calls `crate::services::board::flush_objects(&state.pool, &dirty_objects)` — errors are logged but not propagated (fire-and-forget style)
+
+### `persist_frame`
+
+```rust
+pub async fn persist_frame(pool: &PgPool, frame: &Frame) -> Result<(), sqlx::Error>
+```
+
+Called inline from the WS handler (not deferred). Serializes `frame.status` to a lowercase string and `frame.data` to a JSON value, then runs:
+
+```sql
+INSERT INTO frames (id, parent_id, syscall, status, board_id, "from", data, ts)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+```
+
+Binds: `frame.id`, `frame.parent_id`, `frame.syscall`, status string, `frame.board_id`, `frame.from`, data JSON, `frame.ts`. Returns `sqlx::Error` on failure.
+
+---
+
+### Key design invariants to keep in mind
+
+- `parent_id` is always `Some(request.id)` on every response frame — set inside the private `reply()` method.
+- `board_id` propagates automatically from request to all reply frames via `reply()`.
+- Object mutations (create/update) are write-to-memory + mark-dirty only; Postgres flush is done asynchronously every 100ms by the background task. Delete is the single exception: it hits Postgres immediately.
+- LWW versioning: `incoming_version >= current` is accepted; `<` is rejected as stale. Version increments by 1 on each accepted update.
+
+📋 --- Summary ---
+📋 Duration: 46s
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 4 total, 0 failed
+📋 Files: 4 read
+📋 Tokens: 16 in, 16 out
+📋 Cache: 62.1K read, 19.3K created

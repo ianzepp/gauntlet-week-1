@@ -1,0 +1,1175 @@
+📋 Session: 1876a3f8-4642-464c-a258-a1536b874a5d
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T13:21:18.235+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 I need to plan the initial scaffolding of a new `canvas/` Rust crate for a whiteboard canvas engine. This is a WASM-targeting library crate that will be used by a future Leptos frontend.
+
+## Project context
+
+- Monorepo at /Users/ianzepp/github/ianzepp/gauntlet-week-1
+- Existing server crate at server/ (edition 2024, rust-version 1.85, pedantic clippy)
+- No workspace Cargo.toml at root yet
+- Design doc at konva-rust-revised.md defines the full spec
+
+## Server conventions to match
+- Edition 2024, rust-version 1.85
+- Clippy pedantic with specific allows (collapsible_if, collapsible_else_if, wildcard_imports, needless_pass_by_value, unnecessary_map_or, unnecessary_result_map_or_else)
+- rustfmt: max_width 120, fn_call_width 80, chain_width 60, struct_lit_width 120, edition 2024
+- clippy.toml: cognitive-complexity-threshold 10, too-many-lines-threshold 100
+- Debug = 0 in dev profile
+- Tests co-located with #[cfg(test)] and #[path = "..._test.rs"]
+
+## Canvas crate modules (from design doc)
+- `doc`: BoardObject, ObjectKind enum, Props helpers, doc store (HashMap<ObjectId, BoardObject>)
+- `camera`: Camera { pan_x, pan_y, zoom }, screen_to_world/world_to_screen
+- `render`: draw(ctx, &doc, &camera, &ui_state) — draws grid, shapes, edges, selection, text
+- `hit`: hit_test(world_pt) -> Option<Hit> with Hit parts (Body, ResizeHandle, RotateHandle, EdgeEndpoint, EdgeBody)
+- `input`: pointer/key state machine, Tool enum, returns Vec<Action>
+- `engine`: Engine struct that ties everything together, public API surface
+
+## Engine public API (from design doc)
+Inputs: new(canvas), set_viewport, load_snapshot, apply_create/update/delete, on_pointer_down/move/up, on_wheel, on_key_down/up, set_tool, set_text, render
+Outputs: Action enum (ObjectCreated, ObjectUpdated, ObjectDeleted, EditTextRequested, SetCursor, RenderNeeded)
+Queries: selection(), camera(), object()
+
+## Key types
+- ObjectId = Uuid
+- ObjectKind enum: Rect, Ellipse, Diamond, Star, Line, Arrow (serde rename to lowercase)
+- BoardObject: id, board_id, kind, x, y, width (Option<f64>), height (Option<f64>), rotation, z_index, props (serde_json::Value), created_by, version
+- Point { x: f64, y: f64 }
+- Camera { pan_x: f64, pan_y: f64, zoom: f64 }
+- Tool enum: Select, Rect, Ellipse, Diamond, Star, Line, Arrow
+- Hit { object_id, part: HitPart }
+- Action enum as described above
+
+## Dependencies needed
+- wasm-bindgen (for WASM/JS interop)
+- web-sys (for HtmlCanvasElement, CanvasRenderingContext2d)
+- serde + serde_json (for BoardObject serialization)
+- uuid (with v4 + serde features)
+
+## What I need
+Plan the initial scaffolding — just the crate setup, module files with type definitions and stub implementations. No actual rendering or hit-testing logic yet, just the skeleton that compiles and defines the API surface. Also need a root workspace Cargo.toml.
+
+The plan should list every file to create and what goes in each one. Keep it minimal — type definitions, stub methods that todo!() or return defaults, enough to establish the module structure and compile.
+
+Do NOT plan any changes to the server/ crate — it stays independent for now (no shared types crate yet).
+📋 Model: sonnet-4.6
+🤖 Let me explore the existing codebase thoroughly before designing the plan.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/konva-rust-revised.md"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server"
+❌ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/ 2>&1
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/clippy.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/rustfmt.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/rust-toolchain.toml"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/ 2>&1
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ 2>&1
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame_test.rs"
+🤖 Good — I've seen the server patterns thoroughly. Now let me look at a few more patterns for module organization and then check if there's any existing client directory structure.
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/ 2>&1
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit_test.rs"
+🤖 Now I have a thorough understanding of the server conventions. Let me compile the full plan.
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/ 2>&1
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/mod.rs"
+🤖 I now have everything I need. Here is the complete scaffolding plan.
+
+---
+
+## Implementation Plan: `canvas/` Rust WASM Crate Scaffolding
+
+### What was observed in the existing codebase
+
+The server crate at `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/` establishes these conventions:
+
+- **Module doc comments** use a two-section `//! Name\n//!\n//! DESIGN\n//! ======\n//! ...` pattern
+- **Test co-location**: `#[cfg(test)]\n#[path = "foo_test.rs"]\nmod tests;` at the bottom of every file with tests
+- **Section dividers**: `// =============================================================================\n// SECTION NAME\n// =============================================================================`
+- **`#[must_use]`** on all pure query methods and builder methods that return `Self`
+- **`#[allow(dead_code)]`** at crate root (server uses it at `main.rs` top)
+- **`[lints.clippy]` pedantic** with the exact allow list from the prompt
+- **`[profile.dev] debug = 0`**
+- **`rustfmt.toml`**: max_width 120, fn_call_width 80, chain_width 60, struct_lit_width 120, edition 2024
+- **`clippy.toml`**: cognitive-complexity-threshold 10, too-many-lines-threshold 100
+- **`rust-toolchain.toml`**: channel = "1.85"
+- The server `BoardObject` has `kind: String` (opaque); the canvas crate will use a typed `ObjectKind` enum with `serde(rename_all = "lowercase")`
+
+No workspace `Cargo.toml` exists yet at the root — both `server/` and the new `canvas/` crate need to be pulled together into one.
+
+---
+
+### File Tree to Create
+
+```
+/Users/ianzepp/github/ianzepp/gauntlet-week-1/
+├── Cargo.toml                        ← NEW: workspace root
+├── canvas/
+│   ├── Cargo.toml                    ← NEW: canvas crate manifest
+│   ├── clippy.toml                   ← NEW: mirrors server/clippy.toml
+│   ├── rustfmt.toml                  ← NEW: mirrors server/rustfmt.toml
+│   └── src/
+│       ├── lib.rs                    ← NEW: crate root, mod declarations, #[wasm_bindgen] entry
+│       ├── doc.rs                    ← NEW: BoardObject, ObjectKind, PartialBoardObject, doc store
+│       ├── doc_test.rs               ← NEW: co-located tests for doc module
+│       ├── camera.rs                 ← NEW: Camera, screen_to_world, world_to_screen
+│       ├── camera_test.rs            ← NEW: co-located tests for camera
+│       ├── render.rs                 ← NEW: draw() stub
+│       ├── hit.rs                    ← NEW: Hit, HitPart, hit_test() stub
+│       ├── input.rs                  ← NEW: Tool, Button, Key, Modifiers, WheelDelta, input state machine stubs
+│       └── engine.rs                 ← NEW: Engine struct, full public API surface with todo!() stubs
+```
+
+The `rust-toolchain.toml` is **not** duplicated in `canvas/` — it lives at the workspace root (or the implementer can place it there; one toolchain file governs the whole workspace). Same for `Cargo.lock`.
+
+---
+
+### File 1: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/Cargo.toml` (workspace root)
+
+```toml
+[workspace]
+resolver = "2"
+members = [
+    "server",
+    "canvas",
+]
+```
+
+No `[profile]` section here — each member crate keeps its own `[profile]` in its own `Cargo.toml`. Actually, profiles in a workspace must live in the workspace root, not member manifests. So the `[profile.dev] debug = 0` moves here, and it applies to all members.
+
+```toml
+[workspace]
+resolver = "2"
+members = [
+    "server",
+    "canvas",
+]
+
+[profile.dev]
+debug = 0
+```
+
+Note: Once this workspace root exists, the server `Cargo.toml` will have its `[profile.dev]` section removed (it will be superseded by the workspace root). But the requirement says to not change the server — so leave the server `Cargo.toml` as-is and put `[profile.dev]` only in the workspace root. Cargo workspace overrides take precedence, so this is safe.
+
+---
+
+### File 2: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/Cargo.toml`
+
+```toml
+[package]
+name = "canvas"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = [
+    "HtmlCanvasElement",
+    "CanvasRenderingContext2d",
+    "Window",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+js-sys = "0.3"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+collapsible_if = "allow"
+collapsible_else_if = "allow"
+wildcard_imports = "allow"
+needless_pass_by_value = "allow"
+unnecessary_map_or = "allow"
+unnecessary_result_map_or_else = "allow"
+```
+
+Note on `web-sys` features: `HtmlCanvasElement` and `CanvasRenderingContext2d` are the minimum needed for stub compilation. `Window` is useful for `devicePixelRatio`. Additional features (e.g., `PointerEvent`, `KeyboardEvent`, `WheelEvent`) will be added when the input module is fleshed out — listing them now would require enabling them without use and would fail pedantic lints.
+
+Note: `js-sys` is needed because `wasm-bindgen` method signatures for canvas APIs often require `js_sys::Object` or similar types.
+
+---
+
+### File 3: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/clippy.toml`
+
+Identical to server:
+
+```toml
+cognitive-complexity-threshold = 10
+too-many-lines-threshold = 100
+```
+
+---
+
+### File 4: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/rustfmt.toml`
+
+Identical to server:
+
+```toml
+max_width = 120
+fn_call_width = 80
+chain_width = 60
+struct_lit_width = 120
+edition = "2024"
+```
+
+---
+
+### File 5: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs`
+
+```rust
+//! Canvas — whiteboard canvas engine targeting WebAssembly.
+//!
+//! DESIGN
+//! ======
+//! This crate is a pure logic + rendering library. It does not own the network,
+//! the DOM, or the application lifecycle. The host app (Leptos) drives it through
+//! the `Engine` public API surface. All persisted geometry is in world coordinates;
+//! `Camera` converts world <-> screen.
+
+#![allow(dead_code)]
+
+pub mod camera;
+pub mod doc;
+pub mod engine;
+pub mod hit;
+pub mod input;
+pub mod render;
+```
+
+The `#![allow(dead_code)]` is important here: during scaffolding the stubs won't be called, and pedantic clippy would otherwise fire on every unused type and method. The server uses it the same way at crate root.
+
+`wasm-bindgen` is not re-exported from lib.rs — `engine.rs` will use `#[wasm_bindgen]` directly on the types it wants to expose. Keeping `lib.rs` clean of `use wasm_bindgen::prelude::*` until `engine.rs` needs it avoids unused-import warnings.
+
+---
+
+### File 6: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs`
+
+This module owns all wire types and the in-memory doc store.
+
+```rust
+//! Doc — wire types and in-memory document store.
+//!
+//! DESIGN
+//! ======
+//! `BoardObject` mirrors the server's `board_objects` table fields and the wire
+//! JSON sent by `board:join` and `object:create/update/delete`. `ObjectKind` is
+//! a typed enum with lowercase serde renames matching the server's opaque string.
+//! The doc store is a `HashMap<ObjectId, BoardObject>` with insert/update/remove
+//! helpers. All geometry is in world coordinates.
+
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+// =============================================================================
+// ID TYPE
+// =============================================================================
+
+pub type ObjectId = Uuid;
+
+// =============================================================================
+// OBJECT KIND
+// =============================================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ObjectKind {
+    Rect,
+    Ellipse,
+    Diamond,
+    Star,
+    Line,
+    Arrow,
+}
+
+impl ObjectKind {
+    /// Returns `true` if this kind is a node shape (has authoritative width/height).
+    #[must_use]
+    pub fn is_node(self) -> bool {
+        matches!(self, Self::Rect | Self::Ellipse | Self::Diamond | Self::Star)
+    }
+
+    /// Returns `true` if this kind is an edge shape (uses props.a / props.b).
+    #[must_use]
+    pub fn is_edge(self) -> bool {
+        matches!(self, Self::Line | Self::Arrow)
+    }
+}
+
+// =============================================================================
+// BOARD OBJECT
+// =============================================================================
+
+/// Canonical in-memory representation of a board object.
+///
+/// Mirrors the server `BoardObject` and the wire JSON. Geometry is always in
+/// world coordinates. For node shapes, `width` and `height` are required; if
+/// absent from the wire the crate defaults to `0.0` and skips rendering.
+/// For edge shapes, `props.a` and `props.b` are authoritative for endpoints.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardObject {
+    pub id: ObjectId,
+    pub board_id: Uuid,
+    pub kind: ObjectKind,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    /// Degrees, matching the wire format and Konva convention.
+    pub rotation: f64,
+    pub z_index: i32,
+    /// Arbitrary JSON props (fill, stroke, stroke_width, head, text, foot, a, b).
+    pub props: serde_json::Value,
+    pub created_by: Option<Uuid>,
+    pub version: i32,
+}
+
+// =============================================================================
+// PARTIAL BOARD OBJECT (for updates)
+// =============================================================================
+
+/// Sparse update payload for `object:update`. Only `Some` fields are applied.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PartialBoardObject {
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: Option<f64>,
+    pub z_index: Option<i32>,
+    /// When present, the server performs a shallow merge into existing props.
+    pub props: Option<serde_json::Value>,
+    pub version: Option<i32>,
+}
+
+// =============================================================================
+// PROPS HELPERS
+// =============================================================================
+
+/// Typed view of the common `props` keys. Constructed on demand; not stored.
+#[derive(Debug, Clone)]
+pub struct Props<'a> {
+    raw: &'a serde_json::Value,
+}
+
+impl<'a> Props<'a> {
+    #[must_use]
+    pub fn new(raw: &'a serde_json::Value) -> Self {
+        Self { raw }
+    }
+
+    #[must_use]
+    pub fn fill(&self) -> &str {
+        self.raw.get("fill").and_then(|v| v.as_str()).unwrap_or("#D94B4B")
+    }
+
+    #[must_use]
+    pub fn stroke(&self) -> &str {
+        self.raw.get("stroke").and_then(|v| v.as_str()).unwrap_or("#1F1A17")
+    }
+
+    #[must_use]
+    pub fn stroke_width(&self) -> f64 {
+        self.raw.get("stroke_width").and_then(|v| v.as_f64()).unwrap_or(1.0)
+    }
+
+    #[must_use]
+    pub fn head(&self) -> &str {
+        self.raw.get("head").and_then(|v| v.as_str()).unwrap_or("")
+    }
+
+    #[must_use]
+    pub fn text(&self) -> &str {
+        self.raw.get("text").and_then(|v| v.as_str()).unwrap_or("")
+    }
+
+    #[must_use]
+    pub fn foot(&self) -> &str {
+        self.raw.get("foot").and_then(|v| v.as_str()).unwrap_or("")
+    }
+}
+
+// =============================================================================
+// DOC STORE
+// =============================================================================
+
+/// In-memory document store: the single source of truth for board objects.
+#[derive(Debug, Default)]
+pub struct DocStore {
+    objects: HashMap<ObjectId, BoardObject>,
+}
+
+impl DocStore {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Replace the entire store from a server snapshot.
+    pub fn load_snapshot(&mut self, objects: Vec<BoardObject>) {
+        self.objects.clear();
+        for obj in objects {
+            self.objects.insert(obj.id, obj);
+        }
+    }
+
+    pub fn insert(&mut self, object: BoardObject) {
+        self.objects.insert(object.id, object);
+    }
+
+    /// Apply a sparse update. Returns `false` if the object is not found.
+    pub fn apply_partial(&mut self, id: ObjectId, partial: &PartialBoardObject) -> bool {
+        let Some(obj) = self.objects.get_mut(&id) else {
+            return false;
+        };
+        if let Some(x) = partial.x { obj.x = x; }
+        if let Some(y) = partial.y { obj.y = y; }
+        if let Some(w) = partial.width { obj.width = Some(w); }
+        if let Some(h) = partial.height { obj.height = Some(h); }
+        if let Some(r) = partial.rotation { obj.rotation = r; }
+        if let Some(z) = partial.z_index { obj.z_index = z; }
+        if let Some(v) = partial.version { obj.version = v; }
+        // Props: shallow merge — handled by caller passing a merged Value.
+        if let Some(p) = &partial.props { obj.props = p.clone(); }
+        true
+    }
+
+    pub fn remove(&mut self, id: ObjectId) -> Option<BoardObject> {
+        self.objects.remove(&id)
+    }
+
+    #[must_use]
+    pub fn get(&self, id: ObjectId) -> Option<&BoardObject> {
+        self.objects.get(&id)
+    }
+
+    /// Objects sorted by `(z_index, id)` for deterministic draw order.
+    #[must_use]
+    pub fn sorted_objects(&self) -> Vec<&BoardObject> {
+        let mut v: Vec<&BoardObject> = self.objects.values().collect();
+        v.sort_by_key(|o| (o.z_index, o.id));
+        v
+    }
+}
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+#[path = "doc_test.rs"]
+mod tests;
+```
+
+---
+
+### File 7: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc_test.rs`
+
+```rust
+use super::*;
+
+#[test]
+fn object_kind_is_node() {
+    assert!(ObjectKind::Rect.is_node());
+    assert!(ObjectKind::Ellipse.is_node());
+    assert!(ObjectKind::Diamond.is_node());
+    assert!(ObjectKind::Star.is_node());
+    assert!(!ObjectKind::Line.is_node());
+    assert!(!ObjectKind::Arrow.is_node());
+}
+
+#[test]
+fn object_kind_serde_lowercase() {
+    let json = serde_json::to_string(&ObjectKind::Rect).unwrap();
+    assert_eq!(json, "\"rect\"");
+    let back: ObjectKind = serde_json::from_str("\"ellipse\"").unwrap();
+    assert_eq!(back, ObjectKind::Ellipse);
+}
+
+#[test]
+fn doc_store_snapshot_load_and_get() {
+    use uuid::Uuid;
+    let mut store = DocStore::new();
+    let id = Uuid::new_v4();
+    let obj = BoardObject {
+        id,
+        board_id: Uuid::new_v4(),
+        kind: ObjectKind::Rect,
+        x: 10.0,
+        y: 20.0,
+        width: Some(100.0),
+        height: Some(80.0),
+        rotation: 0.0,
+        z_index: 0,
+        props: serde_json::Value::Object(Default::default()),
+        created_by: None,
+        version: 1,
+    };
+    store.load_snapshot(vec![obj]);
+    assert!(store.get(id).is_some());
+}
+
+#[test]
+fn props_defaults() {
+    let raw = serde_json::Value::Object(Default::default());
+    let props = Props::new(&raw);
+    assert_eq!(props.fill(), "#D94B4B");
+    assert_eq!(props.stroke(), "#1F1A17");
+    assert_eq!(props.stroke_width(), 1.0);
+    assert_eq!(props.head(), "");
+}
+```
+
+---
+
+### File 8: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs`
+
+```rust
+//! Camera — pan/zoom state and world <-> screen coordinate conversions.
+//!
+//! DESIGN
+//! ======
+//! `Camera` stores pan in CSS pixels and zoom as a unitless scale factor.
+//! All geometry is in world coordinates where 1 world unit == 1 CSS pixel at
+//! zoom 1.0. The canvas backing store is sized at `css_size * dpr`; before
+//! drawing, `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)` is applied so all
+//! subsequent drawing uses CSS pixels.
+
+use crate::doc::PartialBoardObject;
+
+// =============================================================================
+// POINT
+// =============================================================================
+
+/// A 2D point, used for both world and screen coordinates.
+/// The caller is responsible for tracking which space a point lives in.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl Point {
+    #[must_use]
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+
+    #[must_use]
+    pub fn zero() -> Self {
+        Self { x: 0.0, y: 0.0 }
+    }
+}
+
+// =============================================================================
+// CAMERA
+// =============================================================================
+
+/// Canvas camera: pan (CSS pixels) + zoom (unitless scale).
+#[derive(Debug, Clone, Copy)]
+pub struct Camera {
+    pub pan_x: f64,
+    pub pan_y: f64,
+    pub zoom: f64,
+}
+
+impl Camera {
+    /// Construct a camera at the origin with zoom 1.0.
+    #[must_use]
+    pub fn new() -> Self {
+        Self { pan_x: 0.0, pan_y: 0.0, zoom: 1.0 }
+    }
+
+    // =============================================================================
+    // CONVERSIONS
+    // =============================================================================
+
+    /// Convert a screen-space point (CSS pixels) to world coordinates.
+    ///
+    /// Formula: world = (screen - pan) / zoom
+    #[must_use]
+    pub fn screen_to_world(&self, screen_pt: Point) -> Point {
+        Point {
+            x: (screen_pt.x - self.pan_x) / self.zoom,
+            y: (screen_pt.y - self.pan_y) / self.zoom,
+        }
+    }
+
+    /// Convert a world-coordinate point to screen space (CSS pixels).
+    ///
+    /// Formula: screen = world * zoom + pan
+    #[must_use]
+    pub fn world_to_screen(&self, world_pt: Point) -> Point {
+        Point {
+            x: world_pt.x * self.zoom + self.pan_x,
+            y: world_pt.y * self.zoom + self.pan_y,
+        }
+    }
+
+    /// Convert a screen-space distance (pixels) to world-space units.
+    #[must_use]
+    pub fn screen_dist_to_world(&self, screen_dist: f64) -> f64 {
+        screen_dist / self.zoom
+    }
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+#[path = "camera_test.rs"]
+mod tests;
+```
+
+---
+
+### File 9: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera_test.rs`
+
+```rust
+use super::*;
+
+#[test]
+fn round_trip_identity() {
+    let cam = Camera::new();
+    let world = Point::new(100.0, 200.0);
+    let screen = cam.world_to_screen(world);
+    let back = cam.screen_to_world(screen);
+    assert!((back.x - world.x).abs() < 1e-10);
+    assert!((back.y - world.y).abs() < 1e-10);
+}
+
+#[test]
+fn zoom_scales_correctly() {
+    let cam = Camera { pan_x: 0.0, pan_y: 0.0, zoom: 2.0 };
+    let world = Point::new(50.0, 50.0);
+    let screen = cam.world_to_screen(world);
+    assert_eq!(screen.x, 100.0);
+    assert_eq!(screen.y, 100.0);
+}
+
+#[test]
+fn pan_offsets_screen() {
+    let cam = Camera { pan_x: 30.0, pan_y: 40.0, zoom: 1.0 };
+    let screen = cam.world_to_screen(Point::new(0.0, 0.0));
+    assert_eq!(screen.x, 30.0);
+    assert_eq!(screen.y, 40.0);
+}
+
+#[test]
+fn screen_dist_to_world_divides_by_zoom() {
+    let cam = Camera { pan_x: 0.0, pan_y: 0.0, zoom: 4.0 };
+    assert_eq!(cam.screen_dist_to_world(8.0), 2.0);
+}
+```
+
+---
+
+### File 10: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs`
+
+```rust
+//! Render — draw the board state to a canvas 2D context.
+//!
+//! DESIGN
+//! ======
+//! A single `draw()` function draws one frame: grid, objects in z-order,
+//! selection UI, then remote cursors (future). All drawing uses CSS-pixel
+//! coordinates with the camera transform applied. The actual rendering
+//! algorithms are stubs in this scaffolding pass.
+
+use web_sys::CanvasRenderingContext2d;
+
+use crate::camera::Camera;
+use crate::doc::DocStore;
+use crate::input::UiState;
+
+// =============================================================================
+// DRAW
+// =============================================================================
+
+/// Draw one frame to the canvas context.
+///
+/// Draw order: grid, objects by (z_index, id), selection UI.
+pub fn draw(ctx: &CanvasRenderingContext2d, doc: &DocStore, camera: &Camera, ui: &UiState) {
+    todo!("render: draw")
+}
+```
+
+Note that `render.rs` has no tests file in this scaffolding pass — there is no testable pure logic yet. Tests will be added when actual drawing helpers (geometry math) are extracted.
+
+---
+
+### File 11: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs`
+
+```rust
+//! Hit — geometric hit-testing against board objects.
+//!
+//! DESIGN
+//! ======
+//! `hit_test` returns the topmost `Hit` (object + part) for a given world
+//! point. Parts are tested in priority order: resize handles, rotate handle,
+//! edge endpoints, edge body, node body. All threshold distances use
+//! `camera.screen_dist_to_world(HIT_SLOP_PX)` so handles feel consistent
+//! regardless of zoom. Implementations are stubs in this scaffolding pass.
+
+use uuid::Uuid;
+
+use crate::camera::Camera;
+use crate::doc::DocStore;
+
+/// Screen-space slop (CSS pixels) applied to handles and thin edges.
+pub const HIT_SLOP_PX: f64 = 8.0;
+
+// =============================================================================
+// HIT PART
+// =============================================================================
+
+/// The sub-region of an object that was hit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HitPart {
+    /// Interior of a node shape.
+    Body,
+    /// One of the eight resize handles.
+    ResizeHandle(ResizeAnchor),
+    /// The rotation handle above the selection box.
+    RotateHandle,
+    /// An edge endpoint (A or B).
+    EdgeEndpoint(EdgeEnd),
+    /// The body/stroke of an edge.
+    EdgeBody,
+}
+
+/// Compass direction of a resize handle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResizeAnchor {
+    N,
+    Ne,
+    E,
+    Se,
+    S,
+    Sw,
+    W,
+    Nw,
+}
+
+/// Which endpoint of an edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EdgeEnd {
+    A,
+    B,
+}
+
+// =============================================================================
+// HIT RESULT
+// =============================================================================
+
+/// A successful hit: the object that was hit and the part within it.
+#[derive(Debug, Clone, Copy)]
+pub struct Hit {
+    pub object_id: Uuid,
+    pub part: HitPart,
+}
+
+// =============================================================================
+// HIT TEST
+// =============================================================================
+
+/// Return the topmost hit for `world_pt`, or `None` if nothing was hit.
+///
+/// Tests objects in reverse z-order (highest z-index first). Within an object,
+/// handles take priority over body.
+#[must_use]
+pub fn hit_test(world_pt: crate::camera::Point, doc: &DocStore, camera: &Camera) -> Option<Hit> {
+    todo!("hit: hit_test")
+}
+```
+
+No test file for `hit.rs` in this scaffolding pass since the implementation is a `todo!()`. Tests will be added alongside the real geometry.
+
+---
+
+### File 12: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs`
+
+```rust
+//! Input — pointer/key event state machine and tool definitions.
+//!
+//! DESIGN
+//! ======
+//! The host (Leptos) calls `on_pointer_down/move/up`, `on_wheel`, and
+//! `on_key_down/up` on `Engine`. These methods delegate to stateless helper
+//! functions here that take the current `InputState` + `UiState` and return
+//! `(InputState, Vec<Action>)`. The state machine is pure (no DOM access),
+//! making it trivially testable without a browser. Implementations are stubs
+//! in this scaffolding pass.
+
+use crate::camera::Point;
+use crate::engine::Action;
+
+// =============================================================================
+// TOOL
+// =============================================================================
+
+/// Active drawing/selection tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Tool {
+    #[default]
+    Select,
+    Rect,
+    Ellipse,
+    Diamond,
+    Star,
+    Line,
+    Arrow,
+}
+
+// =============================================================================
+// MODIFIERS / BUTTON / KEY
+// =============================================================================
+
+/// Active keyboard modifier keys at the time of a pointer or key event.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Modifiers {
+    pub shift: bool,
+    pub ctrl: bool,
+    pub alt: bool,
+    pub meta: bool,
+}
+
+/// Mouse/pointer button.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Button {
+    Primary,
+    Secondary,
+    Middle,
+}
+
+/// Logical key identifier (subset needed for v0 interactions).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Key {
+    Delete,
+    Backspace,
+    Escape,
+    Enter,
+    Other(String),
+}
+
+/// Scroll/wheel delta in CSS pixels.
+#[derive(Debug, Clone, Copy)]
+pub struct WheelDelta {
+    pub dx: f64,
+    pub dy: f64,
+}
+
+// =============================================================================
+// UI STATE
+// =============================================================================
+
+/// Transient UI state owned by `Engine`. Passed to renderer and hit-tester.
+#[derive(Debug, Clone, Default)]
+pub struct UiState {
+    pub tool: Tool,
+    pub selected_id: Option<uuid::Uuid>,
+}
+
+// =============================================================================
+// INPUT STATE
+// =============================================================================
+
+/// State machine state for pointer interactions.
+#[derive(Debug, Clone, Default)]
+pub enum InputState {
+    /// No active gesture.
+    #[default]
+    Idle,
+    /// User is panning the canvas (middle-button drag or space+drag).
+    Panning { last: Point },
+    /// User is dragging a selected object.
+    DraggingObject { start_world: Point },
+    /// User is drawing a new shape.
+    DrawingShape { origin_world: Point },
+    /// User is dragging an edge endpoint.
+    DraggingEdgeEndpoint { edge_id: uuid::Uuid, end: crate::hit::EdgeEnd },
+}
+```
+
+---
+
+### File 13: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs`
+
+This is the most important file — the entire public API surface.
+
+```rust
+//! Engine — public API surface for the canvas crate.
+//!
+//! DESIGN
+//! ======
+//! `Engine` owns the doc store, camera, input state machine, and viewport
+//! dimensions. The host (Leptos) constructs one `Engine` per canvas element
+//! and drives it through the methods below. Input methods return `Vec<Action>`
+//! which the host inspects to decide what to send to the server, update
+//! cursor style, etc. All implementations are stubs (todo!) in this
+//! scaffolding pass.
+
+use uuid::Uuid;
+use web_sys::HtmlCanvasElement;
+
+use crate::camera::{Camera, Point};
+use crate::doc::{BoardObject, DocStore, ObjectId, PartialBoardObject};
+use crate::input::{Button, InputState, Key, Modifiers, Tool, UiState, WheelDelta};
+
+// =============================================================================
+// ACTION
+// =============================================================================
+
+/// Output events from the canvas engine to the host application.
+///
+/// Input methods return `Vec<Action>`. The host inspects these and decides
+/// what to send to the server, update UI chrome, etc.
+#[derive(Debug, Clone)]
+pub enum Action {
+    /// No-op placeholder (used when returning a single-element vec that has no effect).
+    None,
+    /// Object was created locally; host should send `object:create`.
+    ObjectCreated(BoardObject),
+    /// Object was mutated locally; host should send `object:update` on gesture end.
+    ObjectUpdated { id: ObjectId, fields: PartialBoardObject },
+    /// Object should be deleted; host should send `object:delete`.
+    ObjectDeleted { id: ObjectId },
+    /// Request host to enter text-edit mode for this object.
+    EditTextRequested { id: ObjectId, head: String, text: String, foot: String },
+    /// Cursor style hint for the host to set on the canvas element.
+    SetCursor(String),
+    /// The host should call `engine.render()` — state has changed visually.
+    RenderNeeded,
+}
+
+// =============================================================================
+// ENGINE
+// =============================================================================
+
+/// The canvas engine. One instance per `<canvas>` element.
+pub struct Engine {
+    canvas: HtmlCanvasElement,
+    doc: DocStore,
+    camera: Camera,
+    ui: UiState,
+    input: InputState,
+    /// CSS-pixel width of the canvas element.
+    width_css: f64,
+    /// CSS-pixel height of the canvas element.
+    height_css: f64,
+    /// Device pixel ratio (`window.devicePixelRatio`).
+    dpr: f64,
+}
+
+// =============================================================================
+// CONSTRUCTION
+// =============================================================================
+
+impl Engine {
+    /// Initialize the engine with a canvas element.
+    ///
+    /// The canvas element must already be in the DOM. Call `set_viewport`
+    /// immediately after construction with the initial size and DPR.
+    #[must_use]
+    pub fn new(canvas: HtmlCanvasElement) -> Self {
+        Self {
+            canvas,
+            doc: DocStore::new(),
+            camera: Camera::new(),
+            ui: UiState::default(),
+            input: InputState::Idle,
+            width_css: 0.0,
+            height_css: 0.0,
+            dpr: 1.0,
+        }
+    }
+}
+
+// =============================================================================
+// VIEWPORT
+// =============================================================================
+
+impl Engine {
+    /// Update viewport size and device pixel ratio. Call on resize and on init.
+    pub fn set_viewport(&mut self, width_css: f64, height_css: f64, dpr: f64) {
+        todo!("engine: set_viewport")
+    }
+}
+
+// =============================================================================
+// DOC STORE INPUTS
+// =============================================================================
+
+impl Engine {
+    /// Hydrate from a server snapshot. Replaces all existing objects.
+    pub fn load_snapshot(&mut self, objects: Vec<BoardObject>) {
+        self.doc.load_snapshot(objects);
+    }
+
+    /// Apply a server broadcast: object created.
+    pub fn apply_create(&mut self, object: BoardObject) {
+        self.doc.insert(object);
+    }
+
+    /// Apply a server broadcast: object updated (sparse patch).
+    pub fn apply_update(&mut self, id: ObjectId, fields: PartialBoardObject) {
+        self.doc.apply_partial(id, &fields);
+    }
+
+    /// Apply a server broadcast: object deleted.
+    pub fn apply_delete(&mut self, id: ObjectId) {
+        self.doc.remove(id);
+    }
+}
+
+// =============================================================================
+// INPUT EVENT HANDLERS
+// =============================================================================
+
+impl Engine {
+    pub fn on_pointer_down(&mut self, screen_pt: Point, button: Button, modifiers: Modifiers) -> Vec<Action> {
+        todo!("engine: on_pointer_down")
+    }
+
+    pub fn on_pointer_move(&mut self, screen_pt: Point, modifiers: Modifiers) -> Vec<Action> {
+        todo!("engine: on_pointer_move")
+    }
+
+    pub fn on_pointer_up(&mut self, screen_pt: Point, button: Button, modifiers: Modifiers) -> Vec<Action> {
+        todo!("engine: on_pointer_up")
+    }
+
+    pub fn on_wheel(&mut self, screen_pt: Point, delta: WheelDelta, modifiers: Modifiers) -> Vec<Action> {
+        todo!("engine: on_wheel")
+    }
+
+    pub fn on_key_down(&mut self, key: Key, modifiers: Modifiers) -> Vec<Action> {
+        todo!("engine: on_key_down")
+    }
+
+    pub fn on_key_up(&mut self, key: Key, modifiers: Modifiers) -> Vec<Action> {
+        todo!("engine: on_key_up")
+    }
+}
+
+// =============================================================================
+// TOOL / TEXT INPUTS
+// =============================================================================
+
+impl Engine {
+    /// Change the active tool.
+    pub fn set_tool(&mut self, tool: Tool) {
+        self.ui.tool = tool;
+    }
+
+    /// Commit text from the Leptos editor overlay back into props.
+    pub fn set_text(&mut self, id: ObjectId, head: String, text: String, foot: String) -> Vec<Action> {
+        todo!("engine: set_text")
+    }
+}
+
+// =============================================================================
+// RENDER
+// =============================================================================
+
+impl Engine {
+    /// Draw the current state to the canvas. Call after receiving `RenderNeeded`.
+    pub fn render(&self) {
+        todo!("engine: render")
+    }
+}
+
+// =============================================================================
+// QUERIES
+// =============================================================================
+
+impl Engine {
+    /// Currently selected object ID, if any.
+    #[must_use]
+    pub fn selection(&self) -> Option<ObjectId> {
+        self.ui.selected_id
+    }
+
+    /// Current camera state (for UI display of zoom level etc.).
+    #[must_use]
+    pub fn camera(&self) -> Camera {
+        self.camera
+    }
+
+    /// Read a single object from the doc store.
+    #[must_use]
+    pub fn object(&self, id: ObjectId) -> Option<&BoardObject> {
+        self.doc.get(id)
+    }
+}
+```
+
+---
+
+### Key architectural decisions and notes
+
+**Why no `rust-toolchain.toml` in `canvas/`**: Workspace members share the root toolchain. One `rust-toolchain.toml` at the workspace root pins the entire workspace to 1.85. Placing one in `canvas/` as well would be redundant and could cause `rustup` confusion on some hosts.
+
+**Why `crate-type = ["cdylib", "rlib"]`**: `cdylib` produces the `.wasm` output for the browser; `rlib` is needed so `cargo test` (which runs on native) can link the crate for unit tests. Without `rlib`, `cargo test` fails because there is no native-linkable artifact. This is the standard `wasm-pack` pattern.
+
+**Why `todo!()` not `unimplemented!()`**: `todo!()` is idiomatic Rust for "this will be filled in"; `unimplemented!()` implies "this will never be implemented in this branch". Using `todo!()` also produces a slightly better panic message.
+
+**Why no `#[wasm_bindgen]` on `Engine` yet**: Adding `#[wasm_bindgen]` to `Engine` requires all its method argument and return types to be `wasm_bindgen`-compatible (primitives, `JsValue`, or `#[wasm_bindgen]`-annotated types). Types like `Vec<Action>`, `BoardObject`, `Point`, etc. are not JS-compatible without JS wrapping. The scaffolding keeps `Engine` as a pure Rust struct. When wiring to Leptos, a thin WASM-bindgen shim layer (or `wasm-bindgen` + JSON serialization) will be added — but that is a separate concern from establishing the API surface.
+
+**`PartialBoardObject` is the update carrier**: Rather than a free-form `HashMap<String, Value>` like the server uses, the canvas crate uses a typed `PartialBoardObject` with `Option` fields. This gives type-checked access on the Rust side. The host serializes it to JSON for the server wire.
+
+**`InputState` as enum, not separate bool flags**: The state machine enum prevents illegal state combinations (e.g. simultaneously panning and drawing). This is one of the most important structural choices for the input module.
+
+**No `web-sys` features for pointer/wheel/keyboard events yet**: Those features (`PointerEvent`, `KeyboardEvent`, `WheelEvent`) will be enabled in `Cargo.toml` when `input.rs` and `engine.rs` implementations are fleshed out. Declaring them now without use would cause pedantic `unused imports` warnings inside `web-sys` re-exports.
+
+---
+
+### Sequencing for implementation
+
+Following the design doc's recommended order, after this scaffolding compiles:
+
+1. Implement `set_viewport` in `engine.rs` — sets canvas backing store size and DPR
+2. Implement `draw` in `render.rs` with just grid and DPR-correct transform setup
+3. Implement `hit_test` in `hit.rs` for rect body only
+4. Implement `on_pointer_down/move/up` for drag-pan and rect-drag-move
+5. Add remaining shape rendering and hit-testing
+6. Add edge endpoint handling
+
+---
+
+### Critical Files for Implementation
+
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs` - Core public API surface; the file the Leptos host will depend on entirely
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs` - All wire types and doc store; defines BoardObject, ObjectKind, PartialBoardObject which flow through every other module
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/Cargo.toml` - Crate manifest; controls wasm-bindgen/web-sys features and must match server lint conventions exactly
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/Cargo.toml` - Workspace root; must be created before either crate can be built together
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs` - Tool, Modifiers, Key, UiState, InputState enum — all the types that engine.rs method signatures depend on
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 22 total, 2 failed
+📋 Files: 14 read
+📋 Tokens: 32 in, 379 out
+📋 Cache: 579.6K read, 90.3K created

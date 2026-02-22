@@ -1,0 +1,391 @@
+📋 Session: e6c0b8a4-a29c-47a1-819c-f5c3e23440bb
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T13:53:37.283+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Explore the collaboard project at /Users/ianzepp/github/gauntlet/collaboard. I need a comprehensive understanding of the current feature state. Specifically:
+
+1. What frontend features exist? (components, pages, routing)
+2. What backend features exist? (API endpoints, WebSocket handlers, database schema/migrations)
+3. What auth system is in place?
+4. What real-time sync capabilities exist?
+5. What board/canvas features are implemented? (shapes, sticky notes, drawing, etc.)
+6. What deployment/infrastructure is set up?
+
+Be thorough - list specific files and key code patterns. Focus on what's actually implemented vs stubbed out.
+📋 Model: sonnet-4.5
+🤖 I'll explore the collaboard project thoroughly, running multiple searches in parallel to build a comprehensive picture.
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard
+✅ Glob: pattern="**/*.rs" path="/Users/ianzepp/github/gauntlet/collaboard"
+✅ Glob: pattern="**/*.tsx" path="/Users/ianzepp/github/gauntlet/collaboard"
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/server/src && ls /Users/ianzepp/github/gauntlet/collaboard/client/src
+✅ Glob: pattern="**/*.sql" path="/Users/ianzepp/github/gauntlet/collaboard/server"
+✅ Glob: pattern="**/*.ts" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+🤖 Now let me read all the key files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/users.rs"
+🤖 Now let me read the remaining backend service files and the database migrations in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs"
+🤖 Now read the migrations, persistence service, AI service, LLM modules, and all the frontend files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/001_users.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/002_boards.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/003_board_objects.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/004_frames.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/005_sessions.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Now read all the frontend files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/DashboardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/api.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+🤖 Now read the remaining frontend components and infrastructure files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/RightPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/LeftPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/AiPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ChatPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.tsx"
+🤖 Now let me read the remaining components and infrastructure files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/MissionControl.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/TextEditor.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/fly.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/docker-compose.yml"
+🤖 Now let me check the Dockerfile, the LLM module, the grid utility, the remaining components, and the rate limiter.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/Dockerfile"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/grid.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/rate_limit.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/BoardCard.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/BoardStamp.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/UserFieldReport.tsx"
+🤖 I now have a comprehensive picture of the entire codebase. Let me compile the full report.
+
+---
+
+Here is the comprehensive feature-state report for the collaboard project.
+
+---
+
+## Collaboard - Comprehensive Feature State Report
+
+---
+
+### 1. Frontend Features
+
+#### Pages (no router library - manual state-based navigation in App.tsx)
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx` - Root component. Manages `page` state (`"dashboard"` | `"board"`), fetches current user on load, bootstraps the frame client, handles dark mode init. No URL routing.
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx` - Static page with a "Login with GitHub" button that redirects to `/auth/github`. Fully implemented.
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/DashboardPage.tsx` - Lists boards via `board:list` frame, has a "Create Board" dialog with name input, navigates into `BoardPage` on click.
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx` - Board workspace. Sends `board:join` when connected. Composes Toolbar + LeftPanel + Canvas + BoardStamp + RightPanel + StatusBar.
+
+#### Canvas Components
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx` - The main Konva Stage. Fully implemented:
+  - Infinite canvas with pan (scroll) and zoom (Ctrl+wheel), clamped 0.1x–5x
+  - Grid lines (20px minor, 100px major) rendered as Konva Lines, viewport-aware
+  - Object rendering: `sticky_note`, `rectangle`, `ellipse` — `frame` and `connector` kinds are stored in state but not rendered (Canvas returns `null` for unrecognized kinds)
+  - Remote cursor rendering via `RemoteCursor` component (arrow + name label)
+  - Click-to-create for sticky, rectangle, ellipse tools; auto-revert to select tool after
+  - Delete key handler for selected objects
+  - Cursor throttling at 50ms
+  - Transformer for multi-handle resize + rotation
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx` - Fully implemented:
+  - Draggable, resizable, rotatable (via Konva Transformer)
+  - Double-click to edit text (launches TextEditor overlay)
+  - Color from `props.color`; border auto-darkened
+  - Sends `object:update` on drag end, transform end, text save
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx` - Fully implemented:
+  - Renders `rectangle` as `Rect` and `ellipse` as `KonvaEllipse`
+  - Draggable, resizable, rotatable
+  - Dark mode aware (switches fill/stroke palette)
+  - Sends `object:update` on drag end and transform end
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/TextEditor.tsx` - HTML textarea overlay positioned over Konva canvas for inline text editing. Save on blur or Enter, cancel on Escape.
+
+#### UI Components
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx` - Top bar. Shows board name, presence chips (all connected users). Click chip to open UserFieldReport popover. Dark mode toggle button.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/LeftPanel.tsx` - Collapsible left rail with tool buttons:
+  - Enabled: Select, Note (sticky), Rectangle, Ellipse
+  - Disabled/stubbed (rendered but disabled): Line, Connector (Arrow), Text, Draw, Eraser
+  - Auto-expands inspector when a selection is made
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.tsx` - Shows position (X, Y), size (W, H, rotation), meta (ID, z_index, version). For sticky notes: color swatches (8 colors, light/dark variants). Sends `object:update` on color change.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/RightPanel.tsx` - Collapsible right rail with 3 tabs: Boards (MissionControl), Chat (ChatPanel), AI/Field Notes (AiPanel).
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/AiPanel.tsx` - AI chat interface. Loads `ai:history` on board join. Sends `ai:prompt` frames. Renders assistant responses with `react-markdown`. Shows mutation count badge. Loading state ("Thinking...").
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ChatPanel.tsx` - Board chat. Loads `chat:history` on board join. Sends `chat:message` frames. Displays user name in their color.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/MissionControl.tsx` - Board list in the right panel. Click a board card to navigate. Highlights current board.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx` - Bottom bar. Shows connection dot, board name, object count, user chip, zoom percentage.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/BoardStamp.tsx` - Overlay stamp on the canvas showing board name, object count, user count, connection status.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/BoardCard.tsx` - Reusable card for boards. Supports `full` and `mini` variants. Active state highlight.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/UserFieldReport.tsx` - Profile popover opened by clicking a presence chip. Fetches `/api/users/:id/profile`. Displays avatar, name, member since, total frames, objects created, boards active, last active, top 5 syscalls.
+
+#### State Management
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts` - Zustand store. Single global store holding: `boardId`, `boardName`, `objects` (Map), `presence` (Map), `selection` (Set), `viewport`, `activeTool`, `frameClient`, `connectionStatus`, `user`, `aiMessages`, `aiLoading`, `chatMessages`, panel expand/collapse state, navigation callback.
+
+#### Hooks & Libraries
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts` - `FrameClient` class wrapping a WebSocket. Pub/sub by `syscall`. Mock mode for testing. Logs non-cursor frames to console.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts` - Initializes `FrameClient`, manages reconnect with exponential backoff (max 10s). Handles all inbound frame types: `session:connected`, `session:disconnected`, `board:join`, `board:part`, `object:create/update/delete`, `cursor:moved`, `chat:message`. Manages temp-ID reconciliation for optimistic creates via `pendingCreates` map. Exports `sendObjectCreate()`.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts` - Sends `ai:prompt` frame with `grid_context` built from current viewport. Listens for `done`/`error` response.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/grid.ts` - 8x8 "Battleship grid" utilities: `cellToCanvas`, `canvasToCell`, `buildGridContext`. Sent to backend with every AI prompt so the LLM can reference grid positions (A1–H8).
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/api.ts` - REST helpers: `fetchCurrentUser`, `logout`, `fetchUserProfile`, `createWsTicket`.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useCanvasSize.ts` - ResizeObserver for canvas container dimensions.
+
+---
+
+### 2. Backend Features
+
+**Stack:** Rust, Axum, SQLx (PostgreSQL), Tokio async runtime.
+
+#### HTTP API Routes (`/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs`)
+
+| Route | Method | Description | Status |
+|---|---|---|---|
+| `/auth/github` | GET | Redirect to GitHub OAuth | Implemented |
+| `/auth/github/callback` | GET | Exchange code, upsert user, set cookie, redirect to `/` | Implemented |
+| `/api/auth/me` | GET | Return session user | Implemented |
+| `/api/auth/logout` | POST | Delete session, clear cookie | Implemented |
+| `/api/auth/ws-ticket` | POST | Issue one-time WS ticket | Implemented |
+| `/api/users/{id}/profile` | GET | User profile + aggregate stats from frames table | Implemented |
+| `/api/ws` | GET (WS upgrade) | WebSocket connection (ticket-gated) | Implemented |
+| `/healthz` | GET | Health check | Implemented |
+
+SPA fallback: all other paths serve `client/dist/index.html`.
+
+#### WebSocket Frame Dispatch (`/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs`)
+
+The WS handler dispatches on syscall prefix:
+
+| Prefix | Operations | Status |
+|---|---|---|
+| `board` | `join`, `create`, `list`, `delete` | Implemented |
+| `object` | `create`, `update`, `delete` | Implemented |
+| `chat` | `message`, `history` | Implemented |
+| `cursor` | `moved` (ephemeral, not persisted) | Implemented |
+| `ai` | `prompt`, `history` | Implemented |
+
+Outcome types: `Broadcast`, `BroadcastExcludeSender`, `Reply`, `Done`, `ReplyAndBroadcast`.
+
+All non-cursor frames are enqueued to the frame persistence worker. AI mutations are broadcast directly to all board clients.
+
+#### Backend Services
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs` - `create_board`, `list_boards`, `delete_board`, `join_board` (hydrates from Postgres on first client), `part_board` (evicts + final flush on last client), `broadcast` (fan-out to connected clients via per-client mpsc channels), `flush_objects` (batch upsert to Postgres).
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs` - `create_object`, `update_object` (with LWW versioning — rejects if `incoming_version < current.version`), `delete_object` (immediate Postgres delete + memory removal).
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs` - `GitHubConfig::from_env()`, `exchange_code`, `fetch_github_user`, `upsert_user` (ON CONFLICT github_id DO UPDATE).
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs` - `create_session`, `validate_session`, `delete_session`, `create_ws_ticket`, `consume_ws_ticket` (atomic DELETE + RETURNING). 32-byte hex session tokens, 16-byte WS tickets.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs` - Two workers:
+  1. Object flush loop: every 100ms, flushes all dirty objects via batch upsert.
+  2. Frame persistence worker: bounded queue (8192), batch writer (128 frames), 5ms flush interval, 2 retries with exponential backoff.
+  Best-effort `try_send` — drops frames on overflow rather than blocking WS.
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` - Multi-turn LLM agent loop (up to 10 tool iterations). Loads conversation history from `frames` table for multi-turn context (last 20 rows = 10 exchanges). Builds system prompt with current board state + grid context. Executes tool calls, records mutations, always returns text (synthesizes fallback if LLM returns none). Rate-limited (per-client + global + token budget).
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/rate_limit.rs` - Sliding window in-memory rate limiter: 10 req/min per client, 20 req/min global, 50k tokens/hr per client. All limits configurable via env.
+
+#### Frame Protocol (`/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs`)
+
+```rust
+struct Frame {
+    id: Uuid,
+    parent_id: Option<Uuid>,
+    ts: i64,            // ms since epoch
+    board_id: Option<Uuid>,
+    from: Option<String>, // authenticated user_id stamped server-side
+    syscall: String,    // e.g. "object:create"
+    status: Status,     // request | item | done | error | cancel
+    data: HashMap<String, Value>,
+}
+```
+
+---
+
+### 3. Auth System
+
+- **Provider:** GitHub OAuth only (no username/password).
+- **Flow:** CSRF-protected state cookie → code exchange → GitHub user API → upsert into `users` table → create session token → `HttpOnly` cookie (30-day expiry).
+- **Session validation:** Cookie `session_token` → join `sessions` + `users` → `AuthUser` extractor used on all protected routes.
+- **WS auth:** Two-step: HTTP `POST /api/auth/ws-ticket` (requires session cookie) issues a 16-byte one-time ticket (30-second TTL), consumed atomically on WS upgrade via `DELETE ... WHERE ticket = $1 AND expires_at > now() RETURNING user_id`.
+- **Cookie security:** `COOKIE_SECURE` env var, auto-detected from `GITHUB_REDIRECT_URI` (https = secure).
+- **Non-fatal config:** GitHub OAuth and LLM are both optional — server starts without them, endpoints return 503.
+- Files:
+  - `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs`
+  - `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs`
+  - `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs`
+
+---
+
+### 4. Real-Time Sync
+
+- **Transport:** WebSocket at `/api/ws`, ticket-authenticated.
+- **Architecture:** Each client has a `Uuid client_id` and a `mpsc::Sender<Frame>` channel (capacity 256, configurable). Board state is held in `Arc<RwLock<HashMap<Uuid, BoardState>>>`. Per-board `BoardState` holds objects, dirty set, and connected clients map.
+
+- **Object sync pattern:**
+  - Client sends `object:create/update/delete` request frame
+  - Server mutates in-memory state, marks dirty
+  - Returns `Outcome::Broadcast(data)` — sender gets `done` with `parent_id` for correlation, peers get a fresh frame without `parent_id`
+  - Background worker flushes dirty objects to Postgres every 100ms
+
+- **Optimistic updates:** Client adds object locally with temp UUID immediately, then when `done` arrives, replaces temp ID with server-assigned ID (`replaceObjectId` in store). Stable `localKey` prevents React remounts.
+
+- **Cursor sync:** `cursor:moved` frames use `BroadcastExcludeSender` — not persisted, not returned to sender. Throttled 50ms client-side.
+
+- **Presence:** `board:join` broadcasts `{client_id, user_id}` to peers. `board:part` broadcasts on disconnect. Presence cleared on board leave.
+
+- **Chat:** `chat:message` is persisted and broadcast to all board clients. `chat:history` loads last 200 messages from `frames` table.
+
+- **Reconnection:** Client uses exponential backoff (1s, 2s, 4s... max 10s). On reconnect: fresh WS ticket, re-join board, re-hydrate objects. Stops retrying on 401.
+
+- **Board hydration:** On first client join, board objects loaded from `board_objects` table into memory. On last client part, objects flushed and board evicted from memory.
+
+---
+
+### 5. Board/Canvas Features
+
+#### Implemented and functional:
+
+- **Sticky notes** (`sticky_note`): Create by clicking canvas with sticky tool. Draggable, resizable (with min size guard), rotatable. Double-click to edit text (custom HTML textarea overlay). 8 color swatches in inspector. Real-time synced.
+
+- **Rectangles** (`rectangle`): Create by clicking canvas. Draggable, resizable, rotatable. Color from `props.color`. Dark mode aware.
+
+- **Ellipses** (`ellipse`): Same as rectangle. Ellipse center/radius math handled correctly in resize/transform.
+
+- **Grid background**: Minor (20px) and major (100px) grid lines rendered in Konva. Colors adapt to dark/light mode. Non-interactive layer.
+
+- **Viewport pan**: Scroll wheel pans. Ctrl/Cmd+scroll zooms (0.1x–5x, clamped).
+
+- **Selection + Transformer**: Click to select, Konva Transformer attached for multi-handle resize + rotation. Delete/Backspace key deletes selected objects.
+
+- **Inspector panel**: Shows position, size, rotation, meta. Color picker for sticky notes.
+
+- **Board CRUD**: Create, list, delete boards (all via WS frames). Dashboard and MissionControl (in-board board list) both functional.
+
+#### Object kinds known to server but NOT rendered by canvas:
+
+- `frame` — server creates/stores/broadcasts, AI creates, but Canvas.tsx returns `null` for this kind (no renderer). Note: the recent commit message "Remove battleship grid overlay UI, keep server-side grid utilities" suggests an overlay was removed.
+- `connector` — same: server-side supported, no client renderer.
+- `line`, `text`, `draw`, `eraser` — defined as `ToolType` but all disabled in the tool rail.
+
+#### AI-driven board manipulation (fully implemented on both ends):
+
+9 tools available to the LLM:
+- `createStickyNote` — text, x, y, color
+- `createShape` — type (rectangle/ellipse), x, y, width, height, color
+- `createFrame` — title, x, y, width, height
+- `createConnector` — fromId, toId, style
+- `moveObject` — objectId, x, y
+- `resizeObject` — objectId, width, height
+- `updateText` — objectId, newText
+- `changeColor` — objectId, color
+- `getBoardState` — returns full object list as JSON
+
+LLM mutations broadcast to all board clients in real-time.
+
+---
+
+### 6. Deployment & Infrastructure
+
+#### Docker
+
+- `/Users/ianzepp/github/gauntlet/collaboard/Dockerfile` - Multi-stage build:
+  1. `oven/bun:1` builds frontend (`bun install --frozen-lockfile && bun run build`)
+  2. `rust:1.85-slim` builds server (`cargo build --release`)
+  3. `debian:bookworm-slim` final image — copies binary + `client/dist`, exposes port 3000
+- `/Users/ianzepp/github/gauntlet/collaboard/docker-compose.yml` - App + Postgres 16. Postgres healthcheck gating. All env vars configurable. Default LLM: `claude-sonnet-4-20250514` via Anthropic (OpenAI also supported). Default DB: `collaboard@postgres:5432/collaboard`.
+
+#### Fly.io
+
+- `/Users/ianzepp/github/gauntlet/collaboard/fly.toml` - App `collaboard`, region `dfw`. `release_command = "collaboard --migrate-only"` (runs migrations before deploy). 1 minimum machine (`min_machines_running = 1` — intentional, board state is process-local). `/healthz` check every 15s. `force_https = true`. Soft limit 200 connections, hard 250.
+
+#### Database Migrations (run on startup via `sqlx`):
+
+| File | Table | Notes |
+|---|---|---|
+| `001_users.sql` | `users` | `id UUID`, `github_id BIGINT UNIQUE`, `name`, `avatar_url`, `color`, `created_at` |
+| `002_boards.sql` | `boards` | `id UUID`, `name`, `owner_id FK users`, `created_at` |
+| `003_board_objects.sql` | `board_objects` | `id UUID`, `board_id FK boards CASCADE`, `kind`, `x/y`, `width/height`, `rotation`, `z_index`, `props JSONB`, `created_by FK users`, `updated_at`, `version INT` |
+| `004_frames.sql` | `frames` | `seq BIGSERIAL PK`, `ts BIGINT`, `id UUID`, `parent_id UUID`, `syscall`, `status`, `board_id`, `from`, `data JSONB` — append-only event log |
+| `005_sessions.sql` | `sessions`, `ws_tickets` | Sessions: 30-day expiry; WS tickets: 30-second TTL, atomic consume |
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/db/mod.rs` - Pool initialization with configurable `DB_MAX_CONNECTIONS` (default 5), runs migrations.
+
+#### Dev Script
+
+- `/Users/ianzepp/github/gauntlet/collaboard/run-dev.sh` - Local development runner.
+
+---
+
+### Summary: What's Fully Implemented vs Stubbed
+
+**Fully implemented:**
+- GitHub OAuth auth (CSRF-safe, HttpOnly cookie session, WS ticket gating)
+- WebSocket frame protocol (bidirectional, persisted event log)
+- Board CRUD (create/list/delete via WS)
+- Object CRUD (sticky notes, rectangles, ellipses) with LWW versioning
+- Real-time sync (broadcast to all board clients, optimistic updates)
+- Real-time cursor presence (ephemeral, throttled)
+- Board chat (persistent, with history load)
+- AI agent (multi-turn, 9 tools, multi-provider: Anthropic + OpenAI, rate limited)
+- Inspector panel (position, size, color for sticky notes)
+- Dark mode (CSS class toggle, persisted in localStorage)
+- User profile API with aggregate stats
+- Debounced object persistence (100ms flush, batch frames)
+- Docker + Fly.io deployment pipeline
+- Full test suite for backend (frame, state, rate_limit, board, object, AI, WS handlers)
+
+**Defined but not rendered/implemented on frontend:**
+- `frame` objects (server-side fully implemented, no client renderer)
+- `connector` objects (server-side fully implemented, no client renderer)
+- Line, Text, Draw, Eraser tools (tool buttons visible but `disabled: true`)
+- Board sharing/permissions (boards are currently owner-only or public via `owner_id IS NULL`)
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 9 assistant
+📋 Tool calls: 55 total, 0 failed
+📋 Files: 49 read
+📋 Tokens: 72 in, 193 out
+📋 Cache: 3.1M read, 768.0K created

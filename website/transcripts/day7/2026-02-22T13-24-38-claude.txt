@@ -1,0 +1,205 @@
+📋 Session: a7d995b0-a5fa-44f7-97cf-7c463306bf3e
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-22T13:24:38.750+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 I need to understand how to add static HTML file serving alongside the existing Leptos SSR app in this Axum server.
+
+1. Read server/src/routes/mod.rs - understand how api_routes and leptos_app are merged
+2. Read server/src/main.rs - understand how the router is built and served
+3. Read server/Cargo.toml - check what tower-http features are available (especially "fs" for ServeDir)
+4. Read the root Cargo.toml - understand the leptos metadata config (site-root, assets-dir, etc.)
+
+Key question: Can we add a `tower_http::services::ServeDir` or `ServeFile` for specific routes (like `/` serving a static index.html) that takes priority over the Leptos fallback handler? How would this be wired into the existing router?
+
+Report the exact code patterns and dependencies available.
+📋 Model: haiku-4.5
+🤖 I'll analyze the server structure to understand how to add static HTML file serving alongside the Leptos SSR app. Let me read the relevant files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/Cargo.toml"
+🤖 Perfect! I have all the information needed. Let me provide you with a comprehensive analysis of how to add static HTML file serving alongside the Leptos SSR app.
+
+## Analysis: Static HTML File Serving with Leptos SSR
+
+### Current Architecture
+
+**Router Assembly (routes/mod.rs, line 79-92):**
+```rust
+pub fn leptos_app(state: AppState) -> Result<Router, String> {
+    let conf = get_configuration(None).map_err(|e| format!("leptos configuration: {e}"))?;
+    let leptos_options = conf.leptos_options;
+    let routes = generate_route_list(client::app::App);
+
+    let leptos_router = Router::new()
+        .leptos_routes(&leptos_options, routes, {
+            let opts = leptos_options.clone();
+            move || client::app::shell(opts.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(client::app::shell))
+        .with_state(leptos_options);
+
+    Ok(api_routes(state).merge(leptos_router))
+}
+```
+
+The current flow is:
+1. **api_routes(state)** - API endpoints and business logic (lines 23-71)
+2. **leptos_router** - SSR routes + fallback handler
+3. **Merged together** - line 92: `api_routes(state).merge(leptos_router)`
+
+### Key Dependencies Available
+
+From **server/Cargo.toml (line 22)**:
+```toml
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "fs", "trace"] }
+```
+
+The **"fs" feature is already enabled**, which provides:
+- `tower_http::services::ServeDir` - serve a directory
+- `tower_http::services::ServeFile` - serve a single file
+
+### Leptos Configuration
+
+From **root Cargo.toml (lines 27-34)**:
+```toml
+site-root = "target/site"
+site-pkg-dir = "pkg"
+style-file = "client/styles/main.css"
+assets-dir = "public"
+```
+
+The `assets-dir = "public"` directory is where static files go. These are **automatically copied** into `target/site` during the build process.
+
+### How to Add Static File Serving
+
+**Option 1: Serve a Single Static File (Priority Override)**
+
+Insert a `ServeFile` route BEFORE the Leptos fallback to give it priority:
+
+```rust
+use tower_http::services::ServeFile;
+
+pub fn leptos_app(state: AppState) -> Result<Router, String> {
+    let conf = get_configuration(None).map_err(|e| format!("leptos configuration: {e}"))?;
+    let leptos_options = conf.leptos_options;
+    let routes = generate_route_list(client::app::App);
+
+    let leptos_router = Router::new()
+        .leptos_routes(&leptos_options, routes, {
+            let opts = leptos_options.clone();
+            move || client::app::shell(opts.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(client::app::shell))
+        .with_state(leptos_options);
+
+    // Add static file routes BEFORE merging leptos_router
+    let router_with_statics = api_routes(state)
+        .route_layer(axum::middleware::Next)
+        // Option A: Serve a single index.html at root
+        .nest_service("/", ServeFile::new("public/index.html"))
+        .merge(leptos_router);
+
+    Ok(router_with_statics)
+}
+```
+
+**Option 2: Serve a Directory (Recommended)**
+
+```rust
+use tower_http::services::ServeDir;
+
+pub fn leptos_app(state: AppState) -> Result<Router, String> {
+    let conf = get_configuration(None).map_err(|e| format!("leptos configuration: {e}"))?;
+    let leptos_options = conf.leptos_options;
+    let routes = generate_route_list(client::app::App);
+
+    let leptos_router = Router::new()
+        .leptos_routes(&leptos_options, routes, {
+            let opts = leptos_options.clone();
+            move || client::app::shell(opts.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(client::app::shell))
+        .with_state(leptos_options);
+
+    // Serve static files from public/ directory
+    // This takes priority over Leptos SSR for exact file matches
+    let router_with_statics = api_routes(state)
+        .nest_service("/static", ServeDir::new("public"))
+        .merge(leptos_router);
+
+    Ok(router_with_statics)
+}
+```
+
+**Option 3: Serve Specific Routes (Cleanest)**
+
+```rust
+use tower_http::services::{ServeDir, ServeFile};
+
+pub fn leptos_app(state: AppState) -> Result<Router, String> {
+    let conf = get_configuration(None).map_err(|e| format!("leptos configuration: {e}"))?;
+    let leptos_options = conf.leptos_options;
+    let routes = generate_route_list(client::app::App);
+
+    let leptos_router = Router::new()
+        .leptos_routes(&leptos_options, routes, {
+            let opts = leptos_options.clone();
+            move || client::app::shell(opts.clone())
+        })
+        .fallback(leptos_axum::file_and_error_handler(client::app::shell))
+        .with_state(leptos_options);
+
+    let api = api_routes(state);
+    
+    // Explicit route ordering: static files > api > leptos
+    let app = Router::new()
+        .route("/favicon.ico", axum::routing::get_service(ServeFile::new("public/favicon.ico")))
+        .route("/robots.txt", axum::routing::get_service(ServeFile::new("public/robots.txt")))
+        .nest_service("/public", ServeDir::new("public"))
+        .merge(api)
+        .merge(leptos_router);
+
+    Ok(app)
+}
+```
+
+### Router Precedence Rules (Axum)
+
+Routes are matched in this order:
+1. **Exact route matches** (highest priority)
+2. **Nested services** (in order of registration)
+3. **Fallback handlers** (lowest priority)
+
+This means:
+- `.route("/static/file.js", ...)` → matched before `/static/*` fallback
+- `.nest_service("/static", ServeDir)` → matched before `.fallback(leptos)`
+- `.fallback(leptos_handler)` → catches everything not matched above
+
+### Path Resolution
+
+- `ServeDir::new("public")` - relative to the **current working directory** when the server starts
+- In production, you'd typically use **absolute paths**: `ServeDir::new(concat!(env!("CARGO_MANIFEST_DIR"), "/public"))`
+- Or read from environment: `ServeDir::new(env::var("STATIC_DIR").unwrap_or_else(|_| "public".to_string()))`
+
+### Summary
+
+**To add static HTML file serving:**
+
+1. Import: `use tower_http::services::{ServeDir, ServeFile};`
+2. **Insert routes BEFORE `.merge(leptos_router)`** to give them priority
+3. Use `.nest_service()` or `.route()` with `get_service()` to attach ServeDir/ServeFile
+4. The dependency **tower-http with "fs" feature is already in Cargo.toml**
+5. Static files in `public/` directory are copied to `target/site` during the build
+
+The clearest pattern is **Option 3**: explicitly route static files before merging the leptos router, keeping concerns separated.
+
+📋 --- Summary ---
+📋 Duration: 16s
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 4 total, 0 failed
+📋 Files: 4 read
+📋 Tokens: 22 in, 26 out
+📋 Cache: 66.8K read, 15.0K created

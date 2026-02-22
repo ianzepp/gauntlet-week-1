@@ -1,0 +1,617 @@
+📋 Session: 38ed0faf-2f3b-47b6-9511-1ec8e7c4c594
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T17:54:19.711+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 I need a detailed comparison between the React client's CSS and the Leptos client-rust's CSS. Read these files thoroughly:
+
+1. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/styles/global.css — the React global CSS with all design tokens
+2. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/styles/main.css — the Leptos CSS
+
+Also read ALL the React CSS module files:
+- Find all *.module.css files under /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/
+
+For each component, compare the React CSS module styles against the corresponding Leptos BEM styles in main.css.
+
+Report:
+- Which CSS variables/tokens differ between the two
+- Which component styles are missing or significantly different in the Leptos version
+- Which layout values (widths, heights, spacing) differ
+- Which fonts are missing
+- Any React-specific CSS patterns that need adaptation for plain CSS (e.g., CSS module class naming vs BEM)
+
+Be very thorough and specific — I need exact variable names and values.
+📋 Model: sonnet-4.6
+🤖 I'll read all the CSS files in parallel to do a thorough comparison.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/styles/global.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/styles/main.css"
+✅ Glob: pattern="**/*.module.css" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src"
+🤖 Now let me read all the React CSS module files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/AiPanel.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/BoardCard.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ChatPanel.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/MissionControl.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ToolRail.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/UserFieldReport.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/DashboardPage.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/Toolbar.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/RightPanel.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/StatusBar.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/BoardStamp.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ToolStrip.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/LeftPanel.module.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/InspectorPanel.module.css"
+🤖 Now let me also check if there are any other CSS files in the Leptos client-rust directory and any page-level CSS modules in the React client.
+✅ Glob: pattern="**/*.css" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust"
+✅ Glob: pattern="**/*.module.css" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages"
+✅ Glob: pattern="**/*.css" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src"
+🤖 I now have everything needed for a comprehensive comparison. Here is the full detailed analysis.
+
+---
+
+# CSS Comparison: React Client vs. Leptos Client-Rust
+
+---
+
+## 1. CSS Custom Properties (Design Tokens) — Complete Diff
+
+### React `global.css` :root tokens vs. Leptos `main.css` :root tokens
+
+The two files use completely different token namespaces and different color palettes. The Leptos file is a dark-mode-first generic dark theme; the React file is a warm parchment/notebook theme.
+
+#### React tokens with NO equivalent in Leptos
+
+Every single React token is absent or renamed:
+
+**Canvas-specific:**
+| React Token | React Value | Leptos Equivalent | Notes |
+|---|---|---|---|
+| `--canvas-bg` | `#e8e0d2` | none | Warm parchment tan |
+| `--canvas-grid` | `#e1ddd5` | none | Slightly darker tan |
+| `--canvas-grid-major` | `#d7d1c7` | none | Major grid line color |
+
+**UI Chrome backgrounds:**
+| React Token | React Value | Leptos Equivalent | Notes |
+|---|---|---|---|
+| `--bg-primary` | `#f5f0e8` | none | Warm off-white |
+| `--bg-secondary` | `#ede8dd` | none | Slightly darker |
+| `--bg-nav` | `#2c2824` | none | Near-black brown nav rail |
+| `--bg-status-bar` | `#f0ebe2` | none | Warm light bar |
+
+**Text:**
+| React Token | React Value | Leptos Equivalent | Notes |
+|---|---|---|---|
+| `--text-primary` | `#2c2824` | none | Near-black |
+| `--text-secondary` | `#8a8178` | none | Warm mid-gray |
+| `--text-tertiary` | `#b5aea4` | none | Light warm gray |
+| `--text-nav` | `#d4cfc6` | none | Light on dark nav |
+| `--text-nav-active` | `#f5f0e8` | none | Near-white on dark nav |
+
+**Accents:**
+| React Token | React Value | Leptos Equivalent | Notes |
+|---|---|---|---|
+| `--accent-green` | `#2c6e49` | none | Forest green CTA |
+| `--accent-error` | `#8b4049` | none | Dark rose error |
+
+**Borders:**
+| React Token | React Value | Leptos Equivalent | Notes |
+|---|---|---|---|
+| `--border-default` | `#d4cfc6` | none | Warm tan border |
+| `--border-subtle` | `#e5e0d8` | none | Almost invisible border |
+
+**Object palette (8 colors):**
+| React Token | React Value |
+|---|---|
+| `--obj-cream` | `#f5f0e8` |
+| `--obj-sage` | `#b8c5b0` |
+| `--obj-terracotta` | `#c4a882` |
+| `--obj-slate` | `#9aa3ad` |
+| `--obj-dust` | `#c2a8a0` |
+| `--obj-gold` | `#c9b97a` |
+| `--obj-stone` | `#a8a298` |
+| `--obj-moss` | `#8b9e7e` |
+
+All 8 are completely absent from Leptos.
+
+**User colors (8 colors, `--user-0` through `--user-7`):**
+All 8 absent from Leptos. These are used for per-user presence color coding.
+
+**Typography:**
+| React Token | React Value | Leptos Equivalent |
+|---|---|---|
+| `--font-mono` | `"IBM Plex Mono", "Courier Prime", "JetBrains Mono", monospace` | none |
+| `--font-script` | `"Caveat", cursive` | none |
+
+**Spacing (systematic scale):**
+| React Token | Value | Leptos Equivalent |
+|---|---|---|
+| `--space-xs` | `4px` | none |
+| `--space-sm` | `8px` | none |
+| `--space-md` | `16px` | none |
+| `--space-lg` | `24px` | none |
+| `--space-xl` | `32px` | none |
+
+The Leptos file uses inline `rem` literals (`0.5rem`, `1rem`, `1.5rem`, `2rem`) everywhere instead of space tokens.
+
+**Z-index layers:**
+| React Token | Value | Leptos Equivalent |
+|---|---|---|
+| `--z-canvas-ui` | `10` | none |
+| `--z-chrome` | `100` | none |
+| `--z-modal` | `1000` | none |
+
+Leptos uses the literal value `z-index: 1000` inline for dialogs and `z-index: 100` for the user-field-report popover instead of tokens.
+
+**Geometry:**
+| React Token | Value | Notes |
+|---|---|---|
+| `--radius` | `0` | Explicitly zero (flat aesthetic) |
+| `--shadow` | `none` | Explicitly no shadows |
+
+Leptos uses `border-radius: 6px`, `8px`, `4px`, `12px` across many components — directly contradicting the React aesthetic.
+
+---
+
+#### Leptos tokens with NO equivalent in React
+
+| Leptos Token | Leptos Value | Notes |
+|---|---|---|
+| `--color-bg` | `#1a1a2e` | Deep navy |
+| `--color-surface` | `#16213e` | Slightly lighter navy |
+| `--color-primary` | `#0f3460` | Dark blue |
+| `--color-accent` | `#e94560` | Vivid rose/red accent |
+| `--color-text` | `#eee` | Near-white |
+| `--color-text-muted` | `#aaa` | Mid gray |
+
+These are all alien to the React design system.
+
+---
+
+### Dark Mode Token Comparison
+
+React defines a full `.dark-mode` override that remaps all tokens to dark equivalents (18 tokens overridden), keeping the same warm palette in a dark register.
+
+Leptos defines a `.dark-mode` class that overrides only the 6 Leptos-specific tokens (`--color-bg`, `--color-surface`, `--color-primary`, `--color-text`, `--color-text-muted`). The Leptos dark mode has no mapping for any of the React canvas, bg, text-nav, border, object, user, font, space, or z-index tokens.
+
+---
+
+## 2. Base Element Styles
+
+| Property | React `global.css` | Leptos `main.css` |
+|---|---|---|
+| `body font-family` | `var(--font-mono)` ("IBM Plex Mono", "Courier Prime", "JetBrains Mono") | `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` |
+| `body font-size` | `13px` | not set (browser default ~16px) |
+| `body background` | `var(--bg-primary)` = `#f5f0e8` | `var(--color-bg)` = `#1a1a2e` |
+| `body color` | `var(--text-primary)` = `#2c2824` | `var(--color-text)` = `#eee` |
+| `body overflow` | `hidden` | not set (`min-height: 100vh`) |
+| `button/input/textarea/select border` | `1px solid var(--border-default)` | not set at base level |
+| `button/input/textarea/select background` | `var(--bg-secondary)` | not set at base level |
+| `button/input/textarea/select border-radius` | `0` | not set (uses per-component values) |
+| `button:hover background` | `var(--bg-primary)` | not set |
+| `button:disabled opacity` | `0.5` | not set |
+| `input/textarea/select :focus border-color` | `var(--text-primary)` | not set |
+| Scrollbar styling | 8px wide, transparent track, `var(--border-default)` thumb | not set |
+| `a color` | `var(--accent-green)` | not set |
+| `a:hover color` | `var(--text-primary)` | not set |
+
+---
+
+## 3. Component-by-Component Comparison
+
+### BoardPage Layout (board grid)
+
+| Property | React (no module.css — defined in global) | Leptos `main.css` |
+|---|---|---|
+| Grid template areas | `"toolbar toolbar toolbar" / "left canvas right" / "status status status"` | same structure |
+| Row sizing | `auto 1fr auto` | `auto 1fr auto` — same |
+| Column sizing | `auto 1fr auto` | `auto 1fr auto` — same |
+| Height | `100vh` | `100vh` — same |
+| `.board-page__left-panel` width | not defined in React (left panel has 52px rail + optional 160px panel) | `width: 240px` (hardcoded flat value) |
+| `.board-page__right-panel` width | not defined in React (right panel has 52px rail + optional 320px panel) | `width: 280px` (hardcoded flat value) |
+| `.board-page__toolbar` background | would use `var(--bg-nav)` = `#2c2824` | `var(--color-surface)` = `#16213e` |
+| `.board-page__status-bar` background | would use `var(--bg-status-bar)` = `#f0ebe2` | `var(--color-surface)` = `#16213e` |
+
+The Leptos panel widths (240px left, 280px right) don't match the React component widths (LeftPanel panel = 160px, ToolRail = 52px; RightPanel panel = 320px, rail = 52px).
+
+---
+
+### Toolbar
+
+React (`Toolbar.module.css`):
+- Height: `36px`
+- Background: `var(--bg-nav)` = `#2c2824`
+- Board name: `font-family: var(--font-mono)`, `12px`, weight 700, uppercase, `letter-spacing: 0.1em`, `var(--text-nav-active)`
+- Presence chip: `font-mono`, 10px, 500 weight, uppercase, `0.06em` tracking, `border-left: 2px solid` (color coded), `var(--text-nav)`
+- Presence dot: `6px x 6px` (not circular — no `border-radius`)
+- Action buttons: `28px x 28px`, transparent, `var(--text-nav)`
+- Action icons: `16px x 16px` SVG, `stroke-width: 1.5`, `stroke-linecap: square`
+
+Leptos (`main.css` `.toolbar`):
+- Height: `36px` — same
+- Background: `var(--color-surface)` — DIFFERENT color entirely
+- Board name: `font-weight: 600` only, no font-family, no uppercase, no tracking
+- Presence chip: `border-radius: 12px`, inline-flex, `border: 1px solid` — round pill shape vs. React's flat left-border-only chip
+- Presence dot: `8px x 8px` + `border-radius: 50%` (circle) vs. React's `6px` square dot
+- Action buttons: no equivalent at this fidelity
+- Font family: system sans-serif (falls through `body`) vs. IBM Plex Mono
+
+---
+
+### StatusBar
+
+React (`StatusBar.module.css`):
+- Height: `24px`
+- Background: `var(--bg-status-bar)` = `#f0ebe2`
+- Border: `border-top: 1px solid var(--border-default)`
+- Font: `var(--font-mono)`, `11px`, uppercase, `0.06em` tracking
+- Dot: `6px x 6px` square (no border-radius), `connected` state uses `var(--accent-green)`
+- Divider: `1px x 12px` bar
+
+Leptos (`main.css` `.status-bar`):
+- No explicit height
+- Background: `var(--color-surface)` — DIFFERENT
+- Font: `0.8rem` (~12.8px at default), not uppercase, no tracking
+- Dot: `8px x 8px`, `border-radius: 50%` (circle)
+- Connected color: hardcoded `#2ecc71` instead of `var(--accent-green)` = `#2c6e49` (completely different green)
+- Connecting: hardcoded `#f39c12`
+- Disconnected: hardcoded `#e74c3c`
+- Missing: `border-top`, `section` layout pattern, `divider` element
+
+---
+
+### ToolRail (Left)
+
+React (`ToolRail.module.css`):
+- Width: `52px`
+- Background: `var(--bg-nav)` = `#2c2824`
+- `border-right: 1px solid var(--border-default)`
+- Tool buttons: `36px x 36px`, color `var(--text-nav)`, hover `var(--text-nav-active)`
+- Active indicator: `::after` pseudo-element, `left: 0`, `top: 6px / bottom: 6px`, `2px wide`, `var(--accent-green)`
+- Disabled: `opacity: 0.3`
+- SVGs: `20px x 20px`, `stroke-width: 1.5`, `stroke-linecap: square`, `stroke-linejoin: miter`
+- Separator: `24px wide x 1px high`
+- Label: `8px`, `writing-mode: vertical-rl` (vertical text)
+
+Leptos (`main.css` `.tool-rail`):
+- No width defined (flex-wrap layout, not a fixed column)
+- No background (inherits surface)
+- Tool buttons: `36px x 36px` — same
+- No active `::after` indicator — just `background: var(--color-primary)` + `border-color: var(--color-accent)`
+- Active uses filled background vs. React's accent left bar
+- SVG: no SVG constraints defined
+- No separator, no vertical label
+- `border-radius: 6px` on buttons vs React's `border: none`
+
+---
+
+### LeftPanel (including rail + expandable panel)
+
+React (`LeftPanel.module.css`):
+- Rail: `52px` wide, `var(--bg-nav)`, `border-right`
+- Rail buttons: `36px x 36px`, no border, `var(--text-nav)`, `::after` active indicator on the LEFT side
+- Rail toggle: `36px x 36px`, same styling
+- Expanded panel: `width: 160px`, `var(--bg-secondary)`, `border-left: 1px solid var(--border-default)`
+- Panel header: `height: 36px`, `border-bottom`, title: `font-mono`, `10px`, 600 weight, uppercase, `0.08em` tracking
+- Close button: `36px x 36px`, `font-size: 14px`
+- `stripAnchor` position: `position: fixed; left: 52px; z-index: 10`
+
+Leptos (`main.css` `.left-panel`):
+- Flex column, height 100%
+- Tabs: border-bottom with `var(--color-primary)` not `var(--border-default)`
+- Tab: `font-size: 0.8rem`, not uppercase, no tracking
+- Active tab: `border-bottom: 2px solid var(--color-accent)` (rose/red) vs React's `var(--accent-green)` green
+- Content: `padding: 0.5rem` with `overflow-y: auto`
+- No 52px rail — the Leptos left panel is a single flat panel with tabs, not the React rail-plus-expandable pattern
+- Missing: stripAnchor, railToggle, toolButton active `::after` left-side indicator
+- Missing: MissionControl embedded in left panel vs React's separate bottom rail
+
+---
+
+### RightPanel
+
+React (`RightPanel.module.css`):
+- Rail: `52px`, `var(--bg-nav)`, `border-left` (right-side mirror of LeftPanel)
+- Active indicator `::after` on the RIGHT side (`right: 0`)
+- Panel: `width: 320px`, `var(--bg-secondary)`, `border-left`
+- Header: `height: 36px`, `border-bottom`
+- Title: `font-mono`, `10px`, 600, uppercase, `0.08em` tracking
+
+Leptos (`main.css` `.right-panel`):
+- No rail — just a single panel
+- Panel width: `280px` (vs React's `52px rail + 320px panel = 372px total`)
+- Tabs: `border-bottom: 1px solid var(--color-primary)`
+- Active tab: `border-bottom: 2px solid var(--color-accent)` (rose)
+- No `::after` active indicator on rail buttons
+- Missing: railToggle, closeButton, wrapper layout
+
+---
+
+### InspectorPanel
+
+React (`InspectorPanel.module.css`):
+- Field grid: `grid-template-columns: auto 1fr`, `gap: var(--space-xs) var(--space-sm)` = `4px 8px`
+- Field label: `font-mono`, `10px`, uppercase, `0.06em` tracking, `var(--text-secondary)`
+- Field input height: `24px`, padding `4px 6px`
+- TextArea min-height: `88px`, `font-mono`, `12px`, line-height `1.35`, padding `8px`
+- Delete button: `height: 28px`, `border: 1px solid #b24a4a`, color `#b24a4a` (hardcoded rose-red)
+- Section title: `border-bottom: 1px solid var(--border-default)`
+
+Leptos (`main.css` `.inspector-panel`):
+- `grid-template-columns: auto auto` (2 fixed auto columns vs. `auto 1fr`)
+- `gap: 0.25rem 0.75rem` = 4px 12px (wider horizontal gap than React's 8px)
+- Field label: `color: var(--color-text-muted)` = `#aaa`, no uppercase, no tracking
+- No section-title border-bottom
+- No delete button
+- Font: system sans (via body) vs. IBM Plex Mono
+
+---
+
+### BoardCard
+
+React (`BoardCard.module.css`):
+- `aspect-ratio: 4 / 3`
+- `border: 1px solid var(--border-default)`, background `var(--bg-primary)`
+- Card name: `font-family: var(--font-script)` ("Caveat"), `22px`, `color: var(--text-primary)`
+- Card ID: `font-mono`, `9px`, 500 weight, uppercase, `0.08em` tracking, `var(--text-tertiary)`
+- Hover: `border-color: var(--text-secondary)`
+- Active: `border-color: var(--accent-green)`
+- Mini variant: `height: 22px`, font-mono `10px` 500 weight, max-width `140px`
+
+Leptos (`main.css` `.board-card`):
+- `border-radius: 8px` — completely absent from React (React uses `--radius: 0`)
+- `border: 1px solid transparent` (no visible border at rest) vs React's always-visible `var(--border-default)`
+- Hover: `border-color: var(--color-accent)` (rose) vs React's `var(--text-secondary)` (muted gray)
+- Font: `font-weight: 600` only, no Caveat script font for name, no mono for ID
+- No card-id element
+- No mini variant
+- Background: `var(--color-surface)` (navy) vs React's warm cream `var(--bg-primary)`
+
+---
+
+### BoardStamp
+
+React (`BoardStamp.module.css`):
+- Position: `top: var(--space-md)`, `right: var(--space-md)` = `16px 16px` (top-right)
+- z-index: `var(--z-canvas-ui)` = `10`
+- Background: `var(--bg-primary)` = warm cream
+- Border: `1px solid var(--border-default)` — visible flat border
+- Opacity: `0.75`
+- Min-width: `180px`
+- Stamp label: `font-mono`, `9px`, 600, uppercase, `0.1em` tracking
+- Stamp title: `font-script` ("Caveat"), `24px`, `line-height: 1.1`
+- Stamp rows: key `9px` mono, value `9px` mono 500 weight
+- Status dot: `5px x 5px` inline-block, square (no border-radius)
+
+Leptos (`main.css` `.board-stamp`):
+- Position: `bottom: 0.75rem`, `left: 50%`, `transform: translateX(-50%)` (bottom-center) — OPPOSITE CORNER
+- Background: `rgba(0,0,0,0.35)` (translucent dark) vs React's solid warm cream
+- Color: `rgba(255,255,255,0.6)` (translucent white text) vs React's `var(--text-primary)` = dark
+- `border-radius: 12px` (pill shape) vs React's flat rectangle
+- No visible border
+- No opacity setting (uses transparent bg)
+- Font: just `font-size: 0.75rem`, no mono stack, no Caveat
+- No stamp-label / stamp-title / stamp-key / stamp-value hierarchy
+- Name: just `font-weight: 600`
+
+This is one of the most significant divergences — the React stamp is a top-right info card; the Leptos stamp is a bottom-center translucent pill.
+
+---
+
+### ChatPanel
+
+React (`ChatPanel.module.css`):
+- Messages area padding: `var(--space-sm)` = `8px`
+- Message gap: `var(--space-xs)` = `4px`
+- Name: `font-mono`, `10px`, 600 weight, uppercase, `0.06em` tracking, `line-height: 1`
+- Text: `font-mono`, `13px`, `line-height: 1.5`
+- Input: `font-mono`, `13px`, no border-radius, `var(--bg-primary)` bg
+- Send button: `font-mono`, `10px`, 600, uppercase, `0.06em` tracking, `var(--accent-green)` bg
+
+Leptos (`main.css` `.chat-panel`):
+- Messages padding: `0.5rem` — same effective value
+- Author: `font-weight: 600`, `0.85rem`, no mono, no uppercase, no tracking
+- Text: `0.9rem`, no mono
+- Input: `border-radius: 4px` (vs React's 0), `background: var(--color-bg)` = navy
+- Send button: no send button defined at all — the `.btn` class is used generically
+
+---
+
+### AiPanel
+
+React (`AiPanel.module.css`):
+- Messages area has a lined-paper effect: `background-image: repeating-linear-gradient(...)` with `28px` line height grid — this is a distinctive design feature
+- Messages background: `var(--bg-primary)` + ruled lines with `var(--border-subtle)` at 27-28px intervals
+- Background-size: `100% 28px`
+- User messages: `font-script` ("Caveat"), `18px`, `line-height: 28px` (aligns to ruled lines)
+- Assistant messages: `font-mono`, `11px`, `var(--text-secondary)`, `padding-left: var(--space-sm)`
+- Loading: `animation: pulse 1.5s ease infinite` (opacity 0.4 → 1 → 0.4)
+- Markdown styles: full set (p, strong, em, ul, ol, li, code, pre, h1-h4, blockquote, hr)
+- Markdown code: `font-mono`, `10px`, `var(--bg-secondary)` bg, border
+- Markdown h1-h4: all normalized to `11px`, uppercase, `0.04em` tracking
+- Markdown blockquote: `border-left: 2px solid var(--border-default)`, `var(--text-tertiary)`
+- Error message: `border-left: 2px solid var(--accent-error)`, `var(--accent-error)` color
+- Mutations indicator: `font-mono`, `10px`, uppercase, `0.06em` tracking, `line-height: 28px`
+- Input area background: `var(--bg-secondary)`
+- Input: no border-radius, `var(--bg-primary)`, green focus border
+
+Leptos (`main.css` `.ai-panel`):
+- No ruled-paper background effect (the most visually distinctive feature of the React AI panel is entirely absent)
+- Messages: plain `padding: 0.5rem`, no line-grid
+- Assistant message: `background: rgba(255,255,255,0.05)`, `border-radius: 6px` — a subtle tinted card vs. React's no-background style
+- Role: uppercase, `0.75rem`, `var(--color-text-muted)` — somewhat similar in intent
+- Content: `0.9rem`, `white-space: pre-wrap` — no markdown treatment
+- Loading: `color: var(--color-text-muted)`, `font-style: italic` — no pulse animation
+- Input: `border-radius: 4px` (vs 0), navy bg, system font
+- Missing entirely: pulse animation, ruled-paper grid, markdown styles, error style, mutations indicator, send button, user/assistant visual differentiation
+
+---
+
+### ToolStrip
+
+React (`ToolStrip.module.css`):
+- Strip container: `height: 36px`, `var(--bg-nav)` bg, `border: 1px solid var(--border-default)`, `border-left: none`
+- Options: `28px x 28px` buttons, no border-radius, `var(--text-secondary)`
+- Option active: `border-color: var(--accent-green)` only (no bg fill)
+- Option SVGs: `18px x 18px`, `stroke-width: 1.5`, `stroke-linecap: square`, `stroke-linejoin: miter`
+- Swatch: `28px x 28px`, no border-radius, active: `border-color: var(--accent-green)`
+- Swatch color inner: `16px x 16px` block
+- Divider: `1px x 20px`
+- Add button: `font-mono`, `10px`, 600, uppercase, `0.06em` tracking, `color: #fff`, `padding: 4px 12px`
+
+Leptos (`main.css` `.tool-strip__colors`):
+- Colors: `0.35rem` gap, circles (`border-radius: 50%`) vs React's square swatches
+- Color size: `24px x 24px`, `border: 2px solid transparent`, selected: `border-color: white`
+- No tool-strip options buttons at all
+- `.tool-strip__add`: just `width: 100%` — no styling
+- Missing: strip container height, bg-nav background, border, divider, font treatments
+
+---
+
+### UserFieldReport
+
+React (`UserFieldReport.module.css`):
+- Popover: `position: fixed`, `bottom: 32px`, `width: 240px`, `var(--bg-primary)` bg, `border: 1px solid var(--border-default)`, padding `var(--space-sm) var(--space-md)` = `8px 16px`
+- No border-radius (flat)
+- z-index: `var(--z-modal)` = 1000 (for backdrop) and `var(--z-modal)` for popover
+- Header: `var(--font-script)` "Caveat" name at `20px`, badge: `font-mono`, `9px`, uppercase, `0.08em` tracking
+- Avatar: `28px x 28px`, `object-fit: cover` (no border-radius — square)
+- Section title: `9px`, 600, uppercase, `0.1em` tracking, `var(--text-tertiary)`
+- Row label: `10px`, uppercase, `0.06em` tracking, `var(--text-secondary)`
+- Row value: `10px`, 600, `var(--text-primary)`
+- Syscall name: `9px`, `min-width: 80px`
+- Loading: `10px`, uppercase, `0.08em` tracking, pulse animation
+
+Leptos (`main.css` `.user-field-report`):
+- `position: absolute` (not fixed) — different stacking context behavior
+- `border-radius: 8px` (rounded) vs React flat
+- `border: 1px solid var(--color-primary)` = dark blue, vs React's `var(--border-default)` = warm tan
+- Background: `var(--color-surface)` = navy vs React's `var(--bg-primary)` = warm cream
+- Stats: `grid-template-columns: auto auto` (equal columns) vs React's `justify-content: space-between` flex
+- Color dot: `12px x 12px`, `border-radius: 50%` (circle) vs React's avatar
+- Missing: popover z-index, backdrop element, avatar image, pulse animation on loading, syscall bar layout
+
+---
+
+### DashboardPage
+
+React (`DashboardPage.module.css`):
+- Page: `display: flex; flex-direction: column; height: 100vh; background: var(--bg-primary)`
+- Header: `height: 36px`, `var(--bg-nav)` bg, padding `0 var(--space-sm)` = `0 8px`
+- Header title: `font-mono`, `12px`, 700, uppercase, `0.1em` tracking, `var(--text-nav-active)`
+- Grid: `repeat(auto-fill, minmax(220px, 1fr))`, gap `var(--space-md)` = `16px`, padding `var(--space-lg)` = `24px`
+- New card: `aspect-ratio: 4/3`, `border: 1px dashed var(--border-default)`, transparent bg, `color: var(--text-tertiary)`, icon `32px x 32px`
+- Dialog: `background: var(--bg-primary)`, `border: 1px solid var(--border-default)`, `width: 320px`, no border-radius
+- Dialog input: `font-script` "Caveat", `22px`, `border-bottom: 1px solid var(--border-default)` only (underline style)
+- Dialog button: `font-mono`, `10px`, 600, uppercase, `0.1em` tracking, `border: 1px solid var(--accent-green)`, transparent bg, hover fills green
+- Dialog cancel: separate style with `var(--border-default)` border, `var(--text-secondary)` color
+
+Leptos (`main.css` `.dashboard-page`):
+- `max-width: 960px; margin: 0 auto; padding: 2rem` — centered content layout vs React's full-viewport flex column
+- No nav header bar
+- Card grid: `repeat(auto-fill, minmax(200px, 1fr))` (200px min vs React's 220px), gap `1rem` = `16px` (same), but no padding token reference
+- Dialog: `background: var(--color-surface)`, `border-radius: 8px`, `min-width: 320px` — rounded corners vs React flat
+- Dialog input: `border-radius: 4px`, `background: var(--color-bg)` = navy, `font-size: 1rem` — no Caveat font, no underline-only style
+- Dialog label: `color: var(--color-text-muted)`, `0.85rem` — no mono, no uppercase, no tracking
+- Dialog actions: `gap: 0.5rem`, flex-end — same concept
+- No new-card dashed placeholder card
+- No nav header
+
+---
+
+### MissionControl
+
+React (`MissionControl.module.css`):
+- `width: 100%`, `height: 100%`, `overflow-y: auto`, `scrollbar-width: none` (hidden scrollbar)
+- Inner: `display: flex; flex-direction: column; gap: var(--space-sm)` = `8px`; `padding: var(--space-sm)` = `8px`
+- This is purely a vertical scrolling container for `BoardCard` mini chips — no named links or title
+
+Leptos (`main.css` `.mission-control`):
+- `padding: 0.5rem`
+- Title element (`0.9rem`, `margin-bottom: 0.5rem`)
+- List of links: block, `padding: 0.4rem 0.5rem`, `border-radius: 4px`, hover `background: var(--color-primary)`
+- Link font: `0.85rem`, `color: var(--color-text)` — no mono, no uppercase
+- This is a vertical link list, structurally different from React's scrolling BoardCard chip bar
+
+---
+
+## 4. Missing Font Loading
+
+The React global.css references two custom web fonts that are not loaded anywhere in Leptos:
+
+- **"IBM Plex Mono"** — used as `--font-mono` for virtually every text element in the UI (labels, inputs, buttons, metadata, toolbars, status bar, inspector, chat, AI panel). Requires a `<link>` to Google Fonts or a local `@font-face`.
+- **"Courier Prime"** — fallback in `--font-mono` stack
+- **"JetBrains Mono"** — second fallback in `--font-mono` stack
+- **"Caveat"** — used as `--font-script` for board names (BoardCard, BoardStamp title, DashboardPage dialog input, UserFieldReport name). A Google Fonts handwriting font that gives the notebook/sketchpad feel.
+
+Leptos `main.css` has no `@import`, no `@font-face`, and no `<link>` to any font CDN. The body falls back to system-sans, losing the entire typographic identity of the React design.
+
+---
+
+## 5. CSS Module Naming vs. BEM — Adaptation Pattern
+
+React uses CSS Modules where locally-scoped class names are generated at build time. In JSX:
+```jsx
+import styles from './Toolbar.module.css';
+<div className={styles.toolbar}>
+  <div className={styles.left}>
+    <span className={`${styles.presenceChip} ${isActive ? styles.active : ''}`}>
+```
+
+The local class names (`toolbar`, `left`, `presenceChip`, `active`) are unambiguous within the module file but become globally unique hashes at runtime.
+
+Leptos uses plain BEM in a single `main.css` file. The equivalent pattern is:
+```
+.toolbar                   → .toolbar (block)
+.toolbar .left             → .toolbar__left (element)
+.presenceChip + active     → .toolbar__presence-chip--active (modifier)
+```
+
+Key translation issues:
+
+1. **Compound class conditionals** — React: `className={[styles.toolButton, active && styles.active].filter(Boolean).join(' ')}`. Leptos: attribute `class="tool-rail__btn tool-rail__btn--active"`. The BEM modifier must be added as a separate class, not replaced.
+
+2. **Nested selectors that rely on co-location** — React `.mini .cardName { font-family: var(--font-mono); }` (a context override within the module). In BEM this becomes `.board-card--mini .board-card__name { }` — the nesting is explicit but the rule must exist in the single file at the right scope.
+
+3. **State classes** — React's `.active`, `.disabled`, `.connected`, `.offline` are all module-local (no collision risk). In Leptos BEM they need full qualification: `.tool-rail__btn--active`, `.status-bar__dot--connected`. The Leptos file currently uses shorthand modifiers like `--connected`, `--connecting`, `--disconnected` on the dot which is correct BEM, but several places use simple state classes (`.board-card:hover`, `.left-panel--collapsed .left-panel__content`) without proper BEM modifier equivalents.
+
+4. **The `stripAnchor` (LeftPanel)** — React uses `position: fixed; left: 52px` which depends on the rail being exactly 52px. The BEM class `.left-panel__strip-anchor` would need explicit documentation of this positional dependency, which is currently absent in Leptos.
+
+---
+
+## 6. Summary Table of Missing/Broken Items by Priority
+
+| Category | Issue | Severity |
+|---|---|---|
+| CSS tokens | All 40+ React design tokens absent from Leptos | Critical |
+| Fonts | "IBM Plex Mono" and "Caveat" not loaded anywhere | Critical |
+| Color palette | Leptos is dark navy/rose; React is warm parchment/forest-green | Critical |
+| BoardStamp position | Leptos: bottom-center pill; React: top-right info card | High |
+| AI panel ruled paper | `repeating-linear-gradient` notebook-line background entirely absent | High |
+| ToolRail active indicator | `::after` left-side 2px green bar absent in Leptos | High |
+| RightPanel rail | Leptos has no 52px rail; React has rail+panel = 52+320px | High |
+| LeftPanel rail | Leptos has no 52px rail + separate panel; just a tabbed panel | High |
+| Panel widths | Left: 240px vs 52+160=212px; Right: 280px vs 52+320=372px | High |
+| Status bar dot colors | Leptos uses hardcoded `#2ecc71`/`#f39c12`/`#e74c3c`; React uses token | Medium |
+| Border-radius | Leptos uses 4-12px radii throughout; React explicitly sets `--radius: 0` | Medium |
+| Presence chip shape | Leptos: round pill; React: flat left-border-only chip | Medium |
+| Toolbar dark-mode | Leptos dark mode overrides only 5 tokens; React has 18-token dark palette | Medium |
+| BoardCard font | Leptos: system sans; React: Caveat 22px for name, mono 9px for ID | Medium |
+| Dashboard layout | Leptos: centered `max-width: 960px`; React: full-viewport flex | Medium |
+| MissionControl structure | Leptos: link list with title; React: scrolling BoardCard chip container | Medium |
+| AiPanel markdown CSS | No markdown rendering styles in Leptos | Medium |
+| AiPanel pulse animation | Absent in Leptos | Low |
+| Inspector delete button | Absent in Leptos | Low |
+| Base button/input styles | React resets border-radius to 0, sets font-inherit at base; Leptos does not | Low |
+| Scrollbar styling | React 8px styled scrollbars; Leptos unstyled | Low |
+| Link styles | React: `var(--accent-green)` links with hover; Leptos: nothing | Low |
+| Object color tokens | 8 `--obj-*` tokens for canvas object palette: entirely absent | Low (not yet rendered) |
+| User color tokens | 8 `--user-*` tokens for presence color coding: entirely absent | Low (partially used) |
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 20 total, 0 failed
+📋 Files: 16 read
+📋 Tokens: 32 in, 24 out
+📋 Cache: 339.0K read, 212.9K created

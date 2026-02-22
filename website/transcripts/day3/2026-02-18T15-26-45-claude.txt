@@ -1,0 +1,462 @@
+📋 Session: 980b612c-573a-4036-93a9-8a736713bee0
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T15:26:45.830+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 Explore the server crate at /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/. I need to understand:
+1. All source files and their module declarations
+2. Existing test files
+3. The mod.rs or lib.rs structure showing how modules are wired together
+4. Focus on: services/session.rs, services/auth.rs, services/persistence.rs, routes/auth.rs, llm/types.rs, frame.rs, rate_limit.rs, state.rs
+
+Read ALL of these files completely. Also read any existing test files (frame_test.rs, rate_limit_test.rs, state_test.rs, and any others).
+📋 Model: sonnet-4.6
+🤖 I'll systematically explore the server crate, reading all the requested files in parallel.
+✅ Bash: find /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src -type f | sort
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+🤖 Now let me read all the requested files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state_helpers_test.rs"
+🤖 Now let me read the services and routes files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/session.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/types.rs"
+🤖 Now let me read the remaining module files and test files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+🤖 Now let me read the remaining service files and test files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws_test.rs"
+🤖 Now let me read the remaining test files and the remaining service test files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object_test.rs"
+🤖 I now have a complete picture of the entire server crate. Here is a thorough summary of every file read.
+
+---
+
+## Server Crate: Complete File Map
+
+**Root: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/`**
+
+---
+
+### Module Declarations (`main.rs`)
+
+```
+mod db;
+mod frame;
+mod llm;
+mod rate_limit;
+mod routes;
+mod services;
+mod state;
+```
+
+The `main.rs` entry point wires together the DB pool, optional LLM client, optional GitHub OAuth config, the frame persistence worker, the object persistence background task, and the Axum router.
+
+---
+
+### `frame.rs` — Universal Message Type
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs`
+
+**Key types:**
+- `Status` enum: `Request | Item | Done | Error | Cancel`  
+  - `is_terminal()` returns true for `Done | Error | Cancel`
+- `Frame` struct: `id: Uuid`, `parent_id: Option<Uuid>`, `ts: i64` (ms epoch), `board_id: Option<Uuid>`, `from: Option<String>`, `syscall: String`, `status: Status`, `data: HashMap<String, Value>`
+- `Data` type alias: `HashMap<String, serde_json::Value>`
+- `ErrorCode` trait: `error_code() -> &'static str`, optional `retryable() -> bool`
+
+**Constructors:** `Frame::request()`, `Frame::cancel()`, `.item()`, `.done()`, `.done_with()`, `.error()`, `.error_from()`
+
+**Builders:** `.with_board_id()`, `.with_from()`, `.with_content()`, `.with_data()`
+
+**Routing:** `.prefix()` extracts the part before the first `:` in `syscall`
+
+**Constants:** `FRAME_MESSAGE`, `FRAME_CODE`, `FRAME_RETRYABLE`, `FRAME_CONTENT`
+
+**Test file:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame_test.rs` — declared as `#[cfg(test)] #[path = "frame_test.rs"] mod tests;`
+
+Test coverage: field initialization, reply inheritance, terminal status checks, prefix extraction, JSON round-trip, `error_from` with typed error, cancel frame, deserialize cursor/null/string/empty board_id shapes, deserialize minimal frame.
+
+---
+
+### `rate_limit.rs` — Sliding Window Rate Limiter
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit.rs`
+
+**Three limits (all configurable via env):**
+- Per-client: 10 AI requests / 60s (`RATE_LIMIT_PER_CLIENT`, `RATE_LIMIT_PER_CLIENT_WINDOW_SECS`)
+- Global: 20 requests / 60s (`RATE_LIMIT_GLOBAL`, `RATE_LIMIT_GLOBAL_WINDOW_SECS`)
+- Token budget: 50,000 tokens / hour per client (`RATE_LIMIT_TOKEN_BUDGET`, `RATE_LIMIT_TOKEN_WINDOW_SECS`)
+
+**Types:**
+- `RateLimiter` (cloneable, Arc-wrapped `Mutex<RateLimiterInner>`)
+- `RateLimiterInner`: `client_requests: HashMap<Uuid, VecDeque<Instant>>`, `global_requests: VecDeque<Instant>`, `client_tokens: HashMap<Uuid, VecDeque<(Instant, u64)>>`
+- `RateLimitError`: `PerClientExceeded`, `GlobalExceeded`, `TokenBudgetExceeded`
+
+**Public API:** `check_and_record(client_id)`, `check_token_budget(client_id)`, `record_tokens(client_id, tokens)`
+
+Internal `_at()` variants accept explicit `Instant` (used in tests for time travel).
+
+**Test file:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit_test.rs`
+
+Tests: per-client limit, global limit, token budget exceeded, window expiry allows new requests, distinct clients do not interfere.
+
+---
+
+### `state.rs` — Shared Application State
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs`
+
+**Types:**
+- `BoardObject`: mirrors `board_objects` table — `id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version`
+- `BoardState`: `objects: HashMap<Uuid, BoardObject>`, `clients: HashMap<Uuid, mpsc::Sender<Frame>>`, `dirty: HashSet<Uuid>`
+- `AppState` (cloneable): `pool: PgPool`, `boards: Arc<RwLock<HashMap<Uuid, BoardState>>>`, `frame_persist_tx: Option<mpsc::Sender<Frame>>`, `llm: Option<Arc<dyn LlmChat>>`, `rate_limiter: RateLimiter`, `github: Option<GitHubConfig>`
+
+**Test wiring:**
+- `#[cfg(test)] #[path = "state_helpers_test.rs"] pub mod test_helpers;` — publicly exported for use across all test files
+- `#[cfg(test)] #[path = "state_test.rs"] mod tests;`
+
+**Test helpers** (`state_helpers_test.rs`):
+- `test_app_state()` — lazy pool, no LLM
+- `test_app_state_with_llm(llm)` — lazy pool, mock LLM
+- `seed_board(&state)` — inserts an empty `BoardState`, returns `Uuid`
+- `seed_board_with_objects(&state, objects)` — pre-populates board
+- `dummy_object()` — sticky_note at (100, 200), version 1, props `{text: "test", color: "#FFEB3B"}`
+
+**State tests** (`state_test.rs`): `BoardState::new()` is empty, `BoardObject` serde round-trip, `Default == new`.
+
+---
+
+### `services/session.rs` — Session and WS Ticket Management
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/session.rs`
+
+**Types:**
+- `SessionUser`: `id: Uuid`, `name: String`, `avatar_url: Option<String>`, `color: String`
+
+**Functions:**
+- `generate_token()` — 32-byte random hex (pub, used by auth route for OAuth state)
+- `generate_ws_ticket()` — 16-byte random hex (private)
+- `create_session(pool, user_id) -> Result<String, sqlx::Error>` — INSERT into `sessions`
+- `validate_session(pool, token) -> Result<Option<SessionUser>, sqlx::Error>` — JOIN `sessions`+`users` where `expires_at > now()`
+- `delete_session(pool, token) -> Result<(), sqlx::Error>`
+- `create_ws_ticket(pool, user_id) -> Result<String, sqlx::Error>` — INSERT into `ws_tickets`
+- `consume_ws_ticket(pool, ticket) -> Result<Option<Uuid>, sqlx::Error>` — atomic DELETE...RETURNING where `expires_at > now()`
+
+No test file exists for `session.rs` (no `session_test.rs` found, all functions require live DB).
+
+---
+
+### `services/auth.rs` — GitHub OAuth Service
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs`
+
+**Types:**
+- `GitHubConfig`: `client_id, client_secret, redirect_uri` — loaded via `from_env()` (returns `None` if any missing); `authorize_url(state)` builds OAuth URL with `read:user` scope
+- `GitHubUser`: `id: i64`, `login: String`, `avatar_url: Option<String>`
+- `AuthError`: `TokenExchange(String)`, `GitHubApi(String)`, `Db(sqlx::Error)`
+
+**Functions:**
+- `exchange_code(config, code) -> Result<String, AuthError>` — POST to GitHub token endpoint
+- `fetch_github_user(access_token) -> Result<GitHubUser, AuthError>` — GET `api.github.com/user`
+- `upsert_user(pool, gh) -> Result<Uuid, AuthError>` — upsert on `github_id` conflict, RETURNING `id`
+
+No test file for `services/auth.rs`.
+
+---
+
+### `services/persistence.rs` — Background Flush Workers
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs`
+
+**Object flush (debounced, 100ms interval):**
+- `spawn_persistence_task(state) -> JoinHandle<()>` — loops, calling `flush_all_dirty(&state)` then sleeping
+- `flush_all_dirty(state)` — collects all dirty object IDs under write lock, clears dirty set, then calls `services::board::flush_objects()`
+
+**Frame persistence (bounded queue, batched):**
+- `spawn_frame_persistence_worker(pool) -> mpsc::Sender<Frame>` — configurable queue capacity (8192), batch size (128), flush interval (5ms), retries (2), retry base delay (20ms)
+- `enqueue_frame(state, frame)` — best-effort `try_send`; drops frame if queue full or closed (logs warning)
+- `persist_frame(pool, frame)` — single frame INSERT into `frames` table
+- `persist_frame_batch(pool, frames)` — batch INSERT in a transaction
+
+Config env vars: `FRAME_PERSIST_QUEUE_CAPACITY`, `FRAME_PERSIST_BATCH_SIZE`, `FRAME_PERSIST_FLUSH_MS`, `FRAME_PERSIST_RETRIES`, `FRAME_PERSIST_RETRY_BASE_MS`, `OBJECT_FLUSH_INTERVAL_MS`
+
+No test file for `persistence.rs`.
+
+---
+
+### `routes/auth.rs` — Auth Route Handlers
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/auth.rs`
+
+**Constants:** `COOKIE_NAME = "session_token"`, `OAUTH_STATE_COOKIE_NAME = "oauth_state"`
+
+**Types:**
+- `AuthUser` extractor: implements `FromRequestParts` — reads `session_token` cookie, validates against DB, returns `AuthUser { user: SessionUser, token: String }` or `UNAUTHORIZED`/`INTERNAL_SERVER_ERROR`
+
+**Handlers:**
+- `GET /auth/github` → `github_redirect` — generates CSRF state, sets `oauth_state` HttpOnly cookie (10min), redirects to GitHub
+- `GET /auth/github/callback` → `github_callback` — verifies CSRF state, exchanges code, fetches GitHub profile, upserts user, creates session, sets `session_token` cookie, redirects to `/`
+- `GET /api/auth/me` → `me(auth: AuthUser)` — returns `SessionUser` as JSON
+- `POST /api/auth/logout` → `logout` — deletes session, clears cookie with `max_age(ZERO)`
+- `POST /api/auth/ws-ticket` → `ws_ticket` — creates WS ticket, returns `{"ticket": "..."}` JSON
+
+Cookie security: `cookie_secure()` checks `COOKIE_SECURE` env or whether `GITHUB_REDIRECT_URI` starts with `https://`.
+
+---
+
+### `llm/types.rs` — Provider-Neutral LLM Types
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/types.rs`
+
+**Types:**
+- `LlmError`: `ConfigParse`, `MissingApiKey { var }`, `ApiRequest`, `ApiResponse { status, body }`, `ApiParse`, `HttpClientBuild` — implements `ErrorCode` (error codes prefixed `E_`); `retryable()` true for `ApiRequest` and 429/5xx responses
+- `ContentBlock` (serde tagged): `Text { text }`, `ToolUse { id, name, input }`, `ToolResult { tool_use_id, content, is_error? }`, `Thinking { thinking }`, `Unknown` (serde other)
+- `Content` (untagged): `Text(String)` or `Blocks(Vec<ContentBlock>)`
+- `Tool`: `name, description, input_schema: serde_json::Value`
+- `Message`: `role: String`, `content: Content`
+- `ChatResponse`: `content: Vec<ContentBlock>`, `model, stop_reason, input_tokens, output_tokens`
+- `LlmChat` trait (async_trait): `chat(max_tokens, system, messages, tools?) -> Result<ChatResponse, LlmError>`
+
+---
+
+### `llm/mod.rs` — Multi-Provider Dispatch
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs`
+
+`LlmClient` wraps `LlmProvider::Anthropic` or `LlmProvider::OpenAi`. Constructed from env:
+- `LLM_PROVIDER` (default: "anthropic")
+- `LLM_API_KEY_ENV` (names the env var holding the actual key)
+- `LLM_MODEL` (default: `claude-sonnet-4-5-20250929` / `gpt-4o`)
+- `LLM_OPENAI_MODE` ("responses" or "chat_completions")
+- `LLM_OPENAI_BASE_URL`
+
+Submodules: `anthropic`, `openai`, `tools`, `types`. Re-exports `LlmChat`.
+
+---
+
+### `services/mod.rs`
+
+```
+pub mod ai;
+pub mod auth;
+pub mod board;
+pub mod object;
+pub mod persistence;
+pub mod session;
+```
+
+---
+
+### `routes/mod.rs` — Router Assembly
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs`
+
+```
+pub mod auth;
+pub mod users;
+pub mod ws;
+```
+
+Route table:
+- `GET /auth/github` → `auth::github_redirect`
+- `GET /auth/github/callback` → `auth::github_callback`
+- `GET /api/auth/me` → `auth::me`
+- `POST /api/auth/logout` → `auth::logout`
+- `POST /api/auth/ws-ticket` → `auth::ws_ticket`
+- `GET /api/users/{id}/profile` → `users::user_profile`
+- `GET /api/ws` → `ws::handle_ws`
+- `GET /healthz` → 200 OK
+- Fallback: static file SPA from `STATIC_DIR` env (default `../client/dist`)
+
+CORS: allow all origins, methods, headers.
+
+---
+
+### `routes/ws.rs` — WebSocket Handler
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs`
+
+**Upgrade flow:** requires `?ticket=...` query param; calls `session::consume_ws_ticket` (atomic DELETE); sends `session:connected` frame with `client_id` and `user_id`.
+
+**`Outcome` enum** (internal):
+- `Broadcast(Data)` — done+data to ALL board clients (sender gets `parent_id`, peers do not)
+- `BroadcastExcludeSender(Data)` — peers only, no reply (cursor moves)
+- `Reply(Data)` — done+data to sender only
+- `Done` — empty done to sender
+- `ReplyAndBroadcast { reply, broadcast }` — different payloads to sender vs peers
+
+**Dispatch prefixes:**
+- `board:` → `handle_board` (join, create, list, delete)
+- `object:` → `handle_object` (create, update, delete with LWW versioning)
+- `chat:` → `handle_chat` (message, history)
+- `cursor:` → `handle_cursor` (ephemeral, no persistence, BroadcastExcludeSender)
+- `ai:` → `handle_ai` (prompt, history)
+
+**Key design decisions:**
+- `process_inbound_text()` is public (within module) and testable without a real WebSocket
+- Cursors are never persisted (skipped in `enqueue_frame` call)
+- AI mutations broadcast directly to ALL board clients (including sender), not via the normal Outcome path
+- On disconnect: broadcasts `board:part`, calls `part_board` for cleanup
+
+**Test file:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws_test.rs` (declared inside `ws.rs` as `#[cfg(test)] #[path = "ws_test.rs"] mod tests;`)
+
+---
+
+### `routes/ws_test.rs` — WebSocket Integration Tests
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws_test.rs`
+
+Uses `MockLlm` (consumes pre-queued `ChatResponse` values), `register_two_clients()` helper, `integration_pool()` for DB-backed tests.
+
+Unit tests (no DB needed):
+- `board_join_requires_board_id`
+- `board_unknown_op_returns_error`
+- `chat_message_requires_joined_board`
+- `chat_message_requires_non_empty_message`
+- `chat_message_broadcasts_to_peers_and_replies_with_trimmed_message`
+- `cursor_moved_broadcasts_to_peers_with_name_and_color`
+- `chat_history_requires_joined_board`
+- `multi_user_single_change_reaches_other_user`
+- `multi_user_concurrent_changes_on_different_objects_sync_both_users`
+- `multi_user_conflicting_same_object_edits_converge_after_retry` (LWW winner/loser + client retry)
+- `multi_user_stale_update_is_rejected_and_not_broadcast`
+- `ai_prompt_create_sticky_broadcasts_mutation_and_replies_with_text`
+- `ai_prompt_resize_sticky_broadcasts_update_and_replies_with_text`
+- `ai_prompt_multi_tool_single_turn_broadcasts_all_mutations_and_replies_with_text`
+- `ai_prompt_sequence_multi_tool_text_then_multi_tool_text` (4-response sequence, 4 objects created)
+
+Integration tests (`#[ignore = "requires TEST_DATABASE_URL/live Postgres"]`):
+- `chat_history_returns_persisted_messages_for_board`
+- `ai_history_returns_only_messages_for_requesting_user`
+
+---
+
+### `services/board.rs` — Board CRUD, Join/Part, Broadcast
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs`
+
+**Error types:** `BoardError::NotFound(Uuid)`, `BoardError::Database(sqlx::Error)` — implements `ErrorCode`
+
+**Functions:**
+- `create_board(pool, name, owner_id)` — INSERT, returns `BoardRow { id, name, owner_id }`
+- `list_boards(pool, user_id)` — WHERE `owner_id = $1 OR owner_id IS NULL` ORDER by `created_at DESC`
+- `delete_board(pool, board_id, user_id)` — WHERE `id = $1 AND (owner_id = $2 OR owner_id IS NULL)`, returns `NotFound` if 0 rows affected
+- `join_board(state, board_id, user_id, client_id, tx)` — checks board access, hydrates from DB if first client, registers client sender, returns current objects
+- `part_board(state, board_id, client_id)` — removes client; if last client: if clean, evict immediately; if dirty, flush then evict (with lock release between flush and re-eviction)
+- `broadcast(state, board_id, frame, exclude)` — read lock, `try_send` to all clients except excluded
+- `hydrate_objects(pool, board_id)` — SELECT all `board_objects`
+- `flush_objects(pool, objects)` — per-object INSERT ... ON CONFLICT DO UPDATE (upsert)
+
+**Test file:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board_test.rs`
+
+Unit tests: `broadcast_sends_to_all_except_excluded_client`, `part_board_removes_client_but_keeps_board_with_other_clients`, `part_board_evicts_clean_board_when_last_client_leaves`, `part_board_evicts_dirty_board_even_if_flush_fails` (uses lazy pool so DB flush fails gracefully, board still evicted).
+
+Integration tests (#[ignore]): `board_crud_round_trip_with_list_and_delete`, `join_board_hydrates_objects_from_database`, `part_board_flushes_dirty_object_to_database_on_last_client`.
+
+---
+
+### `services/object.rs` — Object CRUD with LWW Versioning
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs`
+
+**Error types:** `ObjectError::NotFound(Uuid)`, `BoardNotLoaded(Uuid)`, `StaleUpdate { incoming, current }`, `Database(sqlx::Error)` — implements `ErrorCode`
+
+**Functions:**
+- `create_object(state, board_id, kind, x, y, width, height, rotation, props, created_by)` — writes to in-memory board, marks dirty, version starts at 1, `z_index = current object count`
+- `update_object(state, board_id, object_id, updates, incoming_version)` — LWW: rejects if `incoming_version < current.version`; applies x, y, width, height, rotation, z_index, props from data map; increments version; marks dirty
+- `delete_object(state, board_id, object_id)` — removes from memory, removes from dirty set, immediately DELETEs from Postgres
+
+**Test file:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object_test.rs`
+
+Tests: create succeeds, board not loaded, update succeeds, LWW rejects stale, update not found, partial field update, props update, create marks dirty. `delete_object_removes_from_memory` is `#[ignore = "delete_object hits Postgres via sqlx::query"]`.
+
+---
+
+### `services/ai.rs` — LLM Prompt Handler
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs`
+
+**Error types:** `AiError::LlmNotConfigured`, `BoardNotLoaded(Uuid)`, `LlmError(LlmError)`, `ObjectError(ObjectError)`, `RateLimited(String)` — implements `ErrorCode`; `retryable()` true for retryable LLM errors and rate limits
+
+**Types:** `AiResult { mutations: Vec<AiMutation>, text: Option<String> }`, `AiMutation::Created(BoardObject) | Updated(BoardObject) | Deleted(Uuid)`
+
+**Entry point:** `handle_prompt(state, llm, board_id, client_id, user_id, prompt, grid_context?)`
+1. Rate-limit check (`check_and_record` + `check_token_budget`)
+2. Snapshot board objects
+3. Build system prompt (includes object listing with id/kind/x/y/w/h/label/color; optional grid context)
+4. Load conversation history (DB in prod, empty vec in test via `#[cfg(test)]` alternate impl)
+5. Wrap user prompt in `<user_input>...</user_input>` tags
+6. Tool-use agentic loop (up to `AI_MAX_TOOL_ITERATIONS`, default 10): LLM → collect tool calls → `execute_tool()` → push tool results → continue if `stop_reason == "tool_use"`
+7. Track token usage via `record_tokens()`
+8. Guarantee non-None `text` (synthesizes "Done." or "Done — N object(s) updated." if LLM returns no text)
+
+**Tools dispatched by `execute_tool()`:** `createStickyNote`, `createShape`, `createFrame`, `createConnector`, `moveObject`, `resizeObject`, `updateText`, `changeColor`, `getBoardState`
+
+**Stale update retry:** `update_object_with_retry()` retries once on `StaleUpdate` with fresh snapshot.
+
+**Test file:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai_test.rs`
+
+Tests: system prompt content (empty board, with objects, frames/connectors/getBoardState referenced), all 9 tools individually, `handle_prompt` text-only, with tool call, board not loaded, rate limited, thinking-only response, mutations-only response, prompt injection defense (user input XML wrapping verified via `CaptureLlm`).
+
+---
+
+### `db/mod.rs` — Database Pool Initialization
+
+**Location:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/mod.rs`
+
+`init_pool(database_url)` — creates `PgPool` with `DB_MAX_CONNECTIONS` (default 5), runs embedded migrations from `src/db/migrations/`.
+
+Migrations:
+- `001_users.sql`
+- `002_boards.sql`
+- `003_board_objects.sql`
+- `004_frames.sql`
+- `005_sessions.sql`
+
+---
+
+### Missing Test Files
+
+The following source files have **no corresponding `*_test.rs`** file:
+- `services/session.rs` — all functions require live DB
+- `services/auth.rs` — requires live GitHub + DB
+- `services/persistence.rs` — background workers; no unit tests
+- `routes/auth.rs` — no test file
+- `routes/users.rs` — no test file
+- `llm/types.rs` — no test file (types only)
+- `llm/mod.rs` — no test file
+- `db/mod.rs` — no test file
+
+The following **do** have test files:
+- `frame.rs` → `frame_test.rs`
+- `rate_limit.rs` → `rate_limit_test.rs`
+- `state.rs` → `state_test.rs` + `state_helpers_test.rs`
+- `routes/ws.rs` → `routes/ws_test.rs`
+- `services/board.rs` → `services/board_test.rs`
+- `services/object.rs` → `services/object_test.rs`
+- `services/ai.rs` → `services/ai_test.rs`
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 7 assistant
+📋 Tool calls: 26 total, 0 failed
+📋 Files: 25 read
+📋 Tokens: 39 in, 57 out
+📋 Cache: 906.1K read, 415.6K created

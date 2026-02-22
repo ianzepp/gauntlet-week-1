@@ -1,0 +1,463 @@
+📋 Session: 38ed0faf-2f3b-47b6-9511-1ec8e7c4c594
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T17:54:28.676+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 I need a detailed behavioral comparison between the React and Leptos client components. For each component pair below, read BOTH files and report what's different in terms of functionality, event handling, and data flow. Focus on behavioral differences, not styling.
+
+React components are at: /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/
+Leptos components are at: /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/
+
+Compare these pairs:
+1. React pages/LoginPage.tsx vs Leptos pages/login.rs
+2. React pages/DashboardPage.tsx vs Leptos pages/dashboard.rs  
+3. React pages/BoardPage.tsx vs Leptos pages/board.rs
+4. React components/Toolbar.tsx vs Leptos components/toolbar.rs
+5. React components/LeftPanel.tsx vs Leptos components/left_panel.rs
+6. React components/RightPanel.tsx vs Leptos components/right_panel.rs
+7. React components/ToolRail.tsx vs Leptos components/tool_rail.rs
+8. React components/ToolStrip.tsx vs Leptos components/tool_strip.rs
+9. React components/InspectorPanel.tsx vs Leptos components/inspector_panel.rs
+10. React components/ChatPanel.tsx vs Leptos components/chat_panel.rs
+11. React components/AiPanel.tsx vs Leptos components/ai_panel.rs
+12. React components/StatusBar.tsx vs Leptos components/status_bar.rs
+13. React components/BoardStamp.tsx vs Leptos components/board_stamp.rs
+14. React components/BoardCard.tsx vs Leptos components/board_card.rs
+15. React components/UserFieldReport.tsx vs Leptos components/user_field_report.rs
+16. React components/MissionControl.tsx vs Leptos components/mission_control.rs
+
+Also compare the store/state:
+- React store/board.ts (Zustand) vs Leptos state/*.rs files
+
+And the WebSocket/frame handling:
+- React net/FrameClient.ts vs Leptos net/frame_client.rs
+- React net/types.ts vs Leptos net/types.rs
+
+For each pair, list ONLY the differences — skip anything that already matches. Focus on: missing features, different behavior, different data flow, missing event handlers, missing WebSocket syscalls.
+📋 Model: sonnet-4.6
+🤖 I'll read all the files in parallel to do a comprehensive comparison. Let me start by discovering what exists.
+✅ Bash: find /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src -type f | sort && echo "---" && find /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src -type f | sort
+🤖 Now let me read all the files in parallel - I'll batch them efficiently.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/LoginPage.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/login.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/DashboardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/dashboard.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/BoardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/Toolbar.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/toolbar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/LeftPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/left_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/RightPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/right_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ToolRail.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_rail.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ToolStrip.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_strip.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/InspectorPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/inspector_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ChatPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/chat_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/AiPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/ai_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/StatusBar.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/status_bar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/BoardStamp.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_stamp.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/BoardCard.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_card.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/UserFieldReport.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/user_field_report.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/MissionControl.tsx"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mission_control.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/frame_client.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/types.rs"
+🤖 Now let me read the remaining state files and hooks:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/chat.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ui.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/hooks/useAI.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/hooks/useFrameClient.ts"
+🤖 I now have all the data I need. Here is the full behavioral comparison:
+
+---
+
+# React vs Leptos Client: Behavioral Differences
+
+---
+
+## 1. LoginPage
+
+**React (`LoginPage.tsx`) vs Leptos (`pages/login.rs`)**
+
+| Area | React | Leptos |
+|---|---|---|
+| Navigation | `onClick` handler calls `window.location.href = "/auth/github"` (JS button click) | Plain `<a href="/auth/github">` anchor tag — no JS needed |
+| App title | "CollabBoard" | "Gauntlet" |
+| Subtitle | None | Renders a subtitle: "Collaborative whiteboard" |
+
+No behavioral gap here — both redirect to the same OAuth endpoint. The Leptos version is slightly more correct (proper anchor vs button-with-JS).
+
+---
+
+## 2. DashboardPage
+
+**React (`DashboardPage.tsx`) vs Leptos (`pages/dashboard.rs`)**
+
+**Missing in Leptos:**
+
+1. **Board list loaded via WebSocket frame, not HTTP.** React sends a `board:list` syscall over the WebSocket (`frameClient.send(...)`) and correlates the response by `parent_id`. Leptos calls `crate::net::api::fetch_boards()` — an HTTP REST endpoint. These are different transport paths for the same data.
+
+2. **"Create board" does nothing.** React's `handleCreate` sends a `board:create` WebSocket frame and then navigates to the new board on `done`. Leptos `on_submit` logs to console and calls `boards.refetch()` but has a `// TODO: send board:create via frame client` comment — the create syscall is not actually sent.
+
+3. **Post-create navigation.** React calls `onOpenBoard(boardId, newName)` after `board:create` succeeds, navigating directly into the new board. Leptos does not navigate at all after create (just refetches the list).
+
+4. **Auth redirect.** Leptos adds an auth guard (`if !state.loading && state.user.is_none() → navigate("/login")`). React does not have this guard on the dashboard.
+
+5. **"+" New Board button placement.** React renders the create button as an SVG card in the board grid. Leptos renders it as a header button outside the grid.
+
+6. **Enter key in dialog.** React handles `onKeyDown` Enter to submit the create dialog. Leptos does not.
+
+7. **Backdrop click to dismiss.** React dismisses the dialog when clicking outside it (`e.target === e.currentTarget`). Leptos has no backdrop click handler.
+
+---
+
+## 3. BoardPage
+
+**React (`BoardPage.tsx`) vs Leptos (`pages/board.rs`)**
+
+**Missing in Leptos:**
+
+1. **`board:join` not sent.** React sends a `board:join` WebSocket frame when connected and `boardId` is set. Leptos has a `// TODO: send board:join via frame client` comment — this syscall is never sent from the Leptos board page.
+
+2. **Board name is never populated from the route.** React receives `boardName` as a prop from the parent and stores it in `useBoardStore`. Leptos reads the `board_id` from the route param but sets `board_name = None` unconditionally — it relies on the `board:join` response to fill it in, which is never sent.
+
+3. **Cleanup on unmount.** React clears `boardId`, `boardName`, presence, and resets `aiMessages`/`chatMessages` on unmount. Leptos has no cleanup effect.
+
+4. **`navigateToBoard` callback.** React exposes a `setNavigateToBoard` hook so MissionControl can trigger cross-board navigation without full page reload. Leptos uses plain `<a href>` links instead — the concept doesn't exist in Leptos.
+
+5. **Canvas component.** React renders `<Canvas />` (a full Konva/WASM canvas). Leptos renders `<CanvasHost />` (a stub placeholder).
+
+---
+
+## 4. Toolbar
+
+**React (`Toolbar.tsx`) vs Leptos (`components/toolbar.rs`)**
+
+**Missing in Leptos:**
+
+1. **Presence chips show only remote users.** React builds an `allUsers` array combining `user` (the local authenticated user) and all `presence` values (remote users). Leptos only iterates `board.get().presence.values()` — the local user's own chip is never shown.
+
+2. **Click-to-open UserFieldReport popover.** React has `handleChipClick` which measures the chip element's DOM position and opens a `UserFieldReport` popover. Leptos has no click handler on presence chips — they are not interactive.
+
+3. **UserFieldReport popover is entirely absent.** React conditionally renders `<UserFieldReport>` when `activeReport` is set. Leptos never renders this component from the toolbar.
+
+4. **Back button is conditional.** React only renders the back button if `onBack` prop is provided. Leptos always renders `<a href="/" class="toolbar__back">`.
+
+5. **Logout mechanics differ.** React calls an `onLogout` callback (passed from the parent). Leptos calls `crate::net::api::logout()` directly and then sets `location.href = "/login"` — it manages the logout flow itself.
+
+6. **Dark mode toggle added in Leptos.** Leptos has a sun/moon button that calls `crate::util::dark_mode::toggle()`. React has no dark mode toggle.
+
+---
+
+## 5. LeftPanel
+
+**React (`LeftPanel.tsx`) vs Leptos (`components/left_panel.rs`)**
+
+**Missing in Leptos:**
+
+1. **ToolStrip is always rendered alongside ToolRail.** React shows the `ToolStrip` as a floating popover anchored to the DOM position of the clicked tool button, only for strip-capable tools (`sticky`, `rectangle`). Leptos always renders `<ToolRail/>` and `<ToolStrip/>` together in the `LeftTab::Tools` branch — the strip is not conditional or positionally anchored.
+
+2. **Strip flyout anchoring.** React tracks `stripLeft`/`stripTop` from DOM bounding boxes, listens to `resize`/`scroll` events to reposition, and renders the strip at absolute screen coordinates. Leptos has none of this — the strip is inline.
+
+3. **Tab model differs.** React has a single `LeftTab = "inspector"` value in the store. Leptos has `LeftTab::Tools | LeftTab::Inspector`. React does not have a "Tools" tab — tools are always visible in the rail, with the inspector being the only expandable panel.
+
+4. **Expand/collapse behavior.** React `expandLeftPanel(tab)` opens specifically to a tab. Leptos just toggles `left_panel_expanded` with no tab argument.
+
+---
+
+## 6. RightPanel
+
+**React (`RightPanel.tsx`) vs Leptos (`components/right_panel.rs`)**
+
+**Missing/different in Leptos:**
+
+1. **Active-tab collapse toggle.** React collapses the panel if you click the tab that is already active (`if (expanded && activeTab === tabId) collapseRightPanel()`). Leptos uses separate `set_chat`, `set_ai`, `set_boards` handlers that only switch tabs — clicking the active tab does not collapse.
+
+2. **Tab icons absent.** React renders SVG icons for each tab button. Leptos renders plain text labels only.
+
+3. **Panel header with title and close button.** React renders a header section inside the expanded panel showing the active tab label and a "✕" close button. Leptos has no such header inside the panel content.
+
+4. **Tab label "Field Notes" vs "AI".** React labels the AI tab "Field Notes". Leptos labels it "AI".
+
+---
+
+## 7. ToolRail
+
+**React (`ToolRail.tsx`) vs Leptos (`components/tool_rail.rs`)**
+
+**Missing in Leptos:**
+
+1. **Sticky and Rectangle tools trigger a strip popover, not a direct tool set.** React's `LeftPanel` (which hosts the tool rail logic) intercepts clicks on `sticky` and `rectangle` to open `ToolStrip`. Leptos `ToolRail` sets the active tool for all clicks with no strip-opening logic.
+
+2. **Tool set differs.** React has: `select`, `sticky`, `rectangle`, `ellipse` (disabled), `line` (disabled), `connector` (disabled), `text` (disabled), `draw` (disabled), `eraser` (disabled). Leptos has: `Select`, `Rect`, `Ellipse`, `Diamond`, `Star`, `Line`, `Arrow` — no sticky, no connector, no text, no draw, no eraser. Adds Diamond and Star which React does not have.
+
+3. **Disabled state.** React marks several tools as `disabled` with a "coming soon" tooltip. Leptos has no disabled tools — all tool buttons are equally active.
+
+4. **Separator groups.** React renders `<div class="separator">` between three logical groups (cursor, shapes, draw). Leptos renders all tools as a flat list with no separators.
+
+5. **SVG icons replaced by Unicode characters.** React renders inline SVG paths. Leptos uses Unicode glyphs (`▷`, `□`, `○`, etc.).
+
+---
+
+## 8. ToolStrip
+
+**React (`ToolStrip.tsx`) vs Leptos (`components/tool_strip.rs`)**
+
+**Missing in Leptos:**
+
+1. **Shape presets absent.** React has 3 shape presets (Square 120x120, Tall 100x160, Wide 200x100) selectable before adding. Leptos has color presets only.
+
+2. **Object placed at viewport center.** React reads `viewportCenter` from the store and places the new object at `viewportCenter.x - width/2, viewportCenter.y - height/2`. Leptos hardcodes `x: 100.0, y: 100.0`.
+
+3. **Object kind comes from `toolType` prop.** React maps `toolType="sticky"` → `"sticky_note"` and `toolType="rectangle"` → `"rectangle"` with a prop-driven distinction. Leptos derives kind from the active tool: `format!("{tool:?}").to_lowercase()` — using the tool name as-is.
+
+4. **Optimistic local add.** React calls `store.addObject(newObj)` to add the object locally before the server confirms, then calls `store.setSelection(new Set([newObj.id]))`. Leptos sends the frame and does nothing locally — no optimistic update, no selection.
+
+5. **Temp ID reconciliation.** React's `sendObjectCreate` tracks `pendingCreates` to remap temp local IDs to server-assigned IDs. Leptos has no such tracking.
+
+6. **Color presets differ.** React has 3 presets: Red `#D94B4B`, Blue `#4B7DD9`, Green `#4BAF6E`. Leptos has 6 presets with different hex values.
+
+7. **`props` field key differs.** React sends `backgroundColor`, `borderColor`, `borderWidth` in `props`. Leptos sends only `fill`.
+
+8. **`onClose` callback.** React calls `onClose()` after adding, hiding the strip. Leptos has no close behavior — the strip stays open.
+
+---
+
+## 9. InspectorPanel
+
+**React (`InspectorPanel.tsx`) vs Leptos (`components/inspector_panel.rs`)**
+
+**Missing in Leptos:**
+
+1. **No editable fields.** React has fully editable inputs for: width, height, title (sticky), text content, font size, background color, border color, border width — all with live `onChange`, `onBlur`, and Enter-key commit handlers that send `object:update` frames. Leptos shows only a read-only `<dl>` display.
+
+2. **No `object:update` frame sent.** React's `sendObjectUpdate` builds and sends an `object:update` frame for every field change. Leptos never sends `object:update`.
+
+3. **Multi-selection handled.** React shows "N objects selected" for multiple selections. Leptos only supports inspecting the first selected object.
+
+4. **Delete confirmation.** React calls `deleteObjectsWithConfirm([obj.id])` from `objectActions.ts` (likely shows a confirm dialog). Leptos calls `object:delete` directly without confirmation.
+
+5. **Delete removes from local state first.** Both do local removal, but React uses `store.deleteObject(id)` which also cleans selection. Leptos does both `b.objects.remove` and `b.selection.remove` inline — functionally equivalent.
+
+6. **Empty state copy.** React shows "No selection / Double click an object to inspect it." Leptos shows "No object selected."
+
+---
+
+## 10. ChatPanel
+
+**React (`ChatPanel.tsx`) vs Leptos (`components/chat_panel.rs`)**
+
+**Missing in Leptos:**
+
+1. **`chat:history` syscall not sent.** React sends a `chat:history` request on mount (once per board) and populates the message list from the response. Leptos never sends `chat:history` — the chat panel starts empty on every load.
+
+2. **Message author name/color resolved from presence.** React resolves `fromName`/`fromColor` by looking up `user.id === m.from` or `presence.get(m.from)`. Leptos receives `user_name` and `user_color` already in the `ChatMessage` struct — the resolution happens at the FrameClient layer in `dispatch_frame`.
+
+3. **Placeholder text includes username.** React shows `"Message as ${user.name}..."`. Leptos shows static `"Type a message..."`.
+
+4. **Send button disabled when empty.** React disables the button if `!input.trim()`. Leptos has no `disabled` attribute on the Send button.
+
+5. **Auto-scroll on new messages.** React uses `messagesEndRef` and `scrollIntoView({ behavior: "smooth" })`. Leptos has no auto-scroll behavior.
+
+6. **Empty state message.** React shows "No messages yet" when `messages.length === 0`. Leptos renders nothing for an empty list.
+
+---
+
+## 11. AiPanel
+
+**React (`AiPanel.tsx`) vs Leptos (`components/ai_panel.rs`)**
+
+**Missing in Leptos:**
+
+1. **`ai:history` syscall not sent.** React sends `ai:history` on mount per board and loads past conversation. Leptos never loads history — fresh on every mount.
+
+2. **`grid_context` not included in prompt.** React's `useAI.sendPrompt` includes `grid_context: buildGridContext(width, height, viewport)` in the frame data. Leptos sends only `{ "prompt": text }` — the server never receives layout context.
+
+3. **Response handler registered per-request.** React registers `frameClient.on("ai:prompt", handler)` keyed by `requestId` and deregisters on `done`/`error`. Leptos sends the frame and relies entirely on `dispatch_frame` in the connection loop — there is no per-request handler for `ai:prompt` responses in `dispatch_frame`.
+
+4. **Error role/message.** React distinguishes `role: "error"` with red styling and a "Not connected" error if the frame client is absent. Leptos has no error handling — failed sends are silently dropped.
+
+5. **Mutations count display.** React shows "N objects modified" below assistant messages when `msg.mutations > 0`. Leptos has no `mutations` field on `AiMessage`.
+
+6. **Markdown rendering.** React renders assistant messages via `react-markdown`. Leptos renders plain text.
+
+7. **Input disabled while loading.** React disables input and button during `aiLoading`. Leptos has no disabled state on inputs.
+
+8. **Auto-scroll.** React scrolls to bottom on new messages. Leptos does not.
+
+---
+
+## 12. StatusBar
+
+**React (`StatusBar.tsx`) vs Leptos (`components/status_bar.rs`)**
+
+**Missing in Leptos:**
+
+1. **Cursor position display.** React shows live cursor coordinates from `cursorPosition` (updates as the user moves the mouse). Leptos has no cursor position display.
+
+2. **Viewport center display.** React shows the board-space coordinates of the viewport center (used for "where am I" reference). Leptos has no viewport center display.
+
+3. **Zoom level is live.** React reads `viewport.scale` and shows `Math.round(scale * 100)%`. Leptos hardcodes `"100%"`.
+
+4. **User chip with color dot.** React renders the authenticated user's name with their color dot in the status bar. Leptos does not show the user in the status bar.
+
+5. **Board name display.** React shows `boardName` only when set. Leptos always shows `board_name` (may be empty string via `unwrap_or_default()`).
+
+6. **Connection status text.** React shows a colored dot but no text label. Leptos shows both a dot AND a text label ("Connected", "Connecting...", "Disconnected").
+
+---
+
+## 13. BoardStamp
+
+**React (`BoardStamp.tsx`) vs Leptos (`components/board_stamp.rs`)**
+
+**Missing in Leptos:**
+
+1. **User count row.** React shows a "Users" row with `(user ? 1 : 0) + presence.size`. Leptos shows only board name and object count.
+
+2. **Connection status row.** React shows a "Status" row with Active/Offline indicator. Leptos omits this entirely.
+
+3. **"Station Log" label.** React shows a `stampLabel` "Station Log" header above the board name. Leptos omits this.
+
+---
+
+## 14. BoardCard
+
+**React (`BoardCard.tsx`) vs Leptos (`components/board_card.rs`)**
+
+**Missing in Leptos:**
+
+1. **`onClick` callback prop.** React accepts an `onClick` prop and fires it on click and Enter keydown. Leptos uses a plain `<a href="/board/{id}">` anchor — no callback, always full navigation.
+
+2. **`active` prop/styling.** React accepts an `active` boolean and applies an active CSS class (used by MissionControl to highlight the current board). Leptos has no active state.
+
+3. **`variant` prop (mini/full).** React supports `variant="mini"` for compact display. Leptos has a single layout.
+
+4. **Short ID display.** React shows `id.slice(0, 8)` as a sub-label and renders a `cardPreview` div. Leptos shows only the board name.
+
+5. **Keyboard accessibility.** React sets `role="button"` and `tabIndex={0}` with Enter keydown handler. Leptos relies on the anchor's native keyboard behavior.
+
+---
+
+## 15. UserFieldReport
+
+**React (`UserFieldReport.tsx`) vs Leptos (`components/user_field_report.rs`)**
+
+**Missing in Leptos:**
+
+1. **No backdrop / close behavior.** React renders a full-screen backdrop div that calls `onClose` on click. Leptos has no close mechanism — the component has no `on_close` callback.
+
+2. **Positional anchoring.** React takes `anchorX` and `direction` props and computes clamped pixel offsets to position the popover relative to the triggering chip. Leptos renders the component inline with no absolute positioning logic.
+
+3. **`member_since` display.** React shows `profile.member_since` in the "Field Agent" badge line. Leptos omits it.
+
+4. **Avatar image.** React renders `<img>` for `avatar_url` when present. Leptos shows a color dot instead.
+
+5. **`last_active` display.** React shows "Last Signal" row if `stats.last_active` is set. Leptos omits this row.
+
+6. **Loading / error text.** React shows "Loading field report..." and "Agent not found" in different states. Leptos shows "Loading..." and "User not found" — minor wording difference, functionally equivalent.
+
+---
+
+## 16. MissionControl
+
+**React (`MissionControl.tsx`) vs Leptos (`components/mission_control.rs`)**
+
+**Missing in Leptos:**
+
+1. **Board list loaded via WebSocket frame.** React sends `board:list` over the WebSocket and correlates by `parent_id`. Leptos calls `crate::net::api::fetch_boards()` — HTTP only.
+
+2. **Active board highlighting.** React passes `active={board.id === boardId}` to `BoardCard`. Leptos renders plain links with no active state.
+
+3. **In-app navigation.** React calls `navigateToBoard?.(board.id, board.name)` — which is a store callback set up by `BoardPage` to switch boards without full page reload. Leptos uses `<a href="/board/{id}">` — always a full page navigation.
+
+4. **Refetch on connection state change.** React's `useEffect` re-runs when `frameClient` or `connectionStatus` changes. Leptos fetches once on mount (`LocalResource::new`) with no connection-aware refresh.
+
+---
+
+## State Store: React Zustand vs Leptos state/*.rs
+
+| Area | React (Zustand `board.ts`) | Leptos |
+|---|---|---|
+| Viewport | `viewport: { x, y, scale }`, `viewportCenter`, `cursorPosition` | Not in `BoardState` at all |
+| Active tool | `activeTool: ToolType` in `BoardState` | In separate `UiState.active_tool` |
+| AI messages | `aiMessages: AiMessage[]`, `aiLoading: boolean` in `BoardState` | Separate `AiState` with `messages: Vec<AiMessage>` and `loading: bool` |
+| Chat messages | `chatMessages: ChatMessage[]` in `BoardState` | Separate `ChatState` with `messages: Vec<ChatMessage>` |
+| UI panel state | `rightPanelExpanded`, `activeRightTab`, `leftPanelExpanded`, `activeLeftTab` in `BoardState` | Separate `UiState` with `left_panel_expanded`, `left_tab`, `right_panel_expanded`, `right_tab` |
+| Auth/user | `user: User \| null` in `BoardState` | Separate `AuthState` with `user: Option<User>`, `loading: bool` |
+| `navigateToBoard` callback | Stored in `BoardState` as a function pointer | Does not exist — navigation is always via URL |
+| Object merge guard | `mergeObjectPreservingKnownFields` preserves `width`/`height`/`created_by` when partial update would clobber them | No equivalent guard — partial updates overwrite directly |
+| `replaceObjectId` | Swaps a temp local ID with a server-assigned ID while preserving `localKey` for stable React rendering | Does not exist |
+| `localKey` on objects | React `BoardObject` has a `localKey?: string` field to keep React keys stable across ID replacements | Not in Leptos `BoardObject` |
+| AI message structure | `role: "user" | "assistant" | "error"`, `text: string`, `mutations?: number` | `role: String`, `content: String` — no `mutations` field |
+| Chat message structure | `id`, `ts`, `from`, `fromName`, `fromColor`, `message` | `id`, `user_id`, `user_name`, `user_color`, `content`, `timestamp` — field names differ, `ts` is `timestamp`, `message` is `content` |
+| Dark mode | Not in store | `UiState.dark_mode` |
+| `LeftTab` values | Only `"inspector"` | `Tools` and `Inspector` |
+
+---
+
+## WebSocket/Frame Handling: React vs Leptos
+
+### Architecture
+
+| Area | React | Leptos |
+|---|---|---|
+| Pattern | `FrameClient` class with `on(syscall, handler)` pub/sub routing. Components register and deregister per-syscall handlers. | Single `dispatch_frame()` function with a `match` on syscall. All frame routing is centralized. No per-component handler registration. |
+| Reconnect | `useFrameClient` hook: exponential backoff `Math.min(1000 * 2^n, 10000)`. Stops reconnecting on 401. | `frame_client_loop`: exponential backoff `(backoff_ms * 2).min(10_000)`. Does not specifically handle 401. |
+| Mock mode | `FrameClient(mockMode=true)` skips WebSocket, fires synthetic `session:connected`. | No mock mode. |
+| Sending | Any component calls `frameClient.send(frame)` or `sendObjectCreate(obj)`. | Components call `sender.get().send(&frame)` where `sender` is a `RwSignal<FrameSender>` — a wrapper around an unbounded mpsc channel. |
+
+### Missing syscall handlers in Leptos `dispatch_frame`:
+
+| Syscall | React handles | Leptos handles |
+|---|---|---|
+| `session:connected` | Yes — sets `connected`, sends `board:join` if `boardId` known | Partial — sets `Connected` but does NOT resend `board:join` on reconnect |
+| `session:disconnected` | Yes — sets `disconnected`, schedules reconnect | Handled implicitly by the `frame_client_loop` on connection drop |
+| `board:join` (done) | Yes — loads object snapshot AND handles peer join broadcasts | Yes — loads objects + sets board name |
+| `board:join` (peer broadcast: `client_id` only) | Yes — adds placeholder presence entry | Not handled — peer join broadcast silently dropped |
+| `board:part` | Yes — removes by `client_id` | Yes — removes by `user_id` |
+| `object:create` (done) | Yes — reconciles temp ID if from this client, else adds/updates | Yes — inserts into `objects` |
+| `object:update` (done) | Yes | Yes |
+| `object:delete` (done) | Yes | Yes |
+| `cursor:moved` | Yes — reads `client_id`, `name`, `color`, `x`, `y` | Yes — deserializes `Presence` struct |
+| `chat:message` (done) | Yes — resolves name/color from presence map | Yes — deserializes `ChatMessage` struct |
+| `ai:prompt` (done/error) | Yes — per-request handler registered in `useAI` | **Not handled** — no `ai:prompt` case in `dispatch_frame` |
+| `ai:history` (done) | Yes — registered per-session in `AiPanel` | **Not handled** |
+| `chat:history` (done) | Yes — registered per-session in `ChatPanel` | **Not handled** |
+| `board:create` (done) | Yes — registered per-request in `DashboardPage` | **Not handled** |
+| `board:list` (done) | Yes — registered per-request in `DashboardPage`/`MissionControl` | **Not handled** (HTTP used instead) |
+| `gateway:error` | Logged as console error | **Not handled** |
+| Error status frames | Logs `code` and `message` for any frame | **Not handled** |
+
+### Key behavioral gap summary for frame client:
+
+- Leptos never sends `board:join` — the board will be empty forever after connecting.
+- Leptos never requests or receives AI history, chat history, or board lists via WebSocket.
+- Leptos has no `ai:prompt` response handler — AI responses are sent to the server but responses are silently discarded.
+- Leptos does not handle the peer `board:join` broadcast (when another user joins), so presence is only populated via `cursor:moved` — users who haven't moved their cursor are invisible.
+- React's `FrameClient` is an event bus where any component can independently subscribe/unsubscribe. Leptos centralizes all routing in `dispatch_frame` — adding new syscall handling requires modifying that single function rather than having components self-register.
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 45 total, 0 failed
+📋 Files: 44 read
+📋 Tokens: 53 in, 779 out
+📋 Cache: 1.8M read, 362.7K created

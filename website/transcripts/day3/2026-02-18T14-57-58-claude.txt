@@ -1,0 +1,221 @@
+📋 Session: b0500f30-99db-410e-a6ba-ff18ec39b0b3
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T14:57:58.742+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 Explore the /Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/ directory thoroughly. I need to understand what's implemented and what's stubbed/incomplete.
+
+For each file, tell me:
+1. What's fully implemented (working logic, not just type definitions)
+2. What's stubbed with todo!() or unimplemented
+3. Any functions that exist but have empty/placeholder bodies
+
+Pay special attention to:
+- render.rs — is draw() implemented or stubbed?
+- engine.rs — which methods are fully implemented vs stubbed?
+- hit.rs — is hit_test() fully implemented?
+- input.rs — is the input state machine fully implemented?
+- doc.rs — is apply_partial, load_snapshot etc implemented?
+- lib.rs — what's exported?
+
+Also check for any todo!(), unimplemented!(), or placeholder comments.
+📋 Model: sonnet-4.6
+🤖 I'll explore the canvas/src directory thoroughly, reading all files in parallel.
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/
+✅ Grep: pattern="todo!|unimplemented!|// TODO|// FIXME|// STUB|placeholder" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+🤖 Now let me read the remaining files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/consts.rs"
+🤖 I now have a complete picture of the entire codebase. Here is the full status report:
+
+---
+
+## canvas/src — Implementation Status Report
+
+### render.rs — STUBBED
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs`
+
+The entire module is a single stub. There is exactly one function and it does nothing:
+
+```rust
+pub fn draw(_ctx: &CanvasRenderingContext2d, _doc: &DocStore, _camera: &Camera, _ui: &UiState) {
+    todo!()
+}
+```
+
+All parameters are prefixed with `_`, confirming the body was never written. This is the only `todo!()` in the file. No grid drawing, no object drawing, no selection UI — nothing.
+
+---
+
+### engine.rs — MOSTLY IMPLEMENTED, ONE STUB
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs`
+
+The file has two structs: `EngineCore` (the testable core) and `Engine` (the browser-facing wrapper that holds the `HtmlCanvasElement`).
+
+**Fully implemented in `EngineCore`:**
+- `load_snapshot` — delegates to `DocStore::load_snapshot`
+- `apply_create` / `apply_update` / `apply_delete` — server broadcast handlers with selection cleanup
+- `set_tool` — sets `ui.tool`
+- `set_text` — reads existing props, diffs, and emits `ObjectUpdated` only on change
+- `set_viewport` — stores width/height/dpr
+- `on_pointer_down` — full dispatch: middle-button pan, select-tool hit-test, shape tool down, edge tool down
+- `on_pointer_move` — full state machine: panning, drag-object, draw-shape, resize, rotate, drag-edge-endpoint
+- `on_pointer_up` — full finalization: emits `ObjectCreated`/`ObjectUpdated`/`ObjectDeleted` as appropriate, resets state to `Idle`
+- `on_wheel` — zoom-toward-cursor and plain pan, both implemented
+- `on_key_down` — Delete/Backspace (delete selection), Escape (cancel + deselect), Enter (open text editor)
+- `on_key_up` — intentional no-op, returns empty vec
+- `selection()`, `camera()`, `object()` — query helpers
+- Private helpers: `handle_select_down`, `handle_shape_tool_down`, `handle_edge_tool_down`, `handle_drawing_move`, `apply_resize` (all 8 anchors), `apply_edge_endpoint_move`, `create_default_object`, `next_z_index`
+
+**Stubbed in `Engine` (the wrapper):**
+```rust
+// Line 703-705
+pub fn render(&self) {
+    todo!()
+}
+```
+All other methods on `Engine` are thin delegation wrappers to `EngineCore` and are fully working. Only `render` is a `todo!()`.
+
+---
+
+### hit.rs — FULLY IMPLEMENTED
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs`
+
+Every function has real logic. Nothing is stubbed.
+
+**Geometry primitives (all implemented):**
+- `rotate_point` — matrix rotation around an origin
+- `world_to_local` — unrotates a world point into a bounding box's local space
+- `point_in_local_rect` / `point_in_rect` — AABB containment
+- `point_in_local_ellipse` / `point_in_ellipse` — unit-circle test
+- `point_in_local_diamond` / `point_in_diamond` — taxicab distance test
+- `point_in_local_star` / `point_in_star` — 10-vertex polygon with ray-casting
+- `point_in_polygon` — even-odd ray-cast
+- `distance_sq_to_segment` / `distance_to_segment` — nearest-point-on-segment
+- `point_near_point` — circular radius test
+
+**Handle geometry:**
+- `resize_handle_positions` — computes all 8 handle positions accounting for rotation
+- `rotate_handle_position` — offset above N handle, zoom-compensated
+- `RESIZE_ANCHORS` constant array
+
+**Composite hit-test:**
+- `hit_test` — priority order: selected-object handles first, then all objects in reverse z-order
+- `hit_test_handles` (private) — dispatches to edge endpoints or resize/rotate handles
+- `hit_test_body` (private) — dispatches per `ObjectKind` to the appropriate shape test
+
+No `todo!()`, no `unimplemented!()`, no placeholder comments anywhere in this file.
+
+---
+
+### input.rs — TYPE DEFINITIONS ONLY, NO LOGIC
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs`
+
+The file contains only type definitions and two trivial trait impls. There is no state machine logic here at all — that lives in `engine.rs`.
+
+**Defined types:**
+- `Tool` enum (Select, Rect, Ellipse, Diamond, Star, Line, Arrow) with `is_shape()` and `is_edge()` methods
+- `Modifiers` struct (shift, ctrl, alt, meta booleans)
+- `Button` enum (Primary, Middle, Secondary)
+- `Key` newtype around `String`
+- `WheelDelta` struct (dx, dy)
+- `UiState` struct (tool, selected_id)
+- `InputState` enum with all gesture variants: Idle, Panning, DraggingObject, DrawingShape, ResizingObject, RotatingObject, DraggingEdgeEndpoint — all fully specified with their carried data
+
+The `Default` impl for `InputState` returns `Idle`. No stub markers, but also no imperative logic — this file is purely declarative. The state machine transitions themselves are all in `engine.rs::EngineCore`.
+
+---
+
+### doc.rs — FULLY IMPLEMENTED
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs`
+
+**Types (all complete):**
+- `ObjectId` type alias (`Uuid`)
+- `ObjectKind` enum with serde
+- `BoardObject` struct (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version) with serde
+- `PartialBoardObject` struct with all fields optional and `skip_serializing_if`
+- `Props<'a>` typed accessor with `fill()`, `stroke()`, `stroke_width()`, `head()`, `text()`, `foot()` — all return safe defaults via `unwrap_or`
+
+**`DocStore` methods (all implemented):**
+- `new()` / `Default`
+- `insert()` — overwrites by id
+- `remove()` — returns `Option<BoardObject>`
+- `get()` — returns `Option<&BoardObject>`
+- `apply_partial()` — sparse field application; props is a JSON merge (null values delete keys); returns `bool` indicating whether the object existed
+- `load_snapshot()` — clears and rebuilds from a `Vec<BoardObject>`
+- `sorted_objects()` — sorts by `(z_index, id)` for stable draw order
+- `len()` / `is_empty()`
+
+No stubs anywhere.
+
+---
+
+### camera.rs — FULLY IMPLEMENTED
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs`
+
+- `Point` struct with `new()`
+- `Camera` struct (pan_x, pan_y, zoom) with `Default`
+- `screen_to_world()` — `(screen - pan) / zoom`
+- `world_to_screen()` — `world * zoom + pan`
+- `screen_dist_to_world()` — `dist / zoom`
+
+All implemented, no stubs.
+
+---
+
+### consts.rs — FULLY IMPLEMENTED
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/consts.rs`
+
+Seven named constants: `FRAC_PI_5`, `HANDLE_RADIUS_PX` (8.0), `ROTATE_HANDLE_OFFSET_PX` (24.0), `STAR_INNER_RATIO` (0.5), `MIN_SHAPE_SIZE` (2.0), `ZOOM_FACTOR` (1.1), `ZOOM_MIN` (0.1), `ZOOM_MAX` (10.0).
+
+---
+
+### lib.rs — RE-EXPORTS ALL MODULES
+
+**File:** `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs`
+
+Exports all six modules as `pub mod`: `camera`, `consts`, `doc`, `engine`, `hit`, `input`, `render`. No additional glue code; no WASM bindings, no `#[wasm_bindgen]` attributes. The module-level doc comment acknowledges render as a stub ("stub — not yet implemented").
+
+---
+
+## Summary Table
+
+| File | Status |
+|---|---|
+| `camera.rs` | Fully implemented |
+| `consts.rs` | Fully implemented |
+| `doc.rs` | Fully implemented (`apply_partial`, `load_snapshot`, all store methods) |
+| `hit.rs` | Fully implemented (`hit_test` and all geometry helpers) |
+| `input.rs` | Types only — no logic (logic lives in engine.rs) |
+| `engine.rs` (`EngineCore`) | Fully implemented — all input handlers, all gestures |
+| `engine.rs` (`Engine::render`) | STUBBED — `todo!()` at line 704 |
+| `render.rs` (`draw`) | STUBBED — `todo!()` at line 17 |
+| `lib.rs` | Re-exports only |
+
+**The only two `todo!()` calls in the entire codebase are:**
+1. `render::draw()` — `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs:17`
+2. `Engine::render()` — `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs:704`
+
+Both point to the same gap: the actual canvas 2D rendering pipeline has not been written yet. Everything else — document storage, camera math, hit-testing geometry, and the full pointer/keyboard/wheel input state machine — is implemented and (per the git log) has passing tests.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 3 assistant
+📋 Tool calls: 10 total, 0 failed
+📋 Files: 8 read
+📋 Tokens: 19 in, 152 out
+📋 Cache: 170.0K read, 98.2K created

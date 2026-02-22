@@ -1,0 +1,253 @@
+📋 Session: 170e69ac-cc65-4c37-ac66-d45c66470e61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T02:50:11.519+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Very thoroughly explore the state management and WebSocket sync code in /Users/ianzepp/github/gauntlet/collaboard/client/src/. Focus on:
+
+1. **Zustand store** (src/store/board.ts): Read the entire file. Focus on:
+   - How objects Map is mutated (add, update, delete, replaceObjectId)
+   - How selection Set is managed
+   - Any patterns that could cause React not to re-render (e.g., mutating Map/Set in place without creating new references)
+   - Race conditions between optimistic updates and server responses
+
+2. **useFrameClient hook** (src/hooks/useFrameClient.ts): Read entirely. Focus on:
+   - How incoming frames update the store
+   - How object:create responses handle ID replacement
+   - How object:update frames are processed
+   - Whether frame handlers could overwrite local state incorrectly
+
+3. **Frame client** (src/lib/frameClient.ts): Read entirely. Focus on:
+   - Frame sending/receiving
+   - Any queuing or ordering issues
+
+4. **Types** (src/lib/types.ts): Read for BoardObject shape, Frame shape
+
+Report any bugs, race conditions, stale state issues, or patterns that could cause objects to become unselectable, untransformable, or visually broken.
+📋 Model: haiku-4.5
+🤖 I'll conduct a thorough exploration of the state management and WebSocket sync code in the collaboard client. Let me start by reading the key files you've identified.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+🤖 Now let me search for how objects are created optimistically and how ID replacement is handled. I need to find where objects are created with temp IDs and how they're updated when the server responds.
+✅ Grep: pattern="object:create|tempId|temporary.*id" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+✅ Glob: pattern="**/src/**/*.ts" path="/Users/ianzepp/github/gauntlet/collaboard/client"
+🤖 Let me look at the Canvas component to see how objects are created:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/client/src/**/*.tsx"
+🤖 Now let me look at the Shape and StickyNote components to understand how they handle updates:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+🤖 Now let me check the BoardPage to see how the frameClient hook is used:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+✅ Grep: pattern="useFrameClient|handleCreated|handleUpdated|object:create" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+🤖 Let me check the App.tsx to see the full initialization:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+🤖 Now let me search for any issues with state mutations, especially around the handlers and re-render logic:
+✅ Grep: pattern="handleCreated|handleUpdated|handleDeleted|replaceObjectId" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+🤖 Let me also check the InspectorPanel to see if there are any other mutation patterns:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.tsx"
+🤖 Now let me check if there are any issues with how the frame handlers work and look at the complete flow again. Let me also check for any potential memory leaks in the handler registration:
+✅ Grep: pattern="client\.on\(|client\.off\(" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+🤖 Now I have a complete picture. Let me compile my findings into a comprehensive report:
+
+## Analysis Report: State Management and WebSocket Sync in Collaboard Client
+
+Based on my thorough exploration of `/Users/ianzepp/github/gauntlet/collaboard/client/src/`, I've identified several critical issues in the state management and WebSocket synchronization code.
+
+---
+
+### 1. **CRITICAL: Handler Memory Leak in Canvas.tsx (Lines 298-307)**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx`
+
+**Issue:** A new `object:create` handler is registered every time `sendObjectCreate()` is called, but the cleanup depends on receiving a specific response frame. This creates multiple problems:
+
+- **Memory Leak:** Handlers accumulate over time. If a user creates many objects rapidly, each call to `sendObjectCreate` adds a new handler. The handler is only removed when a matching response arrives.
+- **Server Response Mismatch:** If the server never sends an `object:create` response with `parent_id === requestId` and `status === "item"`, the handler becomes a permanent memory leak.
+- **Multiple Handler Execution:** If multiple responses arrive for the same syscall, older handlers may execute unexpectedly, causing race conditions.
+
+**Code (lines 297-308):**
+```typescript
+const handleCreateResponse = (frame: Frame) => {
+    if (frame.parent_id === requestId && frame.status === "item") {
+        const serverId = frame.data.id as string;
+        if (serverId && serverId !== obj.id) {
+            useBoardStore.getState().replaceObjectId(obj.id, serverId);
+        }
+        client.off("object:create", handleCreateResponse);
+    }
+};
+client.on("object:create", handleCreateResponse);
+```
+
+**Consequence:** Objects become unselectable/untransformable because:
+1. Temp ID is never replaced with real server ID (if response never matches)
+2. Memory bloat causes performance degradation
+3. Stale handlers from previous requests may interfere with new operations
+
+**Recommendation:** Either use a timeout-based cleanup or use a request-response correlation ID system that matches frame.id instead of parent_id.
+
+---
+
+### 2. **CRITICAL: Race Condition Between Local Updates and Server Responses**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts` (lines 46-58)
+
+**Issue:** The `handleUpdated` handler (line 53-58) receives a full `BoardObject` from the server and passes it directly to `updateObject()`. However:
+
+```typescript
+const handleUpdated = (frame: Frame) => {
+    const obj = frame.data as unknown as BoardObject;
+    if (obj?.id) {
+        useBoardStore.getState().updateObject(obj.id, obj);
+    }
+};
+```
+
+This creates a race condition:
+1. User drags object locally → `updateObject()` called with optimistic updates (Canvas.tsx line 80)
+2. User releases mouse → sends `object:update` frame to server
+3. Server processes update and broadcasts response
+4. `handleUpdated` executes and calls `updateObject()` with **entire object from server**
+
+**Problem:** If the user's local changes occur between the optimistic update and the server response, the server response will overwrite local changes entirely. The `updateObject()` in the store does a shallow merge (`{ ...existing, ...partial }`), but when the server sends the full object, all fields are replaced.
+
+**Example Scenario:**
+1. User drags object to (100, 100) → local state updated
+2. Meanwhile, another user changes the object's color
+3. Server sends back full object with new color but old position from step 1
+4. Local position reverts to what server has, losing user's drag
+
+---
+
+### 3. **CRITICAL: Selection Lost After ID Replacement**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts` (lines 142-155)
+
+**Issue:** The `replaceObjectId()` function correctly updates the selection Set, BUT there's a race condition window:
+
+```typescript
+replaceObjectId: (tempId, newId) =>
+    set((state) => {
+        const existing = state.objects.get(tempId);
+        if (!existing) return state;
+        const next = new Map(state.objects);
+        next.delete(tempId);
+        next.set(newId, { ...existing, id: newId });
+        const selection = new Set(state.selection);
+        if (selection.has(tempId)) {
+            selection.delete(tempId);
+            selection.add(newId);
+        }
+        return { objects: next, selection };
+    }),
+```
+
+**Problem:** Between the time the temp object is created and added to the store (Canvas.tsx line 367), and the time the server response arrives to call `replaceObjectId()`, the user might:
+1. Select the temp object (tempId in selection Set)
+2. Perform operations on it
+3. Server response arrives and calls `replaceObjectId(tempId, newId)`
+4. The selection is updated, but components holding references to tempId are now stale
+
+Additionally, the Transformer in Canvas.tsx (lines 449-459) uses `nodeMapRef` to store node references by ID. If an ID changes:
+- The old reference is still in `nodeMapRef` under `tempId`
+- The new `nodeMapRef` entry is added under `newId`
+- Old reference becomes orphaned, causing DOM memory leaks
+
+---
+
+### 4. **CRITICAL: Stale Closure in Handler Setup**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx` (lines 271-308)
+
+**Issue:** The `sendObjectCreate()` callback is memoized with an empty dependency array `[]` (line 308), but it references:
+
+```typescript
+const sendObjectCreate = useCallback((obj: BoardObject) => {
+    // ... uses client, but no dependency
+}, []);
+```
+
+The `frameClient` is accessed via `useBoardStore.getState()` (line 273), which is correct, but the handler `handleCreateResponse` captures `obj` and `requestId` in its closure. If the `FrameClient` instance changes (reconnection, remounting), the handler is still waiting for a response on the old client instance.
+
+**Consequence:** After a disconnect/reconnect, created objects may never get their IDs replaced because the handler is listening on a stale client.
+
+---
+
+### 5. **MODERATE: No Optimistic Concurrency Control**
+
+**Location:** Shape.tsx (lines 76-117) and StickyNote.tsx (lines 63-104)
+
+**Issue:** When sending updates, the code includes `version: object.version` in the request:
+
+```typescript
+sendObjectUpdate(object.id, { x, y, version: object.version });
+```
+
+However, there's no handling of version conflicts. If:
+1. User A drags object (version 1 → 2)
+2. User B simultaneously transforms it (version 1 → 3)
+3. Server rejects one update due to version mismatch
+4. The client optimistically updated the local state but won't know about the conflict
+
+**Current Behavior:** The `updateObject()` store action blindly accepts local changes without checking if the server version has advanced. The `handleUpdated` handler from the server might restore the correct state, but there's a window where the UI shows incorrect state.
+
+---
+
+### 6. **MODERATE: Selection State Desynchronization**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx` (lines 407-438 in render, and line 369 in onClick)
+
+**Issue:** When an object is created and selected:
+
+```typescript
+addObject(newObj);
+sendObjectCreate(newObj);
+setSelection(new Set([newObj.id])); // tempId is selected immediately
+```
+
+If the user then clicks to deselect or select another object while the server is processing, the selection state might become inconsistent with the actual object that exists in the store (since the tempId doesn't match the final serverId).
+
+---
+
+### 7. **MINOR: Handler Registration Has No Cleanup**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts` (lines 85-91)
+
+**Issue:** Handlers are registered in useEffect but never explicitly unregistered:
+
+```typescript
+client.on("session:connected", handleSessionConnected);
+client.on("session:disconnected", handleDisconnected);
+// ... etc
+// No cleanup for these handlers
+```
+
+The cleanup function (lines 102-108) only disconnects the client and clears handlers via `client.disconnect()`, but if the component unmounts and remounts without the client being fully destroyed, handlers could accumulate.
+
+---
+
+### **Summary of Consequences**
+
+| Issue | Impact | Severity |
+|-------|--------|----------|
+| Handler memory leak | Objects don't get real IDs, become unselectable | CRITICAL |
+| Race condition on updates | User changes lost, objects show wrong state | CRITICAL |
+| ID replacement race | Selection breaks, DOM references leak | CRITICAL |
+| Stale closure on reconnect | ID replacement fails after disconnect | CRITICAL |
+| No concurrency control | Conflicting edits silently overwrite | MODERATE |
+| Selection desync | Selection doesn't match actual state | MODERATE |
+| Handler cleanup missing | Handler accumulation over time | MINOR |
+
+All of these issues would cause objects to become "unselectable, untransformable, or visually broken" as you described.
+
+📋 --- Summary ---
+📋 Duration: 40s
+📋 Messages: 1 user, 10 assistant
+📋 Tool calls: 16 total, 0 failed
+📋 Files: 10 read
+📋 Tokens: 139 in, 59 out
+📋 Cache: 569.4K read, 77.5K created

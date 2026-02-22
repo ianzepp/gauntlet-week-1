@@ -1,0 +1,283 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T14:18:23.256+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 Analyze the client/src/components/ directory in this Rust/Leptos project. The goal is to figure out how much code in the 0%-coverage component files is truly untestable (Leptos view macros, DOM event wiring, signal subscriptions) vs logic that could be extracted into pure testable functions.
+
+For each of the following files, read the file and categorize the lines into:
+1. **View/markup** — `view! {}` macro bodies, HTML-like template code
+2. **Signal wiring** — `create_signal`, `use_context`, `create_effect`, signal reads/writes that are inherently reactive
+3. **Extractable logic** — conditionals, match arms, data transformations, formatting, filtering, sorting, validation, string building, calculations — anything that takes inputs and produces outputs without needing Leptos reactivity or DOM
+
+Files to analyze (these are the 0% coverage ones):
+- client/src/components/canvas_host.rs
+- client/src/components/inspector_panel.rs  
+- client/src/components/dial.rs
+- client/src/components/toolbar.rs
+- client/src/components/trace_log.rs
+- client/src/components/trace_summary.rs
+- client/src/components/ai_panel.rs
+- client/src/components/right_panel.rs
+- client/src/components/tool_strip.rs
+- client/src/components/chat_panel.rs
+- client/src/components/trace_inspector.rs
+- client/src/components/tool_rail.rs
+- client/src/components/user_list_panel.rs
+- client/src/components/user_field_report.rs
+
+For each file, report:
+- Total non-blank, non-comment lines (approximate)
+- Estimated lines of extractable logic
+- Brief description of what logic could be extracted (e.g., "color formatting", "filter/sort logic", "state derivation", "label computation")
+
+Then give a summary total: how many lines across all files are extractable vs truly framework-bound.
+
+Do NOT modify any files — research only.
+📋 Model: opus-4.6
+🤖 I'll read all 14 files in parallel to analyze them.
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/inspector_panel.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/dial.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/toolbar.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_log.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_summary.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ai_panel.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/right_panel.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/tool_strip.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/chat_panel.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_inspector.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/tool_rail.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_list_panel.rs"
+❌ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_field_report.rs"
+🤖 The canvas_host.rs file was too large and several sibling reads failed. Let me retry in smaller batches.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/dial.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/toolbar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_log.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_summary.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ai_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/right_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/tool_strip.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/chat_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_inspector.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/tool_rail.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_list_panel.rs"
+🤖 Now let me read the remaining files: user_field_report.rs and the rest of canvas_host.rs.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_field_report.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+🤖 Now I have all the data. Let me compile the analysis.
+
+---
+
+## Per-File Analysis
+
+### 1. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs`
+
+- **Total non-blank/non-comment lines**: ~2,400
+- **Estimated extractable logic lines**: ~180
+- **View/markup**: ~190 lines (the `view! {}` at the end, lines 1773-1965)
+- **Signal wiring / event handlers**: ~1,700 lines (Effect::new blocks, on_pointer_* closures, on_compass_* closures, on_zoom_* closures, on_object_*_pointer_* closures -- all deeply coupled to engine borrow_mut, signal reads/writes, DOM pointer capture)
+- **Extractable logic**:
+  - `to_canvas_object` (~80 lines): pure data mapping from wire BoardObject to canvas CanvasObject (kind string matching, props field remapping). Currently `#[cfg(feature = "hydrate")]` but does not need DOM.
+  - `to_wire_object` (~18 lines): reverse mapping, pure data transform.
+  - `canvas_kind_to_wire` (~13 lines): simple match on enum to `&'static str`.
+  - `remote_cursor_style` (~2 lines): pure string formatting.
+  - `parse_youtube_video_id` + `sanitize_youtube_id` (~40 lines): pure string parsing/validation.
+  - `youtube_screen_local_geometry` + `youtube_play_button_local_geometry` (~14 lines): pure geometry math.
+  - `youtube_video_id_from_props` (~3 lines): props lookup + parse delegation.
+  - `active_transform_object_ids` (~8 lines): pattern match on enum, returns Vec<String>.
+
+### 2. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/inspector_panel.rs`
+
+- **Total non-blank/non-comment lines**: ~430
+- **Estimated extractable logic lines**: ~55
+- **Extractable logic**:
+  - `format_number_input` (1 line): pure `Option<f64> -> String`
+  - `parse_integer_input` (1 line): pure `&str -> Option<i64>`
+  - `read_prop_str` (~4 lines): pure props key lookup
+  - `read_prop_int` (~4 lines): pure props key lookup with fallback
+  - `normalize_hex_color` (1 line): delegation to pure util
+  - `commit_dimension` logic (lines 75-125, ~30 lines): the core dimension clamping/comparison logic is extractable if separated from signal.set and board.update. The parse-clamp-compare-default logic is pure.
+  - `commit_props` diff logic (lines 127-144, ~14 lines): iterate patch, compare with existing, merge -- pure data merge logic
+
+### 3. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/dial.rs`
+
+- **Total non-blank/non-comment lines**: ~310
+- **Estimated extractable logic lines**: ~10
+- **Extractable logic**:
+  - `root_class` closures in CompassDial, ZoomDial, ColorDial (~3 each, ~9 total): conditional CSS class formatting. These are trivial `if disabled { format!(...) } else { ... }` -- easily pure functions.
+- The rest is purely view markup with event handler wiring passed as generic props.
+
+### 4. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/toolbar.rs`
+
+- **Total non-blank/non-comment lines**: ~345
+- **Estimated extractable logic lines**: ~35
+- **Extractable logic**:
+  - `board_name` closure (~3 lines): unwrap_or on Option
+  - `self_identity` closure (~5 lines): extracting user/name tuple with defaults
+  - `can_toggle_visibility` (~12 lines): pure ownership check -- takes board_id, user_id, boards list, returns bool
+  - `on_export` URL construction (~3 lines): `format!("/api/boards/{id}/export.jsonl")`
+  - `on_import_change` URL + JSON body construction (~5 lines within the async): `format!("/api/boards/...")` + `serde_json::json!`
+  - `set_visibility` frame construction (~7 lines): building the Frame struct is extractable
+
+### 5. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_log.rs`
+
+- **Total non-blank/non-comment lines**: ~245
+- **Estimated extractable logic lines**: ~100
+- **Extractable logic**:
+  - `format_ts` (~10 lines): pure millisecond-to-HH:MM:SS.mmm formatting
+  - `status_label` (~7 lines): pure enum-to-tuple match
+  - `status_rank` (~8 lines): pure string-to-u8 mapping
+  - `display_depth` (~30 lines): pure tree-depth computation from HashMap
+  - `SortColumn` enum + sorting comparator (~15 lines): pure sort logic inside the `all_rows.sort_by` block
+  - `rows` closure row-mapping logic (~25 lines): the `TraceRow` construction from frame data (format_ts, prefix_display, sub_label, tree indent building) -- all pure transforms
+  - `set_sort` toggle logic (~5 lines): trivial state toggle logic
+
+### 6. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_summary.rs`
+
+- **Total non-blank/non-comment lines**: ~210
+- **Estimated extractable logic lines**: ~60
+- **Extractable logic**:
+  - `session_activity_summary` (~52 lines): entirely pure function -- takes a TraceSession, builds per-prefix counts, sorts, formats "obj:5 . ai:3" summary string, appends error/token counts
+  - `connection_label` (~5 lines): pure enum-to-string match
+  - `connection_class` (~5 lines): pure enum-to-CSS-class match
+  - Session duration label formatting (~4 lines): pure `(end - start) / 1000.0` formatting
+  - ID shortening `id.chars().take(8)` (~1 line)
+
+### 7. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ai_panel.rs`
+
+- **Total non-blank/non-comment lines**: ~190
+- **Estimated extractable logic lines**: ~25
+- **Extractable logic**:
+  - `render_markdown_html` (~15 lines): pure markdown-to-HTML rendering (pulldown_cmark). No DOM, no signals. Completely testable.
+  - `can_send` logic (~1 line): `!input.trim().is_empty() && !loading`
+  - `do_send` Frame construction (~10 lines): building Frame struct and AiMessage
+
+### 8. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/right_panel.rs`
+
+- **Total non-blank/non-comment lines**: ~200
+- **Estimated extractable logic lines**: ~15
+- **Extractable logic**:
+  - `toggle_tab` logic (~6 lines): if same tab and expanded, collapse; else expand and switch. Pure state transition.
+  - `on_resize_pointer_move` clamping (~2 lines): `(start + delta).clamp(260.0, 1100.0)` -- pure math
+  - `panel_width_style` (~1 line): pure formatting
+  - Tab title match (~6 lines): `match tab { ... }` returning `&str`
+
+### 9. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/tool_strip.rs`
+
+- **Total non-blank/non-comment lines**: ~175
+- **Estimated extractable logic lines**: ~30
+- **Extractable logic**:
+  - `on_add` shape/object construction (~40 lines total, ~25 extractable): building the props JSON by tool type, computing x/y centering (`400.0 - width/2.0`), constructing the BoardObject struct and Frame struct. The data construction is pure; only the final `board.update` and `sender.send` are side effects.
+  - `SHAPE_PRESETS` / `COLOR_PRESETS` constants (~7 lines): already pure data
+  - `shape_icon` (~20 lines): view markup, not extractable
+
+### 10. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/chat_panel.rs`
+
+- **Total non-blank/non-comment lines**: ~135
+- **Estimated extractable logic lines**: ~10
+- **Extractable logic**:
+  - `placeholder` (~4 lines): builds "Message as {username}..." string. Pure formatting with default fallback.
+  - `can_send` (~1 line): `!input.trim().is_empty()`
+  - Frame construction in `do_send` (~8 lines): pure JSON struct building
+  - Note: most of this file is view markup and signal wiring
+
+### 11. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/trace_inspector.rs`
+
+- **Total non-blank/non-comment lines**: ~155
+- **Estimated extractable logic lines**: ~30
+- **Extractable logic**:
+  - `format_ts_full` (~10 lines): pure ms-to-HH:MM:SS.mmm (nearly identical to trace_log's)
+  - `status_label` (~7 lines): pure enum-to-string match
+  - `status_class` (~7 lines): pure enum-to-CSS-class match
+  - Inside the view: `data_pretty` JSON pretty-print (~2 lines), `id_short` truncation (~1 line), `pid_short` truncation (~1 line) -- all pure transforms
+
+### 12. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/tool_rail.rs`
+
+- **Total non-blank/non-comment lines**: ~195
+- **Estimated extractable logic lines**: ~10
+- **Extractable logic**:
+  - `render_group` title formatting (~3 lines): `if disabled { format!("{} (coming soon)", label) } else { ... }`
+  - `render_icon` (~80 lines): SVG view markup, NOT extractable
+  - `INSPECTOR_ENABLED` const + tool definitions (~17 lines): already pure data
+  - The rest is view markup and simple signal toggles
+
+### 13. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_list_panel.rs`
+
+- **Total non-blank/non-comment lines**: ~130
+- **Estimated extractable logic lines**: ~20
+- **Extractable logic**:
+  - `shorten_client_id` (~5 lines): pure string truncation
+  - `rows` closure sorting/mapping (~12 lines): building `(presence, is_self, is_followed)` tuples and sorting by name. The presence-to-display logic is pure.
+  - Status label derivation (~5 lines): `if is_followed { "Following" } else if is_self { "You" } else { "Connected" }`
+  - `dot_style` formatting (~1 line): `format!("background:{};", color)`
+
+### 14. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_field_report.rs`
+
+- **Total non-blank/non-comment lines**: ~135
+- **Estimated extractable logic lines**: ~15
+- **Extractable logic**:
+  - `popover_style` position calculation (~10 lines): computing left position with clamping -- the non-hydrate path is pure; the hydrate path reads window width but the clamping math itself is extractable as `compute_popover_left(anchor_x, viewport_width, direction) -> String`
+  - Member-since badge formatting (~3 lines): `format!("Field Agent // Since {member_since}")`
+  - The rest is view markup and Suspense wiring
+
+---
+
+## Summary Totals
+
+| File | Approx. Non-blank Lines | Extractable Logic Lines | Key Extractable Items |
+|---|---|---|---|
+| canvas_host.rs | 2,400 | 180 | Object mapping (`to_canvas_object`, `to_wire_object`), YouTube URL parsing, geometry math, kind enum mapping, cursor style formatting |
+| inspector_panel.rs | 430 | 55 | Number formatting/parsing, props read helpers, dimension clamping, props diff/merge |
+| dial.rs | 310 | 10 | CSS class conditional formatting |
+| toolbar.rs | 345 | 35 | Board name defaults, ownership check, export URL construction, identity tuple |
+| trace_log.rs | 245 | 100 | Timestamp formatting, status mapping, tree depth computation, sort comparators, row data transforms |
+| trace_summary.rs | 210 | 60 | Session activity summary (entire function), connection label/class mapping, duration formatting |
+| ai_panel.rs | 190 | 25 | Markdown-to-HTML rendering, Frame/message construction |
+| right_panel.rs | 200 | 15 | Tab toggle logic, resize clamping, tab title mapping, width style formatting |
+| tool_strip.rs | 175 | 30 | Shape/object/Frame construction, props building by tool type, centering math |
+| chat_panel.rs | 135 | 10 | Placeholder formatting, can_send check, Frame construction |
+| trace_inspector.rs | 155 | 30 | Timestamp formatting, status label/class mapping, JSON pretty-print |
+| tool_rail.rs | 195 | 10 | Disabled title formatting, tool definitions (pure data) |
+| user_list_panel.rs | 130 | 20 | Client ID shortening, presence row sorting/mapping, status label derivation |
+| user_field_report.rs | 135 | 15 | Popover position clamping math, badge formatting |
+| **TOTALS** | **~5,255** | **~595** | |
+
+## Key Findings
+
+**Extractable: ~595 lines (~11.3% of total)**
+**Framework-bound: ~4,660 lines (~88.7% of total)**
+
+The breakdown of the framework-bound code:
+- **View/markup** (view! macro bodies, SVG icons, HTML templates): ~1,800 lines
+- **Signal wiring** (Effect::new, RwSignal, expect_context, signal closures): ~800 lines
+- **Event handler closures** (deeply coupled to signals, engine borrow_mut, DOM APIs): ~2,060 lines
+
+The highest-value extraction targets are:
+
+1. **trace_log.rs** (~100 lines): `format_ts`, `status_label`, `status_rank`, `display_depth`, sort comparators, and the row-mapping transform. These are already standalone fns but untested.
+
+2. **canvas_host.rs** (~180 lines): `to_canvas_object` / `to_wire_object` (object mapping), `parse_youtube_video_id` / `sanitize_youtube_id` (URL parsing), geometry helpers. These are currently `#[cfg(feature = "hydrate")]` but none of them need the DOM.
+
+3. **trace_summary.rs** (~60 lines): `session_activity_summary` is a fully pure function with complex aggregation logic.
+
+4. **inspector_panel.rs** (~55 lines): Props reading/writing helpers and dimension commit logic.
+
+5. **toolbar.rs** (~35 lines): `can_toggle_visibility` ownership check is a notable pure predicate.
+
+6. **ai_panel.rs** (~25 lines): `render_markdown_html` is a self-contained pure function.
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 33 total, 13 failed
+📋 Files: 14 read
+📋 Tokens: 67 in, 365 out
+📋 Cache: 916.4K read, 418.7K created

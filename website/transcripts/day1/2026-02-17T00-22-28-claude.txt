@@ -1,0 +1,417 @@
+📋 Session: a1822309-77ea-4794-a750-209a4f3aed63
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T00:22:28.576+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Thoroughly explore the real-time sync infrastructure in the collaboard project. I need to understand exactly what's built and what's missing to make real-time sync work end-to-end.
+
+Read these files completely:
+1. client/src/hooks/useFrameClient.ts - the WS hook, check for mock mode flag
+2. client/src/lib/frameClient.ts - the WS client class
+3. client/src/store/board.ts - Zustand store, how objects/presence are managed
+4. client/src/canvas/Canvas.tsx - how objects are rendered, how creates/updates are dispatched
+5. client/src/App.tsx - how the frame client is initialized
+6. client/src/pages/BoardPage.tsx - board page layout
+7. client/src/lib/types.ts - type definitions
+8. client/src/lib/api.ts - API calls
+9. client/src/components/StatusBar.tsx - presence display
+10. server/src/routes/ws.rs - server WS handler
+11. server/src/services/board.rs - board service
+12. server/src/services/cursor.rs - cursor service
+13. server/src/services/object.rs - object service
+14. server/src/frame.rs - frame types
+15. server/src/state.rs - AppState types
+16. server/src/routes/mod.rs - route setup (how is static file serving done?)
+17. server/src/main.rs - server entry point
+
+For each file report:
+- What's implemented
+- What's stubbed/incomplete
+- Any TODOs or mock flags
+- How the data flows (client -> WS -> server -> broadcast -> other clients)
+
+Key questions to answer:
+1. Where exactly is mock mode toggled? What happens when it's off?
+2. Does the client send object mutations over WS or only via REST?
+3. How does the server broadcast mutations to other clients?
+4. Is cursor presence wired up on the client side (sending + rendering)?
+5. Are there any missing syscalls or frame types needed?
+6. Does the server serve the frontend static files or is it separate?
+7. What's the full flow: user creates sticky -> WS frame sent -> server processes -> broadcast -> other client renders?
+📋 Model: haiku-4.5
+🤖 I'll thoroughly explore the real-time sync infrastructure in the collaboard project. Let me start by reading all the specified files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/api.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx"
+🤖 Now let me read the server-side files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/cursor.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+🤖 Now let me check a few more critical files to understand static file serving and complete the picture:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard -name "*.rs" -type f | grep -E "(persistence|ai|session)" | head -20
+🤖 Let me read the persistence and session services:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+✅ Bash: grep -r "static" /Users/ianzepp/github/gauntlet/collaboard/server/src --include="*.rs" | head -20
+🤖 Perfect. Now I have a complete picture of the codebase. Let me provide you with a comprehensive analysis of the real-time sync infrastructure.
+
+## Real-Time Sync Infrastructure Analysis - Collaboard
+
+I've thoroughly explored the entire codebase. Here's what's built and what's missing for end-to-end real-time sync:
+
+---
+
+### ARCHITECTURE OVERVIEW
+
+The system uses a **Frame-based protocol** (ported from Prior) where every message is a Frame with a `syscall` prefix routing system. The stack is:
+
+```
+Client (React) <- WebSocket -> Server (Axum+Rust) <- Postgres (persistence)
+```
+
+---
+
+### CLIENT SIDE: What's Implemented
+
+#### 1. **useFrameClient Hook** (`client/src/hooks/useFrameClient.ts`)
+- **Status**: Mostly complete, but **MOCK MODE IS ON BY DEFAULT**
+- **Mock mode flag**: `mockMode = true` (line 8) — hardcoded to true!
+- **When mockMode=true**: WS connect silently skipped, only sends a fake `session:connected` frame (lines 41-48)
+- **When mockMode=false**: 
+  - Creates WS ticket via REST `/api/auth/ws-ticket`
+  - Connects to `ws://[host]/api/ws?ticket=[ticket]`
+  - Registers event handlers for `object:created`, `object:updated`, `object:deleted`
+- **What's there**: Event listener pattern works
+- **What's missing**: No cursor presence handlers registered on client side
+
+#### 2. **FrameClient Class** (`client/src/lib/frameClient.ts`)
+- **Status**: Core infrastructure complete
+- **Implemented**:
+  - Parses incoming JSON frames
+  - Dispatches frames by `syscall` to registered handlers
+  - Sends frames to server when WS is open
+  - Mock mode stubs both connect and send
+- **What's missing**: 
+  - No cursor tracking send
+  - No error handling for stale updates (no conflict resolution UI)
+
+#### 3. **Board Store** (`client/src/store/board.ts`)
+- **Status**: Zustand store fully working
+- **Implemented**:
+  - `objects: Map<string, BoardObject>` — in-memory object state
+  - `presence: Map<string, Presence>` — cursor/presence tracking (has fields: user_id, name, color, cursor position)
+  - Methods: addObject, updateObject, deleteObject, setPresence, removePresence
+- **What's missing**: 
+  - Presence is never actually updated from incoming frames
+  - No selection sync (multi-user selection not implemented)
+
+#### 4. **Canvas Component** (`client/src/canvas/Canvas.tsx`)
+- **Status**: Object rendering complete, mutation sending NOT implemented
+- **Implemented**:
+  - Renders objects from store (sticky notes, shapes)
+  - Handles object creation on canvas click (creates local object)
+  - Handles object selection and transformer
+  - Viewport pan/zoom
+- **What's MISSING** (CRITICAL):
+  - When creating an object on canvas (lines 210-249), it only calls `addObject()` to local store
+  - **No WS frame is sent to server** — object is never persisted or broadcast
+  - When transformer updates selected objects, **no mutations sent to server**
+  - Cursor position never sent to server (`cursor:moved` never dispatched)
+
+#### 5. **StatusBar Component** (`client/src/components/StatusBar.tsx`)
+- **Status**: Stubbed, shows "Offline" hardcoded
+- **What's there**: Shows object count, zoom level
+- **What's missing**: 
+  - No connection status
+  - No presence indicators (other users' cursors)
+
+---
+
+### SERVER SIDE: What's Implemented
+
+#### 1. **WebSocket Handler** (`server/src/routes/ws.rs`)
+- **Status**: Complete and production-ready
+- **Implemented**:
+  - Ticket validation and user ID extraction
+  - Per-connection broadcast channel
+  - Main `select!` loop handling incoming frames and broadcasts
+  - Dispatch by syscall prefix: board, object, cursor, ai
+  - Session connected welcome frame
+  - Board part cleanup on disconnect
+- **Request/Response Pattern**: Every request (`board:join`) gets `item` + `done` or `error` frames
+
+#### 2. **Object Handlers** (in ws.rs, lines 259-369)
+- **Status**: Complete
+- **Syscalls implemented**:
+  - `object:create` — creates object, broadcasts `object:created` to all peers
+  - `object:update` — updates with LWW conflict resolution, broadcasts except to sender
+  - `object:delete` — deletes and broadcasts to all
+- **What works**: 
+  - Server receives frame from client
+  - Updates in-memory board state
+  - Broadcasts to other connected clients
+  - Marks object dirty for persistence
+
+#### 3. **Cursor Handler** (in ws.rs, lines 375-397)
+- **Status**: Implemented server-side only
+- **What it does**: 
+  - Receives `cursor:moved` frame with x, y, name
+  - Broadcasts `cursor:moved` to all other clients on same board
+  - NO persistence (intentional — cursors are ephemeral)
+- **Missing**: Client never sends cursor frames (Canvas doesn't track mouse movement)
+
+#### 4. **Board Service** (`server/src/services/board.rs`)
+- **Status**: Complete
+- **Implemented**:
+  - `join_board()` — validates board exists, hydrates objects from Postgres on first client
+  - `part_board()` — removes client, flushes dirty objects to DB if last client
+  - `broadcast()` — sends frame to all clients in board except optional sender
+  - Board state kept in-memory: `HashMap<Uuid, BoardState>`
+- **BoardState structure**:
+  - `objects: HashMap<Uuid, BoardObject>` — current state
+  - `clients: HashMap<Uuid, mpsc::Sender<Frame>>` — connected clients
+  - `dirty: HashSet<Uuid>` — objects modified since last flush
+
+#### 5. **Object Service** (`server/src/services/object.rs`)
+- **Status**: Complete with LWW conflict resolution
+- **Implemented**:
+  - `create_object()` — creates with UUID, marks dirty, returns object
+  - `update_object()` — LWW: rejects updates with `version < current.version`
+  - `delete_object()` — deletes immediately from Postgres
+  - Partial updates supported (x, y, width, height, rotation, z_index, props)
+- **Version management**: Every object has `version: i32`, incremented on update
+
+#### 6. **Cursor Service** (`server/src/services/cursor.rs`)
+- **Status**: Ephemeral broadcast only
+- **What it does**: Formats and broadcasts cursor position frame to board peers
+
+#### 7. **Persistence Task** (`server/src/services/persistence.rs`)
+- **Status**: Complete, runs every 1 second
+- **What it does**:
+  - Background task wakes every 1 sec
+  - Collects all dirty objects from all boards
+  - Batch upserts to Postgres via UPSERT (INSERT ... ON CONFLICT ... DO UPDATE)
+  - Clears dirty set after flush
+  - Keeps hot path (in-memory mutations) fast
+
+#### 8. **AI Service** (`server/src/services/ai.rs`)
+- **Status**: Fully implemented with tool calling
+- **What it does**:
+  - Receives `ai:prompt` frame
+  - Sends board state + tools to LLM
+  - Executes tool calls (createStickyNote, createShape, moveObject, etc.)
+  - Broadcasts all mutations to board peers
+  - Example flow in ws.rs (lines 437-479)
+
+#### 9. **Frame Protocol** (`server/src/frame.rs`)
+- **Status**: Complete, typed and well-documented
+- **Key concepts**:
+  - Every frame has: id, parent_id, ts, board_id, syscall, status, data
+  - Status lifecycle: `request → item* → done` or `request → error`
+  - No special cases, no shortcuts
+
+---
+
+### DATA FLOW: User Creates Sticky Note
+
+**CURRENT (BROKEN) FLOW** (mock mode on):
+```
+1. User clicks canvas → Canvas.handleStageClick()
+2. Creates object: newObj = { id: UUID, kind: "sticky_note", x, y, ... }
+3. Calls: addObject(newObj) → updates Zustand store only
+4. Object renders (no server involved!)
+5. frameClient.send() would be called but is in mock mode
+6. No persistence, no broadcast to other clients
+```
+
+**WHAT IT SHOULD BE** (when mock mode disabled):
+```
+1. User clicks canvas → Canvas.handleStageClick()
+2. Creates object locally: addObject(newObj)
+3. Sends WS frame:
+   {
+     "syscall": "object:create",
+     "data": {
+       "kind": "sticky_note",
+       "x": 100,
+       "y": 100,
+       "props": { "color": "#FFEB3B", "text": "" }
+     }
+   }
+4. Server receives → handle_object() dispatch
+5. Server: create_object() → generates server-side UUID, marks dirty
+6. Server broadcasts: "object:created" frame with full object (server UUID)
+7. All other clients receive, call useBoardStore.addObject()
+8. Background persistence task: every 1 sec, flushes dirty objects to Postgres
+9. Next client to join: board hydrated from Postgres with all objects
+```
+
+---
+
+### KEY MISSING PIECES (TO MAKE REAL-TIME WORK END-TO-END)
+
+#### Critical (breaks end-to-end sync):
+
+1. **Client-side mutation sending** (Canvas.tsx)
+   - When object created: no `object:create` frame sent
+   - When object moved/resized (transformer): no `object:update` frame sent
+   - When object deleted: no `object:delete` frame sent
+   - **Impact**: Objects don't persist, don't sync to other clients
+
+2. **Mock mode is hardcoded to true** (useFrameClient.ts:8)
+   - `mockMode = true` prevents any WS connection
+   - **Should be**: `mockMode = false` or read from env
+
+3. **Cursor tracking client-side** (Canvas.tsx)
+   - Mouse position never captured
+   - No `cursor:moved` frames sent
+   - **Impact**: Presence/collaboration awareness broken
+
+4. **Presence UI rendering** (StatusBar.tsx or separate component)
+   - Presence data received but never rendered
+   - No cursor indicators for other users
+   - No "user joined/left" feedback
+
+5. **Object reconciliation on update** (Canvas.tsx + FrameClient)
+   - When client creates object locally, gets back server UUID in response
+   - Must merge server UUID into local object
+   - Currently discarded or ignored
+
+6. **Static file serving** (routes/mod.rs)
+   - Server has NO route for `/` or static files
+   - Frontend must be served separately or via reverse proxy
+   - **Should add**: `router.nest_service("/", ServeDir::new("../client/dist"))`
+
+#### Important (reduces UX):
+
+7. **Connection status indicator**
+   - No "connecting...", "connected", "disconnected" feedback
+   - StatusBar hardcoded "Offline"
+
+8. **Conflict UI**
+   - Stale update errors not shown to user
+   - No retry mechanism for failed sends
+
+9. **Selection sync**
+   - Multi-user selection awareness not sent over WS
+   - "Who's selecting what" awareness missing
+
+---
+
+### SYSCALLS AVAILABLE (Server supports these)
+
+**Board operations**:
+- `board:join` (required before any object ops)
+- `board:create`
+- `board:list`
+- `board:delete`
+
+**Object operations**:
+- `object:create` (payload: kind, x, y, props)
+- `object:update` (payload: id, version, x, y, width, height, rotation, z_index, props)
+- `object:delete` (payload: id)
+
+**Cursor (ephemeral, no persistence)**:
+- `cursor:moved` (payload: x, y, name) — broadcast only, no ack
+
+**AI (requires LLM configured)**:
+- `ai:prompt` (payload: prompt)
+
+**Server-side broadcasts** (client receives):
+- `session:connected` (with client_id, user_id)
+- `object:created` (from peer client)
+- `object:updated` (from peer client, excludes sender)
+- `object:deleted` (from peer client)
+- `cursor:moved` (from peer client)
+
+---
+
+### FRAME TYPES FOR REFERENCE
+
+Every Frame sent/received:
+```typescript
+{
+  id: UUID,                    // Frame ID (unique per message)
+  parent_id: UUID | null,      // Links response to request
+  ts: number,                  // Milliseconds since epoch
+  board_id: UUID | null,       // Board context
+  from: string | null,         // Sender (usually null, set by system)
+  syscall: string,             // "board:join", "object:create", etc
+  status: "request" | "item" | "done" | "error" | "cancel",
+  data: Record<string, any>    // Flat key-value payload
+}
+```
+
+---
+
+### APP.TSX INITIALIZATION
+
+```typescript
+useFrameClient(true)  // ← HARDCODED MOCK MODE!
+```
+
+Should be something like:
+```typescript
+useFrameClient(import.meta.env.DEV)  // or false for production
+```
+
+---
+
+### SUMMARY TABLE
+
+| Layer | Component | Status | Critical Issues |
+|-------|-----------|--------|-----------------|
+| Client | useFrameClient | 80% | Mock mode hardcoded on |
+| Client | FrameClient WS | 100% | None |
+| Client | Canvas mutations | 0% | No frames sent on create/update/delete |
+| Client | Cursor tracking | 0% | No mouse tracking |
+| Client | Presence rendering | 0% | Store updated but never rendered |
+| Server | WS handler | 100% | None |
+| Server | Board service | 100% | None |
+| Server | Object service | 100% | LWW working correctly |
+| Server | Persistence | 100% | 1-sec debounce working |
+| Server | Static files | 0% | No route for frontend |
+| Server | AI service | 100% | Fully functional |
+
+---
+
+### TO MAKE IT WORK END-TO-END:
+
+**Minimum viable (to get basic sync working)**:
+1. Turn off mock mode in App.tsx
+2. Add `object:create` frame send when Canvas creates object
+3. Add `object:update` frame send when transformer finishes drag/resize
+4. Handle incoming `object:created/updated/deleted` frames (already done, just need mutations sent)
+5. Server object UUID reconciliation
+
+**Nice to have**:
+6. Cursor position tracking and broadcast
+7. Presence indicators UI
+8. Connection status
+9. Static file serving
+10. Conflict resolution UI
+
+---
+
+Let me know which gaps you'd like me to dive deeper into or which missing pieces you want to prioritize implementing!
+
+📋 --- Summary ---
+📋 Duration: 48s
+📋 Messages: 1 user, 5 assistant
+📋 Tool calls: 22 total, 0 failed
+📋 Files: 20 read
+📋 Tokens: 138 in, 57 out
+📋 Cache: 524.5K read, 174.4K created

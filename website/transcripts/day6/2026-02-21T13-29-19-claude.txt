@@ -1,0 +1,336 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T13:29:19.365+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 You are the technical-writer agent. Your job is to identify files that lack documentation — module-level docs, struct docs, function docs — and report which files need documentation attention.
+
+## Project Context
+- Workspace: root Cargo.toml with members: server, client, canvas, frames, traces, perf
+- Edition 2024, rust-version 1.90, clippy pedantic
+- Rust doc comments use //! for modules and /// for items
+
+## Your Task
+Scan all non-test .rs files in the project for documentation quality. Focus especially on NEW modules added in recent commits. Check these areas:
+
+1. client/src/util/ — many new utility modules (selection_actions.rs, canvas_viewport.rs, object_props.rs, frame_emit.rs, dial_math.rs, shape_palette.rs, selection_metrics.rs, canvas_input.rs)
+2. client/src/pages/ — page components
+3. server/src/routes/ — HTTP and WS route handlers
+4. server/src/services/ — service layer
+5. traces/src/ — traces crate
+6. perf/src/ — perf crate
+7. frames/src/ — frames crate
+
+For each file, check:
+- Does it have a module-level //! doc comment?
+- Do public structs/enums have /// doc comments?
+- Do public functions have /// doc comments?
+- Are complex operations explained with phase markers or inline WHY comments?
+
+DO NOT modify any files. Produce a report listing:
+1. Files with NO documentation at all (highest priority)
+2. Files with minimal documentation (module doc only, no function/struct docs)
+3. Files with adequate documentation
+
+Group by crate. Focus your report on the gaps, not the well-documented files.
+📋 Model: sonnet-4.6
+🤖 I'll scan the project systematically for documentation quality. Let me start by exploring the workspace structure.
+✅ Bash: find /Users/ianzepp/github/ianzepp/gauntlet-week-1 -name "*.rs" ! -name "*_test.rs" ! -path "*/target/*" | sort
+🤖 Now let me read all the files in the priority areas simultaneously.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_input.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board_prompt.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board_prompt_bar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/dashboard.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/login.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/users.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/email_auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/savepoint.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/session.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/tool_syscall.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/traces/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib.rs"
+🤖 Now let me scan the remaining client crates — components, state, net, and other utility files — for documentation.
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/net"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util"
+🤖 Good — all utility files and state files have module-level docs. Now let me check which component files are missing module docs, and look at the ones without `//!`.
+❌ Bash: for f in \ ↵   /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/chat_panel.rs \ ↵   /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/user_field_report.rs \ ↵   /Users/i...
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/chat_panel.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/inspector_panel.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/mission_control.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ai_panel.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/rewind_shelf.rs"
+🤖 All components have module docs. Now let me check for `///` doc comments on public functions and structs across the key files that are missing them.
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_input.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/tool_syscall.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/auth.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/traces/src/lib.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/traces/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/traces/src/lib.rs"
+🤖 Now let me check a few more server files and the canvas crate for completeness.
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum |^pub async fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+🤖 Now let me check the `engine.rs` canvas file for full function doc coverage, and check what's missing in a few more files.
+✅ Grep: pattern="^    pub fn |^pub fn " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Grep: pattern="^/// |^    /// " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs"
+🤖 Now I have a complete picture. Let me check the `server/src/state.rs`, `server/src/main.rs`, and `server/src/frame.rs` which I haven't covered yet.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/anthropic.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/openai.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/tools.rs"
+✅ Grep: pattern="^//!" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/types.rs"
+✅ Grep: pattern="^/// |^pub fn |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs"
+✅ Grep: pattern="^/// |^pub struct |^pub enum " path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dark_mode.rs"
+🤖 Now I have a thorough picture of the entire codebase. Let me compile the final report.
+
+---
+
+## Documentation Audit Report
+
+### Summary
+
+The codebase has good structural coverage — every file has a module-level `//!` comment. The gaps are concentrated in two areas: (1) public items inside utility modules that have zero `///` doc comments on their functions/structs, and (2) one infrastructure struct in `server/src/llm/mod.rs` that is undocumented at the item level.
+
+---
+
+## 1. Files With NO Function/Struct/Enum Doc Comments (Highest Priority)
+
+### `client` crate — `client/src/util/`
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs`**
+
+Has a module doc (`//! Helpers for reading and updating object property maps.`), but every public function is undocumented — 16 public functions with no `///` comments:
+
+- `value_as_f64` — non-obvious: accepts both JSON number types, no explanation of why
+- `object_scale_components` — returns a 3-tuple `(base_width, base_height, scale)` with no doc explaining what each element means or the derivation order
+- `upsert_object_scale_props` — mutates props in two keys (`scale`, `baseWidth`, `baseHeight`); which key wins, and why both are written, is unexplained
+- `reset_scale_props_baseline` — sets `scale` to `Null` deliberately; no WHY comment for the null
+- `reset_wire_object_scale_baseline` — no doc on why it defaults to 120x80
+- `upsert_object_color_props` — writes four keys (`baseFill`, `lightnessShift`, `fill`, `backgroundColor`); the dual-write is non-obvious
+- `object_fill_hex` — the three-key fallback chain (`fill` -> `backgroundColor` -> `borderColor`) is a surprising cascade with no explanation
+- `object_base_fill_hex`, `object_lightness_shift`, `apply_lightness_shift_to_hex` — no docs
+- `upsert_object_border_props` — writes both `borderColor`/`borderWidth` AND `stroke`/`stroke_width` for legacy compatibility; unexplained
+- `object_border_color_hex` — fallback chain includes `fill` as a last resort; unexplained
+- `object_border_width`, `upsert_object_text_style_props`, `object_text_color_hex`, `object_font_size` — all undocumented
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs`**
+
+Has a module doc (`//! Shared dial/angle math for canvas controls.`), but all 17 public functions and all exported constants have no `///` comments. The conversion functions are non-trivial:
+
+- `signed_angle_delta_deg` vs `angular_delta_deg` — the distinction (signed delta with wrap vs absolute minimum arc distance) is critical for callers but entirely undocumented
+- `apply_compass_drag_snapping` — the cardinal snap epsilon (6°) and shift-step (15°) are magic numbers with no justification
+- `apply_zoom_tick_tension` — the tension algorithm is non-obvious; no explanation of what "tension" means here
+- `dial_angle_from_zoom` / `zoom_from_dial_angle` — the linear mapping formula (centered at 1.0, slope 180°) is not documented
+- `dial_angle_from_color_shift` / `color_shift_from_dial_angle` — no doc
+- All border-width and font-size dial converters — no docs
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics.rs`**
+
+Has a module doc (`//! Selection aggregate helpers for board objects.`). All 8 public functions have no `///` docs. `representative_rotation_deg` uses circular-mean (sum of unit vectors) rather than arithmetic mean — this is the correct algorithm for angles but a reader would have no idea without a doc comment explaining why.
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs`**
+
+Has a module doc (`//! Selection drag/apply/commit helpers used by canvas host.`). The 6 public drag-state structs and ~30 public functions all have zero `///` doc comments. The structs carry "seed" / "drag state" terminology without explanation. Notable gaps:
+
+- `SelectionScaleSeed` — fields `base_width`/`base_height` vs `width`/`height` distinction is undocumented (base = original unscaled dimensions)
+- `SelectionScaleDragState` — `group_center_x/y` role in proportional repositioning is unexplained
+- `apply_selection_scale_drag` — the proportional repositioning math around the group center has no phase markers or WHY comments
+- All `commit_*` functions — the pattern of "only send if changed, then clear signal" is not documented
+- `apply_group_*_target` — the instant-apply-and-persist pattern (no drag state) vs the drag+commit pattern is not explained anywhere
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_input.rs`**
+
+Has a module doc (`//! Canvas input mapping and pointer helper utilities.`). All 9 public functions have no `///` docs. Notable:
+
+- `zoom_angle_from_pointer` — applies tick tension; the coordinate math (top-based polar, clamped to dial range) is non-trivial with no explanation
+- `compass_angle_from_pointer` — similar math without tension; the distinction from `zoom_angle_from_pointer` is unexplained
+- `should_prevent_default_key` — no doc explaining why space and lowercase `a`/`g` are included (canvas shortcuts)
+- `map_tool` — the mapping from `ToolType::Sticky/Rectangle/Frame/Youtube` to `CanvasTool::Select` (placement tools use select mode) is a non-obvious design decision with no explanation
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs`**
+
+Has a module doc (`//! Canvas viewport/camera synchronization helpers shared by canvas host.`). All 8 public functions have no `///` docs. Notable:
+
+- `send_cursor_presence_if_needed` — has 8 parameters and complex throttle logic with deadband constants defined inline; the overall purpose and the `force` flag semantics are undocumented
+- `sync_canvas_view_state` — uses exponential moving average (alpha=0.2) for FPS; the EMA choice is not explained
+- `now_ms` — a thin wrapper around `js_sys::Date::now()`; trivial but still exported undocumented
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette.rs`**
+
+Has a module doc (`//! Tool placement defaults and preview helpers.`). All 3 public functions have no `///` docs:
+
+- `placement_shape` — returns a `(kind, width, height, props)` tuple; the tuple layout and what each element means is unexplained
+- `placement_preview` — returns `(width, height, css_color)` with no doc on what the color is used for (ghost preview overlay)
+- `materialize_shape_props` — special-cases `line` and `arrow` kinds to inject `a`/`b` endpoint props; the why (line objects use endpoint coordinates, not x/y/width/height) is not explained
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs`**
+
+Has a module doc (`//! Shared frame emission helpers.`). The 3 public send functions have no `///` docs. The 3 private builder functions also have no docs. The distinction between the three update variants (props only, rotation only, full geometry+props) is not explained anywhere.
+
+---
+
+### `server` crate — `server/src/llm/`
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs`**
+
+Has a module doc. `LlmClient` (the main public dispatch struct) has no `///` comment. `LlmProvider` (internal enum) is also undocumented but is private. The `LlmClient` methods (not scanned exhaustively but implied by the grep showing no `///` output) are also likely undocumented. This is the primary public API surface of the LLM subsystem.
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/tool_syscall.rs`**
+
+Has a module doc (`//! Internal tool syscall dispatcher shared by AI and websocket handlers.`). The grep for `///` returned **no matches** — `ToolSyscallResult` struct and `dispatch_tool_frame` function are both undocumented. `dispatch_tool_frame` is a key integration point between the WS handler and the AI tool execution loop.
+
+---
+
+### `traces` crate
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/traces/src/lib.rs`**
+
+Has a crate-level module doc. Missing `///` docs on:
+
+- `PrefixDisplay` struct — no doc on what the three fields (`letter`, `label`, `color`) are used for or who consumes them
+- `prefix_display` function — no doc
+- `syscall_prefix` function — no doc
+- `TraceFilter` struct — the include-set semantics (whitelist only, defaulted to a specific set) are not documented at the item level
+- `TraceFilter::allows`, `set_prefix_enabled`, `set_status_enabled`, `active_prefixes`, `active_statuses` — all undocumented
+- `TraceSession` struct — no doc; fields like `started_at`/`ended_at` have ambiguous units (milliseconds? seconds?)
+- `TraceSession::total_frames`, `total_tokens`, `total_cost`, `error_count` — undocumented impl methods
+- `SpanTiming` struct — no doc; `duration_ms` unit is clear from the name, but `started_at`/`ended_at` units are not
+- `TraceMetrics` struct — no doc
+- `compute_metrics`, `build_trace_sessions`, `pair_request_spans`, `tree_depth`, `sub_label` — all public functions with no `///` comments
+
+---
+
+## 2. Files With Minimal Documentation (Module Doc Only, No Function/Struct Docs)
+
+### `client` crate — pages
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board_prompt_bar.rs`**
+
+Has a module doc. `PromptBarStatus` enum variants (`Idle`, `Loading`, `Success`, `Error`) have no `///` docs explaining their state machine transitions. The `BoardPromptBar` component has no `///` doc. The 8 signal parameters have no inline explanation.
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/login.rs`**
+
+Has a module doc. `normalize_code_input`, `validate_request_code_input`, `validate_verify_code_input` — all private but they encode validation policy (6-char length requirement, no ambiguous character handling) that deserves at least a comment. `LoginPage` component itself has no `///` doc.
+
+### `server` crate — services
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/email_auth.rs`**
+
+Has a module doc. `EmailAuthError` enum variants are undocumented. `normalize_email` and `normalize_code` have `#[must_use]` but no `///` docs explaining their validation rules (e.g., what alphabet is used, why certain characters are excluded from `CODE_ALPHABET`). These rules are security-relevant.
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs`**
+
+Has a module doc. `FramePersistConfig` struct has no `///` doc. Its fields (`queue_capacity`, `batch_size`, `flush_ms`, `retries`, `retry_base_ms`) are undocumented — tuning these has direct latency impact. `FramePersistConfig::from_env` has no doc.
+
+**`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/savepoint.rs`**
+
+Has a module doc. `SavepointRow` struct fields (especially `seq`, `ts`, `is_auto`, `reason`, `label`) have no `///` docs. `DEFAULT_AUTO_SAVEPOINT_DEBOUNCE_MS` constant has no doc explaining the debounce strategy. `now_ms` (private) is fine, but public `SavepointError` variants are undocumented.
+
+---
+
+## 3. Files With Adequate Documentation
+
+The following files have both module docs and meaningful item-level `///` coverage:
+
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs` — exemplary; every public method has a `///` doc, structs are documented, and `Engine` vs `EngineCore` separation is explained
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs` — all public functions documented with purpose and parameter semantics
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs` — all public types documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs` — structs documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs` — draw function documented with error conditions
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib.rs` — encode/decode functions have full `///` + `# Errors` sections
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/lib.rs` — `PerfConfig`, `PerfError`, `LatencyMetrics`, `WsPerfClient`, and all public functions documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/auth.rs` — every route handler has a `///` with HTTP method and path
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs` — route handlers documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/users.rs` — route handler documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs` — `Outcome` enum variants all documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs` — `GitHubConfig` struct and both public methods documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs` — `BoardError`, `BoardRow`, `BoardRole`, `BoardPermission` and all public functions documented with `# Errors` sections
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs` — `ObjectError` and key functions documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs` — spawn/enqueue functions documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/session.rs` — token generators and `SessionUser` documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs` — functions documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame.rs` — function documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth.rs` — documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dark_mode.rs` — documented
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board.rs` — excellent architecture + trade-off comments
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/dashboard.rs` — `DashboardPage` has a `///` doc
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board_prompt.rs` — `assistant_preview_and_has_more` documented
+- All `client/src/components/*.rs` files — all have `//!` module docs
+
+---
+
+## Priority Action List
+
+| Priority | File | Gap |
+|---|---|---|
+| P1 | `client/src/util/object_props.rs` | 16 public functions, 0 `///` docs; dual-write patterns and fallback chains are surprising |
+| P1 | `client/src/util/selection_actions.rs` | 6 public structs + ~30 public functions, 0 `///` docs; drag-state design is complex |
+| P1 | `client/src/util/dial_math.rs` | 17 public functions, 0 `///` docs; `signed` vs `angular` delta distinction is a bug trap |
+| P1 | `server/src/services/tool_syscall.rs` | `ToolSyscallResult` struct and `dispatch_tool_frame` both undocumented |
+| P2 | `client/src/util/selection_metrics.rs` | 8 public functions, 0 `///` docs; circular-mean rotation needs explanation |
+| P2 | `client/src/util/canvas_viewport.rs` | 8 public functions, 0 `///` docs; `send_cursor_presence_if_needed` is 8-param complex |
+| P2 | `client/src/util/canvas_input.rs` | 9 public functions, 0 `///` docs; coordinate math needs explanation |
+| P2 | `client/src/util/shape_palette.rs` | 3 public functions, 0 `///` docs; tuple return shapes are opaque |
+| P2 | `client/src/util/frame_emit.rs` | 3 public functions, 0 `///` docs; the three update variants need differentiating docs |
+| P2 | `traces/src/lib.rs` | `PrefixDisplay`, `TraceFilter`, `TraceSession`, `SpanTiming`, `TraceMetrics` and their methods all undocumented |
+| P3 | `server/src/llm/mod.rs` | `LlmClient` struct undocumented |
+| P3 | `server/src/services/email_auth.rs` | `EmailAuthError` variants and `normalize_*` functions missing docs |
+| P3 | `client/src/pages/board_prompt_bar.rs` | `PromptBarStatus` variants and `BoardPromptBar` component undocumented |
+| P3 | `server/src/services/persistence.rs` | `FramePersistConfig` struct and `from_env` undocumented |
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 9 assistant
+📋 Tool calls: 87 total, 1 failed
+📋 Files: 42 read
+📋 Tokens: 100 in, 1.3K out
+📋 Cache: 5.3M read, 429.5K created

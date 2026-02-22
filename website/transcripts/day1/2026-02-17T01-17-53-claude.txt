@@ -1,0 +1,330 @@
+📋 Session: 665ca551-2d30-4c12-ac6e-64b9e2b4e8be
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T01:17:53.325+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Thoroughly explore /Users/ianzepp/github/ianzepp/abbot-web/ to understand its design language and UI patterns. Read:
+1. index.css (the main stylesheet)
+2. index.html
+3. mockup.html
+4. Any key component files in src/ that show UI patterns
+
+I want to understand: color palette, typography, layout patterns, component styling, interactive states, animations, and overall aesthetic. Give me a comprehensive summary of the design language.
+📋 Model: haiku-4.5
+🤖 I'll explore the project structure and analyze the design language for you. Let me start by examining the directory structure and then read the key files.
+✅ Bash: find /Users/ianzepp/github/ianzepp/abbot-web -type f -name "*.css" -o -name "*.html" | head -20
+🤖 Now let me read the main files to understand the design language:
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/index.css"
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/index.html"
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/mockup.html"
+🤖 Now let me look for src components to understand the UI patterns better:
+✅ Bash: find /Users/ianzepp/github/ianzepp/abbot-web/src -type f \( -name "*.tsx" -o -name "*.ts" -o -name "*.jsx" -o -name "*.js" \) | head -20
+🤖 Let me check the directory structure more broadly:
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/abbot-web/
+🤖 Let me check the src directory:
+✅ Bash: find /Users/ianzepp/github/ianzepp/abbot-web/src -type f | head -30
+🤖 Great! This is a Rust + Yew project. Let me read some of the key component files to understand the UI patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/src/components/nav_bar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/src/components/stat_strip.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/src/components/frame_timeline.rs"
+🤖 Perfect! Now let me read a few more components to get a complete picture:
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/src/components/frame_inspector.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/src/components/room_chat.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/abbot-web/src/app.rs"
+🤖 Perfect! Now I have a comprehensive understanding of the design language. Let me create a detailed summary:
+
+## Comprehensive Design Language Summary: Abbot Web
+
+### Overall Aesthetic
+**Retro-Scientific Research Interface** — A sophisticated fusion of vintage scientific monitoring dashboards with modern web UI. The design evokes 1970s research terminals, scientific documentation, and field survey logs. It's technical, functional, and deliberately anti-mainstream (no rounded corners, no shadows, no gradients).
+
+---
+
+### Color Palette
+
+#### Light Mode (Default)
+- **Primary Background**: `#F5F0E8` (warm, off-white cream)
+- **Secondary Background**: `#EDE8DD` (slightly darker cream)
+- **Map/Timeline Background**: `#E8E0D2` (tan/beige)
+- **Map Feature Highlight**: `#DDD4C4` (darker tan)
+- **Navigation Background**: `#2C2824` (dark brown/charcoal)
+- **Status Bar**: `#F0EBE2` (light cream)
+
+#### Text Colors
+- **Primary Text**: `#2C2824` (dark brown, matches nav bg)
+- **Secondary Text**: `#8A8178` (muted warm brown)
+- **Tertiary Text**: `#B5AEA4` (light grayish-brown)
+- **Navigation Text**: `#D4CFC6` (light taupe)
+- **Navigation Text Active**: `#F5F0E8` (off-white)
+
+#### Accents
+- **Progress/Success**: `#2C6E49` (muted forest green)
+- **Marker**: `#2C2824` (dark brown dot)
+- **Error**: `#8B4049` (warm burgundy/mauve)
+
+#### Borders
+- **Default Border**: `#D4CFC6` (light taupe)
+- **Subtle Border**: `#E5E0D8` (very light tan)
+
+#### Dark Mode
+A fully inverted warm palette that maintains the same aesthetic principles. All backgrounds darken, text inverts, and accent colors brighten slightly for contrast. The core warm tone family is preserved throughout.
+
+---
+
+### Typography
+
+#### Font Families
+1. **IBM Plex Mono** — Primary font for all body text and interface elements
+   - Available weights: 400, 500, 600, 700
+   - Used for buttons, labels, timeline data, inspector details
+   - Monospace aesthetic reinforces technical nature
+
+2. **Caveat** (Cursive) — Display script font
+   - Used exclusively in "specimen card" for frame names
+   - 42px size in specimen card (light/elegant contrast)
+   - Adds humanity and hand-drawn quality to technical data
+
+#### Type Scale & Styling
+- **Base Size**: 13px (body)
+- **Small Labels**: 10-11px (uppercase, +0.1em letter-spacing)
+- **Medium Text**: 12px
+- **Large Labels**: 13px (section titles, underlined)
+- **Hero Numbers**: 42-48px (stat cards)
+- **Specimen Name**: 42px (script font)
+
+#### Text Treatments
+- **Text Transform**: Extensive use of `text-transform: uppercase` on labels, buttons, titles
+- **Letter Spacing**: 
+  - Standard: 0.04-0.08em (tight)
+  - Labels: 0.06-0.1em (expanded)
+  - Navigation: 0.08em
+- **Line Height**: 1.4-1.6 (readable but compact)
+
+---
+
+### Layout Patterns
+
+#### Main Container Structure
+**Three-tier vertical layout:**
+1. **Top Navigation Bar** (44px height)
+   - Dark background, light text
+   - Left section: entity/room tabs
+   - Right section: view mode tabs + theme toggle
+
+2. **Main Content Area** (65/35 split)
+   - **Left Zone (65%)**: Timeline/Maps viewport
+   - **Right Zone (35%)**: Inspector/Details panel
+   - Vertical divider: 1px border
+
+3. **Status Bar** (32px height)
+   - Shows connection status, build info
+   - Minimal styling, compact information
+
+#### Stat Strip (Above Timeline)
+- Three equal-width columns
+- **Column A**: Hero metric (large number + progress bar)
+- **Column B**: Key/value breakdown (interactive filter rows)
+- **Column C**: Status list (connection, frame count, scope)
+- Vertical dividers between columns
+
+#### Timeline/Map (Left Zone)
+- Header with title and action buttons
+- Scrollable list of data rows
+- Each row is a grid: timestamp | marker | name | status | actor | indicator
+- Overlay cards (floating on absolute positioning) for context
+- Control buttons (pause/play) in bottom-left corner
+- Pagination in bottom-center
+- Meta info (filter, mode) in bottom-right
+
+#### Inspector Panel (Right Zone)
+- Scrollable content area
+- Specimen card (highlighted content area)
+- Tab row (OVERVIEW | DATA | TRACE)
+- Key/value lists for metadata
+- Data panel with JSON syntax highlighting
+
+#### Room Chat (Journal Spread)
+- Two-page layout side-by-side
+- **Left Page (Field Notes)**: User messages
+- **Right Page (Analysis Log)**: Assistant responses + tool calls
+- Input field at bottom with shift-enter hint
+- Selected message highlighted with left border
+
+---
+
+### Component Styling
+
+#### Navigation Bar
+- Horizontal flex layout
+- Left group expands; right group compact
+- Items: uppercase, letter-spaced, 12px
+- Active state: text color change + bottom border
+- Hover: subtle color brighten
+- Theme toggle: small bordered square button
+
+#### Buttons & Interactions
+**General Button Style:**
+- No rounded corners (sharp edges)
+- 1px borders with `--border-default`
+- Transparent background (inherit bg-secondary)
+- Uppercase labels, small font (10-12px)
+- Letter-spacing: 0.06-0.08em
+- Hover: background lightens to `--bg-map-feature`
+
+**Specific Buttons:**
+- **Filter Buttons**: Active state adds darker background + darker border
+- **Timeline Buttons**: 32x32px, flex center, border separators
+- **Close Buttons**: Thin, minimal styling
+
+#### Timeline Rows
+- Grid layout: `90px 20px 160px 50px 1fr 24px`
+- Columns: time | marker | name | status | summary | indicator
+- Row height: auto (compact padding)
+- Hover: background color to `--bg-map-feature`
+- Selected row: persistent highlight + small dot indicator
+- Status colors:
+  - `.trace-op-ok`: green
+  - `.trace-op-done`: green
+  - `.trace-op-error`: burgundy
+  - `.trace-op-req`: primary text
+  - Other: secondary text
+
+#### Specimen Card
+- Background: `--bg-secondary`
+- 1px border
+- Padding: `--space-md`
+- Contains:
+  - Small label (uppercase)
+  - Large script name (42px, cursive)
+  - Small attribution (right-aligned, uppercase)
+
+#### Key/Value Lists
+- Flex column with gap
+- Each row: space-between layout
+- Labels: secondary text, uppercase, letter-spaced
+- Values: bold/500 weight, primary text
+- Interactive rows (filter): cursor pointer, dotted underline, opacity change on hover
+
+#### Status Indicators
+- Dot: 8x8px circle
+- Connected: solid green
+- Disconnected: transparent with border
+- Row icon: 14px, secondary color
+
+#### Data Panels (JSON)
+- Background: `--bg-secondary`
+- Border: 1px default
+- Syntax colors:
+  - Keys: secondary text
+  - Strings: green accent
+  - Numbers: warm brown (#8B6E4E)
+  - Null/bool: various
+
+---
+
+### Interactive States
+
+#### Hover Effects
+- **Text Items**: Color transition (150ms ease)
+- **Rows/Cards**: Background shift to lighter shade
+- **Buttons**: Background lighten, border brighten
+- **Links**: Color change (primary to accent)
+
+#### Selected States
+- **Timeline Rows**: Background highlight + small dot indicator
+- **Filter Rows**: Font-size increase + weight boost + color change
+- **Tabs**: Bold weight + underline border
+- **Messages**: Left border color + background shade
+
+#### Disabled States
+- **Inputs**: Opacity 0.6, bg-secondary
+- **Buttons**: Opacity handling implied
+
+#### Focus States
+- **Inputs**: Border color changes to primary text
+- **Subtle approach**: No aggressive outlines
+
+---
+
+### Animations
+
+#### Transitions
+- **Color**: 150ms ease
+- **Opacity**: 150ms ease
+- **Width (progress fill)**: 200ms ease
+- Applied smoothly across hover, active, and state changes
+
+#### Keyframe Animations
+- **Pulse Animation** (used on loading state):
+  ```
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+  ```
+  - Duration: 1.5s
+  - Infinite loop
+
+---
+
+### Spacing System
+
+- **xs**: 4px
+- **sm**: 8px
+- **md**: 16px
+- **lg**: 24px
+- **xl**: 32px
+- **2xl**: 48px
+
+Consistently applied across padding, margins, and gaps. Creates strong visual rhythm.
+
+---
+
+### Visual Hierarchy
+
+1. **Hero Numbers** (48px) — Most important metrics
+2. **Specimen Names** (42px script) — Key identifiers with personality
+3. **Section Titles** (12-13px, bold, underlined) — Clear divisions
+4. **Body Text** (11-12px, regular) — Primary information
+5. **Labels** (10-11px, uppercase, secondary color) — Annotation/context
+6. **Tertiary Text** (9-10px) — Supporting metadata
+
+---
+
+### Design Principles
+
+1. **Anti-Modern**: No rounded corners, no shadows, no gradients, no excessive whitespace
+2. **Monospace-First**: Technical aesthetic dominates
+3. **Warm & Inviting**: Cream/beige/brown palette feels vintage yet comfortable
+4. **Functional**: Every visual element has a purpose (status, hierarchy, interaction)
+5. **Dark Mode Ready**: Full color palette inversion with maintained aesthetics
+6. **Asymmetric Grid**: 65/35 split, irregular columns, creates dynamic composition
+7. **Uppercase Labels**: Creates machine-readable appearance
+8. **Scientific Vocabulary**: Frame, specimen, lineage, marker — reinforces research interface theme
+9. **Minimize Distraction**: Subtle transitions, muted colors, clean layouts
+10. **Grid-Based**: Mostly grid layouts (CSS Grid and Flex), sharp alignment
+
+---
+
+### Key UI Patterns Observed
+
+- **Specimen Card Pattern**: Large name + small attribution (used for frame identification)
+- **Key/Value Pattern**: Left-aligned labels, right-aligned values with optional interactivity
+- **Status List Pattern**: Icon + text rows, stacked vertically
+- **Timeline Row Pattern**: Fixed grid columns for dense information display
+- **Two-Page Layout**: Journal spread (field notes vs. analysis)
+- **Overlay Cards**: Floating context panels with absolute positioning
+- **Tab Rows**: Underline-based active indicator
+- **Filter Integration**: Interactive key/value rows that toggle filters with visual feedback
+- **Header/Content/Actions**: Three-zone component structure
+
+---
+
+This design language is highly distinctive and purpose-built for technical/scientific monitoring interfaces. It would translate beautifully to collaboard if you're looking to apply similar principles while maintaining its own identity.
+
+📋 --- Summary ---
+📋 Duration: 46s
+📋 Messages: 1 user, 8 assistant
+📋 Tool calls: 13 total, 0 failed
+📋 Files: 9 read
+📋 Tokens: 75 in, 29 out
+📋 Cache: 653.4K read, 107.0K created

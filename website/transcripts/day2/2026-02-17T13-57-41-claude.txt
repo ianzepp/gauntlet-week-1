@@ -1,0 +1,220 @@
+📋 Session: e6c0b8a4-a29c-47a1-819c-f5c3e23440bb
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T13:57:41.495+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 I need to verify 9 specific MVP gate requirements for the collaboard project at /Users/ianzepp/github/gauntlet/collaboard. For each one, find the concrete code that implements it (or confirm it's missing). Be specific — cite files and line numbers.
+
+1. **Infinite board with pan/zoom** — Is there scroll-to-pan and ctrl+wheel zoom on the Konva Stage? What are the zoom bounds?
+2. **Sticky notes with editable text** — Can you create a sticky note, drag it, and edit its text? Find the create flow and text editing flow.
+3. **At least one shape type (rectangle, circle, or line)** — Are rectangle and/or ellipse tools functional (not just disabled stubs)?
+4. **Create, move, and edit objects** — Is object:create, object:update (for move/resize), and object:delete all wired up?
+5. **Real-time sync between 2+ users** — Does the server broadcast mutations to all board clients? Find the broadcast logic.
+6. **Multiplayer cursors with name labels** — Is there a RemoteCursor component that shows cursor position + user name?
+7. **Presence awareness (who's online)** — Is there UI showing connected users on a board?
+8. **User authentication** — Is GitHub OAuth fully wired (redirect, callback, session cookie, protected routes)?
+9. **Deployed and publicly accessible** — Is there a Dockerfile, fly.toml, and deployment config? Check if there's a live URL configured anywhere.
+
+For each item, give a clear YES/NO with the evidence.
+📋 Model: sonnet-4.5
+🤖 I'll systematically search for evidence of each requirement. Let me run parallel searches across the codebase.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard -type f | sort | head -80
+✅ Glob: pattern="**/*.{ts,tsx,rs,toml,yml,yaml,json,Dockerfile}" path="/Users/ianzepp/github/gauntlet/collaboard"
+🤖 Good. Let me get the actual source files, excluding node_modules.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.rs" -o -name "*.toml" -o -name "*.yml" -o -name "*.yaml" -o -name "Dockerfile" \) ! -path "*/node_mo...
+🤖 Now let me read all the key files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/TextEditor.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Excellent. Now let me read the remaining key files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/fly.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/Dockerfile"
+🤖 Now let me read the remaining key files for presence UI, the frameClient, the board service (broadcast logic), and the UserFieldReport component.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/UserFieldReport.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+🤖 Now let me check the Toolbar for tool buttons, the useFrameClient hook for presence handling, the MissionControl component for presence UI, and the README for a live URL.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/MissionControl.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+🤖 I now have everything I need to give a comprehensive, cited answer for all 9 requirements. Let me also do a quick check on the ToolRail for the tool buttons and verify there's no live URL anywhere else.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ToolRail.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/.env.example"
+🤖 I have all the evidence needed. Here is the full, cited verdict for all 9 MVP gate requirements.
+
+---
+
+## MVP Gate Verification — Collaboard
+
+---
+
+### 1. Infinite board with pan/zoom
+
+**YES**
+
+**Pan:** `Canvas.tsx` lines 262–267 — the `handleWheel` callback, when `ctrlKey`/`metaKey` is NOT held, applies `deltaX`/`deltaY` directly to `viewport.x/y`:
+```ts
+} else {
+    setViewport({
+        x: viewport.x - e.evt.deltaX,
+        y: viewport.y - e.evt.deltaY,
+    });
+}
+```
+
+**Ctrl+Wheel zoom:** `Canvas.tsx` lines 241–261 — when `ctrlKey || metaKey` is held, computes a scale factor of `1.05` per tick and **clamps** the result:
+```ts
+const clampedScale = Math.max(0.1, Math.min(5, newScale));
+```
+Zoom bounds are **0.1x (10%) to 5x (500%)**.
+
+The Konva `Stage` receives `scaleX={viewport.scale}`, `scaleY={viewport.scale}`, `x={viewport.x}`, `y={viewport.y}` — all live-updated (`Canvas.tsx` lines 437–441). The Stage has no fixed viewport clipping, so the board is functionally infinite.
+
+---
+
+### 2. Sticky notes with editable text
+
+**YES**
+
+**Create flow:** `Canvas.tsx` lines 389–426 — on `handleStageClick`, when `activeTool === "sticky"`, a `BoardObject` with `kind: "sticky_note"` is assembled (with random color + slight rotation) and sent via `addObject(newObj)` (local store) and `sendObjectCreate(newObj)` (WS frame `object:create`).
+
+**Drag:** `StickyNote.tsx` lines 63–71 — `handleDragEnd` reads final `x/y` from the Konva node, calls `updateObject` (store) and `sendObjectUpdate` with `syscall: "object:update"`.
+
+**Text editing:** `StickyNote.tsx` lines 73–88 — double-click (`onDblClick`) sets `editing = true`, which mounts the `TextEditor` component. `TextEditor.tsx` is a `<textarea>` positioned over the canvas (lines 51–75). On `blur` or `Enter`, it calls `onSave(value)` → `handleTextSave` in `StickyNote.tsx` lines 77–88 → `updateObject` + `sendObjectUpdate` with the new `props.text`.
+
+---
+
+### 3. At least one shape type (rectangle, circle, or line)
+
+**YES — both rectangle and ellipse are fully functional, not stubs.**
+
+`ToolRail.tsx` lines 37–54: `rectangle` and `ellipse` tool buttons exist with `disabled` NOT set (contrast with `line`, `connector`, `text`, `draw`, `eraser` which all have `disabled: true`).
+
+`Canvas.tsx` lines 407–422: clicking the canvas with `activeTool === "rectangle"` or `"ellipse"` creates a real `BoardObject` of that `kind` and broadcasts it.
+
+`Shape.tsx` lines 124–171: both branches are fully implemented:
+- `ellipse` → `<KonvaEllipse>` with `radiusX/Y`, draggable, transform-resizable
+- `rectangle` → `<Rect>` with full `width/height`, draggable, transform-resizable
+
+Both send `object:update` on `onDragEnd` and `onTransformEnd`.
+
+---
+
+### 4. Create, move, and edit objects
+
+**YES — all three operations are wired up end-to-end.**
+
+**object:create** — `useFrameClient.ts` lines 10–37: `sendObjectCreate` sends `syscall: "object:create"`. Server handler at `ws.rs` lines 432–457 calls `services::object::create_object` and returns `Outcome::Broadcast(object_to_data(&obj))` — all board clients receive the new object.
+
+**object:update (move/resize)** — `StickyNote.tsx` lines 23–38 and `Shape.tsx` lines 30–46: both call `sendObjectUpdate` with `syscall: "object:update"`. Server handler at `ws.rs` lines 459–478 calls `services::object::update_object` and returns `Outcome::Broadcast(...)`.
+
+**object:delete** — `Canvas.tsx` lines 135–151: `sendObjectDelete` sends `syscall: "object:delete"`. Server handler at `ws.rs` lines 480–499 calls `services::object::delete_object`, broadcasts `{ id }` to all clients. Delete is triggered by `Delete`/`Backspace` key (`Canvas.tsx` lines 300–321).
+
+---
+
+### 5. Real-time sync between 2+ users
+
+**YES**
+
+The broadcast logic is in `services/board.rs` lines 209–222:
+```rust
+pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude: Option<Uuid>) {
+    let boards = state.boards.read().await;
+    let Some(board_state) = boards.get(&board_id) else { return; };
+    for (client_id, tx) in &board_state.clients {
+        if exclude == Some(*client_id) { continue; }
+        let _ = tx.try_send(frame.clone());
+    }
+}
+```
+
+This sends to all clients in `board_state.clients` (a `HashMap<Uuid, mpsc::Sender<Frame>>`). It is called from `ws.rs` in three `Outcome` variants:
+- `Outcome::Broadcast` (lines 221): object create/update/delete — broadcasts to ALL peers including sender's correlating `done`
+- `Outcome::BroadcastExcludeSender` (line 229): cursor moves — excludes originator
+- `Outcome::ReplyAndBroadcast` (line 247): board:join notification — replies to joiner, notifies all peers
+
+---
+
+### 6. Multiplayer cursors with name labels
+
+**YES**
+
+The `RemoteCursor` component is defined in `Canvas.tsx` lines 93–133. It renders inside the Konva `Layer` at the board-coordinate position of each peer's cursor:
+```tsx
+<Arrow points={[0, 0, arrowSize, arrowSize * 1.5]} fill={color} stroke={color} ... />
+<Circle x={0} y={0} radius={3 / scale} fill={color} />
+<Text x={arrowSize * 1.2} y={arrowSize * 1.8} text={name} fontSize={fontSize} ... />
+```
+It renders two text layers (shadow + color) for the label, scale-normalized so the cursor stays the same screen size at any zoom level.
+
+The cursor list comes from `presenceList` (`Canvas.tsx` lines 197–200), filtered from the store's `presence` map. Presence is updated in `useFrameClient.ts` lines 199–211 — every incoming `cursor:moved` frame sets `{ user_id, name, color, cursor: { x, y } }` in the store. The server relay is `ws.rs` lines 507–536: `handle_cursor` returns `Outcome::BroadcastExcludeSender` with `client_id`, `x`, `y`, `name`.
+
+---
+
+### 7. Presence awareness (who's online)
+
+**YES**
+
+Two UI surfaces:
+
+**Toolbar (`Toolbar.tsx` lines 27–81):** Builds `allUsers` from the current user plus all `presence` map entries, then renders a colored `presenceChip` badge per user in the toolbar. Clicking a chip opens a `UserFieldReport` popover with stats fetched from the server.
+
+**StatusBar (`StatusBar.tsx` lines 35–43):** Shows the current authenticated user's name and color dot at the bottom of the screen.
+
+Presence is populated via `board:join` broadcasts (`useFrameClient.ts` lines 129–147 — peers added with `setPresence`) and removed via `board:part` (`useFrameClient.ts` lines 149–154 — `removePresence(clientId)`). The `clearPresence()` call in `BoardPage.tsx` line 20 resets presence when leaving a board.
+
+---
+
+### 8. User authentication
+
+**YES — GitHub OAuth is fully implemented end-to-end.**
+
+- **Redirect:** `routes/auth.rs` lines 76–92 — `GET /auth/github` generates an OAuth CSRF state token, sets it as an `HttpOnly` cookie, and redirects to GitHub's authorization URL.
+- **Callback:** `routes/auth.rs` lines 101–173 — `GET /auth/github/callback` verifies the CSRF state, exchanges the code for a GitHub access token, fetches the user profile, upserts the user in Postgres, creates a session, and sets an `HttpOnly` `session_token` cookie.
+- **Session cookie protection:** `routes/auth.rs` lines 47–68 — `AuthUser` extractor reads the `session_token` cookie, validates via `session::validate_session`, and returns `401` if missing or expired. All protected handlers (`/api/auth/me`, `/api/auth/logout`, `/api/auth/ws-ticket`) use this extractor.
+- **WS ticket:** `routes/auth.rs` lines 198–203 — `POST /api/auth/ws-ticket` issues a one-time ticket. WS upgrade at `ws.rs` lines 72–83 consumes and validates this ticket before allowing any WS connection.
+- **Protected routes:** Frontend in `useFrameClient.ts` line 90 detects `401` on ticket creation and stops reconnecting (forces re-login).
+
+---
+
+### 9. Deployed and publicly accessible
+
+**PARTIAL — Infrastructure is fully configured, but no live URL is confirmed.**
+
+- **Dockerfile** (`/Users/ianzepp/github/gauntlet/collaboard/Dockerfile`): Multi-stage build. Stage 1: `oven/bun:1` builds the React client. Stage 2: `rust:1.85-slim` builds the Axum server. Stage 3: `debian:bookworm-slim` copies both artifacts. Exposes port `3000`. Fully functional build config.
+
+- **fly.toml** (`/Users/ianzepp/github/gauntlet/collaboard/fly.toml`): App name `collaboard`, region `dfw`, `force_https = true`, health check at `/healthz`, release command `collaboard --migrate-only` for auto-migrations. `min_machines_running = 1` to keep board state warm.
+
+- **Live URL:** The README (`README.md` line 7) explicitly says `*(deploy link TBD)*`. No live URL is configured anywhere in the codebase (no hardcoded `fly.dev` URL, no `VITE_API_URL` pointing to a deployed host). The deployment infrastructure is ready to use but there is no evidence the app has been deployed and is publicly accessible.
+
+---
+
+### Summary Table
+
+| # | Requirement | Status | Key Files |
+|---|-------------|--------|-----------|
+| 1 | Infinite board with pan/zoom | YES | `Canvas.tsx:235–270`, zoom clamped `0.1–5x` |
+| 2 | Sticky notes with editable text | YES | `Canvas.tsx:389–426`, `StickyNote.tsx:63–88`, `TextEditor.tsx` |
+| 3 | Rectangle and ellipse shapes | YES | `ToolRail.tsx:37–54` (not disabled), `Shape.tsx:124–171` |
+| 4 | Create, move, delete objects | YES | `ws.rs:432–499`, `useFrameClient.ts:10–37`, `Canvas.tsx:135–151` |
+| 5 | Real-time broadcast to all users | YES | `board.rs:209–222`, `ws.rs:214–257` |
+| 6 | Multiplayer cursors with name labels | YES | `Canvas.tsx:93–133`, `useFrameClient.ts:199–211` |
+| 7 | Presence awareness (who's online) | YES | `Toolbar.tsx:27–81`, `useFrameClient.ts:129–154` |
+| 8 | GitHub OAuth authentication | YES | `routes/auth.rs` full file |
+| 9 | Deployed and publicly accessible | PARTIAL | `Dockerfile`, `fly.toml` exist; README says "deploy link TBD" |
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 8 assistant
+📋 Tool calls: 23 total, 0 failed
+📋 Files: 20 read
+📋 Tokens: 37 in, 47 out
+📋 Cache: 993.9K read, 272.6K created

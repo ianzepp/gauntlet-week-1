@@ -1,0 +1,1362 @@
+📋 Session: 3662effc-a1c0-4706-8dfc-726a462921ef
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-16T21:44:07.919+00:00
+📋 Version: 2.1.42
+📋 Branch: main
+
+👤 Design a frontend scaffold plan for CollabBoard — a collaborative whiteboard React + Vite + Konva.js app.
+
+## Context
+- Backend is Rust/Axum with WebSocket frame protocol already built
+- No frontend code exists yet — starting from scratch in `client/` subdirectory
+- Working directory: /Users/ianzepp/github/gauntlet/collaboard
+
+## User Decisions
+1. **Auth**: Stub login page that auto-logs-in with a fake user (ready for OAuth later)
+2. **Scope**: BoardPage + canvas only (no dashboard/board-list pages yet)
+3. **Dev setup**: Standalone frontend with mock/local state (no backend proxy yet)
+
+## Stack
+- React 18 + TypeScript + Vite
+- react-konva + konva for canvas
+- Zustand for state management
+- Biome for lint/format
+- Bun as package manager (project requirement — NO npm)
+
+## Key Types from Backend
+
+**Frame:**
+```typescript
+interface Frame {
+  id: string;
+  parent_id: string | null;
+  ts: number;
+  board_id?: string;
+  from: string | null;
+  syscall: string;
+  status: "request" | "item" | "done" | "error" | "cancel";
+  data: Record<string, unknown>;
+}
+```
+
+**BoardObject:**
+```typescript
+interface BoardObject {
+  id: string;
+  board_id: string;
+  kind: string; // "sticky_note" | "rectangle" | "ellipse" | "line" | "connector" | "text"
+  x: number;
+  y: number;
+  width: number | null;
+  height: number | null;
+  rotation: number;
+  z_index: number;
+  props: Record<string, unknown>;
+  created_by: string | null;
+  version: number;
+}
+```
+
+## Design System (from docs/DESIGN.md)
+- Retro-scientific aesthetic — 1970s field research lab
+- Fonts: IBM Plex Mono (UI chrome, uppercase) + Caveat (content/sticky notes)
+- Canvas: warm beige (#E8E0D2), 20px grid lines
+- Zero border-radius, zero box-shadow, zero gradients
+- Object colors: 8 earth tones (cream, sage, terracotta, slate, dust, gold, stone, moss)
+- User colors: 8 muted presence colors
+- Dark mode support from day one via CSS variables
+- Full CSS variable palette defined in docs/DESIGN.md
+
+## Konva Canvas Requirements
+- Layer separation: static objects / active drag / cursors
+- Viewport culling (only render visible objects)
+- 60 FPS target
+- React.memo on all canvas components
+- Transformer for resize/rotate handles
+- Grid rendered on canvas background
+
+## What to Scaffold
+Since this is standalone (no backend), the WebSocket frame client should be a module with a mock/stub mode that works without a server. The Zustand store should be functional — you can add objects, move them, select them, etc. — all locally.
+
+Design a step-by-step implementation plan with:
+1. Project init (bun create vite, dependencies, biome config, tsconfig)
+2. Design system CSS (global.css with all CSS variables from DESIGN.md)
+3. Types (Frame, BoardObject, mirroring backend)
+4. Zustand store (objects, selection, viewport, presence)
+5. Stub login page (auto-login with fake user)
+6. BoardPage layout (toolbar + canvas area)
+7. Konva canvas with grid background
+8. Sticky note component (create, drag, select, edit text)
+9. Shape components (rectangle, ellipse — basic)
+10. Toolbar (tool selection state)
+11. Frame client stub (mock mode, ready for real WS later)
+
+For each step, list the files to create and key implementation details. Keep it concrete and actionable.
+📋 Model: sonnet-4.5
+🤖 I'll design a comprehensive frontend scaffold plan for CollabBoard. Let me start by exploring the existing project structure and documentation.
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/docs/DESIGN.md"
+✅ Glob: pattern="**/*.md" path="/Users/ianzepp/github/gauntlet/collaboard"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/docs/PRE-SEARCH.md"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/src -type f -name "*.rs" | head -20
+🤖 Let me examine the backend frame structure to ensure frontend types align perfectly.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/src/state.rs"
+❌ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/client 2>&1
+🤖 Perfect. Now I have a comprehensive understanding of the project structure and backend implementation. Let me design a detailed frontend scaffold plan.
+
+# CollabBoard Frontend Scaffold Plan
+
+## Overview
+
+This plan details a step-by-step implementation for scaffolding a React + Vite + Konva.js frontend in the `/Users/ianzepp/github/gauntlet/collaboard/client/` subdirectory. The frontend will work standalone with mock state initially, then integrate with the existing Rust/Axum backend via WebSocket frames.
+
+## Architecture Context
+
+**Backend integration points:**
+- Frame protocol: `{ id, parent_id, ts, board_id, from, syscall, status, data }`
+- BoardObject shape: `{ id, board_id, kind, x, y, width?, height?, rotation, z_index, props, created_by, version }`
+- WebSocket endpoint: `GET /api/ws?ticket=<ticket>`
+- Auth flow: GitHub OAuth with Bearer tokens, WS upgrade tickets
+
+**Design system:**
+- Retro-scientific aesthetic (1970s field research lab)
+- Fonts: IBM Plex Mono (UI) + Caveat (content)
+- Canvas: warm beige (#E8E0D2) with 20px grid
+- Zero border-radius, box-shadow, gradients
+- Full CSS variable system for light/dark mode
+
+---
+
+## Step-by-Step Implementation Plan
+
+### Step 1: Project Initialization
+
+**Goal:** Bootstrap Vite + React + TypeScript with Bun as package manager.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/package.json`**
+   ```json
+   {
+     "name": "collaboard-client",
+     "private": true,
+     "version": "0.0.1",
+     "type": "module",
+     "scripts": {
+       "dev": "vite",
+       "build": "tsc && vite build",
+       "preview": "vite preview",
+       "lint": "biome check --write .",
+       "format": "biome format --write ."
+     },
+     "dependencies": {
+       "react": "^18.3.1",
+       "react-dom": "^18.3.1",
+       "react-konva": "^18.2.10",
+       "konva": "^9.3.6",
+       "zustand": "^4.5.0"
+     },
+     "devDependencies": {
+       "@types/react": "^18.3.0",
+       "@types/react-dom": "^18.3.0",
+       "@biomejs/biome": "^1.9.4",
+       "typescript": "^5.6.0",
+       "vite": "^5.4.0",
+       "@vitejs/plugin-react": "^4.3.0"
+     }
+   }
+   ```
+
+2. **`/Users/ianzepp/github/gauntlet/collaboard/client/tsconfig.json`**
+   ```json
+   {
+     "compilerOptions": {
+       "target": "ES2020",
+       "useDefineForClassFields": true,
+       "lib": ["ES2020", "DOM", "DOM.Iterable"],
+       "module": "ESNext",
+       "skipLibCheck": true,
+       "moduleResolution": "bundler",
+       "allowImportingTsExtensions": true,
+       "isolatedModules": true,
+       "moduleDetection": "force",
+       "noEmit": true,
+       "jsx": "react-jsx",
+       "strict": true,
+       "noUnusedLocals": true,
+       "noUnusedParameters": true,
+       "noFallthroughCasesInSwitch": true,
+       "noUncheckedSideEffectImports": true
+     },
+     "include": ["src"]
+   }
+   ```
+
+3. **`/Users/ianzepp/github/gauntlet/collaboard/client/biome.json`**
+   ```json
+   {
+     "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+     "vcs": {
+       "enabled": true,
+       "clientKind": "git",
+       "useIgnoreFile": true
+     },
+     "files": {
+       "ignoreUnknown": false,
+       "ignore": ["dist", "node_modules"]
+     },
+     "formatter": {
+       "enabled": true,
+       "indentStyle": "space",
+       "indentWidth": 4,
+       "lineWidth": 120
+     },
+     "linter": {
+       "enabled": true,
+       "rules": {
+         "recommended": true
+       }
+     },
+     "javascript": {
+       "formatter": {
+         "quoteStyle": "double",
+         "semicolons": "always",
+         "trailingCommas": "es5",
+         "bracketSpacing": true,
+         "arrowParentheses": "always"
+       }
+     }
+   }
+   ```
+
+4. **`/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts`**
+   ```typescript
+   import { defineConfig } from "vite";
+   import react from "@vitejs/plugin-react";
+
+   export default defineConfig({
+       plugins: [react()],
+       server: {
+           port: 5173,
+           proxy: {
+               "/api": {
+                   target: "http://localhost:3000",
+                   changeOrigin: true,
+                   ws: true,
+               },
+           },
+       },
+   });
+   ```
+
+5. **`/Users/ianzepp/github/gauntlet/collaboard/client/index.html`**
+   ```html
+   <!DOCTYPE html>
+   <html lang="en">
+     <head>
+       <meta charset="UTF-8" />
+       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+       <title>CollabBoard</title>
+       <link rel="preconnect" href="https://fonts.googleapis.com">
+       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+       <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+     </head>
+     <body>
+       <div id="root"></div>
+       <script type="module" src="/src/main.tsx"></script>
+     </body>
+   </html>
+   ```
+
+6. **`/Users/ianzepp/github/gauntlet/collaboard/client/.gitignore`**
+   ```
+   node_modules
+   dist
+   .DS_Store
+   ```
+
+**Commands to run:**
+```bash
+cd /Users/ianzepp/github/gauntlet/collaboard
+mkdir -p client/src
+cd client
+bun install
+```
+
+---
+
+### Step 2: Design System CSS
+
+**Goal:** Implement the complete CSS variable palette and global styles from DESIGN.md.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/styles/global.css`**
+   - Full CSS variables for light/dark mode (all colors, fonts, spacing)
+   - User presence colors (--user-0 through --user-7)
+   - Global resets (box-sizing, margin, padding)
+   - Typography styles (IBM Plex Mono for UI, Caveat for content)
+   - Base HTML/body styles with canvas-bg background
+   - Scrollbar styling
+   - Transition utilities (150ms ease)
+
+**Key implementation details:**
+- `:root` block with all light mode variables (canvas, UI chrome, text, accents, borders, object colors, user colors, spacing)
+- `.dark-mode` class with dark mode overrides
+- `*` reset: `box-sizing: border-box; margin: 0; padding: 0;`
+- Body: full viewport height, font-family: var(--font-mono), background: var(--bg-primary)
+- Uppercase utility class: `text-transform: uppercase; letter-spacing: 0.06em;`
+- Zero-decoration enforced: `button, input { border-radius: 0; box-shadow: none; }`
+
+---
+
+### Step 3: Type Definitions
+
+**Goal:** Mirror backend types in TypeScript for Frame and BoardObject.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts`**
+   ```typescript
+   // Frame status lifecycle
+   export type FrameStatus = "request" | "item" | "done" | "error" | "cancel";
+
+   // Universal message type (mirrors Rust src/frame.rs)
+   export interface Frame {
+       id: string;
+       parent_id: string | null;
+       ts: number;
+       board_id: string | null;
+       from: string | null;
+       syscall: string;
+       status: FrameStatus;
+       data: Record<string, unknown>;
+   }
+
+   // Board object (mirrors Rust src/state.rs)
+   export interface BoardObject {
+       id: string;
+       board_id: string;
+       kind: string; // "sticky_note" | "rectangle" | "ellipse" | "line" | "connector" | "text"
+       x: number;
+       y: number;
+       width: number | null;
+       height: number | null;
+       rotation: number;
+       z_index: number;
+       props: Record<string, unknown>;
+       created_by: string | null;
+       version: number;
+   }
+
+   // User presence
+   export interface Presence {
+       user_id: string;
+       name: string;
+       color: string;
+       cursor: { x: number; y: number } | null;
+   }
+
+   // Viewport state
+   export interface Viewport {
+       x: number;
+       y: number;
+       scale: number;
+   }
+   ```
+
+**Key details:**
+- Keep Frame and BoardObject in perfect sync with backend structs
+- Use `null` not `undefined` for optional fields (matches Rust Option<T> serialization)
+- Add Presence and Viewport types for frontend-specific state
+
+---
+
+### Step 4: Zustand Store
+
+**Goal:** Create a centralized state store for objects, presence, selection, and viewport.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts`**
+   ```typescript
+   import { create } from "zustand";
+   import type { BoardObject, Presence, Viewport } from "../lib/types";
+
+   interface BoardStore {
+       // Core data
+       boardId: string | null;
+       objects: Map<string, BoardObject>;
+       presence: Map<string, Presence>;
+       
+       // Interaction state
+       selection: Set<string>;
+       viewport: Viewport;
+       activeTool: string; // "select" | "sticky" | "rectangle" | "ellipse" | "line" | "connector" | "text"
+       
+       // Actions
+       setBoardId: (id: string | null) => void;
+       setObjects: (objects: BoardObject[]) => void;
+       addObject: (obj: BoardObject) => void;
+       updateObject: (id: string, updates: Partial<BoardObject>) => void;
+       deleteObject: (id: string) => void;
+       
+       setPresence: (userId: string, presence: Presence) => void;
+       removePresence: (userId: string) => void;
+       
+       setSelection: (ids: string[]) => void;
+       clearSelection: () => void;
+       
+       setViewport: (viewport: Partial<Viewport>) => void;
+       setTool: (tool: string) => void;
+   }
+
+   export const useBoardStore = create<BoardStore>((set) => ({
+       boardId: null,
+       objects: new Map(),
+       presence: new Map(),
+       selection: new Set(),
+       viewport: { x: 0, y: 0, scale: 1 },
+       activeTool: "select",
+       
+       setBoardId: (id) => set({ boardId: id }),
+       
+       setObjects: (objects) => set({ objects: new Map(objects.map((o) => [o.id, o])) }),
+       
+       addObject: (obj) => set((state) => {
+           const objects = new Map(state.objects);
+           objects.set(obj.id, obj);
+           return { objects };
+       }),
+       
+       updateObject: (id, updates) => set((state) => {
+           const objects = new Map(state.objects);
+           const existing = objects.get(id);
+           if (existing) {
+               objects.set(id, { ...existing, ...updates });
+           }
+           return { objects };
+       }),
+       
+       deleteObject: (id) => set((state) => {
+           const objects = new Map(state.objects);
+           objects.delete(id);
+           return { objects };
+       }),
+       
+       setPresence: (userId, presence) => set((state) => {
+           const map = new Map(state.presence);
+           map.set(userId, presence);
+           return { presence: map };
+       }),
+       
+       removePresence: (userId) => set((state) => {
+           const map = new Map(state.presence);
+           map.delete(userId);
+           return { presence: map };
+       }),
+       
+       setSelection: (ids) => set({ selection: new Set(ids) }),
+       clearSelection: () => set({ selection: new Set() }),
+       
+       setViewport: (updates) => set((state) => ({ viewport: { ...state.viewport, ...updates } })),
+       setTool: (tool) => set({ activeTool: tool, selection: new Set() }),
+   }));
+   ```
+
+**Key details:**
+- Use `Map` for objects/presence (fast lookups by ID)
+- Use `Set` for selection (unique IDs)
+- Immutable updates (create new Maps/Sets on mutation)
+- Selector pattern: consumers can pick specific slices to minimize re-renders
+
+---
+
+### Step 5: Stub Login Page
+
+**Goal:** Auto-login page that immediately redirects with a fake user (no backend dependency).
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx`**
+   ```typescript
+   import { useEffect } from "react";
+
+   export function LoginPage({ onLogin }: { onLogin: (user: { id: string; name: string }) => void }) {
+       useEffect(() => {
+           // Auto-login with fake user after 500ms
+           const timer = setTimeout(() => {
+               const fakeUser = {
+                   id: crypto.randomUUID(),
+                   name: "Demo User",
+               };
+               localStorage.setItem("collaboard_user", JSON.stringify(fakeUser));
+               onLogin(fakeUser);
+           }, 500);
+           
+           return () => clearTimeout(timer);
+       }, [onLogin]);
+       
+       return (
+           <div style={{ 
+               display: "flex", 
+               alignItems: "center", 
+               justifyContent: "center", 
+               height: "100vh",
+               fontFamily: "var(--font-mono)",
+               textTransform: "uppercase",
+               letterSpacing: "0.06em",
+               fontSize: "11px",
+               color: "var(--text-secondary)"
+           }}>
+               Initializing...
+           </div>
+       );
+   }
+   ```
+
+**Key details:**
+- Auto-login after 500ms (no user interaction)
+- Store fake user in localStorage for persistence across refreshes
+- Ready to swap for real GitHub OAuth callback later
+- Uses design system fonts/spacing
+
+---
+
+### Step 6: BoardPage Layout
+
+**Goal:** Top-level layout with toolbar + canvas area, no sidebar yet.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx`**
+   ```typescript
+   import { useEffect } from "react";
+   import { useBoardStore } from "../store/board";
+   import { Toolbar } from "../components/Toolbar";
+   import { Canvas } from "../canvas/Canvas";
+   import styles from "./BoardPage.module.css";
+
+   export function BoardPage({ boardId }: { boardId: string }) {
+       const setBoardId = useBoardStore((state) => state.setBoardId);
+       
+       useEffect(() => {
+           setBoardId(boardId);
+           // TODO: Send board:join frame when frame client is ready
+       }, [boardId, setBoardId]);
+       
+       return (
+           <div className={styles.container}>
+               <Toolbar />
+               <div className={styles.canvasArea}>
+                   <Canvas />
+               </div>
+           </div>
+       );
+   }
+   ```
+
+2. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.module.css`**
+   ```css
+   .container {
+       display: flex;
+       flex-direction: column;
+       height: 100vh;
+       background: var(--bg-primary);
+   }
+   
+   .canvasArea {
+       flex: 1;
+       position: relative;
+       overflow: hidden;
+   }
+   ```
+
+**Key details:**
+- Flexbox column layout: toolbar fixed height, canvas fills remaining space
+- Canvas area has `position: relative` for absolute-positioned overlays (text editing, cursors)
+- Reads boardId from props, sets in Zustand store
+
+---
+
+### Step 7: Konva Canvas with Grid
+
+**Goal:** Konva Stage/Layer setup with grid background and viewport controls.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx`**
+   ```typescript
+   import { Stage, Layer, Line } from "react-konva";
+   import { useBoardStore } from "../store/board";
+   import { StickyNote } from "./StickyNote";
+   import { Shape } from "./Shape";
+   import { useCanvasSize } from "../hooks/useCanvasSize";
+
+   export function Canvas() {
+       const { width, height } = useCanvasSize();
+       const viewport = useBoardStore((state) => state.viewport);
+       const objects = useBoardStore((state) => Array.from(state.objects.values()));
+       
+       // Grid lines (20px spacing)
+       const gridLines = generateGrid(width, height, viewport);
+       
+       return (
+           <Stage
+               width={width}
+               height={height}
+               style={{ background: "var(--canvas-bg)" }}
+               scaleX={viewport.scale}
+               scaleY={viewport.scale}
+               x={viewport.x}
+               y={viewport.y}
+           >
+               {/* Background layer: grid */}
+               <Layer listening={false}>
+                   {gridLines.map((line, i) => (
+                       <Line
+                           key={i}
+                           points={line.points}
+                           stroke={line.major ? "var(--canvas-grid-major)" : "var(--canvas-grid)"}
+                           strokeWidth={1}
+                           opacity={0.5}
+                       />
+                   ))}
+               </Layer>
+               
+               {/* Object layer */}
+               <Layer>
+                   {objects.map((obj) => {
+                       if (obj.kind === "sticky_note") {
+                           return <StickyNote key={obj.id} object={obj} />;
+                       }
+                       if (["rectangle", "ellipse"].includes(obj.kind)) {
+                           return <Shape key={obj.id} object={obj} />;
+                       }
+                       return null;
+                   })}
+               </Layer>
+           </Stage>
+       );
+   }
+   
+   function generateGrid(width: number, height: number, viewport: { x: number; y: number; scale: number }) {
+       const lines: { points: number[]; major: boolean }[] = [];
+       const spacing = 20;
+       const majorInterval = 5; // Every 5th line
+       
+       // Vertical lines
+       for (let i = 0; i < width / spacing + 1; i++) {
+           const x = i * spacing;
+           lines.push({
+               points: [x, 0, x, height],
+               major: i % majorInterval === 0,
+           });
+       }
+       
+       // Horizontal lines
+       for (let i = 0; i < height / spacing + 1; i++) {
+           const y = i * spacing;
+           lines.push({
+               points: [0, y, width, y],
+               major: i % majorInterval === 0,
+           });
+       }
+       
+       return lines;
+   }
+   ```
+
+2. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useCanvasSize.ts`**
+   ```typescript
+   import { useState, useEffect } from "react";
+
+   export function useCanvasSize() {
+       const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight - 44 });
+       
+       useEffect(() => {
+           const handleResize = () => {
+               setSize({ width: window.innerWidth, height: window.innerHeight - 44 }); // 44px toolbar
+           };
+           
+           window.addEventListener("resize", handleResize);
+           return () => window.removeEventListener("resize", handleResize);
+       }, []);
+       
+       return size;
+   }
+   ```
+
+**Key details:**
+- Grid rendered as Konva Line components (not canvas drawing, for simplicity)
+- Grid layer has `listening={false}` (no mouse events)
+- Viewport transform applied to Stage (x, y, scaleX, scaleY)
+- Grid calculation includes major lines (every 5th = 100px)
+- Canvas size = viewport height minus 44px toolbar
+
+---
+
+### Step 8: Sticky Note Component
+
+**Goal:** Draggable, selectable sticky note with text editing on double-click.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx`**
+   ```typescript
+   import { memo, useRef, useState } from "react";
+   import { Rect, Text, Group } from "react-konva";
+   import type { BoardObject } from "../lib/types";
+   import { useBoardStore } from "../store/board";
+
+   interface StickyNoteProps {
+       object: BoardObject;
+   }
+
+   export const StickyNote = memo(function StickyNote({ object }: StickyNoteProps) {
+       const updateObject = useBoardStore((state) => state.updateObject);
+       const selection = useBoardStore((state) => state.selection);
+       const [isDragging, setIsDragging] = useState(false);
+       
+       const isSelected = selection.has(object.id);
+       const color = (object.props.color as string) || "#F5F0E8"; // default: cream
+       const text = (object.props.text as string) || "";
+       const width = object.width || 200;
+       const height = object.height || 200;
+       
+       const handleDragStart = () => {
+           setIsDragging(true);
+       };
+       
+       const handleDragEnd = (e: any) => {
+           setIsDragging(false);
+           updateObject(object.id, {
+               x: e.target.x(),
+               y: e.target.y(),
+           });
+       };
+       
+       const handleClick = () => {
+           useBoardStore.getState().setSelection([object.id]);
+       };
+       
+       const handleDoubleClick = () => {
+           // TODO: Show text editing overlay
+           console.log("Double-click edit:", object.id);
+       };
+       
+       return (
+           <Group
+               x={object.x}
+               y={object.y}
+               rotation={object.rotation}
+               draggable
+               onDragStart={handleDragStart}
+               onDragEnd={handleDragEnd}
+               onClick={handleClick}
+               onDblClick={handleDoubleClick}
+           >
+               {/* Background rect */}
+               <Rect
+                   width={width}
+                   height={height}
+                   fill={color}
+                   stroke={isSelected ? "#2C2824" : darken(color, 0.1)}
+                   strokeWidth={isSelected ? 2 : 1}
+                   shadowColor="#000"
+                   shadowBlur={0}
+                   shadowOpacity={0}
+               />
+               
+               {/* Text content */}
+               <Text
+                   x={8}
+                   y={8}
+                   width={width - 16}
+                   height={height - 16}
+                   text={text}
+                   fontSize={20}
+                   fontFamily="Caveat"
+                   fill="#2C2824"
+                   align="left"
+                   verticalAlign="top"
+                   wrap="word"
+               />
+           </Group>
+       );
+   });
+   
+   function darken(hex: string, amount: number): string {
+       // Simple darken utility (stub, improve later)
+       return hex;
+   }
+   ```
+
+**Key details:**
+- `React.memo` to prevent unnecessary re-renders
+- Konva `Group` for transform container (position, rotation)
+- `Rect` for background with color from props
+- `Text` with Caveat font, 8px padding
+- Drag updates Zustand store (optimistic, will send frame later)
+- Double-click logs for now (text editing overlay in Step 9)
+- Selection border: 2px dark brown when selected
+
+---
+
+### Step 9: Shape Components
+
+**Goal:** Basic rectangle and ellipse shapes (stroke only, no fill initially).
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx`**
+   ```typescript
+   import { memo, useState } from "react";
+   import { Rect, Ellipse, Group } from "react-konva";
+   import type { BoardObject } from "../lib/types";
+   import { useBoardStore } from "../store/board";
+
+   interface ShapeProps {
+       object: BoardObject;
+   }
+
+   export const Shape = memo(function Shape({ object }: ShapeProps) {
+       const updateObject = useBoardStore((state) => state.updateObject);
+       const selection = useBoardStore((state) => state.selection);
+       const [isDragging, setIsDragging] = useState(false);
+       
+       const isSelected = selection.has(object.id);
+       const width = object.width || 100;
+       const height = object.height || 100;
+       const stroke = isSelected ? "#2C2824" : "#8A8178";
+       const strokeWidth = isSelected ? 2 : 1;
+       
+       const handleDragEnd = (e: any) => {
+           setIsDragging(false);
+           updateObject(object.id, {
+               x: e.target.x(),
+               y: e.target.y(),
+           });
+       };
+       
+       const handleClick = () => {
+           useBoardStore.getState().setSelection([object.id]);
+       };
+       
+       const shapeProps = {
+           x: 0,
+           y: 0,
+           width,
+           height,
+           stroke,
+           strokeWidth,
+           fill: "transparent",
+       };
+       
+       return (
+           <Group
+               x={object.x}
+               y={object.y}
+               rotation={object.rotation}
+               draggable
+               onDragStart={() => setIsDragging(true)}
+               onDragEnd={handleDragEnd}
+               onClick={handleClick}
+           >
+               {object.kind === "rectangle" && <Rect {...shapeProps} />}
+               {object.kind === "ellipse" && (
+                   <Ellipse
+                       x={width / 2}
+                       y={height / 2}
+                       radiusX={width / 2}
+                       radiusY={height / 2}
+                       stroke={stroke}
+                       strokeWidth={strokeWidth}
+                       fill="transparent"
+                   />
+               )}
+           </Group>
+       );
+   });
+   ```
+
+**Key details:**
+- Same drag/select pattern as StickyNote
+- Transparent fill, stroke only (design system default)
+- Stroke color changes on selection
+- Ellipse centered within its bounding box
+
+---
+
+### Step 10: Toolbar Component
+
+**Goal:** Top toolbar with tool selection (select, sticky, rectangle, ellipse) and active state.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx`**
+   ```typescript
+   import { useBoardStore } from "../store/board";
+   import styles from "./Toolbar.module.css";
+
+   const tools = [
+       { id: "select", label: "Select", icon: "↖" },
+       { id: "sticky", label: "Sticky", icon: "□" },
+       { id: "rectangle", label: "Rect", icon: "▭" },
+       { id: "ellipse", label: "Ellipse", icon: "○" },
+   ];
+
+   export function Toolbar() {
+       const activeTool = useBoardStore((state) => state.activeTool);
+       const setTool = useBoardStore((state) => state.setTool);
+       
+       return (
+           <div className={styles.toolbar}>
+               {tools.map((tool) => (
+                   <button
+                       key={tool.id}
+                       className={`${styles.tool} ${activeTool === tool.id ? styles.active : ""}`}
+                       onClick={() => setTool(tool.id)}
+                       title={tool.label}
+                   >
+                       <span className={styles.icon}>{tool.icon}</span>
+                       <span className={styles.label}>{tool.label}</span>
+                   </button>
+               ))}
+           </div>
+       );
+   }
+   ```
+
+2. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.module.css`**
+   ```css
+   .toolbar {
+       height: 44px;
+       background: var(--bg-nav);
+       border-bottom: 1px solid var(--border-default);
+       display: flex;
+       align-items: center;
+       padding: 0 var(--space-md);
+       gap: var(--space-xs);
+   }
+   
+   .tool {
+       background: transparent;
+       border: none;
+       color: var(--text-nav);
+       cursor: pointer;
+       display: flex;
+       flex-direction: column;
+       align-items: center;
+       gap: 2px;
+       padding: var(--space-xs);
+       transition: color 150ms ease;
+       position: relative;
+   }
+   
+   .tool:hover {
+       color: var(--text-nav-active);
+   }
+   
+   .tool.active {
+       color: var(--text-nav-active);
+   }
+   
+   .tool.active::after {
+       content: "";
+       position: absolute;
+       bottom: -1px;
+       left: 0;
+       right: 0;
+       height: 2px;
+       background: var(--accent-green);
+   }
+   
+   .icon {
+       font-size: 18px;
+   }
+   
+   .label {
+       font-family: var(--font-mono);
+       font-size: 10px;
+       text-transform: uppercase;
+       letter-spacing: 0.06em;
+   }
+   ```
+
+**Key details:**
+- Fixed 44px height, dark nav background
+- Tool buttons: icon + label, uppercase IBM Plex Mono
+- Active tool: bottom green border + light text color
+- Hover state changes text color
+- Flexbox gap for spacing between tools
+
+---
+
+### Step 11: Frame Client (Mock Mode)
+
+**Goal:** WebSocket frame client with mock/stub mode for standalone dev.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts`**
+   ```typescript
+   import type { Frame } from "./types";
+
+   type FrameHandler = (frame: Frame) => void;
+
+   export class FrameClient {
+       private ws: WebSocket | null = null;
+       private handlers: Map<string, FrameHandler[]> = new Map();
+       private mockMode: boolean;
+       
+       constructor(mockMode = true) {
+           this.mockMode = mockMode;
+       }
+       
+       connect(url: string, ticket: string) {
+           if (this.mockMode) {
+               console.log("[FrameClient] Mock mode: not connecting to WebSocket");
+               this.sendMockConnected();
+               return;
+           }
+           
+           this.ws = new WebSocket(`${url}?ticket=${ticket}`);
+           
+           this.ws.onopen = () => {
+               console.log("[FrameClient] Connected");
+           };
+           
+           this.ws.onmessage = (event) => {
+               const frame: Frame = JSON.parse(event.data);
+               this.dispatch(frame);
+           };
+           
+           this.ws.onerror = (error) => {
+               console.error("[FrameClient] Error:", error);
+           };
+           
+           this.ws.onclose = () => {
+               console.log("[FrameClient] Disconnected");
+           };
+       }
+       
+       disconnect() {
+           if (this.ws) {
+               this.ws.close();
+               this.ws = null;
+           }
+       }
+       
+       send(frame: Frame) {
+           if (this.mockMode) {
+               console.log("[FrameClient] Mock send:", frame);
+               return;
+           }
+           
+           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+               this.ws.send(JSON.stringify(frame));
+           }
+       }
+       
+       on(syscall: string, handler: FrameHandler) {
+           if (!this.handlers.has(syscall)) {
+               this.handlers.set(syscall, []);
+           }
+           this.handlers.get(syscall)!.push(handler);
+       }
+       
+       private dispatch(frame: Frame) {
+           const handlers = this.handlers.get(frame.syscall);
+           if (handlers) {
+               handlers.forEach((h) => h(frame));
+           }
+       }
+       
+       private sendMockConnected() {
+           setTimeout(() => {
+               const frame: Frame = {
+                   id: crypto.randomUUID(),
+                   parent_id: null,
+                   ts: Date.now(),
+                   board_id: null,
+                   from: null,
+                   syscall: "session:connected",
+                   status: "item",
+                   data: { user_id: crypto.randomUUID(), name: "Demo User" },
+               };
+               this.dispatch(frame);
+           }, 100);
+       }
+   }
+   ```
+
+2. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts`**
+   ```typescript
+   import { useEffect, useRef } from "react";
+   import { FrameClient } from "../lib/frameClient";
+   import { useBoardStore } from "../store/board";
+
+   export function useFrameClient(mockMode = true) {
+       const clientRef = useRef<FrameClient | null>(null);
+       
+       useEffect(() => {
+           const client = new FrameClient(mockMode);
+           clientRef.current = client;
+           
+           // Register handlers
+           client.on("session:connected", (frame) => {
+               console.log("Connected as:", frame.data);
+           });
+           
+           client.on("object:created", (frame) => {
+               const obj = frame.data as any; // TODO: proper typing
+               useBoardStore.getState().addObject(obj);
+           });
+           
+           client.on("object:updated", (frame) => {
+               const obj = frame.data as any;
+               useBoardStore.getState().updateObject(obj.id, obj);
+           });
+           
+           client.on("object:deleted", (frame) => {
+               const id = frame.data.id as string;
+               useBoardStore.getState().deleteObject(id);
+           });
+           
+           // Connect (mock mode = no-op)
+           client.connect("ws://localhost:3000/api/ws", "");
+           
+           return () => {
+               client.disconnect();
+           };
+       }, [mockMode]);
+       
+       return clientRef;
+   }
+   ```
+
+**Key details:**
+- `mockMode` flag controls WebSocket vs stub behavior
+- In mock mode: logs frames, dispatches fake `session:connected`
+- Event handler pattern: `on(syscall, handler)`
+- Handlers update Zustand store directly
+- Hook sets up client on mount, tears down on unmount
+- Ready to swap `mockMode = false` when backend is available
+
+---
+
+### Step 12: App Wiring
+
+**Goal:** Wire up App.tsx and main.tsx to render LoginPage → BoardPage with global CSS.
+
+**Files to create:**
+
+1. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/main.tsx`**
+   ```typescript
+   import { StrictMode } from "react";
+   import { createRoot } from "react-dom/client";
+   import { App } from "./App";
+   import "./styles/global.css";
+
+   createRoot(document.getElementById("root")!).render(
+       <StrictMode>
+           <App />
+       </StrictMode>
+   );
+   ```
+
+2. **`/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx`**
+   ```typescript
+   import { useState, useEffect } from "react";
+   import { LoginPage } from "./pages/LoginPage";
+   import { BoardPage } from "./pages/BoardPage";
+   import { useFrameClient } from "./hooks/useFrameClient";
+
+   interface User {
+       id: string;
+       name: string;
+   }
+
+   export function App() {
+       const [user, setUser] = useState<User | null>(null);
+       const frameClient = useFrameClient(true); // mockMode = true
+       
+       useEffect(() => {
+           // Check localStorage for existing session
+           const stored = localStorage.getItem("collaboard_user");
+           if (stored) {
+               setUser(JSON.parse(stored));
+           }
+       }, []);
+       
+       if (!user) {
+           return <LoginPage onLogin={setUser} />;
+       }
+       
+       // Hardcoded board ID for standalone dev
+       const boardId = "demo-board-123";
+       
+       return <BoardPage boardId={boardId} />;
+   }
+   ```
+
+**Key details:**
+- App checks localStorage for existing user session
+- Auto-login via LoginPage if no session
+- Hardcoded demo boardId for standalone dev
+- Frame client initialized in App (mock mode)
+- Global CSS imported in main.tsx
+
+---
+
+## Directory Structure Summary
+
+```
+/Users/ianzepp/github/gauntlet/collaboard/client/
+├── package.json
+├── tsconfig.json
+├── biome.json
+├── vite.config.ts
+├── index.html
+├── .gitignore
+└── src/
+    ├── main.tsx
+    ├── App.tsx
+    ├── lib/
+    │   ├── types.ts              # Frame, BoardObject, Presence, Viewport
+    │   └── frameClient.ts        # WebSocket client with mock mode
+    ├── store/
+    │   └── board.ts              # Zustand store
+    ├── hooks/
+    │   ├── useCanvasSize.ts      # Viewport dimensions
+    │   └── useFrameClient.ts     # Frame client hook
+    ├── pages/
+    │   ├── LoginPage.tsx         # Auto-login stub
+    │   ├── BoardPage.tsx         # Main layout
+    │   └── BoardPage.module.css
+    ├── components/
+    │   ├── Toolbar.tsx           # Tool selection
+    │   └── Toolbar.module.css
+    ├── canvas/
+    │   ├── Canvas.tsx            # Konva Stage + grid
+    │   ├── StickyNote.tsx        # Sticky note component
+    │   └── Shape.tsx             # Rectangle/ellipse
+    └── styles/
+        └── global.css            # Design system CSS
+```
+
+---
+
+## Implementation Notes
+
+### Canvas Performance (60 FPS Target)
+
+**Current optimizations:**
+- `React.memo` on StickyNote and Shape components
+- Zustand selectors to minimize re-renders
+- Grid layer `listening={false}` (no event processing)
+
+**Future optimizations (post-MVP):**
+- Layer separation: active drag object on separate layer
+- Viewport culling: only render objects within visible bounds
+- Throttle remote cursor updates (30 Hz)
+- Batch frame updates (accumulate for 16ms, apply once per animation frame)
+
+### Text Editing Overlay (Deferred)
+
+StickyNote double-click currently logs. To implement:
+1. Show absolute-positioned `<textarea>` overlay
+2. Position at note's canvas coordinates (translate via viewport)
+3. Use Caveat font, match note dimensions
+4. On blur: update object props.text, hide overlay
+
+### Tool Handlers (Deferred)
+
+Toolbar sets `activeTool` state but doesn't implement tool behavior yet:
+- **Select tool:** Click to select, drag to move (already works)
+- **Sticky tool:** Click canvas to create sticky note at cursor position
+- **Rectangle/Ellipse tools:** Click-drag to draw bounding box
+- All mutations send frames to server (or local store in mock mode)
+
+### Backend Integration Path
+
+To connect to real backend:
+1. Set `mockMode = false` in `useFrameClient`
+2. Add auth flow: call `/api/auth/github`, exchange for token
+3. Fetch WS upgrade ticket: `POST /api/auth/ws-ticket` with Bearer token
+4. Connect frame client: `client.connect(wsUrl, ticket)`
+5. Send `board:join` frame on BoardPage mount
+6. Handle `board:state` response to hydrate objects
+
+### Dark Mode Toggle
+
+CSS variables support dark mode via `.dark-mode` class. To implement:
+1. Add toggle button in toolbar
+2. Store preference in localStorage
+3. Add/remove class on `<html>` element
+4. CSS automatically applies dark variable overrides
+
+---
+
+## Testing Strategy
+
+**Manual testing checklist (after scaffold):**
+1. Run `bun run dev` → app loads without errors
+2. Auto-login redirects to BoardPage
+3. Toolbar renders, tools are clickable
+4. Canvas renders with grid background
+5. Create mock sticky note in store → renders on canvas
+6. Drag sticky note → position updates in store
+7. Click sticky note → selection border appears
+8. Switch tools → active state changes in toolbar
+
+**Unit tests (future):**
+- Zustand store actions (add/update/delete objects)
+- Frame client dispatch routing
+- Grid generation math
+- Type guards for Frame/BoardObject
+
+---
+
+## Next Steps After Scaffold
+
+1. **Text editing overlay:** Implement double-click → textarea flow
+2. **Tool creation:** Click-to-create for sticky/rectangle/ellipse
+3. **Multi-select:** Shift-click to add to selection, drag-box select
+4. **Resize/rotate handles:** Konva Transformer component
+5. **Backend integration:** Replace mock client with real WebSocket
+6. **Presence rendering:** Remote cursors + user avatars
+7. **Connector component:** Line with arrowheads, source/target tracking
+8. **AI panel:** Sidebar with prompt input, command history
+
+---
+
+### Critical Files for Implementation
+
+The following files are most critical for implementing this frontend scaffold:
+
+- **`/Users/ianzepp/github/gauntlet/collaboard/client/package.json`** — Defines all dependencies (React, Konva, Zustand) and scripts. Must use Bun, not npm.
+
+- **`/Users/ianzepp/github/gauntlet/collaboard/client/src/styles/global.css`** — Complete design system CSS variables and global styles. All colors, fonts, spacing must be defined here first.
+
+- **`/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts`** — TypeScript types that mirror backend Frame and BoardObject structs. Must stay in perfect sync with Rust types.
+
+- **`/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts`** — Zustand store for all board state. Central coordination point for canvas components and frame client.
+
+- **`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx`** — Konva Stage/Layer setup with grid rendering. Foundation for all canvas rendering.
+
+---
+
+This plan provides a concrete, step-by-step path to scaffold a functional CollabBoard frontend that works standalone with mock data, follows the retro-scientific design system, and is ready for backend integration via the frame protocol. Each step builds incrementally with clear file locations and implementation details.
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 3 assistant
+📋 Tool calls: 10 total, 1 failed
+📋 Files: 6 read
+📋 Tokens: 75 in, 103 out
+📋 Cache: 249.3K read, 112.9K created

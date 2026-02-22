@@ -1,0 +1,130 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T14:11:02.004+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 Search the web for the current best way to get Rust code coverage in 2025-2026. I need to know:
+1. What tool to use (cargo-tarpaulin, cargo-llvm-cov, etc.) and which is recommended
+2. The install command
+3. How to run it per-crate in a workspace and get a summary (line coverage %)
+4. Any flags needed to exclude test files from coverage stats
+5. Whether it works on macOS (darwin)
+
+Return concise findings — I'm writing a shell script.
+📋 Model: sonnet-4.6
+✅ WebSearch: query="Rust code coverage cargo-llvm-cov vs cargo-tarpaulin 2025 recommended macOS"
+✅ WebSearch: query="cargo-llvm-cov workspace per-crate coverage exclude test files 2025"
+✅ WebFetch: url="https://docs.rs/crate/cargo-llvm-cov/latest/source/docs/cargo-llvm-cov.txt"
+🤖 Here is a concise breakdown for your shell script.
+
+---
+
+**Recommended tool: `cargo-llvm-cov`**
+
+It is the clear winner for macOS in 2025-2026. `cargo-tarpaulin` was designed for Linux and has known limitations on Darwin. `cargo-llvm-cov` uses LLVM's native instrumentation, has prebuilt binaries for both x86_64 and aarch64 macOS, and is available via Homebrew.
+
+---
+
+**1. Install**
+
+Two options — pick one:
+
+```bash
+# Via cargo (installs from source)
+cargo install cargo-llvm-cov --locked
+
+# Via Homebrew (prebuilt binary, faster)
+brew install cargo-llvm-cov
+```
+
+You also need `llvm-tools-preview` for the rustup toolchain:
+
+```bash
+rustup component add llvm-tools-preview
+```
+
+---
+
+**2. Run across the whole workspace, get a text summary**
+
+```bash
+cargo llvm-cov --workspace --text --summary-only
+```
+
+`--text` prints human-readable output. `--summary-only` prints only the per-file and total summary line (no per-line detail), which is what you want for a script.
+
+---
+
+**3. Run per-crate (target a specific crate)**
+
+```bash
+cargo llvm-cov -p canvas --text --summary-only
+cargo llvm-cov -p server --text --summary-only
+```
+
+Use `-p <crate-name>` to scope to one workspace member.
+
+---
+
+**4. Excluding test files**
+
+`cargo-llvm-cov` automatically excludes files named `tests.rs`, `*_tests.rs`, and `*-tests.rs` and directories named `tests/` from the report by default.
+
+Your project uses `*_test.rs` (singular, not `*_tests.rs`), so you need to add an explicit regex exclusion:
+
+```bash
+cargo llvm-cov --workspace --text --summary-only \
+  --ignore-filename-regex '_test\.rs$'
+```
+
+This prevents test file lines from inflating or deflating your production coverage numbers.
+
+---
+
+**5. macOS support**
+
+Yes, fully supported. `cargo-llvm-cov` ships universal macOS binaries (x86_64 + aarch64). No known issues on Darwin.
+
+---
+
+**Putting it together — script skeleton**
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+rustup component add llvm-tools-preview
+
+for crate in canvas server; do
+  echo "=== Coverage: $crate ==="
+  cargo llvm-cov -p "$crate" \
+    --text \
+    --summary-only \
+    --ignore-filename-regex '_test\.rs$'
+done
+```
+
+The last line of each block will contain `TOTAL` with line coverage percentage, which you can grep for in CI:
+
+```bash
+cargo llvm-cov --workspace --text --summary-only \
+  --ignore-filename-regex '_test\.rs$' \
+  | grep '^TOTAL'
+```
+
+---
+
+Sources:
+- [cargo-llvm-cov GitHub](https://github.com/taiki-e/cargo-llvm-cov)
+- [cargo-llvm-cov docs (latest)](https://docs.rs/crate/cargo-llvm-cov/latest/source/docs/cargo-llvm-cov.txt)
+- [cargo-llvm-cov Homebrew formula](https://formulae.brew.sh/formula/cargo-llvm-cov)
+- [Ignore test code issue #123](https://github.com/taiki-e/cargo-llvm-cov/issues/123)
+- [cargo-nextest test coverage integration](https://nexte.st/docs/integrations/test-coverage/)
+
+📋 --- Summary ---
+📋 Duration: 45s
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 3 total, 0 failed
+📋 Tokens: 8 in, 79 out
+📋 Cache: 16.2K read, 16.7K created

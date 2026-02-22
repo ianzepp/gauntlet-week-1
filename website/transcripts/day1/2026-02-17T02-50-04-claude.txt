@@ -1,0 +1,423 @@
+📋 Session: 170e69ac-cc65-4c37-ac66-d45c66470e61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T02:50:04.881+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Very thoroughly explore the canvas interaction code in /Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/. Focus specifically on:
+
+1. **Selection logic**: How objects are selected/deselected. Look at click handlers on the Stage, on individual objects (StickyNote, Shape), and how the selection Set in the Zustand store is managed.
+
+2. **Transformer behavior**: How react-konva's Transformer is attached to selected nodes. Look for refs, node attachment patterns, and any issues with stale refs or missing nodes.
+
+3. **Object rendering**: How objects from the store are mapped to Konva components. Look for key prop issues, missing refs, or problems with how the objects Map is iterated.
+
+4. **Event propagation**: Look at how click/drag events propagate between the Stage, objects, and transformer. Check for e.cancelBubble, stopPropagation, or missing event handlers.
+
+5. **ID swapping**: The optimistic ID swap pattern (temp UUID → server ID). Check if this could break refs, selection state, or transformer attachment.
+
+Read ALL files in the canvas/ directory completely. Also read the store (src/store/board.ts) and the hooks. I need to understand every interaction path.
+
+Report any bugs, race conditions, stale state issues, or anti-patterns you find.
+📋 Model: haiku-4.5
+🤖 I'll conduct a very thorough exploration of the canvas interaction code. Let me start by understanding the directory structure and then reading all relevant files.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client/src/canvas -type f -name "*.ts" -o -name "*.tsx" | head -20
+🤖 Let me get all the files and examine the complete directory structure:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client/src -type f \( -name "*.ts" -o -name "*.tsx" \) | grep -E "(canvas|store|hook)" | sort
+🤖 Now let me read all the canvas files and the relevant store/hook files in parallel:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/TextEditor.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+🤖 Now let me read the hooks and additional related files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useCanvasSize.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/**/*.ts"
+🤖 Now let me read the remaining lib files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+🤖 Perfect! Now let me examine the code to understand the complete interaction flow and look for potential bugs. Let me also check for any other files that might be relevant:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client/src -type f \( -name "*.ts" -o -name "*.tsx" \) | grep -v node_modules | sort
+🤖 Now let me analyze the code thoroughly and compile my findings. Let me create a detailed report covering all the areas requested:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+🤖 Now I have all the necessary information. Let me compile a comprehensive analysis report:
+
+## THOROUGH CANVAS INTERACTION CODE ANALYSIS
+
+I've read all files in `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/` and related store/hook files. Here are my findings:
+
+---
+
+### 1. SELECTION LOGIC - **CRITICAL BUGS AND ISSUES FOUND**
+
+#### Selection State Management (board.ts, lines 116-129)
+- **Good**: Selection uses a `Set<string>` which is correct for multiple selections
+- **Good**: `setSelection()`, `toggleSelection()`, `clearSelection()` are straightforward
+
+#### Canvas Click Handling (Canvas.tsx, lines 219-230 & 310-381)
+**BUG #1: Event Propagation Issue**
+- `handleStageMouseDown` (line 219) checks if target is empty by comparing `target === target.getStage()`
+- This fires BEFORE object clicks are processed
+- Objects call `onClick={onSelect}` which sets selection (lines 415, 431)
+- **RACE CONDITION**: When clicking an object, BOTH `handleStageMouseDown` fires AND the object's `onClick` fires. The order is:
+  1. `handleStageMouseDown` fires, clears selection if you didn't click the stage
+  2. Object's `onClick` fires immediately after, adds itself to selection
+  - This appears to work by accident because React event handlers are batched, but it's fragile
+
+**BUG #2: Stage Click Handler Issue (Canvas.tsx, line 310)**
+- `handleStageClick` checks `if (activeTool === "select") return;` (line 315)
+- If tool is "select" and you click empty space, NOTHING happens - no deselect!
+- The `handleStageMouseDown` clears selection at line 226, but `handleStageClick` returns early, so this is the actual deselect mechanism
+- **Problem**: This relies on execution order and two separate handlers; should be unified
+
+#### Object Selection (StickyNote.tsx, line 119 & Shape.tsx, line 149)
+```jsx
+onClick={onSelect}
+onTap={onSelect}
+```
+- Good: Both click and tap are handled
+- **ISSUE**: No event.stopPropagation() or e.cancelBubble
+- When you click an object, the click event ALSO bubbles up to the Stage
+- The Stage's `handleStageMouseDown` WILL trigger (line 223 checks if target's parent is Transformer to avoid this)
+- **POTENTIAL BUG**: If the transformer check fails, clicking a selected object might clear and reselect it
+
+---
+
+### 2. TRANSFORMER BEHAVIOR - **CRITICAL STALE REF BUG**
+
+#### Transformer Ref Management (Canvas.tsx, lines 119, 153-180)
+```typescript
+const trRef = useRef<Konva.Transformer>(null);
+const nodeMapRef = useRef<Map<string, Konva.Node>>(new Map());
+
+const handleShapeRef = useCallback((id: string, node: Konva.Node | null) => {
+    if (node) {
+        nodeMapRef.current.set(id, node);
+    } else {
+        nodeMapRef.current.delete(id);
+    }
+}, []);
+```
+
+**ARCHITECTURE ISSUE - STALE REFS**:
+- The `nodeMapRef` stores refs to Konva nodes indexed by object ID
+- When an object's ID changes (temp UUID → server ID via `replaceObjectId`), the NODE MAP IS NOT UPDATED
+- **The ref is still stored under the old ID, but the object now has the new ID**
+
+**Detailed Bug Flow**:
+1. User creates object → temp ID `abc123` assigned, object rendered, ref stored as `nodeMapRef["abc123"]`
+2. Server responds with real ID `real-id-456`
+3. `replaceObjectId("abc123", "real-id-456")` is called (Canvas.tsx, line 302)
+   - This updates `objects` Map in store
+   - This updates `selection` Set if object was selected
+   - **BUT**: `nodeMapRef` still has the ref under key `"abc123"`, not `"real-id-456"`
+4. If user now selects another object or transformer updates:
+   - `selectionKey` effect (line 162) uses the NEW ID `"real-id-456"`
+   - Tries to find node: `nodeMapRef.current.get("real-id-456")` → **RETURNS UNDEFINED**
+   - Transformer gets attached to NO NODES
+   - **TRANSFORMER BROKEN**
+
+**Code Location**: Canvas.tsx, lines 162-180:
+```typescript
+useEffect(() => {
+    const tr = trRef.current;
+    if (!tr) return;
+
+    const ids = selectionKey ? selectionKey.split(",") : [];
+    const nodes: Konva.Node[] = [];
+    for (const id of ids) {
+        const node = nodeMapRef.current.get(id);  // ← GETS NULL FOR NEW SERVER ID
+        if (node) nodes.push(node);
+    }
+    tr.nodes(nodes);
+    tr.getLayer()?.batchDraw();
+}, [selectionKey]);
+```
+
+**IMPACT**: After ID swap, you cannot transform the object; transformer appears detached.
+
+---
+
+### 3. OBJECT RENDERING - **KEY AND REF ISSUES**
+
+#### Object List Rendering (Canvas.tsx, lines 407-438)
+```jsx
+{objectList.map((obj) => {
+    if (obj.kind === "sticky_note") {
+        return (
+            <StickyNote
+                key={obj.id}
+                object={obj}
+                isSelected={selection.has(obj.id)}
+                onSelect={() => setSelection(new Set([obj.id]))}
+                onShapeRef={handleShapeRef}
+            />
+        );
+    }
+    // ...
+})}
+```
+
+**BUG #3: Key Prop Instability**
+- Key is `obj.id` which is the object's ID
+- When `replaceObjectId()` changes the ID in the store, React sees this as a **NEW OBJECT with a new key**
+- React will UNMOUNT the old component and MOUNT a new one
+- This means:
+  1. Old ref callback fires with `null` → `nodeMapRef.delete("abc123")`
+  2. Component unmounts
+  3. New component mounts with new key `"real-id-456"`
+  4. New ref callback fires with node → `nodeMapRef.set("real-id-456", node)`
+  - **This actually FIXES the stale ref bug!** (by accident)
+
+**However**: This causes unnecessary remounting, which can:
+- Lose component state (e.g., `editing` state in StickyNote)
+- Cause visual jank
+- Trigger unnecessary re-renders of child components
+
+**Better approach**: Use stable IDs like `board_id + creation_time` or server IDs from the start
+
+#### Ref Callback Pattern (StickyNote.tsx, lines 56-61 & Shape.tsx, lines 69-74)
+```typescript
+const refCallback = useCallback(
+    (node: Konva.Group | null) => {
+        onShapeRef(object.id, node);
+    },
+    [object.id, onShapeRef],
+);
+```
+
+- Good: Properly wrapped in `useCallback`
+- Good: Dependency array includes `object.id` (so callback updates when ID changes)
+- **HOWEVER**: When ID changes via `replaceObjectId()`, this WILL be called with old ID first (unmount) then new ID (mount)
+
+---
+
+### 4. EVENT PROPAGATION - **MISSING PROPAGATION STOPS**
+
+#### No stopPropagation on Objects
+- StickyNote.tsx, line 119: `onClick={onSelect}` — no stop
+- Shape.tsx, line 149: `onClick={onSelect}` — no stop
+- **RESULT**: Click event bubbles to Stage, triggering `handleStageMouseDown` AND `handleStageClick`
+
+#### Transformer Click Handling (Canvas.tsx, lines 223-224)
+```typescript
+const target = e.target;
+if (target.getParent()?.className === "Transformer") return;
+```
+- This checks if you clicked a transformer anchor/handle
+- Good: Prevents deselection when resizing
+- **INCOMPLETE**: Doesn't check if target is a transformer's edge indicator or rotation handle
+
+#### Drag Events
+- StickyNote.tsx, line 121: `onDragEnd={handleDragEnd}` — no stop
+- Shape.tsx, line 131: `onDragEnd={handleDragEnd}` — no stop
+- **ISSUE**: While dragging, mouse move events still fire and go to `handleMouseMove` on the Stage
+- This means cursor position is constantly being sent to server during drag
+- **Not necessarily wrong, but could cause jank or network spam**
+
+#### Double-Click to Edit (StickyNote.tsx, line 122)
+```typescript
+onDblClick={handleDblClick}
+```
+- No event stop
+- Might interact poorly with transformer (though transformer doesn't handle double-click)
+
+---
+
+### 5. ID SWAPPING (TEMP UUID → SERVER ID) - **RACE CONDITION BUG**
+
+#### ID Swap Flow (Canvas.tsx, lines 271-308)
+```typescript
+const sendObjectCreate = useCallback((obj: BoardObject) => {
+    const requestId = crypto.randomUUID();
+    client.send({
+        // ... create request with obj.id (temp UUID)
+    });
+
+    const handleCreateResponse = (frame: Frame) => {
+        if (frame.parent_id === requestId && frame.status === "item") {
+            const serverId = frame.data.id as string;
+            if (serverId && serverId !== obj.id) {
+                useBoardStore.getState().replaceObjectId(obj.id, serverId);
+            }
+            client.off("object:create", handleCreateResponse);
+        }
+    };
+    client.on("object:create", handleCreateResponse);
+}, []);
+```
+
+**BUG #4: Race Condition**
+1. Object created with temp ID `abc123`
+2. Object rendered immediately with key `abc123`
+3. Ref stored as `nodeMapRef["abc123"]`
+4. User immediately tries to transform it
+5. Network request still in flight...
+6. Server responds, `replaceObjectId()` called
+7. **If user was actively dragging when ID changes**:
+   - Transformer might have a stale reference
+   - Konva's internal state might be inconsistent
+
+**BUG #5: Selection Lost During Swap**
+- If object was selected (added to selection at line 369), when `replaceObjectId()` updates selection:
+  - Old ID removed from selection
+  - New ID added to selection
+  - Selection Set is correctly updated in store
+- **Good**: `replaceObjectId()` handles this correctly at lines 149-153 of board.ts
+- **But**: If transformer was attached during the swap, it might detach (due to stale ref bug #2)
+
+#### Handler Cleanup Issue (Canvas.tsx, line 304)
+```typescript
+client.off("object:create", handleCreateResponse);
+```
+- This removes ONLY this specific response handler
+- If multiple objects are created rapidly, multiple handlers are registered and unregistered
+- **Potential Memory Leak**: If you create 100 objects, you have 100 handlers listening
+- **Not a critical bug, but inefficient**
+
+---
+
+### 6. UPDATE PROPAGATION - **RACE CONDITION WITH NETWORK UPDATES**
+
+#### Concurrent Updates (StickyNote.tsx, lines 63-71)
+```typescript
+const handleDragEnd = useCallback(
+    (e: KonvaEventObject<DragEvent>) => {
+        const x = e.target.x();
+        const y = e.target.y();
+        updateObject(object.id, { x, y });
+        sendObjectUpdate(object.id, { x, y, version: object.version });
+    },
+    [object.id, object.version, updateObject],
+);
+```
+
+**BUG #6: Version Not Incremented Locally**
+- User drags object, local state updated immediately via `updateObject()`
+- Network request sent with `version: object.version`
+- Server might reject if version is stale
+- **But**: There's no optimistic version increment
+- **If server rejects due to version conflict, local state and server state diverge**
+
+**BUG #7: Simultaneous Remote + Local Updates**
+- User A drags object while User B's remote update arrives
+- Remote update from User B processed by `handleUpdated()` in useFrameClient hook
+- This calls `updateObject(obj.id, obj)` which updates the entire object
+- **If this happens during a drag, Konva might see position jump to remote value mid-drag**
+- **Result**: Jittery, unpredictable drag behavior in multi-user scenarios
+
+#### Transform Update Race (StickyNote.tsx, lines 87-105 & Shape.tsx, lines 86-117)
+```typescript
+const handleTransformEnd = useCallback(
+    (e: KonvaEventObject<Event>) => {
+        const node = e.target;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        node.scaleX(1);
+        node.scaleY(1);  // ← Reset scale to dimensions
+        const updates = {
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(5, object.width * scaleX),
+            height: Math.max(5, object.height * scaleY),
+            rotation: node.rotation(),
+        };
+        updateObject(object.id, updates);
+        sendObjectUpdate(object.id, { ...updates, version: object.version });
+    },
+    [object.id, object.width, object.height, object.version, updateObject],
+);
+```
+
+**BUG #8: Stale Width/Height in Dependency**
+- The `object.width` and `object.height` in dependencies are captured when the handler is created
+- If object's width changes (e.g., remote user transforms it), the handler still uses OLD dimensions
+- **Calculation becomes wrong**: `object.width * scaleX` uses stale `object.width`
+- **IMPACT**: If object is transformed while remote update is in-flight, dimensions might be calculated incorrectly
+
+**Specific example**:
+1. Object starts at width=100, height=100
+2. User A scales it 2x: width becomes 200, height becomes 200
+3. User B (remote) simultaneously scales it 0.5x
+4. User A's handler still has width=100 cached
+5. When User A's transform ends, it calculates new width as `100 * 2 = 200`
+6. But should be `200 * 2 = 400` (based on current state)
+
+---
+
+### 7. ADDITIONAL ISSUES
+
+#### BUG #9: Transform Not Saved to Disk Before Unmount
+- Transform happens in Konva (visual-only)
+- `handleTransformEnd` is the only place that saves it
+- **If user transforms object then closes tab before handleTransformEnd fires**, changes are lost
+- This is mitigated by debouncing on the server, but not explicitly handled
+
+#### BUG #10: Cursor Position Sent During Drag
+- Canvas.tsx, line 232-269 `handleMouseMove`
+- This is throttled to 50ms (line 24)
+- **But**: During object drag, cursor moves constantly
+- **Result**: 20 cursor position updates per second to server during drag
+- Not a bug, but could cause network spam in high-latency scenarios
+
+#### BUG #11: No Undo/Redo History
+- Objects are updated immediately in store
+- No transaction history to revert changes
+- Not a bug per se, but a missing feature that makes concurrent editing fragile
+
+#### BUG #12: Selection Not Cleared When Object Deleted
+- board.ts, lines 93-100: `deleteObject()` correctly removes from selection
+- But: If object is being transformed when deleted remotely:
+  - Transformer still references the deleted node
+  - Node might be garbage collected while transformer holds a ref
+  - **Could cause Konva errors**
+
+---
+
+## SUMMARY TABLE OF BUGS
+
+| # | Severity | Category | Issue | Impact |
+|---|----------|----------|-------|--------|
+| 1 | HIGH | Event Propagation | Missing e.stopPropagation() on object clicks | Click might deselect immediately after select |
+| 2 | CRITICAL | Transformer Refs | Stale nodeMapRef after ID swap | Transformer detaches; can't resize after object created |
+| 3 | MEDIUM | Rendering | Key instability on ID change | Unnecessary remounts, lost component state |
+| 4 | HIGH | Race Condition | ID swap during active drag/transform | Konva state inconsistency mid-interaction |
+| 5 | MEDIUM | Selection | Selection updates during ID swap | Could lose selection of newly-created objects |
+| 6 | MEDIUM | Updates | Version not incremented locally | Server version conflicts possible |
+| 7 | HIGH | Concurrent Edits | Remote updates during local drag | Jittery, unpredictable drag in multi-user |
+| 8 | HIGH | Transform Updates | Stale dimensions in transform handler | Wrong dimensions calculated on transform |
+| 9 | LOW | Persistence | Transform lost if tab closed mid-transform | Data loss on unexpected disconnect |
+| 10 | LOW | Network | Cursor spam during drag | Performance issue in high-latency |
+| 11 | LOW | UX | No undo/redo | Can't recover from mistakes |
+| 12 | MEDIUM | Cleanup | Transformer refs to deleted objects | Potential Konva errors on remote delete |
+
+---
+
+## FILES AFFECTED
+
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx` (Primary)
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx`
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx`
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts`
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts`
+
+---
+
+## RECOMMENDED FIXES (IN PRIORITY ORDER)
+
+1. **Fix Bug #2 (CRITICAL)**: Add `replaceObjectId` listener in Canvas to update nodeMapRef when IDs swap
+2. **Fix Bug #1**: Add `e.stopPropagation()` to object click handlers
+3. **Fix Bug #8**: Remove stale dimensions from dependency array or use `useRef` for current object state
+4. **Fix Bug #7**: Debounce or queue local updates to avoid conflicts with remote updates
+5. **Fix Bug #3**: Use stable IDs (like `${boardId}-${createdAt}`) instead of temp UUIDs
+6. **Fix Bug #4**: Lock interactions while ID swap is in-flight
+7. **Fix Bug #12**: Clean up transformer refs when objects are deleted
+
+📋 --- Summary ---
+📋 Duration: 57s
+📋 Messages: 1 user, 8 assistant
+📋 Tool calls: 14 total, 0 failed
+📋 Files: 10 read
+📋 Tokens: 93 in, 39 out
+📋 Cache: 388.4K read, 74.3K created

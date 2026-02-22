@@ -1,0 +1,357 @@
+📋 Session: 9a04995e-dee1-4263-b5ed-9fce4b1ad8af
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T00:32:38.183+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 In /Users/ianzepp/github/gauntlet/collaboard/server/src, explore the ai:prompt syscall handler to understand:
+1. Exactly what the request frame looks like
+2. What streaming item frames come back (text, mutations count)
+3. How object mutations are broadcast mid-execution
+4. The done/error frame format
+5. Any rate limiting details
+
+Focus on services/ai.rs and how it integrates with the ws dispatcher.
+📋 Model: haiku-4.5
+🤖 I'll explore the AI prompt syscall handler in the collaboard server. Let me start by examining the relevant files.
+❌ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src"
+❌ Glob: pattern="**/services/ai.rs" path="/Users/ianzepp/github/gauntlet/collaboard/server/src"
+❌ Glob: pattern="**/ai*.rs" path="/Users/ianzepp/github/gauntlet/collaboard/server/src"
+🤖 Let me search for the AI-related files:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -name "*ai*" -type f
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/server/src/
+🤖 Now let me read the key files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/rate_limit.rs"
+🤖 Now let me examine the WebSocket dispatcher and routes to understand the integration:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -name "*ws*" -o -name "*dispatch*" -o -name "*handler*" | head -20
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/server/src/routes/
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Now let me check for the LLM types and tools implementation:
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs"
+🤖 Perfect! Now let me get a broader view of how mutations are applied and check the broadcast system:
+✅ Bash: grep -r "broadcast" /Users/ianzepp/github/gauntlet/collaboard/server/src/services/ --include="*.rs" | head -20
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/server/src/services/
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+🤖 Perfect! Now I have a comprehensive understanding. Let me create a detailed summary document with all the information:
+
+## Summary: AI Prompt Syscall Handler — Deep Dive
+
+Based on my exploration of the collaboard server codebase, here's the complete architecture of the `ai:prompt` syscall handler:
+
+---
+
+### 1. REQUEST FRAME FORMAT
+
+**Incoming WebSocket frame:**
+```json
+{
+  "id": "<uuid>",
+  "parent_id": null,
+  "ts": 1708000000000,
+  "board_id": "<board-uuid>",
+  "syscall": "ai:prompt",
+  "status": "request",
+  "data": {
+    "prompt": "<user's text request>"
+  }
+}
+```
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` lines 115-149 (`dispatch_frame` function)
+
+The frame is parsed as a `WsRequest` struct (lines 486-493) with fields: `syscall`, `data`, and optional `board_id`.
+
+---
+
+### 2. STREAMING ITEM FRAMES
+
+The handler sends **two types of item frames back:**
+
+#### A. Object Mutation Frames (Broadcast During Execution)
+
+These are sent **immediately per mutation** as the LLM executes tool calls:
+
+**Object Created:**
+```json
+{
+  "id": "<uuid>",
+  "parent_id": "<original-request-id>",
+  "ts": 1708000000000,
+  "board_id": "<board-uuid>",
+  "syscall": "object:created",
+  "status": "item",
+  "data": {
+    "id": "<object-id>",
+    "board_id": "<board-uuid>",
+    "kind": "sticky_note|rectangle|ellipse|frame|connector",
+    "x": 100.0,
+    "y": 200.0,
+    "width": null|300.0,
+    "height": null|200.0,
+    "rotation": 0.0,
+    "z_index": 0,
+    "props": { "text": "...", "color": "#FFEB3B" },
+    "version": 0
+  }
+}
+```
+
+**Object Updated:**
+```json
+{
+  "syscall": "object:updated",
+  "status": "item",
+  "data": { ...same structure as created... }
+}
+```
+
+**Object Deleted:**
+```json
+{
+  "syscall": "object:deleted",
+  "status": "item",
+  "data": { "id": "<object-id>" }
+}
+```
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` lines 438-474
+
+Each mutation triggers a broadcast to **all board peers** (lines 445-457):
+```rust
+services::board::broadcast(state, board_id, &broadcast, None).await;
+```
+
+The broadcast function (board.rs lines 193-206) sends frames to all connected clients on the board via their mpsc channels.
+
+#### B. Final Text + Mutation Count Frame
+
+After all mutations are broadcast, one final item frame is sent to the **requesting client only**:
+
+```json
+{
+  "id": "<uuid>",
+  "parent_id": "<original-request-id>",
+  "ts": 1708000000000,
+  "board_id": "<board-uuid>",
+  "syscall": "ai:prompt",
+  "status": "item",
+  "data": {
+    "text": "<optional LLM text response>",
+    "mutations": 3
+  }
+}
+```
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` lines 462-468
+
+Note: The `text` field is optional and only sent if the LLM produced text blocks in its final response.
+
+---
+
+### 3. HOW OBJECT MUTATIONS ARE BROADCAST MID-EXECUTION
+
+**Critical insight:** Mutations happen **inside the loop**, not after.
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` lines 87-186
+
+Flow:
+1. For each LLM chat iteration (lines 116-183):
+   - Call LLM with board state + tools (lines 117-119)
+   - Extract tool calls from response (lines 148-155)
+   - **For each tool call** (lines 166-174):
+     - Execute the tool immediately via `execute_tool()` (line 168)
+     - Tool mutations are collected in `all_mutations` vec (line 168)
+   - If tool call results in mutation, push it to `all_mutations` (lines 299-351)
+
+2. **Mutations are collected, not broadcast, in `ai.rs`** — the service returns:
+```rust
+pub struct AiResult {
+    pub mutations: Vec<AiMutation>,
+    pub text: Option<String>,
+}
+
+pub enum AiMutation {
+    Created(BoardObject),
+    Updated(BoardObject),
+    Deleted(Uuid),
+}
+```
+
+3. **Broadcast happens in the WS handler** (ws.rs lines 441-460):
+   - The WS dispatcher receives `AiResult`
+   - For each mutation, it creates the corresponding frame and broadcasts it
+   - **Broadcast excludes the sender** (None argument means broadcast to all)
+
+---
+
+### 4. DONE/ERROR FRAME FORMAT
+
+#### Success (Done)
+
+After all mutations are broadcast and the final item frame is sent:
+
+```json
+{
+  "id": "<uuid>",
+  "parent_id": "<original-request-id>",
+  "ts": 1708000000000,
+  "board_id": "<board-uuid>",
+  "syscall": "ai:prompt",
+  "status": "done",
+  "data": {}
+}
+```
+
+**Location:** ws.rs line 469
+
+#### Error
+
+If the prompt handler fails:
+
+```json
+{
+  "id": "<uuid>",
+  "parent_id": "<original-request-id>",
+  "ts": 1708000000000,
+  "board_id": "<board-uuid>",
+  "syscall": "ai:prompt",
+  "status": "error",
+  "data": {
+    "code": "E_RATE_LIMITED|E_BOARD_NOT_LOADED|E_LLM_ERROR|E_LLM_NOT_CONFIGURED",
+    "message": "<human-readable error>",
+    "retryable": true|false
+  }
+}
+```
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` lines 33-61 (AiError enum)
+
+Error codes implemented:
+- `E_LLM_NOT_CONFIGURED` — no LLM provider set
+- `E_BOARD_NOT_LOADED` — board not in memory
+- `E_LLM_ERROR` — API call failed (retryable if status 429 or 5xx)
+- `E_OBJECT_ERROR` — mutation failed
+- `E_RATE_LIMITED` — hit rate limit
+
+Frame creation: frame.rs lines 160-166 (`error_from` method)
+
+---
+
+### 5. RATE LIMITING DETAILS
+
+**Three-tier rate limiting enforced before LLM call:**
+
+**Location:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/rate_limit.rs`
+
+| Limit | Scope | Value | Window |
+|-------|-------|-------|--------|
+| Per-Client Requests | Individual user | 10 requests | 60 sec |
+| Global Requests | Entire server | 20 requests | 60 sec |
+| Token Budget | Per-client | 50,000 tokens | 1 hour |
+
+**Enforcement sequence** (ai.rs lines 95-96):
+```rust
+state.rate_limiter.check_and_record(client_id)?;  // Both per-client + global
+state.rate_limiter.check_token_budget(client_id)?;
+```
+
+**Token recording** (ai.rs lines 130-132):
+```rust
+state.rate_limiter.record_tokens(
+    client_id, 
+    (response.input_tokens + response.output_tokens) as u64
+);
+```
+
+**Implementation:** 
+- Per-client requests: `HashMap<Uuid, VecDeque<Instant>>` (rate_limit.rs line 52)
+- Global requests: `VecDeque<Instant>` (line 54)
+- Token budget: `HashMap<Uuid, VecDeque<(Instant, u64)>>` (line 56)
+- Sliding window pruning (lines 139-157)
+
+**Error response:**
+```rust
+pub enum RateLimitError {
+    PerClientExceeded,
+    GlobalExceeded,
+    TokenBudgetExceeded,
+}
+```
+
+Converts to `AiError::RateLimited` (ai.rs lines 63-67) which becomes frame error status.
+
+---
+
+### 6. TOOL EXECUTION SPECIFICS
+
+**9 tools available** (tools.rs lines 12-132):
+
+1. `createStickyNote` — text, x, y, color
+2. `createShape` — type (rectangle|ellipse), x, y, width, height, color
+3. `createFrame` — title, x, y, width, height
+4. `createConnector` — fromId, toId, style (line|arrow|dashed)
+5. `moveObject` — objectId, x, y
+6. `resizeObject` — objectId, width, height
+7. `updateText` — objectId, newText
+8. `changeColor` — objectId, color
+9. `getBoardState` — (no params)
+
+**System prompt** (ai.rs lines 192-251):
+- Includes all current board objects with positions, colors, text
+- Instructs AI to use `getBoardState` for complex operations
+- Has prompt injection defense: user input wrapped in `<user_input>` tags
+
+**Tool iteration loop:**
+- Max 10 iterations (ai.rs line 26: `MAX_TOOL_ITERATIONS`)
+- Stops when `stop_reason != "tool_use"` (lines 180-182)
+- Collects all tool results and sends back to LLM
+
+---
+
+### 7. REQUEST-RESPONSE LIFECYCLE
+
+1. **Client sends** `ai:prompt` request frame with `prompt` field
+2. **WS dispatcher** (ws.rs) validates:
+   - Client must be joined to a board
+   - LLM must be configured
+   - Prompt must not be empty
+3. **AI service** (ai.rs):
+   - Rate limit check (fails → error frame)
+   - Snapshot board state
+   - Enter tool iteration loop
+   - Collect mutations and text
+   - Return `AiResult`
+4. **WS dispatcher broadcasts** mutations:
+   - For each `Created`, `Updated`, `Deleted` → broadcast frame to all peers
+5. **WS dispatcher sends** final frames to requesting client:
+   - One `item` frame with text + mutation count
+   - One `done` frame (empty data)
+
+---
+
+### 8. KEY FILES
+
+| File | Purpose |
+|------|---------|
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` | Prompt handler, tool execution, system prompt, rate limiting integration |
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` | WS dispatcher, frame parsing, broadcast of mutations |
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs` | Broadcast function, client channel management |
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs` | Frame types, status enum, error frame construction |
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/rate_limit.rs` | Three-tier rate limiting, token budget tracking |
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs` | LLM type defs, ContentBlock, error handling |
+| `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs` | Tool schema definitions |
+
+This architecture ensures mutations are sent to peers in real-time as the LLM executes, not batched at the end.
+
+📋 --- Summary ---
+📋 Duration: 46s
+📋 Messages: 1 user, 7 assistant
+📋 Tool calls: 18 total, 3 failed
+📋 Files: 8 read
+📋 Tokens: 144 in, 114 out
+📋 Cache: 618.8K read, 121.3K created

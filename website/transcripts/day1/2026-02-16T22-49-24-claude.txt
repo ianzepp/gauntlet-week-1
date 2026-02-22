@@ -1,0 +1,337 @@
+📋 Session: 0f2ee2ed-570d-4a51-bc7a-b6337c9a04b9
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard/client
+📋 Started: 2026-02-16T22:49:24.701+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Search the web for the canonical React-Konva Transformer example. I need the standard working pattern for:
+
+1. Multiple shape types (Rect, Ellipse, Group) on one Layer
+2. Single Transformer that attaches to clicked shape
+3. Click empty area to deselect
+4. Resize from all handles works
+5. Drag works
+6. Re-selection after deselect works
+
+Search for:
+- The official react-konva Transformer example from konvajs.org
+- Common pitfalls with react-konva Transformer
+- Whether Transformer works on Group nodes or only on primitive shapes (Rect, Ellipse, etc.)
+
+Key question: does Konva Transformer work correctly when attached to a Group node, or must it attach to the individual Rect/Ellipse child? This might be the root cause of all our issues.
+
+Return the working code pattern with explanations.
+📋 Model: opus-4.6
+🤖 I'll search for the official react-konva Transformer examples and documentation on Group node behavior.
+✅ WebSearch: query="react-konva Transformer example konvajs.org official 2024 2025"
+✅ WebSearch: query="konva Transformer Group node attach react-konva"
+✅ WebSearch: query="react-konva Transformer pitfalls common issues resize drag"
+🤖 Now let me fetch the actual official example code and the Group-specific issues.
+✅ WebFetch: url="https://konvajs.org/docs/select_and_transform/Basic_demo.html"
+✅ WebFetch: url="https://github.com/konvajs/konva/issues/453"
+✅ WebFetch: url="https://konvajs.org/docs/react/Transformer.html"
+✅ WebFetch: url="https://github.com/konvajs/konva/issues/459"
+✅ WebFetch: url="https://github.com/konvajs/konva/issues/602"
+✅ WebSearch: query="react-konva Transformer attach to Group node scaleX scaleY issues nested transform"
+🤖 Now let me look at the current codebase to understand what pattern is being used.
+✅ Glob: pattern="**/*.{tsx,ts}" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+🤖 Now I have the full picture. Here is the comprehensive answer.
+
+---
+
+## Canonical React-Konva Transformer Pattern and Group Node Analysis
+
+### Your Key Question: Does Transformer Work on Group Nodes?
+
+**Yes, Transformer does work when attached to a Group node.** This was confirmed in [Konva issue #453](https://github.com/konvajs/konva/issues/453) where the maintainer (lavrton) said "Should work just fine" and provided a working demo. The issue was closed as COMPLETED.
+
+However, there are **important caveats** documented in related issues:
+
+1. **[Issue #459](https://github.com/konvajs/konva/issues/459)** -- When a Transformer is attached to a node *inside* a Group (i.e., a child of a Group), the coordinates become relative and the Transformer renders in the wrong position. The official guidance: **"Transformer is designed in a way that it should be placed in the same parent as an attached node."**
+
+2. **[Issue #602](https://github.com/konvajs/konva/issues/602)** -- After using Transformer on a Group, subsequent Transformers on its *children* are wrongly applied (handles appear in wrong location). This was fixed in Konva 5.0.0.
+
+**Bottom line for your architecture:** Attaching the Transformer to a `<Group name="obj-xxx">` that sits directly on the Layer is fine -- the Transformer and the Group share the same parent (the Layer). Your current code does this correctly.
+
+### The Official React-Konva Transformer Example
+
+From [konvajs.org/docs/react/Transformer.html](https://konvajs.org/docs/react/Transformer.html), here is the canonical pattern:
+
+```tsx
+import React from 'react';
+import { Stage, Layer, Rect, Transformer } from 'react-konva';
+
+const Rectangle = ({ shapeProps, isSelected, onSelect, onChange }) => {
+  const shapeRef = React.useRef();
+  const trRef = React.useRef();
+
+  React.useEffect(() => {
+    if (isSelected) {
+      // Attach transformer to selected shape
+      trRef.current.nodes([shapeRef.current]);
+    }
+  }, [isSelected]);
+
+  return (
+    <React.Fragment>
+      <Rect
+        onClick={onSelect}
+        onTap={onSelect}
+        ref={shapeRef}
+        {...shapeProps}
+        draggable
+        onDragEnd={(e) => {
+          onChange({
+            ...shapeProps,
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+        }}
+        onTransformEnd={(e) => {
+          // Transformer changes scaleX/scaleY, NOT width/height.
+          // Reset scale to 1 and bake it into width/height.
+          const node = shapeRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            ...shapeProps,
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(5, node.width() * scaleX),
+            height: Math.max(5, node.height() * scaleY),
+          });
+        }}
+      />
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          flipEnabled={false}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
+      )}
+    </React.Fragment>
+  );
+};
+
+const App = () => {
+  const [rectangles, setRectangles] = React.useState(initialRectangles);
+  const [selectedId, selectShape] = React.useState(null);
+
+  const checkDeselect = (e) => {
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (clickedOnEmpty) {
+      selectShape(null);
+    }
+  };
+
+  return (
+    <Stage
+      width={window.innerWidth}
+      height={window.innerHeight}
+      onMouseDown={checkDeselect}
+      onTouchStart={checkDeselect}
+    >
+      <Layer>
+        {rectangles.map((rect, i) => (
+          <Rectangle
+            key={rect.id}
+            shapeProps={rect}
+            isSelected={rect.id === selectedId}
+            onSelect={() => selectShape(rect.id)}
+            onChange={(newAttrs) => {
+              const rects = rectangles.slice();
+              rects[i] = newAttrs;
+              setRectangles(rects);
+            }}
+          />
+        ))}
+      </Layer>
+    </Stage>
+  );
+};
+```
+
+Note: the official example creates **one Transformer per shape** (conditionally rendered). Your codebase uses a **single shared Transformer** at the bottom of the Layer, which is also valid and arguably cleaner.
+
+### Your Current Code vs. the Canonical Pattern
+
+Looking at your codebase, the architecture in `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx` uses the **single shared Transformer** approach. Here is what you are doing and where potential issues lie:
+
+**What you do correctly:**
+- Single `<Transformer>` at the bottom of the Layer (same parent as the Group nodes)
+- `layer.findOne('.obj-${id}')` to locate nodes by name
+- `tr.nodes(nodes)` to attach selected nodes
+- `boundBoxFunc` to prevent zero-size
+- Click-on-stage deselect via `e.target === e.target.getStage()`
+
+**The subtle problem with your Group + Transformer setup:**
+
+In `/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx` (lines 54-68), the `handleTransformEnd` reads scale from `e.target`:
+
+```ts
+const handleTransformEnd = useCallback(
+    (e: KonvaEventObject<Event>) => {
+        const node = e.target;          // <--- THIS IS THE ISSUE
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        node.scaleX(1);
+        node.scaleY(1);
+        updateObject(object.id, {
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(5, object.width * scaleX),
+            height: Math.max(5, object.height * scaleY),
+            rotation: node.rotation(),
+        });
+    },
+    [object.id, object.width, object.height, updateObject],
+);
+```
+
+**`e.target` vs `e.currentTarget`:** When the Transformer transforms a Group, `e.target` is the **Group** node itself (since the `onTransformEnd` handler is on the Group). This should be correct. However, the child Rect/Ellipse inside the Group does NOT get its own scale changed -- the **Group** gets the scale. So when you reset `node.scaleX(1)` and bake it into `width`/`height`, you are updating the Group's scale and then storing `object.width * scaleX` -- but the child Rect still has its original `width` prop. This should work because React re-renders the child with the new `object.width` from the store.
+
+**The real pitfall to watch for:** The `object.width` in the closure might be stale if the transform happens rapidly. The `useCallback` depends on `object.width` and `object.height`, so it should be current, but verify that Zustand store updates propagate before the next transform.
+
+### The Critical Scale Reset Pattern
+
+From [this article](https://longviewcoder.com/2022/04/28/what-the-hell-did-the-transformer-actually-do-to-my-shape/) and the official docs, the single most important thing to understand:
+
+> **Transformer does NOT change `width` and `height`. It changes `scaleX` and `scaleY`.**
+
+You MUST reset scale to 1 and bake it into width/height in `onTransformEnd`, exactly as you already do. If you skip this step, subsequent transforms compound the scale and everything breaks.
+
+### Recommended Single-Transformer Pattern for Multiple Shape Types
+
+Here is the clean canonical pattern that covers all your requirements, adapted for your Group-based architecture:
+
+```tsx
+// Canvas.tsx - Single Transformer approach (what you already have)
+<Layer ref={layerRef}>
+    {objectList.map((obj) => {
+        if (obj.kind === "sticky_note") {
+            return <StickyNote key={obj.id} object={obj} />;
+        }
+        if (obj.kind === "rectangle" || obj.kind === "ellipse") {
+            return <Shape key={obj.id} object={obj} />;
+        }
+        return null;
+    })}
+    {/* Single Transformer, always rendered, at end of Layer */}
+    <Transformer
+        ref={transformerRef}
+        flipEnabled={false}
+        boundBoxFunc={(oldBox, newBox) => {
+            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+                return oldBox;
+            }
+            return newBox;
+        }}
+    />
+</Layer>
+```
+
+```tsx
+// Selection attachment via useEffect (what you already have)
+useEffect(() => {
+    const tr = transformerRef.current;
+    const layer = layerRef.current;
+    if (!tr || !layer) return;
+
+    const ids = selectionKey ? selectionKey.split(",") : [];
+    const nodes: Konva.Node[] = [];
+    for (const id of ids) {
+        const node = layer.findOne(`.obj-${id}`);
+        if (node) nodes.push(node);
+    }
+    tr.nodes(nodes);
+    layer.draw();  // Force sync redraw for anchors
+}, [selectionKey, objects]);
+```
+
+```tsx
+// Shape.tsx - Group wrapping primitive shapes
+// The Group is what the Transformer attaches to (via name="obj-xxx")
+<Group
+    name={`obj-${object.id}`}
+    x={object.x}
+    y={object.y}
+    rotation={object.rotation}
+    draggable
+    onDragEnd={handleDragEnd}
+    onTransformEnd={handleTransformEnd}
+>
+    {object.kind === "rectangle" && (
+        <Rect width={object.width} height={object.height} /* ... */ />
+    )}
+    {object.kind === "ellipse" && (
+        <KonvaEllipse
+            x={object.width / 2}
+            y={object.height / 2}
+            radiusX={object.width / 2}
+            radiusY={object.height / 2}
+            /* ... */
+        />
+    )}
+</Group>
+```
+
+### Deselect on Empty Click
+
+The canonical check is:
+
+```ts
+const clickedOnEmpty = e.target === e.target.getStage();
+if (clickedOnEmpty) {
+    clearSelection();
+}
+```
+
+Your code does this but also walks up through parents looking for `obj-` named nodes, which is the correct approach when using Groups (since `e.target` would be the child Rect, not the Group).
+
+### Summary of Findings
+
+| Requirement | Status in Your Code | Notes |
+|---|---|---|
+| Multiple shape types on one Layer | Working | Rect, Ellipse, StickyNote all rendered on same Layer |
+| Single Transformer attaches to clicked shape | Working | `layer.findOne()` + `tr.nodes()` |
+| Click empty to deselect | Working | `e.target === e.target.getStage()` check |
+| Resize from all handles | Working | `boundBoxFunc` prevents zero-size |
+| Drag works | Working | `draggable` on Group + `onDragEnd` |
+| Re-selection after deselect | Should work | Depends on `useEffect` firing correctly on `selectionKey` change |
+| Transformer on Group nodes | Working | Group is same parent level as Transformer (both children of Layer) |
+
+**If you are experiencing issues with re-selection or handles not appearing**, the most likely causes are:
+
+1. **`layer.findOne('.obj-${id}')` returning null** -- check that the name is set correctly on the Group
+2. **Stale `selectionKey`** -- the `useMemo` deriving `selectionKey` from `selection` Set might not trigger if Zustand returns the same Set reference
+3. **Missing `layer.draw()` call** -- you have this, which is good; without it, Transformer anchors may not render after programmatic `nodes()` changes
+4. **`flipEnabled` not set to false** -- when resizing past the origin, Konva flips the node which causes confusing behavior. You should add `flipEnabled={false}` (you already have `boundBoxFunc` but not `flipEnabled`)
+
+### Sources
+
+- [Official React Konva Transformer Documentation](https://konvajs.org/docs/react/Transformer.html)
+- [Konva Transformer API Reference](https://konvajs.org/api/Konva.Transformer.html)
+- [Basic Select and Transform Demo](https://konvajs.org/docs/select_and_transform/Basic_demo.html)
+- [Group Transform - Issue #453](https://github.com/konvajs/konva/issues/453)
+- [Transformer for Elements Inside Group - Issue #459](https://github.com/konvajs/konva/issues/459)
+- [Transformer on Group Then Children Bug - Issue #602](https://github.com/konvajs/konva/issues/602)
+- [Transformer Styling Documentation](https://konvajs.org/docs/select_and_transform/Transformer_Styling.html)
+- [Transform Events Documentation](https://konvajs.org/docs/select_and_transform/Transform_Events.html)
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 13 total, 0 failed
+📋 Files: 3 read
+📋 Tokens: 1.8K in, 153 out
+📋 Cache: 247.6K read, 33.9K created

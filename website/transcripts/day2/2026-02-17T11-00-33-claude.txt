@@ -1,0 +1,292 @@
+📋 Session: b40c65cc-c444-4d92-917e-1866992c8d61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T11:00:33.818+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 In /Users/ianzepp/github/gauntlet/collaboard, I need to understand the client-side frame handling comprehensively. Specifically:
+
+1. In client/src/hooks/useFrameClient.ts — all the handlers registered on frame syscalls, and how they process responses (especially the item vs done status handling, and the separate "created"/"updated"/"deleted" broadcast handlers)
+2. In client/src/hooks/useAI.ts — how it handles ai:prompt responses
+3. In client/src/canvas/Shape.tsx and StickyNote.tsx — how they send object:update frames
+4. In client/src/lib/types.ts — the Frame type definition
+5. Any other files that send or receive frames (search for frameClient.send, .on(, sendObjectCreate)
+
+Show me the full relevant code sections.
+📋 Model: sonnet-4.5
+🤖 I'll read all the relevant files in parallel to give you a comprehensive view.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+🤖 Now let me read the remaining files in parallel.
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts"
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+🤖 Now let me search for all other places that call `frameClient.send`, `.on(`, and `sendObjectCreate` across the codebase.
+✅ Grep: pattern="frameClient\.send|\.on\(|sendObjectCreate|frameClient\.on" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 I now have a complete picture of everything. Here is the full breakdown:
+
+---
+
+## Frame Type (`/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts`)
+
+```ts
+export type FrameStatus = "request" | "item" | "done" | "error" | "cancel";
+
+export interface Frame {
+    id: string;
+    parent_id: string | null;
+    ts: number;
+    board_id: string | null;
+    from: string | null;
+    syscall: string;
+    status: FrameStatus;
+    data: Record<string, unknown>;
+}
+```
+
+Every frame flowing over the wire has this shape. `syscall` is the "topic" used for routing. `status` represents the phase of a request/response conversation. `parent_id` links response frames back to their originating request.
+
+---
+
+## FrameClient (`/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts`)
+
+The `FrameClient` class is a thin WebSocket wrapper with a pub/sub handler map keyed by `syscall`.
+
+- `send(frame)` — serializes to JSON and writes to the WebSocket. Suppresses logging for `cursor:` frames to reduce noise. In mock mode, just logs and no-ops.
+- `on(syscall, handler)` — registers a handler `Set` per syscall (multiple handlers allowed per syscall).
+- `off(syscall, handler)` — removes a specific handler from the set (used for one-shot handlers in `useAI`).
+- `dispatch(frame)` — called on every incoming message. Routes by `frame.syscall` to all registered handlers. Always logs `gateway:error` and `status === "error"` frames to console. Cursor frames are silently dispatched without logging.
+- Disconnect synthesizes a synthetic `session:disconnected` frame so the rest of the system can react uniformly.
+
+---
+
+## useFrameClient (`/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts`)
+
+### Module-level state
+```ts
+const pendingCreates = new Map<string, string>();
+// Maps: requestId → tempObjectId (local UUID before server confirms)
+```
+
+### `sendObjectCreate(obj)` (exported, called by Canvas)
+```ts
+client.send({
+    syscall: "object:create",
+    status: "request",
+    id: requestId,             // new UUID, stored in pendingCreates
+    data: { kind, x, y, width, height, rotation, z_index, props },
+});
+// pendingCreates.set(requestId, obj.id) — tracks tempId for ack reconciliation
+```
+
+### Registered handlers (set up in `useEffect`)
+
+| `.on(syscall, ...)` | Handler name | What it does |
+|---|---|---|
+| `session:connected` | `handleSessionConnected` | Sets status to "connected", immediately sends `board:join` request |
+| `session:disconnected` | `handleDisconnected` | Sets status to "disconnected" |
+| `board:join` | `handleBoardJoin` | On `status === "item"`, loads `frame.data.objects` into the store via `setObjects` |
+| `object:create` | `handleCreateAck` | Server's response to our create request — reconciles temp ID with real server ID |
+| `object:created` | `handleCreated` | Broadcast from server when any client creates an object |
+| `object:updated` | `handleUpdated` | Broadcast from server when any client updates an object |
+| `object:deleted` | `handleDeleted` | Broadcast from server when any client deletes an object |
+| `cursor:moved` | `handleCursorMoved` | Updates presence map for the remote client |
+
+### `handleBoardJoin` — `item` vs `done`
+```ts
+const handleBoardJoin = (frame: Frame) => {
+    if (frame.status === "item" && frame.data.objects) {
+        // Only processes "item" frames — the full object list arrives in item payloads
+        const objects = frame.data.objects as unknown as BoardObject[];
+        useBoardStore.getState().setObjects(objects);
+    }
+    // "done" is silently ignored — it's just a signal that the stream ended
+};
+```
+
+### `handleCreateAck` — reconciling temp ID with server ID
+```ts
+const handleCreateAck = (frame: Frame) => {
+    if (frame.status !== "item") return;          // only process item, ignore done
+    const obj = frame.data as BoardObject;
+    const parentId = frame.parent_id;             // parent_id = original requestId
+    if (!pendingCreates.has(parentId)) return;
+
+    const tempId = pendingCreates.get(parentId)!;
+    pendingCreates.delete(parentId);
+
+    if (tempId !== obj.id) {
+        store.replaceObjectId(tempId, obj.id);    // preserves localKey for stable React key
+    }
+    store.updateObject(obj.id, obj);              // apply full server-confirmed object
+};
+```
+
+### `handleCreated` vs `handleUpdated` vs `handleDeleted` — broadcast handlers
+
+These handle `object:created`, `object:updated`, `object:deleted` syscalls — **broadcast events from the server to all connected clients** (including the originator):
+
+```ts
+// object:created — broadcasted creation
+const handleCreated = (frame: Frame) => {
+    const obj = frame.data as BoardObject;
+    if (store.objects.has(obj.id)) {
+        store.updateObject(obj.id, obj);   // already exists locally (own create ack) — just sync
+        return;
+    }
+    store.addObject(obj);                  // new from another client — insert fresh
+};
+
+// object:updated — broadcasted update
+const handleUpdated = (frame: Frame) => {
+    const obj = frame.data as BoardObject;
+    if (obj?.id) store.updateObject(obj.id, obj);
+};
+
+// object:deleted — broadcasted deletion
+const handleDeleted = (frame: Frame) => {
+    const id = frame.data.id as string;
+    if (id) store.deleteObject(id);
+};
+```
+
+Note the asymmetry: `handleCreated` has idempotency logic (deduplicates against local optimistic insert), while `handleUpdated` and `handleDeleted` are unconditional.
+
+---
+
+## useAI (`/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts`)
+
+Unlike the persistent handlers in `useFrameClient`, the AI uses a **per-request ephemeral handler** that self-removes on completion:
+
+```ts
+const handler = (frame: Frame) => {
+    if (frame.parent_id !== requestId) return;    // filter to this specific request only
+
+    if (frame.status === "item") {
+        // Server returned a result — add as assistant message, clear loading, deregister
+        store.addAiMessage({ role: "assistant", text: data.text ?? "", mutations: data.mutations });
+        store.setAiLoading(false);
+        frameClient.off("ai:prompt", handler);    // one-shot: remove after first item
+
+    } else if (frame.status === "error") {
+        // Server returned an error — add as error message, clear loading, deregister
+        store.addAiMessage({ role: "error", text: data.message ?? "An error occurred" });
+        store.setAiLoading(false);
+        frameClient.off("ai:prompt", handler);
+
+    } else if (frame.status === "done") {
+        // Stream ended without an item (e.g. empty response) — just clear loading, deregister
+        store.setAiLoading(false);
+        frameClient.off("ai:prompt", handler);
+    }
+};
+
+frameClient.on("ai:prompt", handler);   // register before send to avoid race
+frameClient.send({ syscall: "ai:prompt", status: "request", data: { prompt: text } });
+```
+
+The `parent_id` filter inside the handler is critical: multiple AI requests could be in flight, and all would trigger any `ai:prompt` listener. The filter ensures each handler only processes its own response.
+
+---
+
+## Shape.tsx (`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx`)
+
+Local `sendObjectUpdate` function (duplicated — not shared with StickyNote):
+
+```ts
+function sendObjectUpdate(objectId: string, fields: Record<string, unknown>) {
+    client.send({
+        syscall: "object:update",
+        status: "request",
+        data: { id: objectId, ...fields },
+    });
+}
+```
+
+Called from two event handlers:
+
+- **`handleDragEnd`** — sends `{ x, y, version }` after drag completes
+- **`handleTransformEnd`** — resets Konva scale to 1, computes new dimensions, then sends `{ x, y, width, height, rotation, version }`. For ellipses, recalculates from `radiusX/radiusY * scale` back to bbox. Both also call `updateObject` locally first (optimistic update before server round-trip).
+
+---
+
+## StickyNote.tsx (`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx`)
+
+Same local `sendObjectUpdate` pattern (copy-pasted, not imported from a shared module):
+
+```ts
+function sendObjectUpdate(objectId: string, fields: Record<string, unknown>) {
+    client.send({
+        syscall: "object:update",
+        status: "request",
+        data: { id: objectId, ...fields },
+    });
+}
+```
+
+Called from three event handlers:
+
+- **`handleDragEnd`** — sends `{ x, y, version }`
+- **`handleTransformEnd`** — sends `{ x, y, width, height, rotation, version }` (uses `object.width/height * scale` since it's a `Group`, not individual shapes)
+- **`handleTextSave`** — sends `{ props: { ...object.props, text: newText }, version }` after inline text editing
+
+---
+
+## Canvas.tsx (`/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx`)
+
+Two additional frame sends:
+
+### `sendObjectDelete(objectId)` (local function)
+```ts
+client.send({
+    syscall: "object:delete",
+    status: "request",
+    data: { id: objectId },
+});
+```
+Triggered by `handleKeyDown` on `Delete`/`Backspace` key, iterating over all selected IDs. Calls `deleteObject` locally first (optimistic), then fires the frame.
+
+### `cursor:moved` (inline in `handleMouseMove`)
+```ts
+client.send({
+    syscall: "cursor:moved",
+    status: "request",
+    data: { x: canvasX, y: canvasY, name: user?.name ?? "Anonymous" },
+});
+```
+Throttled to one send per 50ms (`CURSOR_THROTTLE_MS`). Converts screen pointer position to canvas coordinates via viewport transform.
+
+### `sendObjectCreate` (imported from useFrameClient)
+Called in `handleStageClick` when `activeTool` is one of `sticky`, `rectangle`, or `ellipse`. Optimistically inserts with `addObject` first, then sends the create frame. Immediately sets selection and resets tool to `select`.
+
+---
+
+## Summary of All Syscalls Sent/Received
+
+| Syscall | Direction | Sender | Handler |
+|---|---|---|---|
+| `board:join` | send | `useFrameClient` (on session:connected) | `handleBoardJoin` |
+| `object:create` | send + recv | `Canvas` via `sendObjectCreate` | `handleCreateAck` (ack with item+done) |
+| `object:created` | recv broadcast | server | `handleCreated` |
+| `object:update` | send | `Shape`, `StickyNote` | none (server broadcasts as `object:updated`) |
+| `object:updated` | recv broadcast | server | `handleUpdated` |
+| `object:delete` | send | `Canvas` via `sendObjectDelete` | none (server broadcasts as `object:deleted`) |
+| `object:deleted` | recv broadcast | server | `handleDeleted` |
+| `cursor:moved` | send + recv broadcast | `Canvas` | `handleCursorMoved` |
+| `ai:prompt` | send + recv | `useAI` | ephemeral per-request handler |
+| `session:connected` | recv synthetic | `FrameClient` (ws open) | `handleSessionConnected` |
+| `session:disconnected` | recv synthetic | `FrameClient` (ws close) | `handleDisconnected` |
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 12 total, 0 failed
+📋 Files: 8 read
+📋 Tokens: 24 in, 75 out
+📋 Cache: 235.9K read, 56.7K created

@@ -1,0 +1,60 @@
+📋 Session: a5163d18-0b9a-4d96-b5da-05efbc3fcca8
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T21:08:22.847+00:00
+📋 Version: 2.1.42
+📋 Branch: main
+
+👤 ok. focusing on @collaboard/ see PRE-SEARCH.md for initial plan. Let's talk through this to confirm the MVP requirements, and then skeleton out the backend.
+📋 Model: opus-4.6
+🤖 Let me read the PRE-SEARCH and REQUIREMENTS docs first.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/REQUIREMENTS.md"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+👤 [Request interrupted by user]
+👤 delete REQUIREMENTS that is out of date. pre-search only
+🤖 Deleting the outdated file.
+✅ Bash: rm /Users/ianzepp/github/gauntlet/collaboard/REQUIREMENTS.md
+🤖 Done. REQUIREMENTS.md deleted. PRE-SEARCH.md is the single source of truth now.
+
+So — looking at the PRE-SEARCH, the big decision to confirm before we skeleton anything out:
+
+**The PRE-SEARCH calls for Rust + Axum + PostgreSQL + React/Konva, diverging from your CLAUDE.md defaults (Bun + Hono + SQLite + htmx).** The rationale is porting patterns from your Prior project.
+✅ AskUserQuestion: {"questions":[{"header":"Backend stack","multiSelect":false,"options":[{"description":"As planned in PRE-SEARCH. Ports Prior patterns. Slower iteratio...
+🤖 Got it — **Rust + Axum + PostgreSQL (Neon) + React/Konva** as designed. The PRE-SEARCH stands.
+
+Now let's confirm the MVP scope before skeletoning. From the PRE-SEARCH, here's what I understand as the **24-hour MVP**:
+
+**Backend (Rust/Axum):**
+- Frame type + serialization
+- GitHub OAuth flow (5 endpoints)
+- WS upgrade with ticket-based auth
+- Frame dispatch loop (syscall routing)
+- Board service (join, state hydration)
+- Object service (CRUD, LWW versioning, debounced persistence)
+- Cursor broadcast (ephemeral)
+- Postgres schema (users, sessions, ws_tickets, boards, board_objects, frames)
+
+**Frontend (React/Konva):**
+- Login page (GitHub OAuth redirect)
+- Dashboard (board list, create board)
+- Board page (canvas + toolbar)
+- Sticky notes, rectangles, circles, lines
+- Drag, resize, rotate via Konva Transformer
+- WebSocket frame client + Zustand store
+- Live cursors + presence
+
+**NOT in MVP:**
+- Freehand drawing, connectors, text blocks, multi-select, AI agent, undo/redo, image upload, templates, export
+
+Does that match your expectations, or do you want to adjust the MVP boundary before we start scaffolding?
+👤 Matches. Ignore auth wiring for now. Focus on the rust skeleton. Reference the related prior project as needed.
+🤖 Let me explore the Prior project to understand the patterns we're porting.
+❌ Task: Explore: "Explore Prior project structure"
+👤 [Request interrupted by user for tool use]
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 5 user, 5 assistant
+📋 Tool calls: 5 total, 1 failed
+📋 Files: 2 read
+📋 Tokens: 24 in, 452 out
+📋 Cache: 276.5K read, 71.6K created

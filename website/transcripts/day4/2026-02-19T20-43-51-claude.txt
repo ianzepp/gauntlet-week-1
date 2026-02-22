@@ -1,0 +1,151 @@
+📋 Session: c3f0f906-d2c0-437e-b657-69a971801121
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-19T20:43:51.098+00:00
+📋 Version: 2.1.47
+📋 Branch: main
+
+👤 Explore the canvas crate at /Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/. I need a concise but engaging summary for a README section. Tell me:
+1. List all source files (glob canvas/src/**/*.rs)
+2. Read canvas/src/lib.rs
+3. What modules exist and what does each do?
+4. How does EngineCore vs Engine work?
+5. How many tests are there? (grep for #[test] and count)
+6. What shape types are supported?
+7. How does hit testing work?
+8. What input states does the FSM handle?
+9. How does the coordinate system work (camera, world, screen)?
+
+Be specific with numbers and details.
+📋 Model: sonnet-4.6
+✅ Glob: pattern="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/**/*.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs"
+✅ Grep: pattern="#\[test\]" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/doc.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/hit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/input.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/consts.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/render.rs"
+🤖 Here is a thorough summary of the canvas crate, ready to drop into a README.
+
+---
+
+## Canvas Crate — Technical Overview
+
+The `canvas` crate is a Rust/WebAssembly whiteboard engine that owns the full lifecycle of the drawing surface. It translates raw DOM events into document mutations, manages pan/zoom camera state, performs precise hit-testing, and renders the scene. The host JavaScript layer only wires DOM events and persists the resulting `Action`s to the server.
+
+### Source Files (13 total)
+
+Located at `/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/`:
+
+| File | Role |
+|------|------|
+| `lib.rs` | Crate root; re-exports all 6 public modules |
+| `engine.rs` | `EngineCore` + `Engine`, all input dispatch, gesture FSM transitions |
+| `doc.rs` | `BoardObject`, `ObjectKind`, `DocStore`, `PartialBoardObject`, `Props` |
+| `camera.rs` | `Camera`, `Point`, coordinate conversion methods |
+| `hit.rs` | All hit-testing geometry: shapes, edges, handles, containment tests |
+| `input.rs` | `Tool`, `InputState` FSM enum, `Modifiers`, `Button`, `Key`, `UiState` |
+| `render.rs` | Full Canvas2D renderer: grid, shapes, edges, text, selection UI |
+| `consts.rs` | Shared numeric constants (zoom limits, handle sizes, star geometry) |
+| `engine_test.rs` | Integration tests for the full engine |
+| `hit_test.rs` | Unit tests for every hit geometry primitive |
+| `doc_test.rs` | Unit tests for `DocStore` and `PartialBoardObject` merging |
+| `camera_test.rs` | Unit tests for coordinate round-trips and rotation |
+| `input_test.rs` | Unit tests for `Tool` classification and FSM state |
+
+### Modules and Their Roles
+
+**`engine`** — Top-level dispatch. `EngineCore` is the testable heart: it owns the document, camera, UI state, and input FSM. It processes `on_pointer_down`, `on_pointer_move`, `on_pointer_up`, `on_wheel`, `on_key_down`, and `on_key_up` events, returning `Vec<Action>` for the host. `Engine` wraps `EngineCore` with a `HtmlCanvasElement` reference and adds the `render()` call.
+
+**`doc`** — In-memory document model. `DocStore` is a `HashMap<ObjectId, BoardObject>` with sorted_objects() for draw-order. `PartialBoardObject` is a sparse-update type; `apply_partial` does JSON-key-level merging for the open-ended `props` bag. `Props` provides typed accessors (fill, stroke, stroke_width, head, text, foot) with safe defaults.
+
+**`camera`** — Pan/zoom camera for the infinite canvas. Stores `pan_x`, `pan_y` (CSS pixels), `zoom` (scale factor, default 1.0), and `view_rotation_deg`. Implements `screen_to_world` and `world_to_screen` via rotation + scale + translation, plus `screen_dist_to_world` for handle sizing.
+
+**`hit`** — Pure geometry for picking. The main entry point `hit_test(world_pt, doc, camera, selected_id)` runs a prioritized test: selected-object handles first (resize, rotate, edge endpoints), then all objects in reverse z-order. All lower-level functions are also exported for direct use.
+
+**`input`** — Types for the gesture FSM. Defines `InputState` (the FSM), `Tool`, `Modifiers`, `Button`, `Key`, `WheelDelta`, and `UiState`.
+
+**`render`** — Canvas2D renderer. Draws in 4 layers: (1) clear + transform setup, (2) dot grid (hidden below zoom 0.2), (3) objects in z-order, (4) selection UI. All fallible Canvas2D calls propagate `Result<(), JsValue>`.
+
+**`consts`** — Shared constants: `HANDLE_RADIUS_PX = 8.0`, `ROTATE_HANDLE_OFFSET_PX = 24.0`, `STAR_INNER_RATIO = 0.5`, `MIN_SHAPE_SIZE = 2.0`, `ZOOM_MIN = 0.1`, `ZOOM_MAX = 10.0`, `ZOOM_FACTOR = 1.1`.
+
+### EngineCore vs. Engine
+
+`EngineCore` contains all application logic — document mutations, camera math, gesture state transitions — with zero dependency on the browser. It can be constructed, driven with plain Rust data, and tested in a standard `cargo test` environment without WASM.
+
+`Engine` wraps `EngineCore` and holds a `HtmlCanvasElement`. It delegates every method to `core` and adds one capability: `render()`, which obtains a `CanvasRenderingContext2d`, resizes the backing store to `viewport × DPR`, then calls `render::draw(...)`. This split is the reason the test suite is large and fast — no browser needed.
+
+### Test Count
+
+**382 total `#[test]` functions**, distributed across 5 test files:
+
+| File | Count |
+|------|-------|
+| `engine_test.rs` | 174 |
+| `hit_test.rs` | 101 |
+| `doc_test.rs` | 49 |
+| `camera_test.rs` | 30 |
+| `input_test.rs` | 28 |
+
+### Shape Types (8 ObjectKind variants)
+
+1. **Rect** — axis-aligned rectangle; hit-tested as AABB with rotation support
+2. **Frame** — container/group shape; renders with a title header band; dragging/rotating a frame carries all enclosed children
+3. **Ellipse** — bounding-box-inscribed ellipse; hit via normalized unit-circle test `dx² + dy² <= 1`
+4. **Diamond** — rhombus with vertices at edge midpoints; hit via taxicab norm `|dx/cx| + |dy/cy| <= 1`
+5. **Star** — 5-point star with inner radius ratio 0.5; hit via a 10-vertex polygon ray-cast
+6. **Line** — straight segment between two `props` endpoints; hit via point-to-segment distance
+7. **Arrow** — directed edge with arrowhead at endpoint B; same geometry as Line, with rendered arrowhead at 30° half-angle, 10 world-unit length
+8. **Youtube** — embedded retro TV tile; rendered as a multi-layer shell (body, bezel, screen, play button, antennas); hit-tested as a rectangle
+
+### Hit Testing
+
+`hit_test(world_pt, doc, camera, selected_id)` operates in two prioritized passes:
+
+1. **Handles first** (only for the selected object). For edge objects (Line/Arrow): tests proximity to endpoints A and B using `point_near_point` with a `HANDLE_RADIUS_PX = 8` screen-pixel radius converted to world units. For shapes: tests the circular rotate handle (24px above the N bounding-box edge, accounting for rotation), then all 8 resize handles (N, NE, E, SE, S, SW, W, NW) — also 8px radius each.
+
+2. **Body traversal** in reverse z-order (topmost first). Each shape dispatches to its specific containment test. For edges, `distance_to_segment(world_pt, a, b) <= handle_radius_world`. All containment tests first unrotate the world point into local object space via `world_to_local(pt, x, y, w, h, rotation_deg)`, then test the normalized local geometry.
+
+Edge endpoints support two modes: `"free"` (an `{x, y}` pair in world space) and `"attached"` (a normalized `{ux, uy}` anchor on a target object, resolved to world coordinates at query time via `attached_anchor_world_point`).
+
+### Input FSM States (7 variants)
+
+```
+Idle
+  → Panning            { last_screen }
+  → DraggingObject     { id, last_world, orig_x, orig_y }
+  → DrawingShape       { id, anchor_world }
+  → ResizingObject     { id, anchor: ResizeAnchor, start_world, orig_x, orig_y, orig_w, orig_h }
+  → RotatingObject     { id, center, orig_rotation }
+  → DraggingEdgeEndpoint { id, end: EdgeEnd }
+```
+
+Transitions are driven by `on_pointer_down` (enters a gesture state), `on_pointer_move` (emits incremental deltas; clamps rotation with `normalize_angle_delta`), and `on_pointer_up` (emits final `ObjectCreated`/`ObjectUpdated`/`ObjectDeleted` actions and resets to `Idle`). Key presses: `Delete`/`Backspace` delete the selection; `Escape` cancels the active gesture; `Enter` triggers `EditTextRequested`. Middle-button down always enters `Panning` regardless of active tool.
+
+### Coordinate System
+
+Three spaces:
+
+- **Screen space** — CSS pixels, origin at top-left, y-axis down. Input events arrive here.
+- **World space** — the infinite canvas coordinate system, units match screen pixels at zoom=1.0. All `BoardObject` geometry (x, y, width, height) is stored here.
+- **Local (object) space** — world space unrotated around the object's bounding-box center, used internally for containment tests and resize math.
+
+**`screen_to_world(screen_pt, viewport_center)`**:
+1. Unrotate the screen point around the viewport center by `-view_rotation_deg`
+2. Apply `(x - pan_x) / zoom, (y - pan_y) / zoom`
+
+**`world_to_screen(world_pt, viewport_center)`**:
+1. Scale and translate: `x * zoom + pan_x, y * zoom + pan_y`
+2. Rotate around the viewport center by `+view_rotation_deg`
+
+Zoom is clamped to `[0.1, 10.0]`, with a 1.1x factor per scroll tick. Zoom-toward-cursor adjusts `pan_x/pan_y` to keep the world point under the cursor fixed (accounting for view rotation). The renderer scales the canvas backing store by DPR for high-density displays: `canvas.width = viewport_w * dpr`, with a `ctx.scale(dpr, dpr)` at the start of every frame.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 10 total, 0 failed
+📋 Files: 8 read
+📋 Tokens: 17 in, 247 out
+📋 Cache: 124.6K read, 52.7K created

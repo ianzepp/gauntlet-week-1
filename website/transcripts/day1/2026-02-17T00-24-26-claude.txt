@@ -1,0 +1,217 @@
+📋 Session: a1822309-77ea-4794-a750-209a4f3aed63
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T00:24:26.663+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 [Request interrupted by user for tool use]
+👤 Implement the following plan:
+
+# Issue #17: WebSocket Real-Time Sync + Cursor Presence
+
+## Context
+The server-side WS infrastructure is complete (frame dispatch, object CRUD, cursor relay, board join/part, persistence). The client has a `FrameClient` class and `useFrameClient` hook, but **mock mode is hardcoded on** and **no mutations are sent over WS**. Objects are created/updated only in the local Zustand store. This means zero real-time sync and zero persistence.
+
+## Changes
+
+### 1. Wire up FrameClient as a shared singleton via store
+**File:** `client/src/store/board.ts`
+- Add `frameClient: FrameClient | null` and `setFrameClient` to the store
+- This lets Canvas, StickyNote, Shape all access the client to send frames
+
+### 2. Disable mock mode and add board:join on connect
+**File:** `client/src/hooks/useFrameClient.ts`
+- Change `mockMode` default to `false`
+- After WS connects + receives `session:connected`, send `board:join` frame with the current boardId
+- On `board:join` response (item frame with `objects` array), call `setObjects()` to hydrate
+- Register handlers for `cursor:moved` → `setPresence()`
+
+**File:** `client/src/App.tsx`
+- Change `useFrameClient(true)` → `useFrameClient()`
+
+### 3. Send object mutations over WS
+**File:** `client/src/canvas/Canvas.tsx`
+- After `addObject(newObj)`, send `object:create` frame via frameClient
+- On `object:created` response from server, replace local temp ID with server ID
+
+**File:** `client/src/canvas/StickyNote.tsx`
+- `handleDragEnd`: send `object:update` frame (x, y, version)
+- `handleTransformEnd`: send `object:update` frame (x, y, width, height, rotation, version)
+- `handleTextSave`: send `object:update` frame (props, version)
+
+**File:** `client/src/canvas/Shape.tsx`
+- `handleDragEnd`: send `object:update` frame (x, y, version)
+- `handleTransformEnd`: send `object:update` frame (x, y, width, height, rotation, version)
+
+### 4. Send cursor position over WS
+**File:** `client/src/canvas/Canvas.tsx`
+- Add `onMouseMove` to Stage → throttle (50ms) → send `cursor:moved` frame with canvas-space x, y, user name
+
+### 5. Render remote cursors
+**File:** `client/src/canvas/Canvas.tsx` (or new `Cursor.tsx`)
+- Read `presence` from store
+- Render a small arrow + name label for each remote user in the object Layer
+- Use user color from presence data
+
+### 6. Update StatusBar with connection state + presence
+**File:** `client/src/components/StatusBar.tsx`
+- Replace hardcoded "Offline" with connection status from store
+- Show count of connected users from presence map
+
+### 7. Add connection state to store
+**File:** `client/src/store/board.ts`
+- Add `connectionStatus: "connecting" | "connected" | "disconnected"` + setter
+- Add `user: User | null` + setter (needed for cursor name/color)
+
+## File Summary
+| File | Change |
+|------|--------|
+| `client/src/store/board.ts` | Add frameClient ref, connectionStatus, user to store |
+| `client/src/hooks/useFrameClient.ts` | Disable mock, board:join, cursor handler, hydrate objects |
+| `client/src/App.tsx` | Pass `false` to useFrameClient, pass user to store |
+| `client/src/canvas/Canvas.tsx` | Send create/cursor frames, render remote cursors |
+| `client/src/canvas/StickyNote.tsx` | Send update frames on drag/transform/text |
+| `client/src/canvas/Shape.tsx` | Send update frames on drag/transform |
+| `client/src/components/StatusBar.tsx` | Show connection status + user count |
+
+## Verification
+1. `bun tsc` — type-check passes
+2. Start server: `cargo run` in `server/`
+3. Start client: `bun dev` in `client/`
+4. Open two browser tabs, both logged in
+5. Create a sticky note in tab 1 → appears in tab 2
+6. Drag/resize in tab 1 → updates in tab 2
+7. Move mouse in tab 1 → cursor visible in tab 2
+8. Refresh tab 2 → objects persist (hydrated from server on board:join)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-gauntlet-collaboard/a1822309-77ea-4794-a750-209a4f3aed63.jsonl
+📋 Model: opus-4.6
+🤖 I'll start by reading the key files to understand the current state of the codebase.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx"
+🤖 Now let me read the FrameClient class and types to understand the frame protocol.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.module.css"
+🤖 Now let me check the server-side frame protocol to understand what frames to send/expect.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/api.ts"
+✅ Task: Explore: "Explore server WS protocol"
+🤖 Now I have a complete understanding of the codebase. Let me implement all the changes.
+✅ TaskCreate: {"activeForm":"Updating board store","description":"Add frameClient ref, connectionStatus, and user fields to the Zustand store","subject":"Add frameC...
+✅ TaskUpdate: {"status":"in_progress","taskId":"1"}
+🤖 ### Step 1: Update board store
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ TaskUpdate: {"status":"completed","taskId":"1"}
+🤖 ### Step 2: Update useFrameClient hook
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+🤖 ### Step 3: Update App.tsx
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+🤖 ### Step 4: Update Canvas.tsx — send object:create, cursor:moved, render remote cursors
+
+I need to also update the FrameClient to expose an `onclose` callback for connection status tracking. Let me first update FrameClient to fire a disconnect event.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+🤖 Now add the disconnected handler in useFrameClient:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+🤖 Now update Canvas.tsx with object:create sending, cursor tracking, and remote cursor rendering:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 I need to add the Frame type import in Canvas.tsx:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 ### Step 5: Update StickyNote.tsx — send object:update frames
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+🤖 ### Step 6: Update Shape.tsx — send object:update frames
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+🤖 ### Step 7: Update StatusBar.tsx — show connection status + user count
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx"
+🤖 Now let's run the type checker.
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/client && bun tsc 2>&1
+✅ Bash: bunx tsc --noEmit 2>&1
+🤖 Let me verify I'm in the right directory:
+✅ Bash: bunx tsc --noEmit 2>&1
+✅ Bash: bunx tsc --noEmit 2>&1
+✅ Bash: bun run tsc --noEmit 2>&1
+✅ Bash: npx tsc --noEmit 2>&1
+🤖 Let me check that tsconfig and tsc work from the client dir:
+✅ Bash: npx tsc --noEmit --pretty 2>&1; echo "EXIT: $?"
+🤖 Type checking passes cleanly. Now let me also check the Rust backend compiles (since it should be unmodified but let's verify):
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/server && cargo clippy 2>&1 | tail -5
+🤖 Backend has pre-existing warnings but compiles fine. Now let me commit.
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard && git status
+✅ Bash: git diff --stat
+✅ Bash: git log --oneline -5
+✅ Bash: git add client/src/App.tsx client/src/canvas/Canvas.tsx client/src/canvas/Shape.tsx client/src/canvas/StickyNote.tsx client/src/components/StatusBar.tsx client/src/hooks/useFrameClient.ts client/src/l...
+🤖 All changes are committed. Here's a summary of what was implemented:
+
+### Changes Made (8 files)
+
+1. **`store/board.ts`** — Added `frameClient`, `connectionStatus`, `user` state + setters, and `replaceObjectId` for swapping temp IDs with server-assigned IDs
+
+2. **`hooks/useFrameClient.ts`** — Disabled mock mode by default; on `session:connected`, sends `board:join` to hydrate objects; handles `cursor:moved` broadcasts to update presence; tracks connection status changes
+
+3. **`lib/frameClient.ts`** — Added synthetic `session:disconnected` dispatch on WebSocket close
+
+4. **`App.tsx`** — Removed `useFrameClient(true)` → `useFrameClient()`; stores user in board store after login
+
+5. **`canvas/Canvas.tsx`** — Sends `object:create` frames with temp→server ID replacement; sends `cursor:moved` frames throttled at 50ms; renders `RemoteCursor` components (arrow + name label) for each remote user
+
+6. **`canvas/StickyNote.tsx`** — Sends `object:update` frames on drag end, transform end, and text save
+
+7. **`canvas/Shape.tsx`** — Sends `object:update` frames on drag end and transform end
+
+8. **`components/StatusBar.tsx`** — Shows live connection status (Connected/Connecting/Offline) with colored dot, and connected user count
+👤 there an issue about an ai panel, let's find and then talk about it
+✅ Bash: gh issue list --state open 2>&1
+🤖 That's **issue #26 — "Frontend: AI chat panel / prompt input"**. Let me pull up the details.
+✅ Bash: gh issue view 26 2>&1
+🤖 Here's **issue #26**: it's a post-MVP feature to build a frontend AI chat panel that connects to the already-complete backend AI agent (`ai:prompt` syscall).
+
+### What it needs:
+1. **`useAI` hook** — sends `ai:prompt` frames over WS, handles streaming object mutations (objects appear as the AI creates them), and tracks loading state
+2. **AI chat panel UI** — text input for natural-language commands (e.g. "create a SWOT analysis"), displays AI text responses, shows mutation count/progress
+
+### Dependencies:
+- Backend AI agent (#12) — already done
+- WebSocket frame client (#17) — just completed
+
+The backend already supports `ai:prompt` which streams `object:created`/`object:updated`/`object:deleted` broadcasts mid-execution, then returns a final `item` frame with `text` and `mutations` count.
+
+Want to go ahead and implement this, or did you want to discuss the approach first?
+👤 this is post-MVP?
+🤖 Yes — the issue explicitly says:
+
+> **Not required for MVP hard gate.** Part of Early Submission (Friday) scope.
+
+It's split from #12 (the backend AI agent, which is done) and categorized under "Early Submission" rather than the core MVP. The backend is ready, it just needs the frontend panel wired up.
+
+Want to bump it into the current sprint, or keep it for later?
+👤 let's create it anyways, we are basically there.
+✅ EnterPlanMode: {}
+🤖 Let me explore the existing patterns to understand the UI layout and how to best integrate an AI panel.
+✅ Task: Explore: "Explore UI layout and components"
+✅ Task: Explore: "Explore AI backend protocol"
+🤖 Good, I have a solid understanding now. Let me check the existing toolbar to see where an AI button would go, and look at the BoardPage layout more closely.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.module.css"
+🤖 Now let me check the global CSS for available design tokens.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/styles/global.css"
+🤖 I have everything I need. Let me write the plan.
+❌ Write: file="/Users/ianzepp/.claude/plans/cached-singing-fox.md"
+✅ Read: file="/Users/ianzepp/.claude/plans/cached-singing-fox.md"
+✅ Write: file="/Users/ianzepp/.claude/plans/cached-singing-fox.md"
+❌ ExitPlanMode: {"plan":"# Issue #26: Frontend AI Chat Panel\n\n## Context\nThe backend AI agent is complete — `ai:prompt` accepts a text prompt, executes LLM tool ...
+
+📋 --- Summary ---
+📋 Duration: 10m
+📋 Messages: 5 user, 27 assistant
+📋 Tool calls: 52 total, 2 failed
+📋 Files: 16 read, 7 written, 4 edited
+📋 Tokens: 705 in, 5.8K out
+📋 Cache: 4.2M read, 183.1K created

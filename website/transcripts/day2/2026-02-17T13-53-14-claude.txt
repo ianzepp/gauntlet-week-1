@@ -1,0 +1,160 @@
+📋 Session: e6c0b8a4-a29c-47a1-819c-f5c3e23440bb
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T13:53:14.896+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 time to do a gh issues audit vs the current code status.
+📋 Model: opus-4.6
+🤖 I'll audit the GitHub issues against the current codebase state. Let me gather both in parallel.
+✅ Bash: gh issue list --state open --limit 100 --json number,title,labels,body 2>&1
+✅ Task: Explore: "Explore collaboard codebase structure"
+🤖 Now let me also check for closed issues to see the full picture.
+✅ Bash: gh issue list --state closed --limit 100 --json number,title,state 2>&1
+🤖 Here's the full audit of **open GitHub issues vs. current code state**:
+
+---
+
+## Issues Audit
+
+### EPIC #1 — CollabBoard MVP
+**Status: Nearly complete, should be closeable**
+
+The epic checklist items vs. reality:
+
+| Requirement | Status | Notes |
+|---|---|---|
+| Infinite board with pan/zoom | **Done** | Scroll pan, Ctrl+wheel zoom (0.1x–5x) |
+| Sticky notes with editable text | **Done** | Create, drag, resize, rotate, edit, 8 colors |
+| At least one shape type | **Done** | Rectangle + Ellipse both work |
+| Create, move, edit objects | **Done** | Full CRUD via WS frames |
+| Real-time sync between 2+ users | **Done** | Broadcast + optimistic updates + LWW |
+| Multiplayer cursors with name labels | **Done** | RemoteCursor component, 50ms throttle |
+| Presence awareness | **Done** | Join/part broadcast, toolbar chips |
+| User authentication | **Done** | GitHub OAuth, sessions, WS tickets |
+| Deployed and publicly accessible | **Done** | Fly.io, `fly.toml` configured, Dockerfile ready |
+
+**Recommendation: Close #1.** All MVP checklist items are implemented.
+
+---
+
+### Open Issues — Audit Results
+
+| # | Title | Verdict | Rationale |
+|---|---|---|---|
+| **#1** | EPIC: CollabBoard MVP | **Close** | All 9 MVP requirements met (see above) |
+| **#9** | Tests: frame client dispatch, multi-client sync | **Close** | Backend tests exist; frame dispatch + multi-client sync tests are in the codebase |
+| **#10** | Deploy to Fly.io, integration testing | **Close** | Dockerfile, fly.toml, healthcheck, WS config all implemented. Fly deployment pipeline exists |
+| **#17** | Frontend: WS frame client, sync, cursors | **Close** | `useFrameClient.ts`, `frameClient.ts`, `RemoteCursor`, presence UI — all fully implemented |
+| **#11** | Connectors, text, multi-select, rotate, board CRUD UI | **Partially done** | Board CRUD UI done (Dashboard + MissionControl). Rotate done. But: connectors not rendered on frontend, text objects not rendered, multi-select not implemented. Should **keep open** or split |
+| **#13** | Copy/paste, disconnect recovery, polish | **Partially done** | Reconnect with backoff exists. No copy/paste. No viewport culling. Keep **open** |
+| **#18** | Frames: group content areas | **Not done on frontend** | Server creates `frame` objects, AI can create them, but Canvas.tsx returns `null` for frames. Keep **open** |
+| **#20** | Resilience testing | **Open** | No dedicated stress/resilience tests found. Keep **open** |
+| **#21** | AI Development Log | **Open** | No `docs/AI-DEVELOPMENT-LOG.md` exists. Keep **open** |
+| **#22** | AI Cost Analysis | **Open** | No `docs/AI-COST-ANALYSIS.md` exists. Keep **open** |
+| **#23** | README (setup, arch, deploy link) | **Open** | README exists but likely needs the full spec'd content. Keep **open** |
+| **#24** | Demo video | **Open** | Submission task, not code. Keep **open** |
+| **#25** | Social post | **Open** | Submission task, not code. Keep **open** |
+| **#26** | Frontend: AI chat panel | **Close** | `AiPanel.tsx` fully implemented — sends `ai:prompt`, renders responses, shows mutation badge, loads history |
+| **#27** | Post-MVP: LINE and TEXT tools | **Open** | Both disabled in toolbar. Keep **open** |
+| **#29** | AI: stream mutations mid-loop | **Open** | Mutations still batched post-loop. Keep **open** |
+
+---
+
+### Summary of Recommended Actions
+
+**Close these 5 issues** (work is complete):
+- **#1** — MVP Epic (all 9 gates met)
+- **#9** — Tests: frame client + multi-client sync
+- **#10** — Deploy to Fly.io
+- **#17** — Frontend WS frame client, sync, cursors
+- **#26** — Frontend AI chat panel
+
+**Keep open these 8 issues** (incomplete or not started):
+- #11, #13, #18, #20, #21, #22, #23, #24, #25, #27, #29
+
+**Consider splitting #11** — it bundles 6 features, 2 of which are done (board CRUD UI, rotate) and 4 are not (connectors, text objects, multi-select, object locking).
+
+Want me to close the 5 completed issues?
+👤 MVP gate is met?
+🤖 Let me verify each gate item against the live code.
+✅ Task: Explore: "Verify MVP gate items in code"
+🤖 **8 of 9 gates confirmed YES. One is partial:**
+
+| # | Requirement | Verdict |
+|---|---|---|
+| 1 | Infinite board with pan/zoom | **YES** — scroll pan + Ctrl+wheel zoom (0.1x–5x) |
+| 2 | Sticky notes with editable text | **YES** — create, drag, resize, double-click edit |
+| 3 | At least one shape type | **YES** — rectangle + ellipse both functional |
+| 4 | Create, move, edit objects | **YES** — full CRUD via WS frames |
+| 5 | Real-time sync between 2+ users | **YES** — server broadcasts to all board clients |
+| 6 | Multiplayer cursors with name labels | **YES** — RemoteCursor with arrow + name label |
+| 7 | Presence awareness | **YES** — toolbar chips, join/part events |
+| 8 | User authentication | **YES** — full GitHub OAuth + session + WS tickets |
+| 9 | Deployed and publicly accessible | **PARTIAL** — Dockerfile + fly.toml ready, but README says "deploy link TBD" and no evidence of a live deployment |
+
+**Gate #9 is the gap.** The infrastructure is fully configured but the app doesn't appear to have been deployed yet. Has it been deployed to Fly, or does that still need to happen?
+👤 tell me about 6: cursors are rebroadcast?
+🤖 Let me trace the full cursor flow.
+✅ Grep: pattern="cursor" path="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Grep: pattern="cursor" path="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Grep: pattern="cursor" path="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Yes, cursors are fully rebroadcast. Here's the flow:
+
+1. **Client sends** — `Canvas.tsx:344-357` — on mouse move (throttled 50ms), sends `cursor:moved` frame with `{ x, y, name }` in board coordinates
+
+2. **Server relays** — `ws.rs:507-536` — `handle_cursor()` extracts `x`, `y`, `name`, injects the sender's `client_id`, and returns `Outcome::BroadcastExcludeSender(data)` — so every other client on the board gets it, but not the sender
+
+3. **Skips persistence** — `ws.rs:193-196` — cursor frames are explicitly excluded from the frame persistence worker (they're ephemeral)
+
+4. **Client receives** — `useFrameClient.ts:208` — incoming `cursor:moved` updates the presence map with `{ x, y }` coordinates
+
+5. **Rendered** — `Canvas.tsx:198` filters presence entries that have a `cursor`, and renders a `RemoteCursor` (arrow + name label) for each one at `Canvas.tsx:493-494`
+
+The full round-trip is: mouse move → WS frame → server fan-out to all other board clients → Zustand store update → Konva re-render. No persistence, no database hit.
+👤 Please read the README.md and update / expand with current architecture status (server and client).
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+✅ Glob: pattern="collaboard/docs/**/*" path="/Users/ianzepp/github/gauntlet"
+✅ Glob: pattern="docs/**/*" path="/Users/ianzepp/github/gauntlet/collaboard"
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/server/src/services/ /Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/ /Users/ianzepp/...
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/client/src/ /Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/ /Users/ianzepp/github/gauntlet/collaboard/client/src/components/ /Users/ianzepp/gi...
+🤖 Now let me check a few more details for accuracy.
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/ 2>&1
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/server/src/*.rs 2>&1
+🤖 Now I have everything I need. Let me update the README.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+🤖 Now update the auth section and add a section about what's implemented vs. not.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+🤖 Now update the persistence note and references.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+🤖 Let me verify the final result looks good.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/README.md"
+🤖 Looks good. Updated the README with:
+
+- **Architecture diagram** — updated to reflect actual syscall prefixes (added `chat:*`), service responsibilities (LWW, hydrate/evict, rate limit), and `ws_tickets` table
+- **Syscall routing table** — corrected to match real syscalls (`cursor:moved` not `move/moved`, added `chat` and `ai:history`)
+- **Real-time sync** — expanded with actual values: 100ms flush (not 1s), optimistic creates with temp-ID reconciliation, exponential backoff details, board hydration/eviction lifecycle
+- **AI Agent** — added multi-turn context, grid context, rate limiting details, iteration cap, provider optionality
+- **Project structure** — fully rebuilt to match actual `server/` + `client/` layout with every file
+- **New sections**: Authentication (WS ticket flow), Feature Status (implemented vs. not), HTTP API table
+- **Setup** — added Bun as prerequisite, noted AI key is optional, fixed migration path
+👤 please commit, thank you
+✅ Bash: git diff README.md | head -300
+✅ Bash: git log --oneline -5
+✅ Bash: git add README.md && git commit -m "$(cat <<'EOF' ↵ Update README to reflect current architecture and feature status ↵  ↵ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com> ↵ EOF ↵ )"
+🤖 Committed as `d7136fd`.
+
+📋 --- Summary ---
+📋 Duration: 21m
+📋 Messages: 5 user, 14 assistant
+📋 Tool calls: 28 total, 0 failed
+📋 Files: 3 read, 1 edited
+📋 Tokens: 68 in, 4.6K out
+📋 Cache: 1.8M read, 86.0K created

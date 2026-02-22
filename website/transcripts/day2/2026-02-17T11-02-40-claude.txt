@@ -1,0 +1,800 @@
+📋 Session: b40c65cc-c444-4d92-917e-1866992c8d61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T11:02:40.843+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Design a refactor plan for the collaboard WebSocket frame handling. Here's the full context:
+
+## Goal
+Centralize the frame outbound path so the WebSocket handler (`ws.rs`) owns three responsibilities:
+1. **Route** inbound frames to handler functions
+2. **Persist** frames (fire-and-forget) — once per frame, in the ws layer
+3. **Broadcast/reply** — the ws layer decides who gets the response frame
+
+Handler functions become pure business logic — they validate, mutate state, and return a result. They never call `send_frame` or `broadcast` directly.
+
+## Key Design Decisions (already agreed with user)
+
+1. **Eliminate `item` status.** No handler actually streams multiple items. Every success becomes a single `done` frame carrying the payload data.
+
+2. **Eliminate past-tense syscall names.** No more `object:created`, `object:updated`, `object:deleted`. The response uses the same syscall as the request (e.g. `object:create` request → `object:create` done).
+
+3. **Everyone sees the same frame.** For mutations, the server broadcasts `done` to ALL clients on the board (including the originator). The originator's copy has `parent_id` set so they can correlate. Other clients see `parent_id: null` (or a different request id — we need to decide).
+
+4. **Errors go to sender only.** `status: error` frames are never broadcast.
+
+5. **`board:join` broadcasts to all users** on the board so they see new people joining. Need a **`board:part`** broadcast as well when a WS disconnects.
+
+## Current Architecture (what needs to change)
+
+### Server: `ws.rs` (routes/ws.rs)
+- `dispatch_frame()` — parses JSON, routes by prefix to `handle_board`, `handle_object`, `handle_cursor`, `handle_ai`
+- Each handler manually calls `send_frame()` for replies and `services::board::broadcast()` for fan-out
+- `send_frame()` persists every non-cursor frame it sends
+- `broadcast()` in board.rs ALSO persists the broadcast frame — double persistence for mutations
+
+### Server: Handler functions
+- `handle_board` — join/create/list/delete. Join sends item+done. Others send item+done or just done.
+- `handle_object` — create/update/delete. Each manually constructs broadcast frame with past-tense syscall, calls broadcast, then sends item+done reply.
+- `handle_cursor` — broadcast only, no reply to sender
+- `handle_ai` — item+done reply, plus broadcasts mutations inline
+
+### Server: Frame struct (frame.rs)
+- `Frame::request(syscall, data)` — constructor, Status::Request
+- `frame.item(data)` — Status::Item, parent_id = self.id
+- `frame.done()` — Status::Done, empty data, parent_id = self.id
+- `frame.error(msg)` / `frame.error_from(&e)` — Status::Error
+- `frame.reply(status, data)` — private, sets parent_id = self.id, inherits syscall/board_id/from
+
+### Server: services/board.rs
+- `broadcast()` — iterates board clients, try_send to each, persists the frame (duplicate)
+- `join_board()` — returns Vec<BoardObject>
+- `part_board()` — removes client, flushes if last
+
+### Server: services/object.rs
+- `create_object()` → Result<BoardObject, ObjectError>
+- `update_object()` → Result<BoardObject, ObjectError>
+- `delete_object()` → Result<(), ObjectError>
+
+### Client: useFrameClient.ts
+- Registers handlers on: `session:connected`, `session:disconnected`, `board:join`, `object:create` (ack), `object:created` (broadcast), `object:updated`, `object:deleted`, `cursor:moved`
+- `handleCreateAck` — listens on `object:create`, checks `frame.status === "item"`, uses `parent_id` to correlate with pendingCreates map, reconciles temp ID → server ID
+- `handleCreated` — listens on `object:created` (broadcast), adds/updates object
+- `handleUpdated` — listens on `object:updated`, updates object
+- `handleDeleted` — listens on `object:deleted`, deletes object
+
+### Client: useAI.ts
+- Registers ephemeral handler on `ai:prompt`, filters by `parent_id === requestId`
+- Handles item/error/done statuses
+
+### Client: Shape.tsx, StickyNote.tsx
+- Local `sendObjectUpdate()` functions that send `object:update` request frames
+- Both do optimistic local update before sending
+
+### Client: Canvas.tsx
+- `sendObjectDelete()` — sends `object:delete` request, optimistic local delete
+- `sendObjectCreate` (imported from useFrameClient) — sends `object:create` request with temp ID tracking
+- `cursor:moved` — sends cursor position
+
+## Handler Return Type
+
+The handlers should return an enum that tells the ws layer what to do:
+
+```rust
+enum Outcome {
+    Broadcast { data: Data },        // done + payload to ALL board clients (mutations, board:join, board:part)
+    Reply { data: Data },            // done + payload to sender ONLY (board:list, board:create)  
+    Done,                            // done with empty payload to sender only (board:delete)
+    BroadcastOnly,                   // already handled (cursor — just needs broadcast, no done to sender)
+    Error(String),                   // error to sender only (validation errors)
+    ServiceError(Box<dyn ErrorCode>),// error_from to sender only (service errors)
+}
+```
+
+Wait — thinking more carefully:
+- `board:join` should broadcast to peers AND reply to sender (sender gets object list, peers get join notification with client info)
+- Actually, the broadcast for join is different data than the reply. Sender needs the objects array. Peers need "user X joined".
+
+Hmm, so maybe board:join is a special case, or we have:
+```rust
+enum Outcome {
+    Broadcast { data: Data },                           // same frame to everyone
+    BroadcastAndReply { broadcast: Data, reply: Data }, // different data to sender vs peers
+    Reply { data: Data },                               // sender only
+    Done,                                               // empty done to sender
+    BroadcastOnly { data: Data },                       // peers only, nothing to sender (cursor)
+}
+```
+
+Actually, let's keep it simpler. For board:join:
+- Reply to sender with objects (done frame, sender only)
+- Then broadcast a `board:join` done frame to all OTHER clients with {client_id, user_id} so they know someone joined
+
+This is two frames from one handler. Maybe the handler returns a Vec or the handler can return multiple outcomes.
+
+Let me think about the simplest thing. Maybe:
+
+```rust
+struct Outcome {
+    reply: Option<Data>,      // if Some, send done+data to requesting client
+    broadcast: Option<Data>,  // if Some, send done+data to all peers (excluding sender)
+}
+```
+
+With this:
+- `object:create` → reply: None, broadcast: Some(object_data) — everyone (including sender via broadcast to ALL)
+
+Wait, but we said broadcast to ALL including sender for mutations. So:
+
+```rust
+struct Outcome {
+    reply: Option<Data>,           // done+data to sender only (e.g. board:list result)
+    broadcast: Option<BroadcastSpec>,  // done+data to board clients
+}
+
+struct BroadcastSpec {
+    data: Data,
+    include_sender: bool,  // true for mutations, false for board:join notification
+}
+```
+
+Hmm, getting complicated. Let me step back.
+
+The simplest model based on what the user said:
+- For mutations: broadcast done+payload to ALL clients (including sender). Sender's copy has parent_id. No separate reply.
+- For queries (board:list, board:create): reply to sender only.
+- For join: reply to sender with objects, broadcast to others that someone joined.
+- For part: broadcast to others that someone left.
+- For cursor: broadcast to others only, no reply.
+- For errors: reply to sender only.
+
+So the enum could be:
+
+```rust
+enum Outcome {
+    /// Broadcast done+data to all board clients including sender. Sender's frame gets parent_id.
+    Broadcast(Data),
+    /// Send done+data to sender only.
+    Reply(Data),
+    /// Send done (empty) to sender only.
+    Done,
+    /// Broadcast to all peers AND reply differently to sender.
+    ReplyAndBroadcast { reply: Data, broadcast: Data },
+}
+```
+
+And errors are handled separately via Result<Outcome, ...>.
+
+For `board:join`: `ReplyAndBroadcast { reply: objects_data, broadcast: join_notification }`
+For `object:create/update`: `Broadcast(object_data)`
+For `object:delete`: `Broadcast(delete_data)`  
+For `board:list`: `Reply(boards_data)`
+For `board:create`: `Reply(board_data)`
+For `board:delete`: `Done`
+For `cursor`: this is special — broadcast only, no reply to sender. Could add `BroadcastExcludeSender(Data)`.
+
+Revised:
+```rust
+enum Outcome {
+    Broadcast(Data),                                    // to all including sender
+    BroadcastExcludeSender(Data),                       // to all except sender (cursor)
+    Reply(Data),                                        // sender only
+    Done,                                               // empty done to sender
+    ReplyAndBroadcast { reply: Data, broadcast: Data }, // both, different data
+}
+```
+
+Please design a detailed implementation plan with:
+1. Exact changes to each file
+2. The order of changes (server first, then client)
+3. How to handle the transition for each syscall
+4. What gets deleted (past-tense syscalls, item status usage, broadcast persistence)
+
+Files to modify:
+- server/src/frame.rs — possibly remove `item()` method, add helpers
+- server/src/routes/ws.rs — refactor dispatch_frame, all handlers return Outcome
+- server/src/services/board.rs — remove persistence from broadcast(), add board:part broadcast
+- client/src/lib/types.ts — remove "item" from FrameStatus? or keep for compat
+- client/src/hooks/useFrameClient.ts — merge handlers, remove past-tense syscall listeners
+- client/src/hooks/useAI.ts — update to use done instead of item
+- client/src/lib/frameClient.ts — no changes needed probably
+📋 Model: sonnet-4.5
+🤖 I'll explore the codebase thoroughly before designing the plan.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard -type f | sort
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Now let me read the remaining files needed.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+🤖 Now let me look at the remaining server files and the frameClient.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/cursor.rs"
+🤖 Now let me check the store and any remaining server files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/server/src/**/*.rs"
+🤖 I now have a thorough understanding of the codebase. Let me produce the detailed implementation plan.
+
+---
+
+## WebSocket Frame Handling Refactor — Implementation Plan
+
+### Overview of What Changes
+
+The goal is a clean architectural split:
+- Handler functions return an `Outcome` enum — they never call `send_frame` or `broadcast` directly
+- `dispatch_frame` in `ws.rs` owns all outbound logic: persistence (once), routing to sender vs broadcast
+- Past-tense syscall variants (`object:created`, `object:updated`, `object:deleted`) are eliminated
+- `Status::Item` is eliminated for mutations — every success returns a single `done` frame with payload
+- Double-persistence is fixed (currently `send_frame` persists AND `broadcast` persists — after refactor only `dispatch_frame` persists)
+- `board:part` is broadcast to peers when a WS disconnects
+
+---
+
+## Step 1 — `server/src/frame.rs`
+
+### What to change
+
+Add a new `done_with` constructor that combines the current `item` and `done` pattern into a single done frame carrying data. The old `item()` method stays in place for now to not break the AI handler, which will be changed in a later step.
+
+```rust
+/// Create a done response carrying payload data. Used when a handler wants
+/// to send exactly one result frame with a terminal status.
+#[must_use]
+pub fn done_with(&self, data: Data) -> Self {
+    self.reply(Status::Done, data)
+}
+```
+
+No other changes to `frame.rs`. The `item()` method is retained in case tests or anything else reference it, but it will not be called from `ws.rs` anymore after the refactor. The `Status::Item` variant stays in the Rust enum because the client still has the type defined; it can be removed in a follow-up cleanup.
+
+No change to `reply()` — it remains private.
+
+---
+
+## Step 2 — `server/src/routes/ws.rs`
+
+This is the primary file that changes. The plan is:
+
+### 2a. Define `Outcome` enum at the top of `ws.rs`
+
+```rust
+/// Outcome returned by every handler function.
+/// The ws layer owns all send/broadcast decisions.
+enum Outcome {
+    /// Broadcast done+data to ALL clients on the board including sender.
+    /// Sender's copy gets parent_id for correlation. Used for mutations.
+    Broadcast(Data),
+    /// Broadcast done+data to all board peers EXCLUDING sender.
+    /// No reply is sent to sender. Used for cursor:moved.
+    BroadcastExcludeSender(Data),
+    /// Send done+data to sender only. Used for queries (board:list, board:create).
+    Reply(Data),
+    /// Send empty done to sender only. Used for board:delete.
+    Done,
+    /// Different data to sender vs peers. Used for board:join.
+    ReplyAndBroadcast { reply: Data, broadcast: Data },
+}
+```
+
+### 2b. Refactor `dispatch_frame`
+
+The new `dispatch_frame` becomes the single outbound orchestrator:
+
+```rust
+async fn dispatch_frame(...) {
+    // Parse + stamp from field (same as today)
+    let mut req: Frame = ...;
+    req.from = Some(user_id.to_string());
+
+    let prefix = req.prefix();
+    let is_cursor = prefix == "cursor";
+
+    // Persist inbound request once (fire-and-forget, skip cursors) — same as today
+    if !is_cursor {
+        info!(...);
+        persist_fire_and_forget(&state.pool, &req);
+    }
+
+    // Dispatch to pure handler — receives no socket/broadcast capability
+    let outcome = match prefix {
+        "board"  => handle_board(state, current_board, client_id, user_id, client_tx, &req).await,
+        "object" => handle_object(state, *current_board, client_id, &req).await,
+        "cursor" => handle_cursor(state, *current_board, client_id, &req).await,
+        "ai"     => handle_ai(state, *current_board, &req).await,
+        _ => Err(req.error("unknown prefix: ...")),
+    };
+
+    // Apply outcome — ws layer decides who gets what
+    match outcome {
+        Ok(Outcome::Broadcast(data)) => {
+            // Build done frame with parent_id for sender, null parent_id for peers
+            let sender_frame = req.done_with(data.clone());   // parent_id = req.id
+            let peer_frame = {
+                let mut f = sender_frame.clone();
+                f.parent_id = None;   // peers don't get correlation
+                f.id = Uuid::new_v4();
+                f
+            };
+            // Broadcast to all peers first (excludes sender)
+            broadcast_frame(state, board_id, &peer_frame, Some(client_id)).await;
+            // Then send to sender
+            let _ = send_frame(socket, state, &sender_frame).await;
+        }
+        Ok(Outcome::BroadcastExcludeSender(data)) => {
+            // Cursor: broadcast to peers only, no reply, no persistence
+            broadcast_frame(state, board_id, &Frame::request(req.syscall, data), None_but_exclude_client_id).await;
+        }
+        Ok(Outcome::Reply(data)) => {
+            let _ = send_frame(socket, state, &req.done_with(data)).await;
+        }
+        Ok(Outcome::Done) => {
+            let _ = send_frame(socket, state, &req.done()).await;
+        }
+        Ok(Outcome::ReplyAndBroadcast { reply, broadcast }) => {
+            // board:join: reply to sender, broadcast join notification to peers
+            let _ = send_frame(socket, state, &req.done_with(reply)).await;
+            let join_notif = Frame::request(&req.syscall, broadcast)
+                .with_board_id(board_id);
+            broadcast_frame(state, board_id, &join_notif, Some(client_id)).await;
+        }
+        Err(err_frame) => {
+            let _ = send_frame(socket, state, &err_frame).await;
+        }
+    }
+}
+```
+
+Key design points for `Outcome::Broadcast`:
+- The sender's copy has `parent_id = req.id` so the client can correlate the `object:create` response to its `pendingCreates` map
+- The peer copies have `parent_id = None` so peers don't get confused by a request ID they didn't generate
+
+### 2c. Refactor handler signatures
+
+Every handler becomes `async fn handle_X(...) -> Result<Outcome, Frame>` where the `Err` case is an already-built error frame from `req.error(...)` or `req.error_from(...)`.
+
+Handlers no longer receive `socket: &mut WebSocket`. They receive only what they need to compute business logic.
+
+**`handle_board`** — new signature:
+```rust
+async fn handle_board(
+    state: &AppState,
+    current_board: &mut Option<Uuid>,
+    client_id: Uuid,
+    user_id: Uuid,
+    client_tx: &mpsc::Sender<Frame>,
+    req: &Frame,
+) -> Result<Outcome, Frame>
+```
+
+Per operation:
+- `board:join` → `Ok(Outcome::ReplyAndBroadcast { reply: objects_data, broadcast: join_notification })`
+  - `reply` data: `{ objects: [...] }`
+  - `broadcast` data: `{ client_id: ..., user_id: ... }`
+  - Side effect: `current_board` is still mutated here (necessary state mutation, not an outbound call)
+- `board:create` → `Ok(Outcome::Reply(data))` where data is `{ id, name }`
+- `board:list` → `Ok(Outcome::Reply(data))` where data is `{ boards: [...] }`
+- `board:delete` → `Ok(Outcome::Done)`
+
+**`handle_object`** — new signature:
+```rust
+async fn handle_object(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    client_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame>
+```
+
+Note: `user_id` parameter removed because `object.rs` service functions receive it through `req.from`. Actually on review, `create_object` takes `created_by: Option<Uuid>` directly — keep `user_id` in the signature, it's fine.
+
+Per operation:
+- `object:create` → `Ok(Outcome::Broadcast(object_data))`
+- `object:update` → `Ok(Outcome::Broadcast(object_data))`
+- `object:delete` → `Ok(Outcome::Broadcast({ id: object_id }))` — note: delete broadcasts the id, peers use this to remove from their store
+
+**`handle_cursor`** — new signature:
+```rust
+async fn handle_cursor(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    client_id: Uuid,
+    req: &Frame,
+) -> Result<Outcome, Frame>
+```
+
+Returns `Ok(Outcome::BroadcastExcludeSender(cursor_data))` — the dispatch layer handles calling `broadcast_frame`.
+
+Note: `cursor::broadcast_cursor` in `services/cursor.rs` can be removed; its logic inlines to just building the data and returning it. Or it can stay and be called from dispatch — either way, cursor service's call to `services::board::broadcast` must not happen from the handler anymore. The handler just returns the data and the dispatch layer calls broadcast.
+
+**`handle_ai`** — new signature:
+```rust
+async fn handle_ai(
+    state: &AppState,
+    current_board: Option<Uuid>,
+    req: &Frame,
+) -> Result<Outcome, Frame>
+```
+
+This is the most complex case. AI returns text plus a list of mutations. After the refactor:
+- For each mutation, the dispatch layer would need to broadcast them
+- The simplest solution: have `handle_ai` return a new `Outcome` variant, or return a `Reply` with both text and a summary of mutations, and let the AI broadcast mutations by calling `broadcast_frame` from a helper that `dispatch_frame` invokes
+
+The cleanest approach given that AI mutations are already a special case: add an `AiBroadcastAndReply` variant:
+
+```rust
+Outcome::AiBroadcastAndReply {
+    reply: Data,                // text + mutation count, sender only
+    mutations: Vec<AiMutation>, // each gets broadcast to ALL
+}
+```
+
+In dispatch, this:
+1. Broadcasts each mutation as an `object:create/update/delete` done frame to all board clients
+2. Then sends the text reply to sender only
+
+### 2d. Add a `broadcast_frame` helper (rename existing `broadcast` call pattern)
+
+Extract a ws-layer-only helper that wraps `services::board::broadcast` and handles the `client_id` exclusion:
+
+```rust
+async fn broadcast_frame(
+    state: &AppState,
+    board_id: Option<Uuid>,
+    frame: &Frame,
+    exclude: Option<Uuid>,
+) {
+    let Some(bid) = board_id else { return };
+    services::board::broadcast(state, bid, frame, exclude).await;
+}
+```
+
+This is called only from `dispatch_frame`. Handler functions never call it.
+
+### 2e. Add `board:part` broadcast on disconnect
+
+In `run_ws`, after the loop exits:
+
+```rust
+if let Some(board_id) = current_board {
+    // Notify peers of departure
+    let part_data = {
+        let mut d = Data::new();
+        d.insert("client_id".into(), serde_json::json!(client_id));
+        d.insert("user_id".into(), serde_json::json!(user_id));
+        d
+    };
+    let part_frame = Frame::request("board:part", part_data)
+        .with_board_id(board_id);
+    services::board::broadcast(&state, board_id, &part_frame, Some(client_id)).await;
+    services::board::part_board(&state, board_id, client_id).await;
+}
+```
+
+Note: The `board:part` broadcast must happen BEFORE `part_board` is called, because `part_board` removes the client from the channel map, and the loop iterates over clients to broadcast. If `part_board` runs first, the eviction may remove the board state entirely (if last client) before we broadcast.
+
+### 2f. Fix persistence in `send_frame`
+
+After the refactor, `send_frame` must no longer call `persist_fire_and_forget`. Persistence of outbound frames is handled in `dispatch_frame` — but wait, we only want to persist frames once. The inbound request is persisted in `dispatch_frame` (already done). For outbound done/error frames, we need to decide: persist them or not?
+
+Looking at the current code: `send_frame` persists every non-cursor outbound frame. After the refactor, if we want to maintain a log of responses, we keep that behavior in `send_frame`. The fix is that `services::board::broadcast` must stop persisting (the duplicate), since `send_frame` already persists what it sends to the requesting client, and the broadcast goes through `client_rx` channel which eventually gets `send_frame`'d on the receiver's connection.
+
+Wait — this is subtle. In the current architecture:
+1. `broadcast()` persists the broadcast frame
+2. When a client receives the broadcast via `client_rx`, it calls `send_frame`, which also persists
+
+So today there are actually two persistence calls per broadcast frame per connection. The fix: remove persistence from `services::board::broadcast`. The `send_frame` call in `run_ws`'s select loop handles persistence when the frame is actually delivered.
+
+### 2g. `object_to_data` stays as-is
+
+The helper function that converts `BoardObject` to `Data` stays unchanged.
+
+---
+
+## Step 3 — `server/src/services/board.rs`
+
+### What to change
+
+**Remove persistence from `broadcast()`:**
+
+```rust
+pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude: Option<Uuid>) {
+    let boards = state.boards.read().await;
+    let Some(board_state) = boards.get(&board_id) else {
+        return;
+    };
+
+    for (client_id, tx) in &board_state.clients {
+        if exclude == Some(*client_id) {
+            continue;
+        }
+        let _ = tx.try_send(frame.clone());
+    }
+
+    // REMOVED: the persist_fire_and_forget block that was here
+}
+```
+
+Rationale: each frame broadcast to a client will be received by that client's `run_ws` loop via `client_rx.recv()`, which then calls `send_frame`, which handles persistence. This keeps persistence at the point of actual delivery.
+
+**Add `board:part` broadcast** — handled in `ws.rs`'s `run_ws` rather than in `part_board` itself, keeping `part_board` as pure state cleanup. No change needed to `part_board`.
+
+---
+
+## Step 4 — `client/src/lib/types.ts`
+
+### What to change
+
+`FrameStatus` keeps `"item"` for now to avoid breaking anything that might construct frames manually. In practice after the server refactor, no `item` frames will arrive from the server. It can be annotated as deprecated.
+
+```typescript
+// "item" is kept for backwards compatibility but no longer sent by server
+export type FrameStatus = "request" | "item" | "done" | "error" | "cancel";
+```
+
+No structural change needed yet.
+
+---
+
+## Step 5 — `client/src/hooks/useFrameClient.ts`
+
+This file has the most client-side changes. The current handler split:
+- `handleCreateAck` — listens on `object:create`, checks `status === "item"`, correlates via `parent_id`
+- `handleCreated` — listens on `object:created` (broadcast)
+- `handleUpdated` — listens on `object:updated`
+- `handleDeleted` — listens on `object:deleted`
+
+After refactor, the merged flow is:
+
+**The new unified object handler model:**
+
+Since mutations now broadcast `done` frames on the original syscall to ALL clients including sender, a single handler per syscall can serve both the originator and peers. The originator is distinguished by having `parent_id` set.
+
+```typescript
+// Replace handleCreateAck + handleCreated with a single handler:
+const handleObjectCreate = (frame: Frame) => {
+    if (frame.status !== "done") return;
+
+    const obj = frame.data as unknown as BoardObject;
+    if (!obj?.id) return;
+
+    const store = useBoardStore.getState();
+
+    // If this client originated the request, do ID reconciliation
+    if (frame.parent_id && pendingCreates.has(frame.parent_id)) {
+        const tempId = pendingCreates.get(frame.parent_id)!;
+        pendingCreates.delete(frame.parent_id);
+        if (tempId !== obj.id) {
+            store.replaceObjectId(tempId, obj.id);
+        }
+        store.updateObject(obj.id, obj);
+        return;
+    }
+
+    // Peer broadcast (parent_id is null)
+    if (store.objects.has(obj.id)) {
+        store.updateObject(obj.id, obj);
+    } else {
+        store.addObject(obj);
+    }
+};
+
+// Replace handleUpdated:
+const handleObjectUpdate = (frame: Frame) => {
+    if (frame.status !== "done") return;
+    const obj = frame.data as unknown as BoardObject;
+    if (obj?.id) {
+        useBoardStore.getState().updateObject(obj.id, obj);
+    }
+};
+
+// Replace handleDeleted:
+const handleObjectDelete = (frame: Frame) => {
+    if (frame.status !== "done") return;
+    const id = frame.data.id as string;
+    if (id) {
+        useBoardStore.getState().deleteObject(id);
+    }
+};
+
+// Replace handleBoardJoin:
+const handleBoardJoin = (frame: Frame) => {
+    if (frame.status !== "done") return;
+    // If this client originated (has parent_id matching our request), load objects
+    if (frame.parent_id && frame.data.objects) {
+        const objects = frame.data.objects as unknown as BoardObject[];
+        useBoardStore.getState().setObjects(objects);
+    }
+    // Peer join notifications (parent_id null) — could update presence
+    // frame.data has { client_id, user_id }
+};
+```
+
+Wait — there's a complication with `board:join`. The `handleBoardJoin` handler currently checks `frame.status === "item"`, and the join request ID is not tracked anywhere like `pendingCreates`. After refactor, the sender gets `done` with `objects`, and peers get `done` with `{ client_id, user_id }`.
+
+To distinguish, the handler checks whether `frame.data.objects` exists (sender's reply) or `frame.data.client_id` exists (peer notification). This is fragile. A better approach: track the join request ID similarly to `pendingCreates`:
+
+```typescript
+let pendingJoinId: string | null = null;
+
+// When sending board:join:
+const joinRequestId = crypto.randomUUID();
+pendingJoinId = joinRequestId;
+client.send({ id: joinRequestId, syscall: "board:join", ... });
+
+// In handler:
+const handleBoardJoin = (frame: Frame) => {
+    if (frame.status !== "done") return;
+    if (frame.parent_id && frame.parent_id === pendingJoinId) {
+        pendingJoinId = null;
+        const objects = frame.data.objects as unknown as BoardObject[];
+        useBoardStore.getState().setObjects(objects);
+    } else {
+        // Peer joined — could update presence map
+        // frame.data: { client_id, user_id }
+    }
+};
+```
+
+**Add `board:part` handler:**
+
+```typescript
+const handleBoardPart = (frame: Frame) => {
+    // frame.data: { client_id, user_id }
+    const clientId = frame.data.client_id as string;
+    if (clientId) {
+        useBoardStore.getState().removePresence(clientId);
+    }
+};
+
+client.on("board:part", handleBoardPart);
+```
+
+**Remove old listeners:**
+
+```typescript
+// REMOVE these registrations:
+client.on("object:created", handleCreated);   // gone
+client.on("object:updated", handleUpdated);   // gone
+client.on("object:deleted", handleDeleted);   // gone
+
+// REPLACE with:
+client.on("object:create", handleObjectCreate);  // unified
+client.on("object:update", handleObjectUpdate);  // unified
+client.on("object:delete", handleObjectDelete);  // unified
+client.on("board:part", handleBoardPart);        // new
+```
+
+**The `object:create` listener for handleCreateAck is removed** — `handleObjectCreate` replaces both `handleCreateAck` and `handleCreated`.
+
+---
+
+## Step 6 — `client/src/hooks/useAI.ts`
+
+Currently listens on `ai:prompt` and handles `item`, `error`, and `done` statuses. After the refactor:
+- The server sends one `done` frame with `{ text, mutations }` instead of `item` then `done`
+- `error` handling stays the same
+
+```typescript
+// Current:
+if (frame.status === "item") {
+    // handle text response
+} else if (frame.status === "error") {
+    // handle error
+} else if (frame.status === "done") {
+    // clear loading (in case no item was received)
+}
+
+// New:
+if (frame.status === "done") {
+    const data = frame.data as { text?: string; mutations?: number };
+    if (data.text) {
+        useBoardStore.getState().addAiMessage({
+            role: "assistant",
+            text: data.text,
+            mutations: data.mutations,
+        });
+    }
+    useBoardStore.getState().setAiLoading(false);
+    frameClient.off("ai:prompt", handler);
+} else if (frame.status === "error") {
+    // same as before
+    useBoardStore.getState().setAiLoading(false);
+    frameClient.off("ai:prompt", handler);
+}
+```
+
+The `frame.parent_id !== requestId` guard stays in place.
+
+Also: the AI's object mutations (created/updated/deleted) are now broadcast as `object:create/update/delete` done frames (same syscall as regular mutations). The `handleObjectCreate/Update/Delete` handlers in `useFrameClient.ts` will catch them automatically without any changes needed to `useAI.ts`.
+
+---
+
+## Step 7 — `client/src/canvas/Shape.tsx` and `StickyNote.tsx`
+
+These files send `object:update` requests. They do NOT listen for responses. The server now broadcasts the authoritative state back to all clients including the sender. This means:
+
+The optimistic update in these components (e.g. `updateObject(object.id, { x, y })`) could conflict with the server's response coming back via the `handleObjectUpdate` listener in `useFrameClient.ts`. In practice this is fine — the server should echo back the same values, and the `updateObject` call is idempotent. No changes are needed to these files.
+
+If you want to avoid the round-trip update flickering for the originator, `handleObjectUpdate` could check if this client originated the update (via `parent_id` in `pendingUpdates` tracking) and skip the `updateObject` call since the local state is already optimistic. But this is an optimization, not required for correctness.
+
+---
+
+## Execution Order
+
+### Phase 1: Server (ship first, client still works via backwards compat)
+
+1. `frame.rs` — Add `done_with()` method
+2. `services/board.rs` — Remove persistence from `broadcast()`
+3. `routes/ws.rs` — Full handler refactor:
+   - Define `Outcome` enum
+   - Refactor each handler to return `Result<Outcome, Frame>` (no socket param)
+   - Refactor `dispatch_frame` to be the single outbound orchestrator
+   - Add `board:part` broadcast in `run_ws` cleanup
+   - Remove persistence from `send_frame`'s socket wrapper for broadcast path (but keep it for direct sends)
+
+### Phase 2: Client
+
+4. `lib/types.ts` — Minor: keep `"item"` in type, no functional change
+5. `hooks/useFrameClient.ts` — Merge handlers, remove past-tense listeners, add `board:part` handler, fix `board:join` tracking
+6. `hooks/useAI.ts` — Change from `item` to `done` handling
+7. `canvas/Shape.tsx` and `canvas/StickyNote.tsx` — No changes required
+
+---
+
+## What Gets Deleted
+
+### Server side
+- `object:created`, `object:updated`, `object:deleted` syscall strings in `ws.rs`
+- `services::cursor::broadcast_cursor` call inside the handler (inline into return value)
+- `persist_fire_and_forget` call inside `services::board::broadcast`
+- `socket: &mut WebSocket` parameter from all handler functions
+- All `send_frame` calls inside `handle_board`, `handle_object`, `handle_cursor`, `handle_ai`
+- All direct `services::board::broadcast` calls inside handler functions
+
+### Client side
+- `handleCreateAck` function
+- `handleCreated` function
+- `handleUpdated` function
+- `handleDeleted` function
+- `client.on("object:created", ...)` registration
+- `client.on("object:updated", ...)` registration
+- `client.on("object:deleted", ...)` registration
+- The `status === "item"` guard in `handleBoardJoin`
+- The `status === "item"` branch in `useAI.ts`
+
+---
+
+## Open Questions / Decisions Needed
+
+**1. Update originator skip:** For `object:update`, the current code broadcasts to peers only (`exclude: Some(client_id)`). After the refactor, updates broadcast to ALL including sender (`Outcome::Broadcast`). This means Shape.tsx and StickyNote.tsx will receive their own update back from the server and apply it again via `handleObjectUpdate`. This is harmless (same data applied twice) but adds one extra store write. Accept as-is or add originator tracking in `pendingUpdates` to deduplicate.
+
+**2. `board:join` broadcast vs reply timing:** The `ReplyAndBroadcast` outcome sends the reply to sender, then broadcasts to peers. If the board:join broadcast needs to be seen by all peers before the sender considers themselves joined, the order matters. In the proposed implementation, peers get notified after the sender's reply is sent. This is fine — the sender sets `current_board` inside `handle_board` (a side effect that happens before dispatch_frame processes the outcome).
+
+**3. AI mutation broadcasts change syscall:** Currently AI broadcasts `object:created` etc. After refactor, AI broadcasts use `object:create`, `object:update`, `object:delete`. The client handlers for these syscalls will process them identically to user-initiated mutations. This is the desired behavior.
+
+**4. `Status::Item` retention:** Keep `Status::Item` in the Rust enum and TypeScript type for at least one more iteration. Removing it would require updating the `frame.rs` tests that reference it, and may confuse any external tooling that observes frames. Plan a follow-up cleanup commit after the refactor stabilizes.
+
+---
+
+### Critical Files for Implementation
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` - Core logic to refactor: define Outcome enum, refactor all handlers to return Result<Outcome, Frame>, move all send/broadcast logic into dispatch_frame
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs` - Remove persistence from broadcast(), which eliminates the double-persistence bug
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs` - Add done_with() constructor to support single done-with-payload response pattern
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts` - Merge handlers, remove past-tense syscall listeners (object:created/updated/deleted), add board:part handler, fix board:join correlation
+- `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts` - Replace item+done two-phase handling with single done handling
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 5 assistant
+📋 Tool calls: 15 total, 0 failed
+📋 Files: 13 read
+📋 Tokens: 24 in, 169 out
+📋 Cache: 682.2K read, 107.8K created

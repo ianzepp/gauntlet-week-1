@@ -1,0 +1,333 @@
+📋 Session: 08f7092d-c3c4-445b-80bc-1cd30af0898c
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-16T23:37:31.549+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Explore the server/ directory structure in /Users/ianzepp/github/gauntlet/collaboard/server/. Give me a comprehensive overview of:
+1. Directory structure and all source files
+2. Key modules and their purposes
+3. Current API endpoints/routes
+4. Database schema/migrations
+5. Any existing tests
+
+Be thorough - list all .rs files and their key contents.
+📋 Model: haiku-4.5
+🤖 I'll conduct a comprehensive exploration of the server directory structure. Let me start with examining the directory layout and then dive into the key components.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server -type f -name "*.rs" | head -50
+🤖 Good! Now let me get a better view of the actual source structure (excluding the target directory):
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -type f -name "*.rs" | sort
+🤖 Now let me read the key files to understand the structure. I'll start with main.rs and the core modules:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server -name "*.sql" -o -name "*migration*" -o -name "*schema*" 2>/dev/null
+🤖 Perfect! Now let me read the routes and all the migration files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/001_users.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/002_boards.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/003_board_objects.sql"
+🤖 Now let me read the remaining migrations and the service modules:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/004_frames.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/005_sessions.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+🤖 Now let me read the services and WebSocket handler:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Now let me read all the service files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/cursor.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs"
+🤖 Now let me read the AI and rate limiting modules:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/rate_limit.rs"
+🤖 Now let me read the LLM modules:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs"
+🤖 Let me quickly check the anthropic and openai implementations:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs"
+🤖 Perfect! Now let me check the directory structure to get a complete overview:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -type f -o -type d | grep -v target | sort
+🤖 Perfect! Now I have a comprehensive understanding. Let me create the final report:
+
+## Comprehensive Overview of Collaboard Server
+
+### 1. Directory Structure and Source Files
+
+```
+/Users/ianzepp/github/gauntlet/collaboard/server/
+├── src/
+│   ├── main.rs                    # Entry point, server initialization
+│   ├── state.rs                   # AppState, BoardState, BoardObject definitions
+│   ├── frame.rs                   # Universal message type for all communication
+│   ├── rate_limit.rs              # In-memory rate limiter for AI requests
+│   ├── db/
+│   │   ├── mod.rs                 # DB pool initialization & migration runner
+│   │   └── migrations/            # SQLx migrations
+│   │       ├── 001_users.sql      # User table
+│   │       ├── 002_boards.sql     # Board table
+│   │       ├── 003_board_objects.sql # Board objects table (sticky notes, shapes, etc.)
+│   │       ├── 004_frames.sql     # Frame audit/event log table
+│   │       └── 005_sessions.sql   # Sessions & WebSocket tickets tables
+│   ├── routes/
+│   │   ├── mod.rs                 # Router assembly (Axum)
+│   │   └── ws.rs                  # WebSocket handler & frame dispatcher
+│   ├── services/
+│   │   ├── mod.rs                 # Service module index
+│   │   ├── board.rs               # Board CRUD, join/part, hydration, broadcast
+│   │   ├── object.rs              # Object CRUD with LWW versioning
+│   │   ├── cursor.rs              # Ephemeral cursor position broadcast
+│   │   ├── ai.rs                  # LLM prompt handling & tool execution
+│   │   └── persistence.rs         # Background 1-second debounced flush task
+│   └── llm/
+│       ├── mod.rs                 # Multi-provider adapter (Anthropic/OpenAI)
+│       ├── types.rs               # Provider-neutral types (Message, Tool, etc.)
+│       ├── tools.rs               # CollabBoard-specific tool definitions
+│       ├── anthropic.rs           # Anthropic Messages API client
+│       └── openai.rs              # OpenAI-compatible API client
+├── Cargo.toml                     # Dependencies (Axum, Tokio, SQLx, etc.)
+└── target/                        # Build artifacts (excluded from git)
+```
+
+### 2. Key Modules and Their Purposes
+
+#### **Core Messaging (frame.rs)**
+- **Frame**: Universal message type for all request/response communication
+- **Status**: Request → Item* → Done OR Request → Error/Cancel
+- **ErrorCode trait**: Structured error codes with retryable flag
+- Builders for frame construction with board_id, content, data
+- Full test suite (12 tests)
+
+#### **Application State (state.rs)**
+- **BoardObject**: In-memory representation of whiteboard objects (sticky notes, shapes)
+- **BoardState**: Per-board live state with objects HashMap, connected clients, dirty set
+- **AppState**: Shared state with Postgres pool, in-memory boards, optional LLM client, rate limiter
+- **Test helpers**: Functions for seeding test boards and creating dummy objects
+
+#### **WebSocket & Routing (routes/ws.rs, routes/mod.rs)**
+- Main entry point: `/healthz` (health check)
+- WebSocket upgrade at `/api/ws` with CORS enabled
+- Frame dispatcher by syscall prefix:
+  - `board:*` → Board CRUD, join/part
+  - `object:*` → Object create/update/delete
+  - `cursor:*` → Ephemeral cursor broadcast
+  - `ai:*` → LLM prompt handling
+- Per-client channel for broadcast frames from peers
+
+#### **Board Service (services/board.rs)**
+- **create_board()**: Insert new board to Postgres
+- **list_boards()**: Fetch all boards ordered by creation
+- **delete_board()**: Delete board and cascade deletes objects
+- **join_board()**: Hydrate board from DB on first client, add to in-memory state
+- **part_board()**: Remove client, evict board when last client leaves, final flush to DB
+- **broadcast()**: Send frame to all board clients except optionally one
+- **hydrate_objects()**: Load board objects from Postgres into HashMap
+- **flush_objects()**: Batch upsert objects via UPSERT statement
+
+#### **Object Service (services/object.rs)**
+- **create_object()**: Create new object, mark dirty, return for broadcast
+- **update_object()**: Apply partial updates with LWW conflict resolution (rejects if incoming_version < current)
+- **delete_object()**: Remove from memory and immediately delete from Postgres
+- Supports updates: x, y, width, height, rotation, z_index, props
+- 8 comprehensive unit tests covering all operations and edge cases
+
+#### **AI Service (services/ai.rs)**
+- **handle_prompt()**: Main entry point for `ai:prompt` frames
+- Rate limiting checks (per-client, global, token budget)
+- Board snapshot collection for LLM context
+- System prompt building with board object list
+- Tool-use loop (up to 10 iterations):
+  - Call LLM with tools
+  - Execute tool calls (create/move/update/delete/organize/summarize)
+  - Collect mutations for broadcast
+  - Iterate if stop_reason = "tool_use"
+- **Tool execution**: Implements 6 tools + LLM-level group_by_theme
+- Prompt injection defense: User input wrapped in `<user_input>` tags
+- 15+ unit tests covering tool execution and full flows
+
+#### **Cursor Service (services/cursor.rs)**
+- **broadcast_cursor()**: Ephemeral cursor position frame broadcast to peers (excludes sender)
+- No persistence, no state storage
+
+#### **Persistence Service (services/persistence.rs)**
+- **spawn_persistence_task()**: Background tokio task waking every 1 second
+- Collects dirty objects from all boards under lock
+- Releases lock, batch upserts to Postgres
+- Non-blocking hot path (in-memory mutations)
+- Durability within 1-second window
+
+#### **Rate Limiter (rate_limit.rs)**
+- Sliding-window counters with VecDeque<Instant>
+- Three limits enforced:
+  - Per-client: 10 AI requests/min
+  - Global: 20 LLM API calls/min
+  - Token budget: 50k tokens/user/hour
+- check_and_record() → check per-client & global, record timestamp
+- check_token_budget() → sum tokens in window, reject if >= 50k
+- record_tokens() → push (timestamp, token_count) to per-client deque
+- 5 comprehensive unit tests
+
+#### **LLM Module (llm/)**
+- **LlmClient**: Multi-provider dispatcher based on LLM_PROVIDER env var
+  - Anthropic (default): claude-sonnet-4-5-20250929
+  - OpenAI: gpt-4o
+- **LlmChat trait**: Provider-neutral async interface for mocking
+- **Types**: ContentBlock (Text, ToolUse, ToolResult, Thinking), Message, Tool, ChatResponse
+- **Tools**: 7 tools for board manipulation (create, move, update, delete, organize_layout, summarize_board, group_by_theme)
+- **Anthropic client**: HTTP wrapper around `/v1/messages`, timeout 120s
+- **OpenAI client**: Supports both `/v1/chat/completions` and `/v1/responses` endpoints
+
+#### **Database (db/mod.rs)**
+- **init_pool()**: Create PgPool (max 5 connections), run migrations via sqlx::migrate!
+
+### 3. Current API Endpoints/Routes
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/healthz` | GET | Health check (returns 200 OK) |
+| `/api/ws` | WS | WebSocket upgrade for frame-based communication |
+
+**WebSocket Message Routing (by syscall prefix):**
+
+#### Board Operations
+- `board:create` — Create new board (data: name)
+- `board:list` — List all boards
+- `board:join` — Join board (data: board_id) → hydrate objects
+- `board:delete` — Delete board (data: board_id)
+
+#### Object Operations (requires joined board)
+- `object:create` — Create object (data: kind, x, y, props)
+- `object:update` — Update object (data: id, version, x, y, width, height, rotation, z_index, props)
+- `object:delete` — Delete object (data: id)
+
+#### Cursor Operations
+- `cursor:moved` — Broadcast cursor position (data: client_id, x, y, name)
+
+#### AI Operations (requires joined board + LLM configured)
+- `ai:prompt` — Send prompt to LLM (data: prompt)
+  - Returns text response + list of mutations
+  - Broadcasts mutations to board peers
+
+### 4. Database Schema/Migrations
+
+**001_users.sql**
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    github_id BIGINT UNIQUE,
+    name TEXT NOT NULL,
+    avatar_url TEXT,
+    color TEXT NOT NULL DEFAULT '#4CAF50',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**002_boards.sql**
+```sql
+CREATE TABLE boards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    owner_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**003_board_objects.sql**
+```sql
+CREATE TABLE board_objects (
+    id UUID PRIMARY KEY,
+    board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    x DOUBLE PRECISION NOT NULL DEFAULT 0,
+    y DOUBLE PRECISION NOT NULL DEFAULT 0,
+    width DOUBLE PRECISION,
+    height DOUBLE PRECISION,
+    rotation DOUBLE PRECISION NOT NULL DEFAULT 0,
+    z_index INTEGER NOT NULL DEFAULT 0,
+    props JSONB NOT NULL DEFAULT '{}',
+    created_by UUID REFERENCES users(id),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    version INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX idx_board_objects_board ON board_objects(board_id);
+```
+
+**004_frames.sql** (Event log/audit trail)
+```sql
+CREATE TABLE frames (
+    seq BIGSERIAL PRIMARY KEY,
+    ts BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT,
+    id UUID NOT NULL,
+    parent_id UUID,
+    syscall TEXT NOT NULL,
+    status TEXT NOT NULL,
+    board_id UUID,
+    "from" TEXT,
+    data JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX idx_frames_board_seq ON frames(board_id, seq);
+```
+
+**005_sessions.sql**
+```sql
+CREATE TABLE sessions (
+    token TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 days')
+);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+
+CREATE TABLE ws_tickets (
+    ticket TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 seconds')
+);
+```
+
+### 5. Existing Tests
+
+**Test Count Summary:**
+- frame.rs: 8 tests (request, reply, status, prefix, JSON roundtrip, error_from, cancel)
+- state.rs: 3 tests (BoardState, BoardObject serde)
+- rate_limit.rs: 5 tests (per-client limit, global limit, token budget, window expiry, distinct clients)
+- services/object.rs: 8 tests (create, update with LWW, stale rejection, not found, partial fields, props, dirty marking, delete)
+- services/ai.rs: 15+ tests (tool execution, handle_prompt with MockLlm, board not loaded, prompt injection defense, rate limiting)
+- llm/tools.rs: 3 tests (tool count, tool names, schema validation)
+
+**Test Strategies:**
+- Unit tests with in-memory mock AppState
+- Mock LLM implementation with injectable responses
+- Capture-based testing for message verification
+- Integration tests for rate limiter window behavior
+- Tool execution tests with seeded board state
+
+---
+
+## Summary
+
+The Collaboard server is a **real-time collaborative whiteboard backend** built in Rust with:
+- **WebSocket-based frame communication** for bidirectional message flow
+- **In-memory board state** with Postgres persistence via 1-second debounced flush
+- **Last-Write-Wins (LWW) conflict resolution** for object updates
+- **LLM integration** with multi-provider adapter (Anthropic/OpenAI) for AI-powered board operations
+- **Rate limiting** protecting against abuse (per-client, global, token budget)
+- **Tool use loop** enabling the LLM to execute board mutations iteratively
+- **Prompt injection defense** wrapping user input in XML tags
+- **Comprehensive test coverage** across core services and components
+
+All `.rs` files are located under `/Users/ianzepp/github/gauntlet/collaboard/server/src/`.
+
+📋 --- Summary ---
+📋 Duration: 51s
+📋 Messages: 1 user, 12 assistant
+📋 Tool calls: 28 total, 0 failed
+📋 Files: 24 read
+📋 Tokens: 189 in, 50 out
+📋 Cache: 1.0M read, 200.0K created

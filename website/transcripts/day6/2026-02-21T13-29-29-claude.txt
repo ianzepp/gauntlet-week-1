@@ -1,0 +1,373 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T13:29:29.366+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 You are the test-auditor agent. You read tests and production code together, then report exactly what's missing, what's weak, and what's misleading.
+
+## Project Context
+- Workspace: root Cargo.toml with members: server, client, canvas, frames, traces, perf
+- Edition 2024, rust-version 1.90, clippy pedantic
+- All tests in dedicated *_test.rs files, never inline
+- Test code may use .unwrap() freely
+
+## Your Task
+Audit the test suites in client and server crates, focusing on RECENTLY ADDED test files. These are the test files to audit:
+
+Client tests (new):
+- client/src/util/selection_actions_test.rs
+- client/src/util/selection_metrics_test.rs
+- client/src/util/object_props_test.rs
+- client/src/util/dial_math_test.rs
+- client/src/util/shape_palette_test.rs
+- client/src/util/frame_emit_test.rs
+- client/src/util/color_test.rs
+- client/src/util/dark_mode_test.rs
+- client/src/util/auth_test.rs
+- client/src/util/canvas_view_test.rs (in client/src/state/)
+- client/src/util/frame_test.rs
+- client/src/pages/login_test.rs
+
+Server tests:
+- server/src/services/board_test.rs
+- server/src/services/object_test.rs
+- server/src/services/persistence_test.rs
+- server/src/state_helpers_test.rs
+- server/src/state_test.rs
+
+For each test file, read it AND its corresponding production code. Then evaluate:
+1. Coverage Completeness — happy path, error paths, boundary values, invalid inputs
+2. Assertion Quality — weak assertions, missing assertions, incomplete verification
+3. Test Independence — shared state, ordering dependencies
+4. Systematic Gap Patterns — only happy path, no error path tests, no boundary tests
+
+Pay special attention to:
+- client/src/util/selection_actions.rs is 874 lines but its test file is only 45 lines — likely severely undertested
+- client/src/util/canvas_viewport.rs is 190 lines with NO test file at all
+
+DO NOT modify any files. Produce a prioritized report of gaps and suggested test cases.
+📋 Model: opus-4.6
+🤖 I'll systematically audit each test file alongside its production code. Let me start by reading all the files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math_test.rs"
+🤖 Now let me read the remaining client test files and their production code.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dark_mode.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dark_mode_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs"
+✅ Glob: pattern="client/src/util/frame.rs" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Glob: pattern="client/src/state/canvas_view*" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Glob: pattern="client/src/pages/login_test.rs" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state/canvas_view.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state/canvas_view_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/login_test.rs"
+🤖 Now let me read the login page production code and the server test files.
+✅ Glob: pattern="client/src/pages/login.rs" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state_helpers_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state_test.rs"
+🤖 Now let me read the remaining server production files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/login.rs"
+🤖 Now I have a complete picture. Let me compile the audit report.
+
+---
+
+# Test Suite Audit Report
+
+## Priority Legend
+- **P0 CRITICAL** -- Production logic with zero or near-zero test coverage
+- **P1 HIGH** -- Significant logic branches untested
+- **P2 MEDIUM** -- Weak assertions or missing edge cases
+- **P3 LOW** -- Minor gaps, hardening tests
+
+---
+
+## P0 CRITICAL: Severely Undertested or Completely Untested Modules
+
+### 1. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs` (874 lines prod, 45 lines test)
+
+**What is tested:** Only the 6 pure helper functions that are gated `#[cfg(any(test, feature = "hydrate"))]` -- the simple comparators and arithmetic helpers (`selection_scale_multiplier`, `selection_geometry_changed`, `selection_color_changed`, `selection_border_changed`, `selection_text_style_changed`, `representative_scale_from_values`).
+
+**What is NOT tested (all `#[cfg(feature = "hydrate")]` functions):**
+- `has_selection` -- trivial but untested
+- `selected_object_rotations` -- iteration/filtering logic
+- `selection_scale_seed` -- complex geometry: bounding box computation, center calculation, scale seed assembly, empty-selection early-return
+- `apply_selection_scale_drag` -- multiplier application, per-object center-preserving scale, position recalculation
+- `commit_selection_scale_updates` -- change detection + frame emission
+- `apply_group_scale_target` -- absolute scale application to multiple objects
+- `selection_color_seed`, `apply_selection_color_shift`, `commit_selection_color_updates` -- color drag state machine
+- `apply_group_base_color_target`, `apply_group_background_defaults_target` -- immediate color mutations
+- `selection_border_seed`, `apply_selection_border_width`, `commit_selection_border_updates` -- border drag state machine
+- `apply_group_border_color_target`, `apply_group_border_defaults_target` -- immediate border mutations
+- `selection_text_style_seed`, `apply_selection_font_size`, `commit_selection_text_style_updates` -- text style drag state machine
+- `apply_group_text_color_target`, `apply_group_text_style_defaults_target` -- immediate text style mutations
+- `apply_selection_rotation_drag`, `commit_selection_rotation_updates`, `apply_group_rotation_target` -- rotation state machine
+
+**Root cause:** All the meaningful functions require `RwSignal` (Leptos reactive primitives) which cannot be constructed in a plain `#[test]` without a reactive runtime. The testable pure helpers are all tested, but the 30+ reactive functions are completely uncovered.
+
+**Suggested approach:** Extract the pure computation from each reactive function. For example, `apply_selection_scale_drag` internally does: (1) compute multiplier, (2) for each seed, compute new scale/width/height/position. Steps (1) and (2) can be a pure function taking `&[SelectionScaleSeed]`, `f64 target_scale`, `f64 group_center_x/y`, `f64 start_group_scale` and returning a `Vec` of computed results. Test that pure function. Same pattern for every `apply_*` and `commit_*` function.
+
+**Suggested test cases (if refactored to pure functions):**
+- `apply_scale_drag_single_object_centered` -- one object at center, scale up
+- `apply_scale_drag_preserves_group_center` -- two objects, verify group centroid unchanged
+- `apply_scale_drag_clamps_to_bounds` -- extreme target_scale values
+- `apply_scale_drag_zero_base_dimensions` -- edge: base_width/base_height near zero
+- `commit_scale_no_change_skips_frame` -- verify no frame emitted when geometry unchanged
+- `apply_color_shift_clamps_to_range` -- shift > 1.0 and < -1.0
+- `apply_border_width_clamps_to_range` -- width beyond BORDER_WIDTH_MAX
+- `rotation_drag_with_snap_fn` -- verify snap/delta/normalize callbacks are applied
+- `rotation_commit_skips_below_threshold` -- angular delta < 0.01 suppresses frame
+
+### 2. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs` (190 lines, NO test file)
+
+**Zero test coverage.** Every function is `#[cfg(feature = "hydrate")]` requiring browser APIs (`web_sys`, `js_sys`, `NodeRef`). However, several functions contain pure computation that could be extracted and tested:
+
+- `set_camera_view` -- pan calculation: `pan_x = (viewport_width * 0.5) - (center_x * clamped_zoom)`. This is a pure formula.
+- `zoom_view_preserving_center` -- center-preserving zoom: screen-to-world, then set_camera_view. The math can be tested with a mock camera.
+- `send_cursor_presence_if_needed` -- complex throttling logic with deadband thresholds (center distance, zoom delta, rotation delta). This has at least 6 early-return branches that are completely untested.
+- `sync_canvas_view_state` -- FPS EMA calculation: `(prev * 0.8) + (instantaneous * 0.2)` with bounds checking `(5.0..2000.0)`.
+
+**Suggested test cases (if refactored):**
+- `set_camera_view_pan_calculation` -- verify pan_x/pan_y formula at various zoom levels
+- `set_camera_view_clamps_zoom` -- zoom < 0.1 and > 10.0
+- `cursor_presence_throttle_skips_below_interval` -- dt < 40ms, no cursor
+- `cursor_presence_deadband_suppresses_small_changes` -- center moves < 0.2, zoom < 0.001
+- `cursor_presence_forces_when_flag_set` -- force=true bypasses all checks
+- `fps_ema_smoothing_calculation` -- verify EMA formula
+- `fps_ignores_outlier_dt` -- dt < 5ms or > 2000ms skipped
+
+---
+
+## P1 HIGH: Important Logic Branches Missing
+
+### 3. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics.rs` + `selection_metrics_test.rs`
+
+**Good coverage overall**, but missing:
+- **Empty selection (no objects in map):** `representative_functions_return_defaults_without_selected_objects` tests with `selection(&["missing"])`, which covers "object not in map" but NOT an empty `selection` set. The code paths diverge: `find_map` on empty iterator returns `None` directly vs. iterating and finding nothing.
+- **Single object:** No test with exactly 1 selected object for the averaging functions (lightness_shift, border_width, font_size, scale_factor). When there is 1 object, division is `sum / 1` -- trivial but the test should exist for documentation.
+- **`representative_rotation_deg` with identical angles:** e.g., all objects at 90.0 degrees.
+- **`representative_scale_factor` when `object_scale_components` returns different computed vs. stored scales.**
+
+**Suggested test cases:**
+- `representative_lightness_shift_empty_selection_set` -- `state.selection` is empty `HashSet`
+- `representative_values_single_object` -- verify no rounding/averaging artifacts
+- `representative_rotation_all_same_angle` -- all at 90.0
+- `representative_rotation_opposite_angles` -- 0 and 180
+
+### 4. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs` + `object_props_test.rs`
+
+**Good test file (124 lines)**, but gaps:
+- **`object_scale_components` with base dimensions < 1.0:** The `.max(1.0)` floor is not tested. If `baseWidth` is stored as `0.5`, does it get floored to `1.0`?
+- **`object_scale_components` with no props at all (empty object `{}`):** Derives scale from `width / base_width` where both default. Is this tested? Partially -- only with explicit `baseWidth`/`baseHeight` present.
+- **`apply_lightness_shift_to_hex` boundary at shift=0.0:** Returns original color unchanged? Only tested with `"invalid"` input at shift 0.0.
+- **`apply_lightness_shift_to_hex` with shift exactly -1.0:** Should produce `#000000` for any color. Not tested.
+- **`object_border_width` fallback chain:** `borderWidth` missing but `stroke_width` present. Not explicitly tested.
+- **`object_text_color_hex` fallback chain:** `textColor` -> `color` -> `fill`. Only `fill` fallback tested. `color` fallback not tested.
+- **`object_fill_hex` with only `borderColor`:** The third fallback. Not tested.
+
+**Suggested test cases:**
+- `object_scale_components_floors_base_dimensions_below_one`
+- `object_scale_components_no_props_defaults_to_geometry`
+- `apply_lightness_shift_zero_preserves_color`
+- `apply_lightness_shift_neg_one_produces_black`
+- `object_border_width_falls_back_to_stroke_width`
+- `object_text_color_hex_falls_back_to_color_prop`
+- `object_fill_hex_falls_back_to_border_color`
+
+### 5. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object_test.rs`
+
+**Good coverage for happy paths**, but:
+- **`update_object` with `width`, `height`, `rotation`, `z_index` fields:** Only `x` and `y` updates tested. The `z_index` parsing logic (lines 141-153 in `object.rs`) is complex: it tries `as_i64()`, then falls back to `as_f64().filter(fractional check)`. Zero test coverage of this branch.
+- **`update_object` with `group_id` field:** UUID parsing from string. Not tested.
+- **`update_object` with `props` override:** Tested, but only verifying new keys. Does it completely replace `props` or merge? (It replaces -- `obj.props = p.clone()` -- but the test doesn't verify old keys are gone.)
+- **`delete_object` is `#[ignore]`:** It requires Postgres. The in-memory removal + dirty cleanup logic is untested.
+- **Concurrent version increments:** Two sequential updates both succeeding, verifying version increments to 2 then 3.
+
+**Suggested test cases:**
+- `update_object_z_index_from_integer`
+- `update_object_z_index_from_float_whole_number`
+- `update_object_z_index_from_float_fractional_ignored`
+- `update_object_rotation_field`
+- `update_object_width_height_fields`
+- `update_object_group_id_valid_uuid`
+- `update_object_group_id_null_clears`
+- `update_object_props_replaces_entirely`
+- `update_object_sequential_version_increments`
+
+### 6. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board_test.rs`
+
+**Good coverage for broadcast/part lifecycle**, but:
+- **`role_satisfies` logic (line 187-193):** Pure function, never tested directly. Viewer satisfies View only; Editor satisfies View+Edit; Admin satisfies all.
+- **`clear_flushed_dirty_ids` (line 745-755):** Version-mismatch branch not tested. If an object was updated between snapshot and flush (version differs), dirty flag should be retained.
+- **`BoardRole::from_str` and `BoardRole::as_str`:** Never tested. Includes the `None` return for invalid strings.
+- **`BoardError::error_code`:** Never tested.
+- **`broadcast` with no clients (empty board):** Not tested.
+- **`broadcast` with `exclude = None`:** All current tests use `Some(client_id)`.
+
+**Suggested test cases:**
+- `role_satisfies_viewer_allows_view_only`
+- `role_satisfies_editor_allows_view_and_edit`
+- `role_satisfies_admin_allows_all`
+- `board_role_roundtrip_str`
+- `board_role_from_str_invalid_returns_none`
+- `clear_flushed_dirty_ids_retains_newer_version`
+- `broadcast_with_no_exclude_sends_to_all`
+- `broadcast_empty_board_is_noop`
+- `board_error_code_variants`
+
+---
+
+## P2 MEDIUM: Weak Assertions or Missing Edge Cases
+
+### 7. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs` + `dial_math_test.rs`
+
+**Solid coverage**, but:
+- **`dial_angle_from_border_width` roundtrip not tested:** `border_width_from_dial_angle(dial_angle_from_border_width(w))` should roundtrip for snapped values.
+- **`dial_angle_from_font_size` roundtrip not tested:** Same pattern.
+- **`dial_angle_from_zoom` at extreme clamping boundaries:** zoom=0.1 and zoom=10.0.
+- **`apply_compass_drag_snapping` at exactly 6.0 degrees from cardinal:** Is 6.0 inside or outside the snap zone? The constant is `CARDINAL_SNAP_EPS_DEG: f64 = 6.0` and comparison is `<=`, so 6.0 should snap. Not tested.
+- **`apply_zoom_tick_tension` at exactly tick position (e.g., 0.0):** distance=0.0, weight=1.0. Should pull fully to tick.
+- **`format_border_width_label` with exactly 0.05 delta from rounded:** Boundary of the `(width - rounded).abs() < 0.05` check.
+
+**Suggested test cases:**
+- `border_width_angle_roundtrip`
+- `font_size_angle_roundtrip`
+- `zoom_angle_at_extreme_boundaries`
+- `compass_snap_at_exact_epsilon_boundary`
+- `zoom_tick_tension_at_exact_tick_position`
+
+### 8. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs` + `color_test.rs`
+
+**Adequate but missing:**
+- **`parse_hex_rgb` with mixed case `#aAbBcC`:** Tested with `#a1B2c3` (good).
+- **`parse_hex_rgb` with non-hex characters in valid-length string:** `#12GG34` tested (good).
+- **`normalize_hex_color_optional` with `Some(valid)`:** Only `None` tested. Missing `Some("#ABC")` case.
+- **Empty string `""`:** `parse_hex_rgb("")` should return `None`. Not tested.
+- **`"#"` alone:** 0 hex digits after `#`. Not tested.
+
+**Suggested test cases:**
+- `normalize_hex_color_optional_some_valid`
+- `parse_hex_rgb_empty_string`
+- `parse_hex_rgb_hash_only`
+
+### 9. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs` + `frame_emit_test.rs`
+
+**Tests are adequate for the frame builders.** The `send_*` functions require `RwSignal` and are untestable without reactive runtime. The 3 builder functions are well-tested.
+
+**Minor gap:** No test verifies the UUID in `frame.id` is a valid UUID format, only that it's non-empty.
+
+### 10. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette.rs` + `shape_palette_test.rs`
+
+**Good coverage.** Minor gaps:
+- **Not all tool types have individual assertions:** Only `Sticky` and `Connector` from `placement_shape` are spot-checked. `Rectangle`, `Frame`, `Ellipse`, `Youtube`, `Line`, `Text` return values are untested for correctness.
+- **`placement_preview` consistency with `placement_shape`:** The width/height values should match between `placement_shape` and `placement_preview` for the same tool. This invariant is not tested.
+
+**Suggested test cases:**
+- `placement_shape_all_tools_have_matching_preview_dimensions`
+- `placement_shape_line_has_zero_height`
+
+### 11. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dark_mode.rs` + `dark_mode_test.rs`
+
+**Minimal but appropriate.** All functions are no-ops without `hydrate` feature. The tests verify the SSR stubs work. No gaps for the non-hydrate path.
+
+**Gap:** The `#[cfg(feature = "hydrate")]` paths (localStorage read, DOM mutation) are completely untested. This is expected since they require a browser, but it means 80% of the module's actual logic is uncovered.
+
+### 12. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth.rs` + `auth_test.rs`
+
+**Good coverage of `should_redirect_unauth`.** Three cases: not loading + no user (redirect), loading (no redirect), user exists (no redirect). The `install_unauth_redirect` function requires Leptos reactive runtime and is untested.
+
+**Suggested test case:**
+- `should_redirect_unauth_with_user_and_loading_true` -- loading=true, user=Some: should not redirect (verify loading flag is checked first).
+
+### 13. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state/canvas_view.rs` + `canvas_view_test.rs`
+
+**Single test:** Verifies `Default` trait produces neutral values. This is a data-only struct with no methods, so coverage is appropriate. No gaps.
+
+### 14. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/login.rs` + `login_test.rs`
+
+**Good pure-function coverage:**
+- `normalize_code_input` -- uppercase conversion tested
+- `validate_request_code_input` -- trim + empty check tested
+- `validate_verify_code_input` -- both fields required, 6-char length check tested
+
+**Gaps:**
+- **`validate_verify_code_input` with code exactly 6 chars but email non-empty after trim:** Tested (good).
+- **`validate_verify_code_input` with code > 6 chars:** e.g., 7-char code. The check is `code.len() != 6`, so it should fail. Not tested.
+- **`validate_verify_code_input` with code < 6 chars:** e.g., 5-char code. Not tested (only empty and implicit 6-char tested).
+- **`normalize_code_input` with non-ASCII:** e.g., accented chars. `to_ascii_uppercase()` only affects ASCII. Not tested.
+
+**Suggested test cases:**
+- `validate_verify_code_input_code_too_short`
+- `validate_verify_code_input_code_too_long`
+
+### 15. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence_test.rs`
+
+**Good coverage** of `env_parse`, `FramePersistConfig::from_env`, `enqueue_frame` (4 scenarios including full channel, closed channel, no sender), and `flush_all_dirty_failure_preserves_dirty_flags`.
+
+**Gaps:**
+- **`env_parse` with empty string value:** `set_var("KEY", "")` -- should return default for most types. Not tested.
+- **`FramePersistConfig::from_env` with custom env values:** Only tests defaults. Never tests that setting `FRAME_PERSIST_BATCH_SIZE=256` actually produces `config.batch_size == 256`.
+- **`flush_all_dirty` success path:** Only failure path tested. Success would require a live DB.
+
+**Suggested test cases:**
+- `env_parse_empty_string_returns_default`
+- `frame_persist_config_from_custom_env`
+
+### 16. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state_test.rs`
+
+**Thorough for a data/state module.** Tests cover: new/default equality, insert/remove objects, dirty tracking, client add/remove, serde roundtrips with None/Some fields, version preservation.
+
+**No significant gaps.**
+
+---
+
+## Summary: Prioritized Action Items
+
+| Priority | File | Gap | Estimated Tests to Add |
+|----------|------|-----|----------------------|
+| P0 | `selection_actions.rs` | 30+ reactive functions untested; refactor pure computation out | ~15 tests |
+| P0 | `canvas_viewport.rs` | 0% coverage; extract pure math (pan calc, throttle logic, FPS EMA) | ~8 tests |
+| P1 | `object.rs` (server) | `z_index` parsing, `rotation`/`width`/`height` updates, `group_id` | ~9 tests |
+| P1 | `board.rs` (server) | `role_satisfies`, `clear_flushed_dirty_ids` version mismatch, `BoardRole` str conversion | ~9 tests |
+| P1 | `object_props.rs` | Fallback chains, boundary floors, shift=-1.0 | ~7 tests |
+| P1 | `selection_metrics.rs` | Empty selection set, single object, same-angle rotation | ~4 tests |
+| P2 | `dial_math.rs` | Roundtrip properties, exact boundary values | ~5 tests |
+| P2 | `color.rs` | Optional with Some, empty string, hash-only | ~3 tests |
+| P2 | `login.rs` | Code length too short/long | ~2 tests |
+| P2 | `shape_palette.rs` | Dimension consistency invariant | ~2 tests |
+| P2 | `persistence.rs` (server) | Custom env config, empty string env | ~2 tests |
+| P3 | `auth.rs` | Loading + user both set | ~1 test |
+
+**Total estimated new tests: ~67**
+
+The two P0 items (`selection_actions.rs` and `canvas_viewport.rs`) account for over 1,000 lines of production code with essentially zero meaningful test coverage. The key architectural recommendation is to extract pure computation from Leptos `RwSignal`-dependent functions into standalone functions that can be tested without a reactive runtime.
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 5 assistant
+📋 Tool calls: 38 total, 0 failed
+📋 Files: 34 read
+📋 Tokens: 61 in, 344 out
+📋 Cache: 1.4M read, 447.5K created

@@ -1,0 +1,247 @@
+📋 Session: c3f0f906-d2c0-437e-b657-69a971801121
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-19T20:43:44.878+00:00
+📋 Version: 2.1.47
+📋 Branch: main
+
+👤 Explore the server crate at /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/. I need a concise but engaging summary for a README section. Tell me:
+1. List all source files (glob server/src/**/*.rs)
+2. Read server/src/main.rs to understand the boot sequence
+3. What are the major modules/subsystems? (routes, ws handler, db, AI, etc.)
+4. How does the WebSocket dispatch work?
+5. What background workers exist?
+6. How is auth handled?
+7. What's the AI integration like — how many tools, what's the loop?
+8. Any interesting design patterns (the Outcome pattern, frame persistence queue, dirty flush, etc.)
+
+Be specific with numbers and details — I want to write a compelling crate description, not a generic one.
+📋 Model: sonnet-4.6
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+✅ Glob: pattern="server/src/**/*.rs" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/tools.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/savepoint.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/session.rs"
+🤖 Here is the detailed breakdown you need for a compelling README section.
+
+---
+
+## CollabBoard Server Crate — Technical Deep-Dive
+
+### 1. Source File Inventory (37 files)
+
+**Top-level modules (7):**
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs`
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs` + `frame_test.rs`
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs` + `state_test.rs` + `state_helpers_test.rs`
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/rate_limit.rs` + `rate_limit_test.rs`
+
+**Subsystems:**
+- `db/mod.rs`
+- `llm/`: `mod.rs`, `anthropic.rs`, `openai.rs`, `tools.rs`, `types.rs` + 3 test files
+- `routes/`: `mod.rs`, `auth.rs`, `users.rs`, `ws.rs` + 2 test files
+- `services/`: `mod.rs`, `ai.rs`, `auth.rs`, `board.rs`, `object.rs`, `persistence.rs`, `savepoint.rs`, `session.rs` + 6 test files
+
+**Total: 37 `.rs` files, roughly half of which are dedicated `*_test.rs` files.**
+
+---
+
+### 2. Boot Sequence
+
+`main()` follows a strict ordered startup:
+
+1. `dotenvy::dotenv()` loads `.env`, `tracing_subscriber::fmt::init()` initializes structured logging
+2. `DATABASE_URL` is required and fatal; all other integrations are optional and non-fatal
+3. `db::init_pool()` runs SQLx migrations against Postgres
+4. `--migrate-only` flag exits here — useful in CI/CD pipelines
+5. `llm::LlmClient::from_env()` initializes the AI client; if `LLM_API_KEY_ENV` or the referenced key var is absent, AI features are silently disabled
+6. `services::auth::GitHubConfig::from_env()` initializes OAuth; missing any of `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, or `GITHUB_REDIRECT_URI` disables auth
+7. `AppState::new(pool, llm, github)` is assembled
+8. Two background workers are spawned: `spawn_frame_persistence_worker()` (frame log queue) and `spawn_persistence_task()` (dirty-object flush loop)
+9. `routes::leptos_app(state)` assembles the Axum router merged with Leptos SSR routes, bound on `0.0.0.0:{PORT}`
+
+The design philosophy is explicit: secrets are never logged, optional integrations emit warnings instead of panics, and the core real-time board runs even in a stripped-down environment.
+
+---
+
+### 3. Major Modules and Subsystems
+
+| Module | Role |
+|---|---|
+| `frame` | Universal message type: `Frame { id, parent_id, ts, board_id, from, syscall, status, data }`. Every IPC call — inbound, outbound, persisted — is a Frame. Status lifecycle: `Request → Item* → Done | Error | Cancel` |
+| `state` | `AppState` holding the Postgres pool, `Arc<RwLock<HashMap<Uuid, BoardState>>>` (live boards), `Arc<RwLock<HashMap<Uuid, mpsc::Sender<Frame>>>>` (all WS clients), the optional LLM client, the rate limiter, and the GitHub OAuth config |
+| `routes/ws` | WebSocket upgrade handler, frame dispatch loop, 7 handler families (board, object, chat, cursor, ai, + errors) |
+| `routes/auth` | GitHub OAuth redirect, callback, `me`, logout, `ws-ticket` issuance, and a dev bypass endpoint |
+| `routes/users` | User profile lookup |
+| `services/board` | In-memory board lifecycle: join, part, broadcast, flush objects to Postgres, dashboard preview snapshots |
+| `services/object` | Create/update/delete `BoardObject` with optimistic version check (`StaleUpdate` error) |
+| `services/ai` | LLM prompt → tool-call loop → board mutations, multi-turn conversation history from persisted frames |
+| `services/persistence` | Two-path persistence: dirty-object flush (100ms interval) + frame log queue (8 192-capacity, 128-frame batches, 5ms flush timer) |
+| `services/savepoint` | Point-in-time board snapshots keyed to frame `seq`, with auto-savepoint debouncing (1 500ms) |
+| `services/session` | 32-byte hex session tokens + 16-byte single-use WS tickets (consumed via `DELETE ... RETURNING`) |
+| `services/auth` | GitHub OAuth code exchange, profile fetch, `users` upsert with `ON CONFLICT` |
+| `llm` | Provider-agnostic `LlmChat` trait; dispatches to Anthropic or OpenAI-compatible backends |
+| `db` | SQLx Postgres pool init |
+| `rate_limit` | Three-tier sliding-window in-memory rate limiter |
+
+---
+
+### 4. WebSocket Dispatch — The Outcome Pattern
+
+The WS handler is the most architecturally interesting file. The key design is that **handler functions never touch the socket**. They return an `Outcome` enum, and the dispatch layer owns all outbound concerns.
+
+The `Outcome` enum has 7 variants:
+
+```rust
+enum Outcome {
+    Broadcast(Data),              // send to ALL board clients including sender (with parent_id)
+    BroadcastExcludeSender(Data), // peers only, no reply — used for cursor/drag (ephemeral)
+    Reply(Data),                  // sender only
+    ReplyStream { items, done },  // item* + done to sender (streaming board:join load)
+    Done,                         // empty done to sender
+    ReplyAndBroadcast { reply, broadcast },           // different payloads to sender vs peers
+    ReplyStreamAndBroadcast { items, done, broadcast }, // stream to sender + notify peers
+}
+```
+
+The dispatch function `process_inbound_bytes()` is split from `dispatch_frame()` deliberately so tests can exercise the full frame routing and broadcast logic without a live WebSocket.
+
+**Routing is by syscall prefix** — the text before the first `:`:
+
+```
+board:join / board:part / board:create / board:list / board:users:list
+board:delete / board:savepoint:create / board:savepoint:list
+object:create / object:update / object:delete / object:drag / object:drag:end
+chat:message / chat:history
+cursor:moved / cursor:clear
+ai:prompt / ai:history
+```
+
+Ephemeral frames (`cursor:*`, `object:drag`, `object:drag:end`) are **never persisted** and route straight to `BroadcastExcludeSender` — keeping the frame log clean.
+
+**`board:join` uses `ReplyStreamAndBroadcast`**: it streams all existing board objects as `Item` frames to the joining client while simultaneously broadcasting a `board:join` notification to all existing peers — a single handler, two audiences, different payloads.
+
+---
+
+### 5. Background Workers
+
+Two independent Tokio tasks are spawned at startup:
+
+**Worker 1 — Object Dirty Flush (`spawn_persistence_task`)**
+
+A simple interval loop at `OBJECT_FLUSH_INTERVAL_MS` (default 100ms). On each tick it:
+1. Acquires a write lock, snapshots all `BoardState.dirty` sets across all boards, clears them (under lock)
+2. Drops the lock, then batch-upserts each dirty object to Postgres
+3. If flush fails, dirty IDs are **not cleared** — they will retry next cycle (durability over deduplication)
+
+Version-aware: it checks `current.version == flushed_version` before clearing a dirty flag, so objects updated again between snapshot and ack keep their dirty bit set.
+
+**Worker 2 — Frame Persistence Queue (`spawn_frame_persistence_worker`)**
+
+A bounded `mpsc::channel` (default capacity 8 192) with a dedicated writer task. The task runs a `select!` loop between:
+- New frames arriving on the channel → buffer into a `Vec<Frame>` batch
+- A 5ms `tokio::time::interval` tick → flush the batch
+
+Batch writes are wrapped in a single Postgres transaction. Retries: 2 attempts with exponential backoff starting at 20ms. If all retries fail, frames are dropped with a `warn!` log (best-effort durability).
+
+`enqueue_frame()` uses `try_send()` — **non-blocking**. A full queue emits a warning and drops the frame rather than adding latency to WS request handling.
+
+---
+
+### 6. Auth
+
+Two-layer auth model:
+
+**HTTP sessions:** Long-lived 32-byte cryptographically random hex tokens stored in Postgres (`sessions` table with `expires_at`). Session validation joins `sessions` → `users` and checks `expires_at > now()`.
+
+**WebSocket tickets:** Short-lived 16-byte hex tokens (`ws_tickets` table). The flow is:
+1. Authenticated HTTP client POSTs to `/api/auth/ws-ticket` to mint a ticket
+2. Client opens `GET /api/ws?ticket=<hex>` — the server calls `consume_ws_ticket()` which does `DELETE ... RETURNING user_id` — single-use, replay-safe by construction
+3. On success, the server resolves the `user_id`, fetches the user's name and color, assigns a fresh `client_id` UUID, and sends `session:connected`
+
+**GitHub OAuth:** Standard code exchange flow at `/auth/github` → `/auth/github/callback`. User is upserted via `ON CONFLICT (github_id) DO UPDATE`. A dev bypass endpoint (`/api/dev/ws-ticket`) is available for local development without OAuth.
+
+**Important:** `from` on all inbound frames is **not trusted from the client** — it is stamped server-side with the authenticated `user_id` after WS upgrade:
+```rust
+req.from = Some(user_id.to_string());
+```
+
+---
+
+### 7. AI Integration
+
+**9 tools, up to 10 iterations per prompt, 4 096 max tokens per call.**
+
+The tool set matches the G4 Week 1 spec exactly:
+- `createStickyNote` — text, x, y, color
+- `createShape` — type (rectangle|ellipse), x, y, width, height, color
+- `createFrame` — title, x, y, width, height
+- `createConnector` — fromId, toId, style (line|arrow|dashed)
+- `moveObject` — objectId, x, y
+- `resizeObject` — objectId, width, height
+- `updateText` — objectId, newText
+- `changeColor` — objectId, color
+- `getBoardState` — no args; returns full live object list as JSON
+
+**The agentic loop:**
+
+```
+snapshot board → build system prompt (with current objects inlined as text)
+→ load last 10 conversation exchanges from persisted frames
+→ for iteration in 0..10:
+    reserve token budget
+    → llm.chat(system, messages, tools)
+    → record token usage, release reservation
+    → collect TextBlocks → final_text
+    → collect ToolUse blocks
+    → if no tool calls: break
+    → execute each tool (object mutations via services::object)
+    → push assistant message + tool_results as user message
+    → if stop_reason != "tool_use": break
+→ if final_text is None: synthesize "Done — N object(s) updated."
+→ return AiResult { mutations, text }
+```
+
+The system prompt includes the full current board state inline (id, kind, x, y, w, h, label, color per object), an optional `grid_context` string the client can supply (grid coordinate mapping), and a prompt injection guard — user input is wrapped in `<user_input>` tags with an explicit instruction not to follow embedded instructions.
+
+**Update conflicts:** AI tool calls use `update_object_with_retry` — it snapshots the current version, calls `update_object`, and retries once on `StaleUpdate`. This handles races with other collaborators without aborting the whole AI turn.
+
+**Dual LLM backends:** `LLM_PROVIDER=anthropic` (default, `claude-sonnet-4-5-20250929`) or `LLM_PROVIDER=openai` (default `gpt-4o`, supports `LLM_OPENAI_BASE_URL` for custom/compatible endpoints, and `LLM_OPENAI_MODE=responses|chat_completions`).
+
+AI is the **one exception** to the Outcome pattern: `handle_ai` broadcasts each mutation frame directly to board peers as it collects results, rather than batching them into an Outcome. This means collaborators see the AI's `object:create` and `object:update` frames arrive in real time, one at a time, as the tool loop executes.
+
+---
+
+### 8. Interesting Design Patterns
+
+**The Outcome Pattern.** Handler functions return `Result<Outcome, Frame>` — pure data. The dispatch layer owns the socket, the broadcast calls, and the persistence enqueue. This separation means: (a) handlers have no I/O side effects and are straightforward to unit-test by constructing exact `Frame` inputs, and (b) adding a new delivery mode (say, a filtered multicast) only touches one function in `process_inbound_bytes`, not every handler.
+
+**Two-Speed Persistence.** Objects and frames have separate persistence pipelines tuned to their different traffic profiles. Objects are hot (every drag updates x/y) but only the final position matters — dirty set + periodic flush at 100ms. Frames are append-only audit log entries — they use a bounded queue with batched transactional writes at 5ms intervals, up to 128 frames per transaction, with 2 retries. The WS handler never waits on either: `enqueue_frame` is `try_send`, object writes are fire-and-forget to the dirty set.
+
+**Dirty Flush with Version Guard.** When the flush snapshots dirty objects, it records `(object_id, version)`. After a successful upsert, it checks whether `current.version == flushed_version` before clearing the dirty bit. If the object was updated again during the I/O window, the dirty bit survives and the newer version will be flushed in the next cycle. No data loss, no explicit locking during Postgres I/O.
+
+**Single-Use WS Tickets via `DELETE ... RETURNING`.** Rather than updating a `used` flag (which requires a read-modify-write), the server deletes the ticket row atomically and returns the `user_id` in one query. The ticket literally cannot be consumed twice — the row is gone.
+
+**Frame-Based Conversation History.** AI multi-turn context is not stored in a separate chat table. The server queries the `frames` table for `syscall = 'ai:prompt'` frames with `status IN ('request', 'done')` to reconstruct the last 10 exchanges. The persisted frame log is the source of truth for AI history, chat history, and board event replay alike.
+
+**Savepoint + Auto-Savepoint Debouncing.** On `object:create` and `object:delete`, the server calls `maybe_create_auto_savepoint` before returning the Outcome. The auto-savepoint is skipped if the most recent auto-savepoint for that board is within 1 500ms — a simple debounce that prevents a rapid AI burst from creating hundreds of snapshot rows. Manual savepoints always write.
+
+**`board:list` Revision Token.** `handle_board_list` computes a `rev` string: `"{board_count}:{total_object_count}:{max_object_updated_us}:{board_id_fingerprint}"`. If the client sends `since_rev` matching the current rev, the handler returns `{ noop: true, rev }` immediately — no board list payload. The dashboard polls every 10 seconds and only re-renders when something actually changed.
+
+**Non-Fatal Optional Integrations.** LLM and GitHub OAuth are initialized with `Option<T>` in `AppState`. If either is `None`, the respective handler returns a structured error frame (`E_LLM_NOT_CONFIGURED`) rather than panicking. This allows the server to run as a pure real-time board backend without AI or auth configured.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 14 total, 0 failed
+📋 Files: 13 read
+📋 Tokens: 9.7K in, 323 out
+📋 Cache: 434.5K read, 181.2K created

@@ -334,13 +334,13 @@
       <div class="panel-left">
         <div class="timeline-log-panel" id="timeline-log-panel">
           <div class="timeline-log-header">
-            <button class="carousel-arrow carousel-prev" id="tl-prev" aria-label="Previous day">&#9665;</button>
+            <button class="carousel-arrow carousel-prev" id="tl-prev" aria-label="Previous day"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,2 4,7 9,12"/></svg> PREV</button>
             <div class="timeline-log-heading">
               <div class="label">COMMIT_LOG</div>
               <div class="timeline-log-title" id="tl-title">DAY 1 &mdash; FULL-STACK SCAFFOLD</div>
               <div class="timeline-log-meta"><span id="tl-date">2026-02-16</span> &middot; <span id="tl-commits">40 COMMITS</span></div>
             </div>
-            <button class="carousel-arrow carousel-next" id="tl-next" aria-label="Next day">&#9655;</button>
+            <button class="carousel-arrow carousel-next" id="tl-next" aria-label="Next day">NEXT <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5,2 10,7 5,12"/></svg></button>
           </div>
           <div class="timeline-log-body" id="tl-body">
             <!-- Day pages rendered by JS -->
@@ -360,29 +360,8 @@
             <div class="display-script">Timeline</div>
             <div class="record-subtitle">7 Days &middot; 424 Commits &middot; Feb 16&ndash;22, 2026</div>
           </div>
-          <div class="tab-bar" data-tabgroup="timeline-card">
-            <button class="tab active" data-tab="timeline-overview">FIELD_NOTES</button>
-            <button class="tab" data-tab="timeline-videos">VIDEO_LOG</button>
-          </div>
-          <div class="tab-content active" data-tab-content="timeline-overview">
-            <div class="timeline-entries" id="tl-field-notes">
-              <!-- Field notes rendered by JS to sync with selected day -->
-            </div>
-          </div>
-          <div class="tab-content" data-tab-content="timeline-videos">
-            <div class="section-heading">VIDEO_RECORDINGS</div>
-            <div class="video-entry">
-              <div class="label">PLAYBACK_DEVICE &mdash; DAY 2 MVP</div>
-              <div class="video-frame">
-                <iframe src="https://www.loom.com/embed/613a53b528ae431a81873c41583a11c2" frameborder="0" allowfullscreen title="Day 2 MVP demo video"></iframe>
-              </div>
-            </div>
-            <div class="video-entry">
-              <div class="label">PLAYBACK_DEVICE &mdash; DAY 5 EARLY RELEASE</div>
-              <div class="video-frame">
-                <iframe src="https://www.loom.com/embed/5d38b03c2450418ab11c29e0bbd28e52" frameborder="0" allowfullscreen title="Day 5 early release demo video"></iframe>
-              </div>
-            </div>
+          <div class="timeline-entries" id="tl-field-notes">
+            <!-- Field notes rendered by JS to sync with selected day -->
           </div>
         </div>
       </div>

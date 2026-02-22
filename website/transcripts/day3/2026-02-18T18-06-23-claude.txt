@@ -1,0 +1,2566 @@
+📋 Session: 5e68654b-ba94-4f35-bb9f-7ca8654a490b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-18T18:06:23.787+00:00
+📋 Version: 2.1.45
+📋 Branch: main
+
+👤 Read the full contents of ALL of these files and return them verbatim:
+
+1. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/app.rs
+2. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mod.rs
+3. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/toolbar.rs
+4. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/status_bar.rs
+5. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/user_field_report.rs
+6. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/left_panel.rs
+7. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_rail.rs
+8. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_strip.rs
+9. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/inspector_panel.rs
+10. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/right_panel.rs
+11. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/chat_panel.rs
+12. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/ai_panel.rs
+13. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mission_control.rs
+14. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_card.rs
+15. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_stamp.rs
+16. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/canvas_host.rs
+17. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/board.rs
+18. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/dashboard.rs
+19. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/login.rs
+20. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/frame_client.rs
+21. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/types.rs
+22. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/api.rs
+23. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/mod.rs
+24. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ai.rs
+25. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/auth.rs
+26. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/board.rs
+27. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/chat.rs
+28. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ui.rs
+29. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/util/dark_mode.rs
+30. /Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/styles/main.css
+
+Return ALL content, do not summarize or truncate.
+📋 Model: haiku-4.5
+🤖 I'll read all of these files for you.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/app.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/toolbar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/status_bar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/user_field_report.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/left_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_rail.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_strip.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/inspector_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/right_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/chat_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/ai_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mission_control.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_card.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_stamp.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/dashboard.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/login.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/frame_client.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/types.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/api.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/chat.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ui.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/util/dark_mode.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/styles/main.css"
+🤖 Here are all 30 files you requested, presented in full:
+
+## 1. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/app.rs`
+
+```rust
+//! Root application component with routing and context providers.
+
+use leptos::prelude::*;
+use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
+use leptos_router::{
+    ParamSegment, StaticSegment,
+    components::{Route, Router, Routes},
+};
+
+use crate::pages::{board::BoardPage, dashboard::DashboardPage, login::LoginPage};
+use crate::state::{ai::AiState, auth::AuthState, board::BoardState, chat::ChatState, ui::UiState};
+
+/// Wrapper around the frame client sender, provided as Leptos context.
+///
+/// Components use this to send frames to the server. On the server (SSR),
+/// this is `None`.
+#[derive(Clone, Debug, Default)]
+pub struct FrameSender {
+    #[cfg(feature = "hydrate")]
+    pub tx: Option<futures::channel::mpsc::UnboundedSender<String>>,
+}
+
+impl FrameSender {
+    /// Send a frame to the server. Returns `false` if not connected.
+    pub fn send(&self, frame: &crate::net::types::Frame) -> bool {
+        #[cfg(feature = "hydrate")]
+        {
+            if let Some(ref tx) = self.tx {
+                return crate::net::frame_client::send_frame(tx, frame);
+            }
+        }
+        let _ = frame;
+        false
+    }
+}
+
+/// HTML shell rendered on the server for SSR + hydration.
+pub fn shell(options: LeptosOptions) -> impl IntoView {
+    view! {
+        <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <AutoReload options=options.clone()/>
+                <HydrationScripts options/>
+                <MetaTags/>
+            </head>
+            <body>
+                <App/>
+            </body>
+        </html>
+    }
+}
+
+/// Root application component.
+///
+/// Provides all shared state contexts and sets up client-side routing.
+#[component]
+pub fn App() -> impl IntoView {
+    provide_meta_context();
+
+    // Provide reactive state contexts for all child components.
+    let auth = RwSignal::new(AuthState::default());
+    let board = RwSignal::new(BoardState::default());
+    let ui = RwSignal::new(UiState::default());
+    let chat = RwSignal::new(ChatState::default());
+    let ai = RwSignal::new(AiState::default());
+    let frame_sender = RwSignal::new(FrameSender::default());
+
+    provide_context(auth);
+    provide_context(board);
+    provide_context(ui);
+    provide_context(chat);
+    provide_context(ai);
+    provide_context(frame_sender);
+
+    // Client-side initialization: fetch user and spawn frame client.
+    Effect::new(move || {
+        #[cfg(feature = "hydrate")]
+        {
+            // Fetch current user.
+            auth.update(|a| a.loading = true);
+            leptos::task::spawn_local(async move {
+                let user = crate::net::api::fetch_current_user().await;
+                auth.update(|a| {
+                    a.user = user;
+                    a.loading = false;
+                });
+            });
+
+            // Spawn WebSocket frame client.
+            let tx = crate::net::frame_client::spawn_frame_client(auth, board, chat);
+            frame_sender.update(|fs| fs.tx = Some(tx));
+
+            // Initialize dark mode from stored preference.
+            let dark = crate::util::dark_mode::read_preference();
+            ui.update(|u| u.dark_mode = dark);
+            crate::util::dark_mode::apply(dark);
+        }
+    });
+
+    view! {
+        <Stylesheet id="leptos" href="/pkg/gauntlet-ui.css"/>
+        <Title text="Gauntlet"/>
+
+        <Router>
+            <Routes fallback=|| "Page not found.".into_view()>
+                <Route path=StaticSegment("login") view=LoginPage/>
+                <Route path=StaticSegment("") view=DashboardPage/>
+                <Route path=(StaticSegment("board"), ParamSegment("id")) view=BoardPage/>
+            </Routes>
+        </Router>
+    }
+}
+```
+
+## 2. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mod.rs`
+
+```rust
+pub mod ai_panel;
+pub mod board_card;
+pub mod board_stamp;
+pub mod canvas_host;
+pub mod chat_panel;
+pub mod inspector_panel;
+pub mod left_panel;
+pub mod mission_control;
+pub mod right_panel;
+pub mod status_bar;
+pub mod tool_rail;
+pub mod tool_strip;
+pub mod toolbar;
+pub mod user_field_report;
+```
+
+## 3. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/toolbar.rs`
+
+```rust
+//! Top bar displaying board name, presence avatars, back button, and logout.
+
+use leptos::prelude::*;
+
+use crate::state::auth::AuthState;
+use crate::state::board::BoardState;
+use crate::state::ui::UiState;
+
+/// Top toolbar for the board page.
+///
+/// Shows the board name, presence dots for connected users, a back button
+/// to the dashboard, and a logout button.
+#[component]
+pub fn Toolbar() -> impl IntoView {
+    let auth = expect_context::<RwSignal<AuthState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
+
+    let board_name = move || {
+        board
+            .get()
+            .board_name
+            .unwrap_or_else(|| "Untitled".to_owned())
+    };
+    let user_name = move || auth.get().user.map_or_else(String::new, |u| u.name);
+
+    let on_logout = move |_| {
+        #[cfg(feature = "hydrate")]
+        {
+            leptos::task::spawn_local(async move {
+                crate::net::api::logout().await;
+                auth.update(|a| a.user = None);
+                // Navigate to login via window.location for a clean state.
+                if let Some(w) = web_sys::window() {
+                    let _ = w.location().set_href("/login");
+                }
+            });
+        }
+    };
+
+    view! {
+        <div class="toolbar">
+            <a href="/" class="toolbar__back" title="Back to dashboard">
+                "\u{2190}"
+            </a>
+            <span class="toolbar__board-name">{board_name}</span>
+            <div class="toolbar__presence">
+                {move || {
+                    board
+                        .get()
+                        .presence
+                        .values()
+                        .map(|p| {
+                            let border_color = p.color.clone();
+                            let dot_color = p.color.clone();
+                            let chip_name = p.name.clone();
+                            let display_name = p.name.clone();
+                            view! {
+                                <span
+                                    class="toolbar__presence-chip"
+                                    title=chip_name
+                                    style:border-color=border_color
+                                >
+                                    <span class="toolbar__presence-dot" style:background=dot_color></span>
+                                    {display_name}
+                                </span>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }}
+            </div>
+            <span class="toolbar__spacer"></span>
+            <button
+                class="btn toolbar__dark-toggle"
+                on:click=move |_| {
+                    let current = ui.get().dark_mode;
+                    let next = crate::util::dark_mode::toggle(current);
+                    ui.update(|u| u.dark_mode = next);
+                }
+            >
+                {move || if ui.get().dark_mode { "\u{2600}" } else { "\u{263E}" }}
+            </button>
+            <span class="toolbar__user">{user_name}</span>
+            <button class="btn toolbar__logout" on:click=on_logout>
+                "Logout"
+            </button>
+        </div>
+    }
+}
+```
+
+## 4. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/status_bar.rs`
+
+```rust
+//! Bottom status bar showing connection status, zoom level, and object count.
+
+use leptos::prelude::*;
+
+use crate::state::board::{BoardState, ConnectionStatus};
+
+/// Status bar at the bottom of the board page.
+///
+/// Shows connection status indicator, board name, object count, and
+/// placeholders for zoom level and cursor position (canvas-dependent).
+#[component]
+pub fn StatusBar() -> impl IntoView {
+    let board = expect_context::<RwSignal<BoardState>>();
+
+    let status_class = move || {
+        let status = board.get().connection_status;
+        match status {
+            ConnectionStatus::Connected => "status-bar__dot status-bar__dot--connected",
+            ConnectionStatus::Connecting => "status-bar__dot status-bar__dot--connecting",
+            ConnectionStatus::Disconnected => "status-bar__dot status-bar__dot--disconnected",
+        }
+    };
+
+    let status_label = move || {
+        let status = board.get().connection_status;
+        match status {
+            ConnectionStatus::Connected => "Connected",
+            ConnectionStatus::Connecting => "Connecting...",
+            ConnectionStatus::Disconnected => "Disconnected",
+        }
+    };
+
+    let object_count = move || board.get().objects.len();
+    let board_name = move || board.get().board_name.unwrap_or_default();
+
+    view! {
+        <div class="status-bar">
+            <span class="status-bar__connection">
+                <span class=status_class></span>
+                {status_label}
+            </span>
+            <span class="status-bar__divider">"|"</span>
+            <span class="status-bar__board-name">{board_name}</span>
+            <span class="status-bar__divider">"|"</span>
+            <span class="status-bar__objects">{move || format!("{} objects", object_count())}</span>
+            <span class="status-bar__spacer"></span>
+            <span class="status-bar__zoom">"100%"</span>
+        </div>
+    }
+}
+```
+
+## 5. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/user_field_report.rs`
+
+```rust
+//! User profile popover with statistics, shown on avatar click.
+
+use leptos::prelude::*;
+
+use crate::net::types::UserProfile;
+
+/// Popover that displays a user's profile and statistics.
+///
+/// Fetches the profile from `/api/users/:id/profile` on mount.
+#[component]
+pub fn UserFieldReport(user_id: String) -> impl IntoView {
+    let uid = user_id.clone();
+    let profile = LocalResource::new(move || {
+        let uid = uid.clone();
+        async move { crate::net::api::fetch_user_profile(&uid).await }
+    });
+
+    view! {
+        <div class="user-field-report">
+            <Suspense fallback=move || view! { <span>"Loading..."</span> }>
+                {move || {
+                    profile
+                        .get()
+                        .map(|p| {
+                            if let Some(p) = p {
+                                render_profile(p).into_any()
+                            } else {
+                                view! { <span>"User not found"</span> }.into_any()
+                            }
+                        })
+                }}
+            </Suspense>
+        </div>
+    }
+}
+
+fn render_profile(p: UserProfile) -> impl IntoView {
+    view! {
+        <div class="user-field-report__card">
+            <div class="user-field-report__header">
+                <span class="user-field-report__color-dot" style:background=p.color.clone()></span>
+                <strong>{p.name}</strong>
+            </div>
+            <dl class="user-field-report__stats">
+                <dt>"Frames"</dt>
+                <dd>{p.stats.total_frames}</dd>
+                <dt>"Objects"</dt>
+                <dd>{p.stats.objects_created}</dd>
+                <dt>"Boards"</dt>
+                <dd>{p.stats.boards_active}</dd>
+            </dl>
+            {if p.stats.top_syscalls.is_empty() {
+                None
+            } else {
+                Some(
+                    view! {
+                        <div class="user-field-report__syscalls">
+                            <strong>"Top syscalls"</strong>
+                            <ul>
+                                {p
+                                    .stats
+                                    .top_syscalls
+                                    .iter()
+                                    .map(|sc| {
+                                        view! {
+                                            <li>
+                                                {sc.syscall.clone()} " (" {sc.count} ")"
+                                            </li>
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()}
+                            </ul>
+                        </div>
+                    },
+                )
+            }}
+        </div>
+    }
+}
+```
+
+## 6. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/left_panel.rs`
+
+```rust
+//! Collapsible left panel containing the tool rail and inspector panel.
+
+use leptos::prelude::*;
+
+use crate::components::inspector_panel::InspectorPanel;
+use crate::components::tool_rail::ToolRail;
+use crate::components::tool_strip::ToolStrip;
+use crate::state::ui::{LeftTab, UiState};
+
+/// Collapsible left sidebar with tab switching between Tools and Inspector.
+#[component]
+pub fn LeftPanel() -> impl IntoView {
+    let ui = expect_context::<RwSignal<UiState>>();
+
+    let expanded = move || ui.get().left_panel_expanded;
+    let active_tab = move || ui.get().left_tab;
+
+    let toggle_expand = move |_| {
+        ui.update(|u| u.left_panel_expanded = !u.left_panel_expanded);
+    };
+
+    let set_tools = move |_| {
+        ui.update(|u| u.left_tab = LeftTab::Tools);
+    };
+
+    let set_inspector = move |_| {
+        ui.update(|u| u.left_tab = LeftTab::Inspector);
+    };
+
+    view! {
+        <div class="left-panel" class:left-panel--collapsed=move || !expanded()>
+            <div class="left-panel__tabs">
+                <button
+                    class="left-panel__tab"
+                    class:left-panel__tab--active=move || active_tab() == LeftTab::Tools
+                    on:click=set_tools
+                >
+                    "Tools"
+                </button>
+                <button
+                    class="left-panel__tab"
+                    class:left-panel__tab--active=move || active_tab() == LeftTab::Inspector
+                    on:click=set_inspector
+                >
+                    "Inspector"
+                </button>
+                <button class="left-panel__toggle" on:click=toggle_expand>
+                    {move || if expanded() { "\u{25C0}" } else { "\u{25B6}" }}
+                </button>
+            </div>
+
+            <Show when=expanded>
+                <div class="left-panel__content">
+                    {move || match active_tab() {
+                        LeftTab::Tools => {
+                            view! {
+                                <ToolRail/>
+                                <ToolStrip/>
+                            }
+                                .into_any()
+                        }
+                        LeftTab::Inspector => {
+                            view! { <InspectorPanel/> }.into_any()
+                        }
+                    }}
+                </div>
+            </Show>
+        </div>
+    }
+}
+```
+
+## 7. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_rail.rs`
+
+```rust
+//! Vertical strip of tool buttons for selecting the active drawing tool.
+
+use leptos::prelude::*;
+
+use crate::state::ui::{ToolType, UiState};
+
+/// Tool definition for the rail.
+struct ToolDef {
+    tool: ToolType,
+    label: &'static str,
+    icon: &'static str,
+}
+
+const TOOLS: &[ToolDef] = &[
+    ToolDef { tool: ToolType::Select, label: "Select", icon: "\u{25B3}" },
+    ToolDef { tool: ToolType::Rect, label: "Rectangle", icon: "\u{25A1}" },
+    ToolDef { tool: ToolType::Ellipse, label: "Ellipse", icon: "\u{25CB}" },
+    ToolDef { tool: ToolType::Diamond, label: "Diamond", icon: "\u{25C7}" },
+    ToolDef { tool: ToolType::Star, label: "Star", icon: "\u{2606}" },
+    ToolDef { tool: ToolType::Line, label: "Line", icon: "\u{2014}" },
+    ToolDef { tool: ToolType::Arrow, label: "Arrow", icon: "\u{2192}" },
+];
+
+/// Vertical strip of tool selection buttons.
+///
+/// Highlights the active tool from `UiState.active_tool` and updates it on click.
+#[component]
+pub fn ToolRail() -> impl IntoView {
+    let ui = expect_context::<RwSignal<UiState>>();
+
+    let buttons = TOOLS
+        .iter()
+        .map(|td| {
+            let tool = td.tool;
+            let label = td.label;
+            let icon = td.icon;
+
+            let is_active = move || ui.get().active_tool == tool;
+            let on_click = move |_| {
+                ui.update(|u| u.active_tool = tool);
+            };
+
+            view! {
+                <button
+                    class="tool-rail__btn"
+                    class:tool-rail__btn--active=is_active
+                    title=label
+                    on:click=on_click
+                >
+                    {icon}
+                </button>
+            }
+        })
+        .collect::<Vec<_>>();
+
+    view! { <div class="tool-rail">{buttons}</div> }
+}
+```
+
+## 8. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/tool_strip.rs`
+
+```rust
+//! Quick-create buttons with shape and color presets.
+
+use leptos::prelude::*;
+
+use crate::app::FrameSender;
+use crate::net::types::Frame;
+use crate::state::board::BoardState;
+use crate::state::ui::UiState;
+
+/// Preset shape colors.
+const PRESET_COLORS: &[&str] = &["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"];
+
+/// Quick-create strip for the active tool.
+///
+/// Shows color presets and an "Add" button that creates an object at a
+/// default position via the `object:create` frame.
+#[component]
+pub fn ToolStrip() -> impl IntoView {
+    let ui = expect_context::<RwSignal<UiState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
+
+    let selected_color = RwSignal::new(PRESET_COLORS[0].to_owned());
+
+    let on_add = move |_| {
+        let tool = ui.get().active_tool;
+        let kind = format!("{tool:?}").to_lowercase();
+        let color = selected_color.get();
+        let board_id = board.get().board_id.clone();
+
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0.0,
+            board_id,
+            from: None,
+            syscall: "object:create".to_owned(),
+            status: crate::net::types::FrameStatus::Request,
+            data: serde_json::json!({
+                "kind": kind,
+                "x": 100.0,
+                "y": 100.0,
+                "width": 120.0,
+                "height": 80.0,
+                "props": { "fill": color }
+            }),
+        };
+        sender.get().send(&frame);
+    };
+
+    view! {
+        <div class="tool-strip">
+            <div class="tool-strip__colors">
+                {PRESET_COLORS
+                    .iter()
+                    .map(|&c| {
+                        let color = c.to_owned();
+                        let color_val = color.clone();
+                        let is_selected = {
+                            let color = color.clone();
+                            move || selected_color.get() == color
+                        };
+                        view! {
+                            <button
+                                class="tool-strip__color"
+                                class:tool-strip__color--selected=is_selected
+                                style:background=color_val
+                                on:click=move |_| selected_color.set(color.clone())
+                            ></button>
+                        }
+                    })
+                    .collect::<Vec<_>>()}
+            </div>
+            <button class="btn btn--primary tool-strip__add" on:click=on_add>
+                "Add"
+            </button>
+        </div>
+    }
+}
+```
+
+## 9. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/inspector_panel.rs`
+
+```rust
+//! Property inspector for the currently selected board object.
+
+use leptos::prelude::*;
+
+use crate::app::FrameSender;
+use crate::net::types::{BoardObject, Frame, FrameStatus};
+use crate::state::board::BoardState;
+
+/// Inspector panel showing properties of the selected object.
+///
+/// Reads from `BoardState.selection` and `BoardState.objects`. Editable fields
+/// send `object:update` frames on change. Delete button sends `object:delete`.
+#[component]
+pub fn InspectorPanel() -> impl IntoView {
+    let board = expect_context::<RwSignal<BoardState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
+
+    let selected_object = move || {
+        let state = board.get();
+        let sel_id = state.selection.iter().next().cloned();
+        sel_id.and_then(|id| state.objects.get(&id).cloned())
+    };
+
+    view! {
+        <div class="inspector-panel">
+            {move || {
+                if let Some(obj) = selected_object() {
+                    render_inspector(obj, board, sender).into_any()
+                } else {
+                    view! { <p class="inspector-panel__empty">"No object selected"</p> }.into_any()
+                }
+            }}
+        </div>
+    }
+}
+
+fn render_inspector(obj: BoardObject, board: RwSignal<BoardState>, sender: RwSignal<FrameSender>) -> impl IntoView {
+    let obj_id = obj.id.clone();
+    let board_id = obj.board_id.clone();
+
+    let on_delete = {
+        let obj_id = obj_id.clone();
+        let board_id = board_id.clone();
+        move |_| {
+            let frame = Frame {
+                id: uuid::Uuid::new_v4().to_string(),
+                parent_id: None,
+                ts: 0.0,
+                board_id: Some(board_id.clone()),
+                from: None,
+                syscall: "object:delete".to_owned(),
+                status: FrameStatus::Request,
+                data: serde_json::json!({ "id": obj_id }),
+            };
+            sender.get().send(&frame);
+            board.update(|b| {
+                b.objects.remove(&obj_id);
+                b.selection.remove(&obj_id);
+            });
+        }
+    };
+
+    view! {
+        <div class="inspector-panel__card">
+            <h3 class="inspector-panel__title">{obj.kind.clone()}</h3>
+
+            <dl class="inspector-panel__fields">
+                <dt>"ID"</dt>
+                <dd class="inspector-panel__mono">{obj.id.clone()}</dd>
+                <dt>"Position"</dt>
+                <dd>{format!("({:.0}, {:.0})", obj.x, obj.y)}</dd>
+                <dt>"Size"</dt>
+                <dd>
+                    {format!(
+                        "{} \u{00D7} {}",
+                        obj.width.map_or("—".to_owned(), |w| format!("{w:.0}")),
+                        obj.height.map_or("—".to_owned(), |h| format!("{h:.0}")),
+                    )}
+                </dd>
+                <dt>"Rotation"</dt>
+                <dd>{format!("{:.0}\u{00B0}", obj.rotation)}</dd>
+                <dt>"Z-index"</dt>
+                <dd>{obj.z_index}</dd>
+                <dt>"Version"</dt>
+                <dd>{obj.version}</dd>
+            </dl>
+
+            <div class="inspector-panel__actions">
+                <button class="btn btn--danger" on:click=on_delete>
+                    "Delete"
+                </button>
+            </div>
+        </div>
+    }
+}
+```
+
+## 10. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/right_panel.rs`
+
+```rust
+//! Collapsible right panel with tab switcher for Chat, AI, and Boards.
+
+use leptos::prelude::*;
+
+use crate::components::ai_panel::AiPanel;
+use crate::components::chat_panel::ChatPanel;
+use crate::components::mission_control::MissionControl;
+use crate::state::ui::{RightTab, UiState};
+
+/// Collapsible right sidebar with tab switching between Chat, AI, and Boards.
+#[component]
+pub fn RightPanel() -> impl IntoView {
+    let ui = expect_context::<RwSignal<UiState>>();
+
+    let expanded = move || ui.get().right_panel_expanded;
+    let active_tab = move || ui.get().right_tab;
+
+    let toggle_expand = move |_| {
+        ui.update(|u| u.right_panel_expanded = !u.right_panel_expanded);
+    };
+
+    let set_chat = move |_| ui.update(|u| u.right_tab = RightTab::Chat);
+    let set_ai = move |_| ui.update(|u| u.right_tab = RightTab::Ai);
+    let set_boards = move |_| ui.update(|u| u.right_tab = RightTab::Boards);
+
+    view! {
+        <div class="right-panel" class:right-panel--collapsed=move || !expanded()>
+            <div class="right-panel__tabs">
+                <button class="right-panel__toggle" on:click=toggle_expand>
+                    {move || if expanded() { "\u{25B6}" } else { "\u{25C0}" }}
+                </button>
+                <button
+                    class="right-panel__tab"
+                    class:right-panel__tab--active=move || active_tab() == RightTab::Chat
+                    on:click=set_chat
+                >
+                    "Chat"
+                </button>
+                <button
+                    class="right-panel__tab"
+                    class:right-panel__tab--active=move || active_tab() == RightTab::Ai
+                    on:click=set_ai
+                >
+                    "AI"
+                </button>
+                <button
+                    class="right-panel__tab"
+                    class:right-panel__tab--active=move || active_tab() == RightTab::Boards
+                    on:click=set_boards
+                >
+                    "Boards"
+                </button>
+            </div>
+
+            <Show when=expanded>
+                <div class="right-panel__content">
+                    {move || match active_tab() {
+                        RightTab::Chat => view! { <ChatPanel/> }.into_any(),
+                        RightTab::Ai => view! { <AiPanel/> }.into_any(),
+                        RightTab::Boards => view! { <MissionControl/> }.into_any(),
+                    }}
+                </div>
+            </Show>
+        </div>
+    }
+}
+```
+
+## 11. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/chat_panel.rs`
+
+```rust
+//! Real-time board chat panel displaying and sending messages.
+
+use leptos::prelude::*;
+
+use crate::app::FrameSender;
+use crate::net::types::{Frame, FrameStatus};
+use crate::state::board::BoardState;
+use crate::state::chat::ChatState;
+
+/// Chat panel showing message history and an input for sending new messages.
+#[component]
+pub fn ChatPanel() -> impl IntoView {
+    let chat = expect_context::<RwSignal<ChatState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
+
+    let input = RwSignal::new(String::new());
+
+    let do_send = move || {
+        let text = input.get();
+        if text.trim().is_empty() {
+            return;
+        }
+        let board_id = board.get().board_id.clone();
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0.0,
+            board_id,
+            from: None,
+            syscall: "chat:message".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({ "message": text }),
+        };
+        sender.get().send(&frame);
+        input.set(String::new());
+    };
+
+    let on_click = move |_| do_send();
+
+    let on_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() == "Enter" && !ev.shift_key() {
+            ev.prevent_default();
+            do_send();
+        }
+    };
+
+    view! {
+        <div class="chat-panel">
+            <div class="chat-panel__messages">
+                {move || {
+                    chat.get()
+                        .messages
+                        .iter()
+                        .map(|msg| {
+                            let color = msg.user_color.clone();
+                            let name = msg.user_name.clone();
+                            let content = msg.content.clone();
+                            view! {
+                                <div class="chat-panel__message">
+                                    <span class="chat-panel__author" style:color=color>
+                                        {name}
+                                    </span>
+                                    <span class="chat-panel__text">{content}</span>
+                                </div>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }}
+            </div>
+            <div class="chat-panel__input-row">
+                <input
+                    class="chat-panel__input"
+                    type="text"
+                    placeholder="Type a message..."
+                    prop:value=move || input.get()
+                    on:input=move |ev| input.set(event_target_value(&ev))
+                    on:keydown=on_keydown
+                />
+                <button class="btn btn--primary" on:click=on_click>
+                    "Send"
+                </button>
+            </div>
+        </div>
+    }
+}
+```
+
+## 12. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/ai_panel.rs`
+
+```rust
+//! AI assistant panel for sending prompts and displaying responses.
+
+use leptos::prelude::*;
+
+use crate::app::FrameSender;
+use crate::net::types::{Frame, FrameStatus};
+use crate::state::ai::AiState;
+use crate::state::board::BoardState;
+
+/// AI panel showing conversation history and a prompt input.
+///
+/// Sends `ai:prompt` frames to the server and displays responses.
+#[component]
+pub fn AiPanel() -> impl IntoView {
+    let ai = expect_context::<RwSignal<AiState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let sender = expect_context::<RwSignal<FrameSender>>();
+
+    let input = RwSignal::new(String::new());
+
+    let do_send = move || {
+        let text = input.get();
+        if text.trim().is_empty() {
+            return;
+        }
+        let board_id = board.get().board_id.clone();
+        let frame = Frame {
+            id: uuid::Uuid::new_v4().to_string(),
+            parent_id: None,
+            ts: 0.0,
+            board_id,
+            from: None,
+            syscall: "ai:prompt".to_owned(),
+            status: FrameStatus::Request,
+            data: serde_json::json!({ "prompt": text }),
+        };
+        sender.get().send(&frame);
+        ai.update(|a| a.loading = true);
+        input.set(String::new());
+    };
+
+    let on_click = move |_| do_send();
+
+    let on_keydown = move |ev: leptos::ev::KeyboardEvent| {
+        if ev.key() == "Enter" && !ev.shift_key() {
+            ev.prevent_default();
+            do_send();
+        }
+    };
+
+    view! {
+        <div class="ai-panel">
+            <div class="ai-panel__messages">
+                {move || {
+                    ai.get()
+                        .messages
+                        .iter()
+                        .map(|msg| {
+                            let role = msg.role.clone();
+                            let content = msg.content.clone();
+                            let is_assistant = role == "assistant";
+                            view! {
+                                <div
+                                    class="ai-panel__message"
+                                    class:ai-panel__message--assistant=is_assistant
+                                >
+                                    <span class="ai-panel__role">{role}</span>
+                                    <div class="ai-panel__content">{content}</div>
+                                </div>
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                }}
+                {move || {
+                    ai.get()
+                        .loading
+                        .then(|| view! { <div class="ai-panel__loading">"Thinking..."</div> })
+                }}
+            </div>
+            <div class="ai-panel__input-row">
+                <input
+                    class="ai-panel__input"
+                    type="text"
+                    placeholder="Ask the AI..."
+                    prop:value=move || input.get()
+                    on:input=move |ev| input.set(event_target_value(&ev))
+                    on:keydown=on_keydown
+                />
+                <button class="btn btn--primary" on:click=on_click>
+                    "Send"
+                </button>
+            </div>
+        </div>
+    }
+}
+```
+
+## 13. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/mission_control.rs`
+
+```rust
+//! In-board board switcher listing available boards with navigation.
+
+use leptos::prelude::*;
+
+use crate::net::api::BoardListItem;
+
+/// Compact board list for switching between boards without leaving the workspace.
+#[component]
+pub fn MissionControl() -> impl IntoView {
+    let boards = LocalResource::new(|| crate::net::api::fetch_boards());
+
+    view! {
+        <div class="mission-control">
+            <h3 class="mission-control__title">"Boards"</h3>
+            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+                {move || {
+                    boards
+                        .get()
+                        .map(|list| {
+                            view! {
+                                <ul class="mission-control__list">
+                                    {list
+                                        .into_iter()
+                                        .map(board_item)
+                                        .collect::<Vec<_>>()}
+                                </ul>
+                            }
+                        })
+                }}
+            </Suspense>
+        </div>
+    }
+}
+
+fn board_item(b: BoardListItem) -> impl IntoView {
+    let href = format!("/board/{}", b.id);
+    view! {
+        <li class="mission-control__item">
+            <a href=href class="mission-control__link">
+                {b.name}
+            </a>
+        </li>
+    }
+}
+```
+
+## 14. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_card.rs`
+
+```rust
+//! Reusable card component for board list items on the dashboard.
+
+use leptos::prelude::*;
+
+/// A clickable card representing a board in the dashboard list.
+#[component]
+pub fn BoardCard(id: String, name: String) -> impl IntoView {
+    let href = format!("/board/{id}");
+
+    view! {
+        <a class="board-card" href=href>
+            <span class="board-card__name">{name}</span>
+        </a>
+    }
+}
+```
+
+## 15. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/board_stamp.rs`
+
+```rust
+//! Semi-transparent overlay label displayed on the canvas area.
+
+use leptos::prelude::*;
+
+use crate::state::board::BoardState;
+
+/// Board stamp — semi-transparent overlay showing board name and stats.
+#[component]
+pub fn BoardStamp() -> impl IntoView {
+    let board = expect_context::<RwSignal<BoardState>>();
+
+    let board_name = move || {
+        board
+            .get()
+            .board_name
+            .unwrap_or_else(|| "Untitled".to_owned())
+    };
+    let object_count = move || board.get().objects.len();
+
+    view! {
+        <div class="board-stamp">
+            <span class="board-stamp__name">{board_name}</span>
+            <span class="board-stamp__count">{move || format!("{} objects", object_count())}</span>
+        </div>
+    }
+}
+```
+
+## 16. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/components/canvas_host.rs`
+
+```rust
+//! Bridge component between the Leptos UI and the imperative `canvas::Engine`.
+//!
+//! Mounts a `<canvas>` element. The actual engine integration is deferred
+//! to Phase 9 — for now this renders a placeholder canvas element.
+
+use leptos::prelude::*;
+
+/// Canvas host — placeholder `<canvas>` element for the whiteboard engine.
+///
+/// Phase 9 will add `canvas` crate dependency, create the `Engine`, wire
+/// pointer/keyboard events, and synchronize state with Leptos signals.
+#[component]
+pub fn CanvasHost() -> impl IntoView {
+    view! {
+        <canvas class="canvas-host" width="800" height="600">
+            "Your browser does not support canvas."
+        </canvas>
+    }
+}
+```
+
+## 17. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/board.rs`
+
+```rust
+//! Board page — the main workspace layout.
+
+use leptos::prelude::*;
+use leptos_router::NavigateOptions;
+use leptos_router::hooks::use_params_map;
+
+use crate::components::board_stamp::BoardStamp;
+use crate::components::canvas_host::CanvasHost;
+use crate::components::left_panel::LeftPanel;
+use crate::components::right_panel::RightPanel;
+use crate::components::status_bar::StatusBar;
+use crate::components::toolbar::Toolbar;
+use crate::state::auth::AuthState;
+use crate::state::board::BoardState;
+
+/// Board page — composes toolbar, panels, canvas placeholder, and status bar
+/// in a CSS grid layout. Reads the board ID from the route parameter and
+/// updates `BoardState` on mount.
+#[component]
+pub fn BoardPage() -> impl IntoView {
+    let auth = expect_context::<RwSignal<AuthState>>();
+    let board = expect_context::<RwSignal<BoardState>>();
+    let params = use_params_map();
+
+    // Extract board ID from route.
+    let board_id = move || params.read().get("id");
+
+    // Update board state when the route param changes.
+    Effect::new(move || {
+        let id = board_id();
+        board.update(|b| {
+            b.board_id.clone_from(&id);
+            b.board_name = None;
+        });
+        // TODO: send board:join via frame client
+    });
+
+    // Redirect to login if not authenticated.
+    let navigate = leptos_router::hooks::use_navigate();
+    Effect::new(move || {
+        let state = auth.get();
+        if !state.loading && state.user.is_none() {
+            navigate("/login", NavigateOptions::default());
+        }
+    });
+
+    view! {
+        <div class="board-page">
+            <div class="board-page__toolbar">
+                <Toolbar/>
+            </div>
+            <div class="board-page__left-panel">
+                <LeftPanel/>
+            </div>
+            <div class="board-page__canvas">
+                <CanvasHost/>
+                <BoardStamp/>
+            </div>
+            <div class="board-page__right-panel">
+                <RightPanel/>
+            </div>
+            <div class="board-page__status-bar">
+                <StatusBar/>
+            </div>
+        </div>
+    }
+}
+```
+
+## 18. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/dashboard.rs`
+
+```rust
+//! Dashboard page listing boards with create and open actions.
+
+use leptos::prelude::*;
+use leptos_router::NavigateOptions;
+use leptos_router::hooks::use_navigate;
+
+use crate::components::board_card::BoardCard;
+use crate::net::api::BoardListItem;
+use crate::state::auth::AuthState;
+
+/// Dashboard page — shows a board list and a create-board button.
+/// Redirects to `/login` if the user is not authenticated.
+#[component]
+pub fn DashboardPage() -> impl IntoView {
+    let auth = expect_context::<RwSignal<AuthState>>();
+    let navigate = use_navigate();
+
+    // Redirect to login if not authenticated.
+    Effect::new(move || {
+        let state = auth.get();
+        if !state.loading && state.user.is_none() {
+            navigate("/login", NavigateOptions::default());
+        }
+    });
+
+    // Board list resource — fetches on mount.
+    let boards = LocalResource::new(|| crate::net::api::fetch_boards());
+
+    // Create-board dialog state.
+    let show_create = RwSignal::new(false);
+    let new_board_name = RwSignal::new(String::new());
+
+    let on_create = move |_| {
+        show_create.set(true);
+        new_board_name.set(String::new());
+    };
+
+    let on_cancel = move |_| {
+        show_create.set(false);
+    };
+
+    view! {
+        <div class="dashboard-page">
+            <header class="dashboard-page__header">
+                <h1>"Boards"</h1>
+                <button class="btn btn--primary" on:click=on_create>
+                    "+ New Board"
+                </button>
+            </header>
+
+            <div class="dashboard-page__grid">
+                <Suspense fallback=move || view! { <p>"Loading boards..."</p> }>
+                    {move || {
+                        boards
+                            .get()
+                            .map(|list| {
+                                if list.is_empty() {
+                                    view! {
+                                        <p class="dashboard-page__empty">"No boards yet. Create one to get started."</p>
+                                    }
+                                        .into_any()
+                                } else {
+                                    view! {
+                                        <div class="dashboard-page__cards">
+                                            {list
+                                                .into_iter()
+                                                .map(|b| {
+                                                    view! { <BoardCard id=b.id name=b.name/> }
+                                                })
+                                                .collect::<Vec<_>>()}
+                                        </div>
+                                    }
+                                        .into_any()
+                                }
+                            })
+                    }}
+                </Suspense>
+            </div>
+
+            <Show when=move || show_create.get()>
+                <CreateBoardDialog
+                    name=new_board_name
+                    on_cancel=on_cancel
+                    boards=boards
+                />
+            </Show>
+        </div>
+    }
+}
+
+/// Modal dialog for creating a new board.
+#[component]
+fn CreateBoardDialog(
+    name: RwSignal<String>,
+    on_cancel: impl Fn(leptos::ev::MouseEvent) + 'static,
+    boards: LocalResource<Vec<BoardListItem>>,
+) -> impl IntoView {
+    let on_submit = move |_| {
+        let board_name = name.get();
+        if board_name.trim().is_empty() {
+            return;
+        }
+        // TODO: send board:create via frame client, then refetch boards
+        leptos::logging::log!("create board: {}", board_name);
+        boards.refetch();
+    };
+
+    view! {
+        <div class="dialog-backdrop">
+            <div class="dialog">
+                <h2>"Create Board"</h2>
+                <label class="dialog__label">
+                    "Board Name"
+                    <input
+                        class="dialog__input"
+                        type="text"
+                        prop:value=move || name.get()
+                        on:input=move |ev| {
+                            name.set(event_target_value(&ev));
+                        }
+                    />
+                </label>
+                <div class="dialog__actions">
+                    <button class="btn" on:click=on_cancel>
+                        "Cancel"
+                    </button>
+                    <button class="btn btn--primary" on:click=on_submit>
+                        "Create"
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+}
+```
+
+## 19. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/pages/login.rs`
+
+```rust
+//! Login page with GitHub OAuth redirect button.
+
+use leptos::prelude::*;
+
+/// Login page — clicking the button navigates to the GitHub OAuth endpoint.
+#[component]
+pub fn LoginPage() -> impl IntoView {
+    view! {
+        <div class="login-page">
+            <div class="login-card">
+                <h1 class="login-card__title">"Gauntlet"</h1>
+                <p class="login-card__subtitle">"Collaborative whiteboard"</p>
+                <a href="/auth/github" class="login-button">
+                    "Sign in with GitHub"
+                </a>
+            </div>
+        </div>
+    }
+}
+```
+
+## 20. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/frame_client.rs`
+
+```rust
+//! WebSocket frame client for real-time communication with the server.
+//!
+//! The `FrameClient` manages the WebSocket lifecycle: connection, reconnection
+//! with exponential backoff, frame dispatch, and signal updates. It is the
+//! primary bridge between the server's frame protocol and the Leptos UI state.
+//!
+//! All WebSocket logic is gated behind `#[cfg(feature = "hydrate")]` since it
+//! requires a browser environment.
+
+#[cfg(feature = "hydrate")]
+use crate::net::types::Frame;
+#[cfg(feature = "hydrate")]
+use crate::state::auth::AuthState;
+#[cfg(feature = "hydrate")]
+use crate::state::board::{BoardState, ConnectionStatus};
+#[cfg(feature = "hydrate")]
+use crate::state::chat::{ChatMessage, ChatState};
+#[cfg(feature = "hydrate")]
+use leptos::prelude::Update;
+
+/// Send a frame to the server via the shared sender channel.
+///
+/// Returns `false` if the channel is closed (no active connection).
+#[cfg(feature = "hydrate")]
+pub fn send_frame(tx: &futures::channel::mpsc::UnboundedSender<String>, frame: &Frame) -> bool {
+    if let Ok(json) = serde_json::to_string(frame) {
+        tx.unbounded_send(json).is_ok()
+    } else {
+        false
+    }
+}
+
+/// Spawn the WebSocket frame client lifecycle as a local async task.
+///
+/// This connects to the server, handles incoming frames, and reconnects
+/// on disconnect with exponential backoff.
+#[cfg(feature = "hydrate")]
+pub fn spawn_frame_client(
+    auth: leptos::prelude::RwSignal<AuthState>,
+    board: leptos::prelude::RwSignal<BoardState>,
+    chat: leptos::prelude::RwSignal<ChatState>,
+) -> futures::channel::mpsc::UnboundedSender<String> {
+    use futures::channel::mpsc;
+
+    let (tx, rx) = mpsc::unbounded::<String>();
+    let tx_clone = tx.clone();
+
+    leptos::task::spawn_local(frame_client_loop(auth, board, chat, tx_clone, rx));
+
+    tx
+}
+
+/// Main connection loop with reconnect logic.
+#[cfg(feature = "hydrate")]
+async fn frame_client_loop(
+    auth: leptos::prelude::RwSignal<AuthState>,
+    board: leptos::prelude::RwSignal<BoardState>,
+    chat: leptos::prelude::RwSignal<ChatState>,
+    tx: futures::channel::mpsc::UnboundedSender<String>,
+    rx: futures::channel::mpsc::UnboundedReceiver<String>,
+) {
+    use futures::StreamExt;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let rx = Rc::new(RefCell::new(rx));
+    let mut backoff_ms: u32 = 1000;
+    let max_backoff_ms: u32 = 10_000;
+
+    loop {
+        board.update(|b| b.connection_status = ConnectionStatus::Connecting);
+
+        // Get a WS ticket.
+        let ticket = match crate::net::api::create_ws_ticket().await {
+            Ok(t) => t,
+            Err(e) => {
+                leptos::logging::warn!("WS ticket failed: {e}");
+                gloo_timers::future::sleep(std::time::Duration::from_millis(u64::from(backoff_ms))).await;
+                backoff_ms = (backoff_ms * 2).min(max_backoff_ms);
+                continue;
+            }
+        };
+
+        // Determine WebSocket URL.
+        let location = web_sys::window()
+            .and_then(|w| w.location().href().ok())
+            .unwrap_or_default();
+        let ws_proto = if location.starts_with("https") { "wss" } else { "ws" };
+        let host = web_sys::window()
+            .and_then(|w| w.location().host().ok())
+            .unwrap_or_else(|| "localhost:3000".to_owned());
+        let ws_url = format!("{ws_proto}://{host}/api/ws?ticket={ticket}");
+
+        match connect_and_run(&ws_url, auth, board, chat, &tx, &rx).await {
+            Ok(()) => {
+                leptos::logging::log!("WS disconnected cleanly");
+            }
+            Err(e) => {
+                leptos::logging::warn!("WS error: {e}");
+            }
+        }
+
+        board.update(|b| b.connection_status = ConnectionStatus::Disconnected);
+
+        // Exponential backoff before reconnect.
+        gloo_timers::future::sleep(std::time::Duration::from_millis(u64::from(backoff_ms))).await;
+        backoff_ms = (backoff_ms * 2).min(max_backoff_ms);
+    }
+}
+
+/// Connect to the WebSocket and process messages until disconnect.
+#[cfg(feature = "hydrate")]
+async fn connect_and_run(
+    url: &str,
+    auth: leptos::prelude::RwSignal<AuthState>,
+    board: leptos::prelude::RwSignal<BoardState>,
+    chat: leptos::prelude::RwSignal<ChatState>,
+    tx: &futures::channel::mpsc::UnboundedSender<String>,
+    rx: &std::rc::Rc<std::cell::RefCell<futures::channel::mpsc::UnboundedReceiver<String>>>,
+) -> Result<(), String> {
+    use futures::StreamExt;
+    use gloo_net::websocket::Message;
+    use gloo_net::websocket::futures::WebSocket;
+
+    let ws = WebSocket::open(url).map_err(|e| e.to_string())?;
+    let (mut ws_write, mut ws_read) = ws.split();
+
+    board.update(|b| b.connection_status = ConnectionStatus::Connected);
+
+    // Spawn a task to forward outgoing messages from our channel to the WS.
+    let mut rx_borrow = rx.borrow_mut();
+    let send_task = async {
+        use futures::SinkExt;
+        while let Some(msg) = rx_borrow.next().await {
+            if ws_write.send(Message::Text(msg)).await.is_err() {
+                break;
+            }
+        }
+    };
+
+    // Receive loop: process incoming frames.
+    let recv_task = async {
+        while let Some(msg) = ws_read.next().await {
+            match msg {
+                Ok(Message::Text(text)) => {
+                    if let Ok(frame) = serde_json::from_str::<Frame>(&text) {
+                        dispatch_frame(&frame, auth, board, chat, tx);
+                    }
+                }
+                Ok(Message::Bytes(_)) => {}
+                Err(e) => {
+                    leptos::logging::warn!("WS recv error: {e}");
+                    break;
+                }
+            }
+        }
+    };
+
+    // Run both tasks; when either finishes, the connection is done.
+    futures::future::select(Box::pin(send_task), Box::pin(recv_task)).await;
+
+    Ok(())
+}
+
+/// Dispatch an incoming frame to the appropriate state handler.
+#[cfg(feature = "hydrate")]
+fn dispatch_frame(
+    frame: &Frame,
+    _auth: leptos::prelude::RwSignal<AuthState>,
+    board: leptos::prelude::RwSignal<BoardState>,
+    chat: leptos::prelude::RwSignal<ChatState>,
+    _tx: &futures::channel::mpsc::UnboundedSender<String>,
+) {
+    use crate::net::types::{BoardObject, FrameStatus, Presence};
+
+    let syscall = frame.syscall.as_str();
+
+    match syscall {
+        "session:connected" => {
+            board.update(|b| b.connection_status = ConnectionStatus::Connected);
+        }
+
+        "board:join" if frame.status == FrameStatus::Done => {
+            // Load objects snapshot from the join response.
+            if let Some(objects) = frame.data.get("objects") {
+                if let Ok(objs) = serde_json::from_value::<Vec<BoardObject>>(objects.clone()) {
+                    board.update(|b| {
+                        b.objects.clear();
+                        for obj in objs {
+                            b.objects.insert(obj.id.clone(), obj);
+                        }
+                    });
+                }
+            }
+            // Set board name if present.
+            if let Some(name) = frame.data.get("name").and_then(|n| n.as_str()) {
+                board.update(|b| b.board_name = Some(name.to_owned()));
+            }
+        }
+
+        "object:create" if frame.status == FrameStatus::Done => {
+            if let Ok(obj) = serde_json::from_value::<BoardObject>(frame.data.clone()) {
+                board.update(|b| {
+                    b.objects.insert(obj.id.clone(), obj);
+                });
+            }
+        }
+
+        "object:update" if frame.status == FrameStatus::Done => {
+            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
+                board.update(|b| {
+                    if let Some(existing) = b.objects.get_mut(id) {
+                        merge_object_update(existing, &frame.data);
+                    }
+                });
+            }
+        }
+
+        "object:delete" if frame.status == FrameStatus::Done => {
+            if let Some(id) = frame.data.get("id").and_then(|v| v.as_str()) {
+                board.update(|b| {
+                    b.objects.remove(id);
+                    b.selection.remove(id);
+                });
+            }
+        }
+
+        "cursor:moved" => {
+            if let Ok(p) = serde_json::from_value::<Presence>(frame.data.clone()) {
+                board.update(|b| {
+                    b.presence.insert(p.user_id.clone(), p);
+                });
+            }
+        }
+
+        "board:part" => {
+            if let Some(user_id) = frame.data.get("user_id").and_then(|v| v.as_str()) {
+                board.update(|b| {
+                    b.presence.remove(user_id);
+                });
+            }
+        }
+
+        "chat:message" if frame.status == FrameStatus::Done => {
+            if let Ok(msg) = serde_json::from_value::<ChatMessage>(frame.data.clone()) {
+                chat.update(|c| c.messages.push(msg));
+            }
+        }
+
+        _ => {}
+    }
+}
+
+/// Merge partial object updates into an existing `BoardObject`.
+#[cfg(feature = "hydrate")]
+fn merge_object_update(obj: &mut crate::net::types::BoardObject, data: &serde_json::Value) {
+    if let Some(x) = data.get("x").and_then(|v| v.as_f64()) {
+        obj.x = x;
+    }
+    if let Some(y) = data.get("y").and_then(|v| v.as_f64()) {
+        obj.y = y;
+    }
+    if let Some(w) = data.get("width").and_then(|v| v.as_f64()) {
+        obj.width = Some(w);
+    }
+    if let Some(h) = data.get("height").and_then(|v| v.as_f64()) {
+        obj.height = Some(h);
+    }
+    if let Some(r) = data.get("rotation").and_then(|v| v.as_f64()) {
+        obj.rotation = r;
+    }
+    if let Some(z) = data.get("z_index").and_then(|v| v.as_i64()) {
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            obj.z_index = z as i32;
+        }
+    }
+    if let Some(props) = data.get("props") {
+        obj.props = props.clone();
+    }
+    if let Some(v) = data.get("version").and_then(|v| v.as_i64()) {
+        obj.version = v;
+    }
+}
+```
+
+## 21. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/types.rs`
+
+```rust
+#[cfg(test)]
+#[path = "types_test.rs"]
+mod types_test;
+
+use serde::{Deserialize, Serialize};
+
+/// A frame in the WebSocket protocol. Frames are the unit of communication
+/// between client and server over the WebSocket connection.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Frame {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub ts: f64,
+    pub board_id: Option<String>,
+    pub from: Option<String>,
+    pub syscall: String,
+    pub status: FrameStatus,
+    pub data: serde_json::Value,
+}
+
+/// Status of a frame in the request/response lifecycle.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FrameStatus {
+    Request,
+    Done,
+    Error,
+    Cancel,
+}
+
+/// A board object as represented in the wire protocol.
+/// The `canvas` crate has its own `BoardObject` type; the `CanvasHost` bridge
+/// converts between the two.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BoardObject {
+    pub id: String,
+    pub board_id: String,
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+    pub props: serde_json::Value,
+    pub created_by: Option<String>,
+    pub version: i64,
+}
+
+/// Presence information for a connected user on a board.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Presence {
+    pub user_id: String,
+    pub name: String,
+    pub color: String,
+    pub cursor: Option<Point>,
+}
+
+/// A 2D point.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+/// An authenticated user.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct User {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub color: String,
+}
+
+/// Extended user profile with statistics.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct UserProfile {
+    pub id: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub color: String,
+    pub member_since: Option<String>,
+    pub stats: ProfileStats,
+}
+
+/// Aggregate statistics for a user profile.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProfileStats {
+    pub total_frames: i64,
+    pub objects_created: i64,
+    pub boards_active: i64,
+    pub last_active: Option<String>,
+    pub top_syscalls: Vec<SyscallCount>,
+}
+
+/// A syscall name and its invocation count.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyscallCount {
+    pub syscall: String,
+    pub count: i64,
+}
+```
+
+## 22. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/net/api.rs`
+
+```rust
+//! REST API helpers for communicating with the server.
+//!
+//! Client-side (hydrate): real HTTP calls via `gloo-net`.
+//! Server-side (SSR): stubs returning `None`/error since these endpoints
+//! are only meaningful in the browser.
+
+#![allow(clippy::unused_async)]
+
+use super::types::{User, UserProfile};
+
+/// Fetch the currently authenticated user from `/api/auth/me`.
+/// Returns `None` if not authenticated or on the server.
+pub async fn fetch_current_user() -> Option<User> {
+    #[cfg(feature = "hydrate")]
+    {
+        let resp = gloo_net::http::Request::get("/api/auth/me")
+            .send()
+            .await
+            .ok()?;
+        if !resp.ok() {
+            return None;
+        }
+        resp.json::<User>().await.ok()
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        None
+    }
+}
+
+/// Log out the current user by calling `POST /api/auth/logout`.
+pub async fn logout() {
+    #[cfg(feature = "hydrate")]
+    {
+        let _ = gloo_net::http::Request::post("/api/auth/logout")
+            .send()
+            .await;
+    }
+}
+
+/// Fetch a user's profile from `/api/users/{user_id}/profile`.
+pub async fn fetch_user_profile(user_id: &str) -> Option<UserProfile> {
+    #[cfg(feature = "hydrate")]
+    {
+        let url = format!("/api/users/{user_id}/profile");
+        let resp = gloo_net::http::Request::get(&url).send().await.ok()?;
+        if !resp.ok() {
+            return None;
+        }
+        resp.json::<UserProfile>().await.ok()
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        let _ = user_id;
+        None
+    }
+}
+
+/// Create a WebSocket authentication ticket via `POST /api/auth/ws-ticket`.
+///
+/// # Errors
+///
+/// Returns an error string if the ticket request fails.
+pub async fn create_ws_ticket() -> Result<String, String> {
+    #[cfg(feature = "hydrate")]
+    {
+        let resp = gloo_net::http::Request::post("/api/auth/ws-ticket")
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.ok() {
+            return Err(format!("ticket request failed: {}", resp.status()));
+        }
+        #[derive(serde::Deserialize)]
+        struct TicketResponse {
+            ticket: String,
+        }
+        let body: TicketResponse = resp.json().await.map_err(|e| e.to_string())?;
+        Ok(body.ticket)
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        Err("not available on server".to_owned())
+    }
+}
+
+/// Fetch the board list via `GET /api/boards` (REST fallback).
+/// Primarily boards are loaded via the frame client `board:list` syscall.
+pub async fn fetch_boards() -> Vec<BoardListItem> {
+    #[cfg(feature = "hydrate")]
+    {
+        let resp = match gloo_net::http::Request::get("/api/boards").send().await {
+            Ok(r) if r.ok() => r,
+            _ => return Vec::new(),
+        };
+        resp.json::<Vec<BoardListItem>>().await.unwrap_or_default()
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        Vec::new()
+    }
+}
+
+/// A board summary for the dashboard list.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct BoardListItem {
+    pub id: String,
+    pub name: String,
+}
+```
+
+## 23. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/mod.rs`
+
+```rust
+pub mod ai;
+pub mod auth;
+pub mod board;
+pub mod chat;
+pub mod ui;
+```
+
+## 24. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ai.rs`
+
+```rust
+#[cfg(test)]
+#[path = "ai_test.rs"]
+mod ai_test;
+
+/// State for the AI assistant panel.
+///
+/// In the full Leptos implementation, fields will be `RwSignal` types
+/// provided via context. For now they are plain fields.
+#[derive(Clone, Debug, Default)]
+pub struct AiState {
+    pub messages: Vec<AiMessage>,
+    pub loading: bool,
+}
+
+/// A single AI conversation message.
+#[derive(Clone, Debug)]
+pub struct AiMessage {
+    pub id: String,
+    pub role: String,
+    pub content: String,
+    pub timestamp: f64,
+}
+```
+
+## 25. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/auth.rs`
+
+```rust
+#[cfg(test)]
+#[path = "auth_test.rs"]
+mod auth_test;
+
+use crate::net::types::User;
+
+/// Authentication state tracking the current user and loading status.
+///
+/// In the full Leptos implementation, fields will be `RwSignal` types
+/// provided via context. For now they are plain fields.
+#[derive(Clone, Debug, Default)]
+pub struct AuthState {
+    pub user: Option<User>,
+    pub loading: bool,
+}
+```
+
+## 26. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/board.rs`
+
+```rust
+#[cfg(test)]
+#[path = "board_test.rs"]
+mod board_test;
+
+use std::collections::{HashMap, HashSet};
+
+use crate::net::types::{BoardObject, Presence};
+
+/// Board-level state: which board is active, connection status, objects, and presence.
+#[derive(Clone, Debug, Default)]
+pub struct BoardState {
+    pub board_id: Option<String>,
+    pub board_name: Option<String>,
+    pub connection_status: ConnectionStatus,
+    pub presence: HashMap<String, Presence>,
+    pub objects: HashMap<String, BoardObject>,
+    pub selection: HashSet<String>,
+}
+
+/// WebSocket connection status.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ConnectionStatus {
+    #[default]
+    Disconnected,
+    Connecting,
+    Connected,
+}
+```
+
+## 27. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/chat.rs`
+
+```rust
+#[cfg(test)]
+#[path = "chat_test.rs"]
+mod chat_test;
+
+/// State for the board chat panel.
+///
+/// In the full Leptos implementation, fields will be `RwSignal` types
+/// provided via context. For now they are plain fields.
+#[derive(Clone, Debug, Default)]
+pub struct ChatState {
+    pub messages: Vec<ChatMessage>,
+}
+
+/// A single chat message.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ChatMessage {
+    pub id: String,
+    pub user_id: String,
+    pub user_name: String,
+    pub user_color: String,
+    pub content: String,
+    pub timestamp: f64,
+}
+```
+
+## 28. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/state/ui.rs`
+
+```rust
+#[cfg(test)]
+#[path = "ui_test.rs"]
+mod ui_test;
+
+/// UI state for panels, tabs, dark mode, and active tool.
+///
+/// In the full Leptos implementation, fields will be `RwSignal` types
+/// provided via context. For now they are plain fields.
+#[derive(Clone, Debug)]
+pub struct UiState {
+    pub dark_mode: bool,
+    pub active_tool: ToolType,
+    pub left_panel_expanded: bool,
+    pub left_tab: LeftTab,
+    pub right_panel_expanded: bool,
+    pub right_tab: RightTab,
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        Self {
+            dark_mode: false,
+            active_tool: ToolType::Select,
+            left_panel_expanded: true,
+            left_tab: LeftTab::Tools,
+            right_panel_expanded: true,
+            right_tab: RightTab::Chat,
+        }
+    }
+}
+
+/// Available drawing/interaction tools.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ToolType {
+    #[default]
+    Select,
+    Rect,
+    Ellipse,
+    Diamond,
+    Star,
+    Line,
+    Arrow,
+}
+
+/// Tabs available in the left panel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LeftTab {
+    #[default]
+    Tools,
+    Inspector,
+}
+
+/// Tabs available in the right panel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RightTab {
+    #[default]
+    Chat,
+    Ai,
+    Boards,
+}
+```
+
+## 29. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/src/util/dark_mode.rs`
+
+```rust
+//! Dark mode initialization and toggle.
+//!
+//! Reads the user's preference from `localStorage` and applies the
+//! `.dark-mode` class to the `<html>` element. Toggle writes back to
+//! `localStorage` and updates the class. Requires a browser environment.
+
+#[cfg(feature = "hydrate")]
+const STORAGE_KEY: &str = "gauntlet_week_1_dark";
+
+/// Read the dark mode preference from localStorage.
+///
+/// Returns `true` if the user previously enabled dark mode, or if the system
+/// prefers dark mode and no preference is stored.
+pub fn read_preference() -> bool {
+    #[cfg(feature = "hydrate")]
+    {
+        let window = match web_sys::window() {
+            Some(w) => w,
+            None => return false,
+        };
+
+        // Check localStorage first.
+        if let Ok(Some(storage)) = window.local_storage() {
+            if let Ok(Some(val)) = storage.get_item(STORAGE_KEY) {
+                return val == "true";
+            }
+        }
+
+        // Fall back to system preference.
+        window
+            .match_media("(prefers-color-scheme: dark)")
+            .ok()
+            .flatten()
+            .map_or(false, |mq| mq.matches())
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        false
+    }
+}
+
+/// Apply or remove the `.dark-mode` class on the `<html>` element.
+pub fn apply(enabled: bool) {
+    #[cfg(feature = "hydrate")]
+    {
+        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+            if let Some(el) = doc.document_element() {
+                let class_list = el.class_list();
+                if enabled {
+                    let _ = class_list.add_1("dark-mode");
+                } else {
+                    let _ = class_list.remove_1("dark-mode");
+                }
+            }
+        }
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        let _ = enabled;
+    }
+}
+
+/// Toggle dark mode and persist the new preference to localStorage.
+pub fn toggle(current: bool) -> bool {
+    let next = !current;
+    apply(next);
+    #[cfg(feature = "hydrate")]
+    {
+        if let Some(window) = web_sys::window() {
+            if let Ok(Some(storage)) = window.local_storage() {
+                let _ = storage.set_item(STORAGE_KEY, if next { "true" } else { "false" });
+            }
+        }
+    }
+    next
+}
+```
+
+## 30. `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client-rust/styles/main.css`
+
+```css
+/* Gauntlet UI — main stylesheet */
+
+:root {
+    --color-bg: #1a1a2e;
+    --color-surface: #16213e;
+    --color-primary: #0f3460;
+    --color-accent: #e94560;
+    --color-text: #eee;
+    --color-text-muted: #aaa;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+}
+
+/* Login page */
+.login-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 1rem;
+}
+
+.login-button {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-accent);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.login-button:hover {
+    opacity: 0.9;
+}
+
+/* Dashboard */
+.dashboard-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Board page grid layout */
+.board-page {
+    display: grid;
+    grid-template-areas:
+        "toolbar toolbar toolbar"
+        "left canvas right"
+        "status status status";
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: auto 1fr auto;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.board-page__toolbar { grid-area: toolbar; background: var(--color-surface); padding: 0.5rem 1rem; }
+.board-page__left-panel { grid-area: left; background: var(--color-surface); width: 240px; }
+.board-page__canvas { grid-area: canvas; background: var(--color-bg); display: flex; align-items: center; justify-content: center; }
+.board-page__right-panel { grid-area: right; background: var(--color-surface); width: 280px; }
+.board-page__status-bar { grid-area: status; background: var(--color-surface); padding: 0.25rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); }
+
+/* Login card */
+.login-card { text-align: center; }
+.login-card__title { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.login-card__subtitle { color: var(--color-text-muted); margin-bottom: 2rem; }
+
+/* Dashboard */
+.dashboard-page__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.dashboard-page__grid { }
+.dashboard-page__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.dashboard-page__empty { color: var(--color-text-muted); }
+
+/* Board card */
+.board-card {
+    display: block;
+    padding: 1.25rem;
+    background: var(--color-surface);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--color-text);
+    border: 1px solid transparent;
+    transition: border-color 0.15s;
+}
+.board-card:hover { border-color: var(--color-accent); }
+.board-card__name { font-weight: 600; }
+
+/* Buttons */
+.btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: white; }
+.btn--primary:hover { opacity: 0.9; }
+
+/* Dialog */
+.dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.dialog {
+    background: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: 8px;
+    min-width: 320px;
+}
+.dialog h2 { margin-bottom: 1rem; }
+.dialog__label { display: block; margin-bottom: 1rem; color: var(--color-text-muted); font-size: 0.85rem; }
+.dialog__input {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 1rem;
+}
+.dialog__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+
+/* Toolbar */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+.toolbar__back { color: var(--color-text); text-decoration: none; font-size: 1.2rem; }
+.toolbar__board-name { font-weight: 600; }
+.toolbar__presence { display: flex; gap: 0.5rem; }
+.toolbar__presence-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+.toolbar__presence-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.toolbar__spacer { flex: 1; }
+.toolbar__user { color: var(--color-text-muted); font-size: 0.85rem; }
+.toolbar__logout { font-size: 0.8rem; }
+
+/* Status bar */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+.status-bar__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-bar__dot--connected { background: #2ecc71; }
+.status-bar__dot--connecting { background: #f39c12; }
+.status-bar__dot--disconnected { background: #e74c3c; }
+.status-bar__connection { display: flex; align-items: center; gap: 0.35rem; }
+.status-bar__divider { color: var(--color-text-muted); }
+.status-bar__spacer { flex: 1; }
+
+/* User field report */
+.user-field-report {
+    position: absolute;
+    background: var(--color-surface);
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    min-width: 200px;
+    z-index: 100;
+}
+.user-field-report__header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.user-field-report__color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.user-field-report__stats { display: grid; grid-template-columns: auto auto; gap: 0.25rem 0.75rem; }
+.user-field-report__stats dt { color: var(--color-text-muted); font-size: 0.8rem; }
+.user-field-report__stats dd { font-weight: 600; }
+.user-field-report__syscalls { margin-top: 0.75rem; }
+.user-field-report__syscalls ul { list-style: none; padding: 0; font-size: 0.85rem; }
+
+/* Left panel */
+.left-panel { display: flex; flex-direction: column; height: 100%; }
+.left-panel--collapsed .left-panel__content { display: none; }
+.left-panel__tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-primary);
+}
+.left-panel__tab {
+    flex: 1;
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.left-panel__tab--active { color: var(--color-text); border-bottom: 2px solid var(--color-accent); }
+.left-panel__toggle {
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+.left-panel__content { flex: 1; overflow-y: auto; padding: 0.5rem; }
+
+/* Tool rail */
+.tool-rail { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.75rem; }
+.tool-rail__btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+.tool-rail__btn:hover { border-color: var(--color-text-muted); }
+.tool-rail__btn--active { background: var(--color-primary); border-color: var(--color-accent); }
+
+/* Tool strip */
+.tool-strip__colors { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; }
+.tool-strip__color {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+.tool-strip__color--selected { border-color: white; }
+.tool-strip__add { width: 100%; }
+
+/* Inspector panel */
+.inspector-panel { height: 100%; }
+.inspector-panel__empty { color: var(--color-text-muted); font-size: 0.85rem; padding: 1rem 0; }
+.inspector-panel__card { }
+.inspector-panel__title { margin-bottom: 0.75rem; text-transform: capitalize; }
+.inspector-panel__fields { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; font-size: 0.85rem; }
+.inspector-panel__fields dt { color: var(--color-text-muted); }
+.inspector-panel__fields dd { word-break: break-all; }
+.inspector-panel__mono { font-family: monospace; font-size: 0.75rem; }
+.inspector-panel__actions { margin-top: 1rem; }
+.btn--danger { background: #c0392b; border-color: #c0392b; color: white; }
+
+/* Right panel */
+.right-panel { display: flex; flex-direction: column; height: 100%; }
+.right-panel--collapsed .right-panel__content { display: none; }
+.right-panel__tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-primary);
+}
+.right-panel__tab {
+    flex: 1;
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.right-panel__tab--active { color: var(--color-text); border-bottom: 2px solid var(--color-accent); }
+.right-panel__toggle {
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+.right-panel__content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+/* Chat panel */
+.chat-panel { display: flex; flex-direction: column; flex: 1; }
+.chat-panel__messages { flex: 1; overflow-y: auto; padding: 0.5rem; }
+.chat-panel__message { margin-bottom: 0.5rem; }
+.chat-panel__author { font-weight: 600; font-size: 0.85rem; margin-right: 0.5rem; }
+.chat-panel__text { font-size: 0.9rem; }
+.chat-panel__input-row { display: flex; gap: 0.35rem; padding: 0.5rem; border-top: 1px solid var(--color-primary); }
+.chat-panel__input {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+/* AI panel */
+.ai-panel { display: flex; flex-direction: column; flex: 1; }
+.ai-panel__messages { flex: 1; overflow-y: auto; padding: 0.5rem; }
+.ai-panel__message { margin-bottom: 0.75rem; }
+.ai-panel__message--assistant { background: rgba(255,255,255,0.05); border-radius: 6px; padding: 0.5rem; }
+.ai-panel__role { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); }
+.ai-panel__content { margin-top: 0.25rem; font-size: 0.9rem; white-space: pre-wrap; }
+.ai-panel__loading { color: var(--color-text-muted); font-style: italic; padding: 0.5rem; }
+.ai-panel__input-row { display: flex; gap: 0.35rem; padding: 0.5rem; border-top: 1px solid var(--color-primary); }
+.ai-panel__input {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--color-text-muted);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+/* Mission control */
+.mission-control { padding: 0.5rem; }
+.mission-control__title { font-size: 0.9rem; margin-bottom: 0.5rem; }
+.mission-control__list { list-style: none; padding: 0; }
+.mission-control__item { margin-bottom: 0.25rem; }
+.mission-control__link {
+    display: block;
+    padding: 0.4rem 0.5rem;
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.mission-control__link:hover { background: var(--color-primary); }
+
+/* Canvas host */
+.board-page__canvas { position: relative; }
+.canvas-host {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: var(--color-bg);
+}
+
+/* Board stamp */
+.board-stamp {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    pointer-events: none;
+    display: flex;
+    gap: 0.5rem;
+}
+.board-stamp__name { font-weight: 600; }
+
+/* Dark mode toggle */
+.toolbar__dark-toggle {
+    background: transparent;
+    border: none;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Dark mode overrides */
+.dark-mode {
+    --color-bg: #0d1117;
+    --color-surface: #161b22;
+    --color-primary: #21262d;
+    --color-text: #c9d1d9;
+    --color-text-muted: #8b949e;
+}
+```
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 30 total, 0 failed
+📋 Files: 30 read
+📋 Tokens: 100 in, 94 out
+📋 Cache: 325.8K read, 115.1K created

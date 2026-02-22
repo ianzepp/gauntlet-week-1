@@ -1,0 +1,655 @@
+📋 Session: 8b277191-a898-4f5b-8bcc-e1d71c942419
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T23:42:27.580+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Design the implementation plan for adding GitHub OAuth authentication to the collaboard project. Here is the full context:
+
+## User's routing preference
+- Auth routes live at `/auth/*` (NOT `/api/auth/*`)
+- `/api/*` is always gated (requires valid session)
+- Cookie-based sessions: server sets session cookie on OAuth callback, browser sends it automatically
+- No "token delivery" problem — server controls the redirect response after OAuth
+
+## Flow
+1. User clicks "Login with GitHub" → browser navigates to `/auth/github`
+2. Server redirects to `https://github.com/login/oauth/authorize?client_id=...&redirect_uri=.../auth/github/callback`
+3. GitHub redirects back to `/auth/github/callback?code=...`
+4. Server exchanges code for access token, fetches GitHub user profile, upserts user in DB, creates session, sets `session_token` cookie, redirects to `/`
+5. SPA loads, calls `GET /api/auth/me` → returns user (cookie sent automatically)
+6. For WS: SPA calls `POST /api/auth/ws-ticket` → returns one-time ticket → connects `GET /api/ws?ticket=...`
+
+## Backend current state
+- **Rust + Axum 0.8**, Tokio, sqlx 0.8 (Postgres)
+- **Cargo.toml deps**: axum (ws), tokio, serde, serde_json, uuid (v4, serde), sqlx (postgres, migrate, uuid, json), reqwest (json, rustls-tls), tower-http (cors, compression-gzip, fs, trace), rand 0.9, thiserror 2, async-trait
+- **DB schema already exists**:
+  - `users(id UUID PK, github_id BIGINT UNIQUE, name TEXT, avatar_url TEXT, color TEXT DEFAULT '#4CAF50', created_at)`
+  - `sessions(token TEXT PK, user_id UUID FK→users, created_at, expires_at DEFAULT now()+30 days)`
+  - `ws_tickets(ticket TEXT PK, user_id UUID FK→users, created_at, expires_at DEFAULT now()+30 seconds)`
+- **AppState**: `{ pool: PgPool, boards: Arc<RwLock<HashMap<Uuid, BoardState>>>, llm: Option<Arc<dyn LlmChat>>, rate_limiter: RateLimiter }`
+- **Routes currently**: only `/healthz` and `/api/ws` in `routes/mod.rs`
+- **WS handler** (`routes/ws.rs`): generates anonymous `client_id = Uuid::new_v4()`, no user association. Uses `run_ws(socket, state)` pattern with select! loop. Dispatches by syscall prefix (board:, object:, cursor:, ai:).
+- **Services**: `services/mod.rs` exports ai, board, cursor, object, persistence. No session service.
+- **`create_object`** takes `created_by: Option<Uuid>`, always called with `None` currently.
+- **`create_board`** takes `(pool, name)`, doesn't accept owner_id.
+
+## Frontend current state
+- React + Vite + TypeScript, Zustand
+- **vite.config.ts**: proxy `/api` → `http://localhost:3000`, `/ws` → `ws://localhost:3000`
+- **App.tsx**: loads user from `localStorage("collaboard_user")`, shows LoginPage or BoardPage. Hard-coded `DEMO_BOARD_ID`.
+- **LoginPage.tsx**: mock login — creates fake user with `crypto.randomUUID()`, stores in localStorage.
+- **User type**: `{ id: string, name: string }` — missing avatar_url, color, github_id.
+
+## Design constraints
+- Use `rand` (already in deps) for generating session tokens (hex-encoded random bytes)
+- Use `reqwest` (already in deps) for GitHub API calls
+- Cookie-based auth: `Set-Cookie: session_token=...; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000`
+- Need `axum-extra` for cookie jar support OR just set cookie header manually
+- Need to add `/auth` proxy in vite.config.ts
+- GitHub OAuth env vars: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI`
+- Session middleware: an Axum extractor that reads cookie, validates against DB, returns User or 401
+
+Please design a concrete, ordered implementation plan with exact file paths and what changes go in each file. Backend first, then frontend. Keep it focused on what's strictly needed for auth to work end-to-end.
+📋 Model: sonnet-4.5
+🤖 I'll analyze the codebase and design a concrete implementation plan for GitHub OAuth authentication.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Glob: pattern="**/migrations/*.sql" path="/Users/ianzepp/github/gauntlet/collaboard/server"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/001_users.sql"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/migrations/005_sessions.sql"
+✅ Glob: pattern="**/vite.config.ts" path="/Users/ianzepp/github/gauntlet/collaboard"
+❌ Glob: pattern="**/*.tsx" path="/Users/ianzepp/github/gauntlet/collaboard/frontend/src"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts"
+✅ Glob: pattern="**/*.tsx" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+✅ Glob: pattern="**/*.ts" path="/Users/ianzepp/github/gauntlet/collaboard/client/src"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+🤖 Now I have a complete picture of the codebase. Let me design the comprehensive implementation plan for GitHub OAuth authentication.
+
+## Implementation Plan: GitHub OAuth Authentication for Collaboard
+
+### Architecture Overview
+
+The implementation follows a cookie-based session model with these key flows:
+1. OAuth redirect flow for initial authentication
+2. Session cookie validation for API requests
+3. WebSocket ticket exchange for WS connections
+4. User persistence in PostgreSQL
+
+---
+
+## BACKEND IMPLEMENTATION
+
+### 1. Add Dependencies to Cargo.toml
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml`
+
+**Changes**: Add `axum-extra` with cookie support and `chrono` for timestamp handling:
+```toml
+axum-extra = { version = "0.10", features = ["cookie"] }
+chrono = "0.4"
+```
+
+---
+
+### 2. Create Session Module
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs`
+
+**Purpose**: Session token generation, validation, and WS ticket management.
+
+**Key functions**:
+- `generate_session_token() -> String` - generates 32-byte hex token using `rand`
+- `create_session(pool, user_id) -> Result<String, SessionError>` - inserts session record, returns token
+- `validate_session(pool, token) -> Result<User, SessionError>` - validates token + expiry, returns user
+- `delete_session(pool, token) -> Result<(), SessionError>` - logout
+- `create_ws_ticket(pool, user_id) -> Result<String, SessionError>` - generates 16-byte hex ticket with 30s TTL
+- `consume_ws_ticket(pool, ticket) -> Result<Uuid, SessionError>` - validates and deletes ticket, returns user_id
+
+**Error types**: `SessionError::InvalidToken`, `SessionError::Expired`, `SessionError::Database`
+
+**Implementation notes**:
+- Use `rand::thread_rng()` and `hex::encode()` for token generation
+- Session validation checks `expires_at > now()`
+- Ticket consumption is atomic: `DELETE ... RETURNING user_id` with expiry check
+
+---
+
+### 3. Create Auth Module
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs`
+
+**Purpose**: GitHub OAuth flow and user upsert.
+
+**Structs**:
+```rust
+pub struct GitHubConfig {
+    client_id: String,
+    client_secret: String,
+    redirect_uri: String,
+}
+
+#[derive(Deserialize)]
+struct GitHubTokenResponse {
+    access_token: String,
+}
+
+#[derive(Deserialize)]
+struct GitHubUser {
+    id: i64,
+    login: String,
+    avatar_url: Option<String>,
+}
+```
+
+**Key functions**:
+- `GitHubConfig::from_env() -> Result<Self, AuthError>` - loads `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI`
+- `exchange_code(config, code) -> Result<String, AuthError>` - POST to `https://github.com/login/oauth/access_token`
+- `fetch_github_user(access_token) -> Result<GitHubUser, AuthError>` - GET `https://api.github.com/user` with `Authorization: Bearer <token>`
+- `upsert_user(pool, github_user) -> Result<User, AuthError>` - `INSERT ... ON CONFLICT (github_id) DO UPDATE` returns user row
+
+**User color assignment**: Generate random hex color from palette on first insert.
+
+---
+
+### 4. Create Session Middleware/Extractor
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/middleware/auth.rs`
+
+**Purpose**: Axum extractor that validates session cookie and returns `User`.
+
+**Implementation**:
+```rust
+pub struct AuthUser(pub User);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for AuthUser
+where
+    S: Send + Sync,
+    AppState: FromRef<S>,
+{
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        // 1. Extract cookies from request headers
+        // 2. Get session_token cookie
+        // 3. Validate via session::validate_session()
+        // 4. Return AuthUser(user) or 401 Unauthorized
+    }
+}
+```
+
+**Note**: Use `axum_extra::extract::cookie::CookieJar` OR manually parse `Cookie` header.
+
+---
+
+### 5. Create Auth Routes
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs`
+
+**Handlers**:
+
+1. **`GET /auth/github`**
+   - Redirects to GitHub authorize URL: `https://github.com/login/oauth/authorize?client_id={...}&redirect_uri={...}&scope=read:user`
+   
+2. **`GET /auth/github/callback?code=...`**
+   - Exchange code for access token
+   - Fetch GitHub user profile
+   - Upsert user in DB
+   - Create session
+   - Set cookie: `Set-Cookie: session_token={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000`
+   - Redirect to `/` (SPA home)
+   
+3. **`GET /api/auth/me`** (requires `AuthUser`)
+   - Returns JSON: `{ "id": "...", "name": "...", "avatar_url": "...", "color": "..." }`
+   
+4. **`POST /api/auth/logout`** (requires `AuthUser`)
+   - Delete session from DB
+   - Clear cookie: `Set-Cookie: session_token=; Max-Age=0`
+   - Return 204 No Content
+   
+5. **`POST /api/auth/ws-ticket`** (requires `AuthUser`)
+   - Create WS ticket for user
+   - Return JSON: `{ "ticket": "..." }`
+
+**Error handling**: Return JSON errors with proper status codes (401, 500, etc.)
+
+---
+
+### 6. Update Routes Module
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs`
+
+**Changes**:
+1. Add `pub mod auth;`
+2. Add `mod middleware;` (if using custom extractor)
+3. Update `app()` function:
+   - Mount `/auth/*` routes (no auth required)
+   - Mount `/api/auth/*` routes (require auth middleware for protected endpoints)
+   - Keep `/api/ws` as-is for now (will be updated separately)
+
+**Route structure**:
+```rust
+Router::new()
+    .route("/healthz", get(healthz))
+    // Unprotected auth routes
+    .route("/auth/github", get(auth::github_redirect))
+    .route("/auth/github/callback", get(auth::github_callback))
+    // Protected API routes
+    .route("/api/auth/me", get(auth::me))
+    .route("/api/auth/logout", post(auth::logout))
+    .route("/api/auth/ws-ticket", post(auth::ws_ticket))
+    // WebSocket (will add ticket auth later)
+    .route("/api/ws", get(ws::handle_ws))
+    .layer(cors)
+    .with_state(state)
+```
+
+---
+
+### 7. Update WebSocket Handler for Ticket Auth
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs`
+
+**Changes**:
+
+1. **Update `handle_ws` signature**:
+   ```rust
+   pub async fn handle_ws(
+       State(state): State<AppState>,
+       Query(params): Query<HashMap<String, String>>,
+       ws: WebSocketUpgrade,
+   ) -> Result<Response, (StatusCode, &'static str)>
+   ```
+
+2. **Extract and validate ticket**:
+   ```rust
+   let ticket = params.get("ticket")
+       .ok_or((StatusCode::UNAUTHORIZED, "ticket required"))?;
+   
+   let user_id = session::consume_ws_ticket(&state.pool, ticket)
+       .await
+       .map_err(|_| (StatusCode::UNAUTHORIZED, "invalid ticket"))?;
+   ```
+
+3. **Pass `user_id` to `run_ws`**:
+   ```rust
+   ws.on_upgrade(move |socket| run_ws(socket, state, user_id))
+   ```
+
+4. **Update `run_ws` to use authenticated `user_id`**:
+   - Change `client_id = Uuid::new_v4()` to `client_id = user_id` (or keep separate if needed for multi-tab support)
+   - Include `user_id` in welcome frame
+   - Pass `Some(user_id)` to `create_object` calls instead of `None`
+
+---
+
+### 8. Update Services Module
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs`
+
+**Changes**: Add exports:
+```rust
+pub mod auth;
+pub mod session;
+```
+
+---
+
+### 9. Update Main Module
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs`
+
+**Changes**: Add `mod middleware;` if using custom auth extractor.
+
+---
+
+### 10. Update Board Service (Optional Enhancement)
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs`
+
+**Changes**: Update `create_board` to accept `owner_id`:
+```rust
+pub async fn create_board(pool: &PgPool, name: &str, owner_id: Option<Uuid>) -> Result<BoardRow, BoardError> {
+    let id = Uuid::new_v4();
+    sqlx::query("INSERT INTO boards (id, name, owner_id) VALUES ($1, $2, $3)")
+        .bind(id)
+        .bind(name)
+        .bind(owner_id)
+        .execute(pool)
+        .await?;
+    Ok(BoardRow { id, name: name.to_string(), owner_id })
+}
+```
+
+Then update WS handler `handle_board` to pass `Some(user_id)` when creating boards.
+
+---
+
+### 11. Environment Variables
+
+**Required**:
+- `GITHUB_CLIENT_ID` - from GitHub OAuth App
+- `GITHUB_CLIENT_SECRET` - from GitHub OAuth App  
+- `GITHUB_REDIRECT_URI` - e.g., `http://localhost:5173/auth/github/callback` (dev) or production URL
+
+**Note**: These should be loaded in `auth.rs` via `GitHubConfig::from_env()`.
+
+---
+
+## FRONTEND IMPLEMENTATION
+
+### 12. Update Vite Config
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts`
+
+**Changes**: Add `/auth` proxy to forward OAuth callback to backend:
+```typescript
+export default defineConfig({
+    plugins: [react()],
+    server: {
+        proxy: {
+            "/auth": {
+                target: "http://localhost:3000",
+                changeOrigin: true,
+            },
+            "/api": {
+                target: "http://localhost:3000",
+                changeOrigin: true,
+            },
+            "/ws": {
+                target: "ws://localhost:3000",
+                ws: true,
+            },
+        },
+    },
+});
+```
+
+---
+
+### 13. Update User Type
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts`
+
+**Changes**: Extend `User` interface:
+```typescript
+export interface User {
+    id: string;
+    name: string;
+    avatar_url?: string;
+    color: string;
+    github_id?: number;
+}
+```
+
+---
+
+### 14. Create Auth API Client
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/authApi.ts`
+
+**New file** with functions:
+```typescript
+export async function fetchCurrentUser(): Promise<User | null> {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (res.status === 401) return null;
+    if (!res.ok) throw new Error('Failed to fetch user');
+    return res.json();
+}
+
+export async function logout(): Promise<void> {
+    await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+    });
+}
+
+export async function createWsTicket(): Promise<string> {
+    const res = await fetch('/api/auth/ws-ticket', {
+        method: 'POST',
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to create WS ticket');
+    const data = await res.json();
+    return data.ticket;
+}
+```
+
+**Note**: `credentials: 'include'` ensures cookies are sent with requests.
+
+---
+
+### 15. Update App Component
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx`
+
+**Changes**:
+
+1. **Remove localStorage user loading** - replace with API call:
+   ```typescript
+   const [user, setUser] = useState<User | null>(null);
+   const [loading, setLoading] = useState(true);
+   
+   useEffect(() => {
+       fetchCurrentUser()
+           .then(setUser)
+           .catch(() => setUser(null))
+           .finally(() => setLoading(false));
+   }, []);
+   ```
+
+2. **Show loading state**:
+   ```typescript
+   if (loading) {
+       return <div>Loading...</div>;
+   }
+   ```
+
+3. **Pass logout handler** to BoardPage (optional for UI).
+
+---
+
+### 16. Update Login Page
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx`
+
+**Changes**: Replace mock login with GitHub OAuth redirect:
+
+```typescript
+export function LoginPage({ onLogin }: LoginPageProps) {
+    const handleLogin = () => {
+        window.location.href = "/auth/github";
+    };
+    
+    // Rest of UI unchanged - button now redirects to OAuth
+}
+```
+
+**Remove `onLogin` prop usage** - after OAuth callback, user will be fetched via API on page reload.
+
+---
+
+### 17. Update FrameClient for Ticket-Based WS Auth
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts`
+
+**Changes**:
+
+1. **Update `connect()` to accept ticket**:
+   ```typescript
+   connect(url: string, ticket: string): void {
+       if (this.mockMode) {
+           // ... existing mock code
+           return;
+       }
+       
+       const wsUrl = `${url}?ticket=${encodeURIComponent(ticket)}`;
+       this.ws = new WebSocket(wsUrl);
+       
+       this.ws.onopen = () => console.log('[FrameClient] connected');
+       this.ws.onmessage = (event) => {
+           const frame = JSON.parse(event.data) as Frame;
+           this.dispatch(frame);
+       };
+       this.ws.onerror = (err) => console.error('[FrameClient] error', err);
+       this.ws.onclose = () => console.log('[FrameClient] disconnected');
+   }
+   ```
+
+2. **Update `send()` for real WS**:
+   ```typescript
+   send(frame: Partial<Frame>): void {
+       if (this.mockMode) {
+           console.log("[FrameClient] mock send:", frame.syscall, frame);
+           return;
+       }
+       
+       if (this.ws?.readyState === WebSocket.OPEN) {
+           this.ws.send(JSON.stringify(frame));
+       }
+   }
+   ```
+
+3. **Update `disconnect()`**:
+   ```typescript
+   disconnect(): void {
+       this.ws?.close();
+       this.handlers.clear();
+   }
+   ```
+
+---
+
+### 18. Update useFrameClient Hook
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts`
+
+**Changes** (if needed): Ensure hook calls `createWsTicket()` before connecting:
+
+```typescript
+export function useFrameClient(autoConnect: boolean) {
+    const client = useMemo(() => new FrameClient(false), []);
+    
+    useEffect(() => {
+        if (!autoConnect) return;
+        
+        createWsTicket()
+            .then(ticket => {
+                client.connect('/api/ws', ticket);
+            })
+            .catch(err => console.error('Failed to get WS ticket:', err));
+        
+        return () => client.disconnect();
+    }, [autoConnect, client]);
+    
+    return client;
+}
+```
+
+**Note**: This assumes the hook has access to the user (already authenticated). If not, pass ticket from parent component.
+
+---
+
+### 19. Update BoardPage (Optional)
+
+**File**: `/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx`
+
+**Changes**: Add logout button in UI (optional):
+```typescript
+const handleLogout = async () => {
+    await logout();
+    window.location.href = '/';
+};
+```
+
+---
+
+## IMPLEMENTATION SEQUENCE
+
+### Phase 1: Backend Core Auth (No WS Changes)
+1. Add dependencies to Cargo.toml
+2. Create session service (`services/session.rs`)
+3. Create auth service (`services/auth.rs`)
+4. Create auth middleware (`middleware/auth.rs`)
+5. Create auth routes (`routes/auth.rs`)
+6. Update services/mod.rs and routes/mod.rs
+7. Test OAuth flow with curl/Postman
+
+### Phase 2: Backend WS Integration
+8. Update WS handler for ticket auth (`routes/ws.rs`)
+9. Pass user_id through to object creation
+10. Update board service to accept owner_id
+
+### Phase 3: Frontend Integration
+11. Update vite.config.ts
+12. Update User type
+13. Create authApi.ts
+14. Update App.tsx
+15. Update LoginPage.tsx
+16. Update FrameClient
+17. Update useFrameClient hook
+
+### Phase 4: Testing & Polish
+18. End-to-end test: login → WS connect → create object with user_id
+19. Test logout flow
+20. Test session expiry
+21. Test ticket expiry
+22. Add error boundaries and loading states
+
+---
+
+## CRITICAL CONSIDERATIONS
+
+### Security
+- **HttpOnly cookies**: Prevent XSS attacks - tokens not accessible via JavaScript
+- **SameSite=Lax**: CSRF protection for cross-site requests
+- **Token entropy**: 32 bytes = 256 bits for session tokens
+- **Ticket TTL**: 30 seconds prevents ticket reuse/theft
+- **Atomic ticket consumption**: DELETE + RETURNING ensures one-time use
+
+### Error Handling
+- **401 Unauthorized**: Invalid/expired session or ticket
+- **500 Internal Server Error**: Database/GitHub API failures
+- **Graceful degradation**: Frontend shows login page on 401
+
+### Database Queries
+- Session validation: `SELECT user_id, expires_at FROM sessions WHERE token = $1`
+- Ticket consumption: `DELETE FROM ws_tickets WHERE ticket = $1 AND expires_at > now() RETURNING user_id`
+- User upsert: `INSERT INTO users (github_id, name, avatar_url) VALUES ($1, $2, $3) ON CONFLICT (github_id) DO UPDATE SET name = EXCLUDED.name, avatar_url = EXCLUDED.avatar_url RETURNING *`
+
+### Environment Setup
+- **Development**: `GITHUB_REDIRECT_URI=http://localhost:5173/auth/github/callback`
+- **Production**: Update to production domain
+- **GitHub OAuth App**: Create at https://github.com/settings/developers
+
+---
+
+### Critical Files for Implementation
+
+1. `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs` - Session token and WS ticket management (create this file)
+
+2. `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs` - GitHub OAuth flow and user upsert logic (create this file)
+
+3. `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs` - Auth HTTP endpoints for OAuth callback, /me, /logout, /ws-ticket (create this file)
+
+4. `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` - Update to validate WS ticket and associate connection with user_id
+
+5. `/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/authApi.ts` - Frontend API client for auth operations (create this file)
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 20 total, 1 failed
+📋 Files: 15 read
+📋 Tokens: 130 in, 374 out
+📋 Cache: 643.6K read, 176.9K created

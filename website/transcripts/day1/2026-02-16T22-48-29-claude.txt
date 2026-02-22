@@ -1,0 +1,462 @@
+📋 Session: 3374fd90-0423-4de4-b88e-bd16619cc81c
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T22:48:29.979+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Design a plan to add unit tests to the Collaboard Rust backend at /Users/ianzepp/github/gauntlet/collaboard/server/.
+
+## Current State
+- Only frame.rs has tests (8 unit tests — pure data type, no deps)
+- Everything else is untested
+- No traits or DI — all concrete structs
+- AppState requires PgPool (live Postgres) and optional Arc<LlmClient>
+- services/object.rs, services/board.rs take &AppState directly
+- services/ai.rs takes &AppState + &Arc<LlmClient> — depends on real LLM API
+- routes/ws.rs tangles WebSocket I/O with dispatch logic
+- LlmClient is a concrete struct wrapping provider enums
+- Cargo.toml has no mock/test dependencies beyond tokio-tungstenite
+
+## Key Constraints
+- This is a 24-hour MVP sprint project — we can't do a massive refactoring
+- We want maximum test coverage for minimum refactoring cost
+- Must preserve existing API contracts
+
+## What's Testable TODAY (no refactoring)
+1. frame.rs — already tested
+2. llm/anthropic.rs::parse_response() — pure function, takes &str, returns ChatResponse
+3. services/ai.rs::build_system_prompt() — pure function, takes &[BoardObject]
+4. llm/tools.rs::collaboard_tools() — returns Vec<Tool>, verify schema shape
+5. state.rs — BoardObject, BoardState can be constructed in tests
+6. Object/board services — IF we create a test helper that builds AppState with an in-memory boards map and a test PgPool (but PgPool needs a real DB or we skip DB tests)
+
+## What Needs Minimal Refactoring to Test
+1. Make services/ai.rs tool execution functions testable: extract them to take &BoardState or similar
+2. Add an LLM trait so we can mock chat() responses and test the full AI agent loop
+3. Make parse_response visible for testing (it's currently private in anthropic.rs)
+
+## Design Questions
+- Should we introduce a trait for LlmClient? Cost: moderate (async trait, need to update AppState generic or use dyn). Benefit: can test AI agent loop with mock responses.
+- Should we use #[cfg(test)] helpers to construct test AppState without PgPool? We could make boards accessible and skip DB operations in unit tests.
+- Should we add mockall/async-trait to Cargo.toml? Or hand-roll simple mocks?
+
+Please design a plan that:
+1. Extracts pure functions that are currently private (parse_response, build_system_prompt)
+2. Adds an LlmChat trait with a minimal mock implementation for testing
+3. Creates a test helper for AppState that works without Postgres
+4. Writes unit tests for: system prompt building, tool schema validation, response parsing, AI tool execution (with mock LLM), object CRUD (with in-memory state)
+5. Lists exact files to modify and create
+📋 Model: opus-4.6
+🤖 I'll explore the codebase to understand the current structure before designing the plan.
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/server/
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/server/src/
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+🤖 Now let me read the LLM-related files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs"
+🤖 Now let me check the OpenAI client and the routes/ws.rs for completeness.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+🤖 Let me also check the cursor and persistence services quickly.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/cursor.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+🤖 I now have a thorough understanding of the entire codebase. Here is the complete plan.
+
+---
+
+## Unit Test Plan for Collaboard Rust Backend
+
+### Architecture Summary
+
+The server has these modules:
+- `frame.rs` -- already tested (8 tests), pure data types
+- `state.rs` -- `BoardObject`, `BoardState`, `AppState` (requires `PgPool`)
+- `llm/mod.rs` -- `LlmClient` concrete struct dispatching to `AnthropicClient` or `OpenAiClient`
+- `llm/anthropic.rs` -- `parse_response()` is private, pure function
+- `llm/openai.rs` -- `parse_chat_completions_response()` and `parse_responses_response()` are private, pure functions
+- `llm/tools.rs` -- `collaboard_tools()` is public, pure function returning `Vec<Tool>`
+- `llm/types.rs` -- shared types, all public
+- `services/object.rs` -- `create_object`, `update_object` take `&AppState`, operate on in-memory `boards` map. `delete_object` also does a `sqlx::query` to Postgres directly.
+- `services/board.rs` -- all functions hit Postgres (`create_board`, `list_boards`, `delete_board`, `join_board`, `hydrate_objects`, `flush_objects`). `broadcast` and `part_board` use in-memory state.
+- `services/ai.rs` -- `build_system_prompt()` is private+pure. `handle_prompt` calls `llm.chat()`. Tool execution functions call `services::object::*`.
+- `services/cursor.rs` -- thin wrapper, calls `broadcast`
+- `services/persistence.rs` -- background task, calls `flush_objects`
+- `routes/ws.rs` -- WebSocket dispatch, tightly coupled to `axum::extract::ws::WebSocket`
+
+### Strategy: Three Tiers
+
+**Tier 1 -- Zero refactoring (pure functions, make private -> pub(crate))**
+These functions are pure and just need visibility changes to test directly.
+
+**Tier 2 -- Minimal refactoring (test helper for AppState, skip PgPool-dependent paths)**
+Create an `AppState` that works without Postgres for testing create/update operations on the in-memory `boards` map.
+
+**Tier 3 -- Moderate refactoring (LlmChat trait + mock)**
+Introduce a trait so we can test the AI agent loop with canned LLM responses.
+
+---
+
+### Step 1: Make Private Pure Functions Testable
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs`**
+- Change `fn parse_response(json: &str)` from `fn` to `pub(crate) fn`
+- This is line 99. Just add `pub(crate)`.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs`**
+- Change `fn parse_chat_completions_response(json_text: &str)` (line 368) to `pub(crate) fn`
+- Change `fn parse_responses_response(json_text: &str)` (line 443) to `pub(crate) fn`
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs`**
+- Change `fn build_system_prompt(objects: &[BoardObject])` (line 176) to `pub(crate) fn`
+- Change `async fn execute_tool(...)` (line 207) to `pub(crate) async fn`
+
+These are additive-only changes. No signatures change, no call sites change.
+
+---
+
+### Step 2: Add an `LlmChat` Trait
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs`** -- add trait definition here since it uses the types already defined in this file:
+
+```rust
+/// Trait for LLM chat, enabling mock implementations in tests.
+#[cfg_attr(test, mockall::automock)]
+pub trait LlmChat: Send + Sync {
+    fn chat(
+        &self,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> impl std::future::Future<Output = Result<ChatResponse, LlmError>> + Send;
+}
+```
+
+Wait -- `mockall` with async traits requires `async-trait`. Given the 24-hour constraint, a simpler approach is better: **hand-roll a simple mock** instead of pulling in `mockall` + `async-trait`. We can define the trait manually and implement it for `LlmClient` and for a test-only `MockLlmChat`.
+
+Actually, the simplest approach that avoids touching `AppState`'s generic type: use a **boxed trait object** behind a type alias, or even simpler -- just make `handle_prompt` generic over a chat function. But that ripples.
+
+**Recommended approach: Trait object with `Box<dyn LlmChat>`**
+
+In `llm/types.rs`, add:
+```rust
+#[async_trait::async_trait]
+pub trait LlmChat: Send + Sync {
+    async fn chat(
+        &self,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError>;
+}
+```
+
+In `llm/mod.rs`, implement the trait for `LlmClient`:
+```rust
+#[async_trait::async_trait]
+impl LlmChat for LlmClient {
+    async fn chat(
+        &self,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError> {
+        // existing body -- delegate to self.inner
+        match &self.inner {
+            LlmProvider::Anthropic(c) => c.chat(&self.model, max_tokens, system, messages, tools).await,
+            LlmProvider::OpenAi(c) => c.chat(&self.model, max_tokens, system, messages, tools).await,
+        }
+    }
+}
+```
+
+In `state.rs`, change:
+```rust
+pub llm: Option<Arc<LlmClient>>,
+// becomes:
+pub llm: Option<Arc<dyn LlmChat>>,
+```
+
+In `services/ai.rs`, change `handle_prompt` signature:
+```rust
+pub async fn handle_prompt(
+    state: &AppState,
+    llm: &Arc<dyn LlmChat>,  // was &Arc<LlmClient>
+    ...
+```
+
+In `Cargo.toml`, add:
+```toml
+async-trait = "0.1"
+```
+
+This is a small, focused change. All call sites already pass `&Arc<LlmClient>` which now implements `LlmChat`, so coercion to `&Arc<dyn LlmChat>` works. The `AppState::new` function needs a minor update to accept `Option<impl LlmChat + 'static>` or just `Option<Arc<dyn LlmChat>>`.
+
+---
+
+### Step 3: Test Helper for AppState Without Postgres
+
+**Problem:** `AppState::new` requires `PgPool`. Object `create_object` and `update_object` only use `state.boards` (in-memory), but `delete_object` runs `sqlx::query` against `state.pool`.
+
+**Solution:** Create a `#[cfg(test)]` helper module in `state.rs`:
+
+```rust
+#[cfg(test)]
+pub mod test_helpers {
+    use super::*;
+
+    /// Build an AppState for unit tests. Uses a dummy PgPool that will
+    /// panic if actually queried -- only use for tests that stay in-memory.
+    pub fn test_app_state() -> AppState {
+        // PgPool::connect_lazy won't actually connect until first query.
+        let pool = PgPool::connect_lazy("postgres://***:***@localhost/test_does_not_exist")
+            .expect("connect_lazy should not fail");
+        AppState {
+            pool,
+            boards: Arc::new(RwLock::new(HashMap::new())),
+            llm: None,
+        }
+    }
+
+    /// Build an AppState with a mock LLM for AI tests.
+    pub fn test_app_state_with_llm(llm: Arc<dyn crate::llm::types::LlmChat>) -> AppState {
+        let pool = PgPool::connect_lazy("postgres://***:***@localhost/test_does_not_exist")
+            .expect("connect_lazy should not fail");
+        AppState {
+            pool,
+            boards: Arc::new(RwLock::new(HashMap::new())),
+            llm: Some(llm),
+        }
+    }
+
+    /// Pre-populate a board in the AppState for testing.
+    pub async fn seed_board(state: &AppState, board_id: Uuid) {
+        let mut boards = state.boards.write().await;
+        boards.entry(board_id).or_insert_with(BoardState::new);
+    }
+
+    /// Pre-populate a board with specific objects.
+    pub async fn seed_board_with_objects(state: &AppState, board_id: Uuid, objects: Vec<BoardObject>) {
+        let mut boards = state.boards.write().await;
+        let board = boards.entry(board_id).or_insert_with(BoardState::new);
+        for obj in objects {
+            board.objects.insert(obj.id, obj);
+        }
+    }
+}
+```
+
+`PgPool::connect_lazy` creates a pool without actually connecting. Any test that hits a real SQL query will fail with a connection error, which is fine -- those paths are out of scope for unit tests.
+
+---
+
+### Step 4: Mock LLM Implementation
+
+Create a simple mock in a test module (not a separate file -- just in `services/ai.rs` tests or in a `#[cfg(test)]` module):
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::llm::types::*;
+    use std::sync::Mutex;
+
+    /// Mock LLM that returns pre-configured responses in sequence.
+    struct MockLlm {
+        responses: Mutex<Vec<ChatResponse>>,
+    }
+
+    impl MockLlm {
+        fn new(responses: Vec<ChatResponse>) -> Self {
+            Self { responses: Mutex::new(responses) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl LlmChat for MockLlm {
+        async fn chat(
+            &self,
+            _max_tokens: u32,
+            _system: &str,
+            _messages: &[Message],
+            _tools: Option<&[Tool]>,
+        ) -> Result<ChatResponse, LlmError> {
+            let mut responses = self.responses.lock().unwrap();
+            if responses.is_empty() {
+                Ok(ChatResponse {
+                    content: vec![ContentBlock::Text { text: "done".into() }],
+                    model: "mock".into(),
+                    stop_reason: "end_turn".into(),
+                    input_tokens: 0,
+                    output_tokens: 0,
+                })
+            } else {
+                Ok(responses.remove(0))
+            }
+        }
+    }
+}
+```
+
+---
+
+### Step 5: Unit Tests to Write
+
+#### 5a. `llm/anthropic.rs` -- add `#[cfg(test)] mod tests` at bottom
+
+Tests for `parse_response`:
+1. **test_parse_text_response** -- valid JSON with a text content block, verify `ChatResponse` fields
+2. **test_parse_tool_use_response** -- JSON with `tool_use` content block, verify `ContentBlock::ToolUse` fields
+3. **test_parse_mixed_response** -- text + tool_use blocks
+4. **test_parse_filters_unknown_blocks** -- include an unknown block type, verify it's filtered out
+5. **test_parse_invalid_json** -- malformed JSON returns `LlmError::ApiParse`
+
+#### 5b. `llm/openai.rs` -- add `#[cfg(test)] mod tests` at bottom
+
+Tests for `parse_chat_completions_response`:
+1. **test_cc_parse_text_only** -- standard chat completion response
+2. **test_cc_parse_with_tool_calls** -- response with function calls
+3. **test_cc_parse_missing_choices** -- error case
+
+Tests for `parse_responses_response`:
+4. **test_resp_parse_text** -- responses API with message output
+5. **test_resp_parse_function_call** -- responses API with function_call output
+6. **test_resp_parse_output_text_fallback** -- `output_text` field fallback
+
+#### 5c. `llm/tools.rs` -- add `#[cfg(test)] mod tests` at bottom
+
+1. **test_tool_count** -- verify 7 tools returned
+2. **test_tool_names** -- verify exact names: `create_objects`, `move_objects`, `update_objects`, `delete_objects`, `organize_layout`, `summarize_board`, `group_by_theme`
+3. **test_tool_schemas_have_required** -- each tool's `input_schema` has `"type": "object"` and `"properties"`
+4. **test_create_objects_schema** -- validate the nested schema for `create_objects` (has `objects` array with `kind`, `x`, `y` required)
+
+#### 5d. `services/ai.rs` -- add `#[cfg(test)] mod tests` at bottom
+
+Tests for `build_system_prompt`:
+1. **test_system_prompt_empty_board** -- empty slice produces "(empty board"
+2. **test_system_prompt_with_objects** -- objects are listed with id, kind, x, y, text, color
+
+Tests for tool execution (using test AppState helper):
+3. **test_execute_create_objects** -- call `execute_tool` with `create_objects` input, verify objects appear in board state
+4. **test_execute_move_objects** -- create objects, then call `move_objects`, verify positions changed
+5. **test_execute_update_objects** -- create objects, then call `update_objects`, verify props changed
+6. **test_execute_delete_objects** -- this calls `sqlx::query` so it will fail without DB. **Skip this test** or mark `#[ignore]` with a comment.
+7. **test_execute_organize_layout_grid** -- create 4 objects, call `organize_layout` with grid, verify positions are grid-like
+8. **test_execute_summarize_board** -- pre-seed objects with text props, call `summarize_board`, verify a new sticky note is created with summary text
+
+Tests for `handle_prompt` (using `MockLlm`):
+9. **test_handle_prompt_text_only** -- mock returns text, no tool calls. Verify `AiResult.text` is set, mutations empty.
+10. **test_handle_prompt_with_tool_calls** -- mock returns `tool_use` for `create_objects` then `end_turn`. Verify objects created.
+11. **test_handle_prompt_board_not_loaded** -- call with nonexistent board_id, verify `AiError::BoardNotLoaded`.
+
+#### 5e. `services/object.rs` -- add `#[cfg(test)] mod tests` at bottom
+
+1. **test_create_object** -- create via test AppState, verify returned object and board state
+2. **test_create_object_board_not_loaded** -- no board seeded, verify `ObjectError::BoardNotLoaded`
+3. **test_update_object** -- create then update, verify fields changed and version incremented
+4. **test_update_object_lww_stale** -- create object at version 1, try update with `incoming_version=0`, verify `StaleUpdate` error
+5. **test_update_object_not_found** -- seed board but no object, verify `ObjectError::NotFound`
+6. **test_update_partial_fields** -- only update `x`, verify `y` unchanged
+7. **test_update_props** -- update `props` field, verify it replaces (not merges)
+8. **test_create_sets_dirty** -- verify object ID is in `board.dirty` after create
+9. **test_delete_object** -- `#[ignore]` because it calls `sqlx::query`. Document that this needs integration test.
+
+#### 5f. `state.rs` -- add `#[cfg(test)] mod tests` at bottom
+
+1. **test_board_state_new** -- verify empty objects, clients, dirty
+2. **test_board_object_serde** -- round-trip serialize/deserialize a `BoardObject`
+3. **test_board_state_default** -- `Default` trait works
+
+---
+
+### Step 6: Dependency Changes
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml`**
+
+Add under `[dependencies]`:
+```toml
+async-trait = "0.1"
+```
+
+No additional test dependencies needed. The `MockLlm` is hand-rolled, no `mockall`.
+
+---
+
+### Summary of Files to Modify
+
+| File | Change |
+|------|--------|
+| `Cargo.toml` | Add `async-trait = "0.1"` |
+| `llm/types.rs` | Add `LlmChat` trait definition (with `#[async_trait]`) |
+| `llm/mod.rs` | Implement `LlmChat` for `LlmClient`; keep existing `chat` method as the implementation body |
+| `llm/anthropic.rs` | Change `parse_response` to `pub(crate)`; add `#[cfg(test)] mod tests` with 5 tests |
+| `llm/openai.rs` | Change 2 parse functions to `pub(crate)`; add `#[cfg(test)] mod tests` with 6 tests |
+| `llm/tools.rs` | Add `#[cfg(test)] mod tests` with 4 tests |
+| `state.rs` | Change `llm` field type to `Option<Arc<dyn LlmChat>>`; update `new()`; add `#[cfg(test)] pub mod test_helpers` with 4 helper functions; add 3 tests |
+| `services/ai.rs` | Change `build_system_prompt` and `execute_tool` to `pub(crate)`; change `handle_prompt` to take `&Arc<dyn LlmChat>`; add `#[cfg(test)] mod tests` with `MockLlm` + 11 tests |
+| `services/object.rs` | Add `#[cfg(test)] mod tests` with 9 tests (1 ignored) |
+| `main.rs` | Minor: `AppState::new` signature may need update if `new()` changes to accept `Arc<dyn LlmChat>` |
+
+### Estimated Test Count
+
+- `frame.rs`: 8 existing
+- `llm/anthropic.rs`: 5 new
+- `llm/openai.rs`: 6 new
+- `llm/tools.rs`: 4 new
+- `state.rs`: 3 new
+- `services/ai.rs`: 11 new
+- `services/object.rs`: 9 new (1 ignored)
+
+**Total: 8 existing + 38 new = 46 tests**
+
+### Execution Order
+
+1. Add `async-trait` to `Cargo.toml`
+2. Define `LlmChat` trait in `llm/types.rs`
+3. Implement `LlmChat` for `LlmClient` in `llm/mod.rs`
+4. Update `state.rs`: change `llm` field type, add test helpers
+5. Update `services/ai.rs`: change `handle_prompt` signature, make functions `pub(crate)`
+6. Update `main.rs` if needed for `AppState::new` signature
+7. Make parse functions `pub(crate)` in `anthropic.rs` and `openai.rs`
+8. Add tests to `llm/tools.rs` (no dependencies, easiest first)
+9. Add tests to `state.rs`
+10. Add tests to `llm/anthropic.rs`
+11. Add tests to `llm/openai.rs`
+12. Add tests to `services/object.rs`
+13. Add tests to `services/ai.rs` (depends on MockLlm + test helpers)
+14. Run `cargo test` and fix any issues
+
+### What is NOT in Scope
+
+- `routes/ws.rs` -- too tightly coupled to WebSocket types; would need significant extraction to unit test. Leave for integration tests.
+- `services/board.rs` -- all CRUD functions hit Postgres. `broadcast` and `part_board` could be tested with the in-memory helper but have complex lock patterns. Low ROI for 24-hour sprint.
+- `services/cursor.rs` -- thin wrapper around `broadcast`, same story.
+- `services/persistence.rs` -- background task, calls `flush_objects` which hits Postgres.
+- `db/` -- database initialization, inherently requires a real database.
+
+### Critical Files for Implementation
+
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs` - Add the `LlmChat` trait that enables mocking the LLM layer
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs` - Update `AppState.llm` to use trait object; add test helper module
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` - Most tests live here; change visibility of pure functions; add MockLlm and 11 tests
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs` - Add 9 tests for in-memory CRUD operations
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs` - Make `parse_response` pub(crate) and add 5 parse tests
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 5 assistant
+📋 Tool calls: 18 total, 0 failed
+📋 Files: 16 read
+📋 Tokens: 29 in, 170 out
+📋 Cache: 494.1K read, 202.7K created

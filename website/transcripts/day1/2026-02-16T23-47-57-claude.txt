@@ -1,0 +1,347 @@
+📋 Session: 8b277191-a898-4f5b-8bcc-e1d71c942419
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T23:47:57.002+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 [Request interrupted by user for tool use]
+👤 Implement the following plan:
+
+# GitHub OAuth Authentication for Collaboard
+
+## Context
+The collaboard MVP requires "User authentication" as a hard-gate requirement. Currently the app has no real auth — the frontend creates a fake user with `crypto.randomUUID()` and the WebSocket handler assigns anonymous client IDs. The DB schema for `users`, `sessions`, and `ws_tickets` already exists but has no implementation behind it.
+
+## Auth Flow
+1. User clicks "Login with GitHub" → browser navigates to `/auth/github`
+2. Server redirects to GitHub OAuth authorize URL
+3. GitHub redirects back to `/auth/github/callback?code=...`
+4. Server exchanges code → fetches GitHub profile → upserts user → creates session → sets `session_token` HttpOnly cookie → redirects to `/`
+5. SPA loads, calls `GET /api/auth/me` (cookie sent automatically) → gets user
+6. For WS: SPA calls `POST /api/auth/ws-ticket` → gets one-time ticket → connects `/api/ws?ticket=...`
+
+## Routing Structure
+- `/auth/*` — public OAuth routes (redirect, callback)
+- `/api/*` — gated, requires valid session cookie
+- `/` — SPA static files (public)
+
+---
+
+## Backend Changes
+
+### 1. Add dependency: `axum-extra`
+**File:** `server/Cargo.toml`
+```toml
+axum-extra = { version = "0.10", features = ["cookie"] }
+```
+
+### 2. Create `services/session.rs` (new file)
+Token generation and validation against existing DB schema.
+
+- `generate_token() -> String` — 32 random bytes, hex-encoded (use `rand`)
+- `create_session(pool, user_id) -> Result<String>` — INSERT into sessions, return token
+- `validate_session(pool, token) -> Result<User>` — SELECT join users WHERE token AND expires_at > now()
+- `delete_session(pool, token) -> Result<()>` — DELETE from sessions
+- `create_ws_ticket(pool, user_id) -> Result<String>` — 16 random bytes hex, INSERT into ws_tickets
+- `consume_ws_ticket(pool, ticket) -> Result<Uuid>` — DELETE FROM ws_tickets WHERE ticket AND expires_at > now() RETURNING user_id
+
+### 3. Create `services/auth.rs` (new file)
+GitHub OAuth logic.
+
+- `GitHubConfig { client_id, client_secret, redirect_uri }` loaded from env
+- `exchange_code(config, code) -> Result<String>` — POST `github.com/login/oauth/access_token`, return access_token
+- `fetch_github_user(access_token) -> Result<GitHubUser>` — GET `api.github.com/user`
+- `upsert_user(pool, github_user) -> Result<User>` — INSERT ON CONFLICT (github_id) DO UPDATE, return user row
+
+### 4. Update `services/mod.rs`
+Add `pub mod auth;` and `pub mod session;`
+
+### 5. Create `routes/auth.rs` (new file)
+Five handlers:
+
+| Route | Auth? | Handler |
+|-------|-------|---------|
+| `GET /auth/github` | No | Redirect to GitHub authorize URL |
+| `GET /auth/github/callback` | No | Exchange code, upsert user, set cookie, redirect to `/` |
+| `GET /api/auth/me` | Yes | Return current user JSON |
+| `POST /api/auth/logout` | Yes | Delete session, clear cookie, 204 |
+| `POST /api/auth/ws-ticket` | Yes | Create ticket, return `{ "ticket": "..." }` |
+
+Auth extractor: parse `session_token` from Cookie header, call `validate_session()`, return user or 401. Implement as `AuthUser` extractor (FromRequestParts).
+
+### 6. Update `routes/mod.rs`
+- Add `pub mod auth;`
+- Mount auth routes in `app()`:
+  ```
+  /auth/github           → auth::github_redirect
+  /auth/github/callback  → auth::github_callback
+  /api/auth/me           → auth::me
+  /api/auth/logout       → auth::logout
+  /api/auth/ws-ticket    → auth::ws_ticket
+  /api/ws                → ws::handle_ws (unchanged for now)
+  /healthz               → healthz
+  ```
+
+### 7. Update `routes/ws.rs` — ticket-based auth
+- Add `Query(params): Query<HashMap<String, String>>` to `handle_ws`
+- Extract `ticket` param, call `consume_ws_ticket()`, get `user_id`
+- Return 401 if missing/invalid
+- Pass `user_id` to `run_ws(socket, state, user_id)`
+- Include `user_id`, `name`, `color` in `session:connected` frame
+- Pass `Some(user_id)` to `create_object` calls (currently `None`)
+
+### 8. Update `main.rs`
+- Add `GitHubConfig` to `AppState` (or load in auth routes via env)
+- No other structural changes needed
+
+### 9. Env vars required
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GITHUB_REDIRECT_URI` (e.g. `http://localhost:5173/auth/github/callback`)
+
+---
+
+## Frontend Changes
+
+### 10. Update `vite.config.ts`
+Add `/auth` proxy alongside existing `/api` proxy:
+```typescript
+"/auth": { target: "http://localhost:3000", changeOrigin: true }
+```
+
+### 11. Update `lib/types.ts`
+Extend User type:
+```typescript
+export interface User {
+    id: string;
+    name: string;
+    avatar_url?: string;
+    color: string;
+}
+```
+
+### 12. Create `lib/api.ts` (new file)
+```typescript
+fetchCurrentUser(): Promise<User | null>  // GET /api/auth/me
+logout(): Promise<void>                    // POST /api/auth/logout
+createWsTicket(): Promise<string>          // POST /api/auth/ws-ticket
+```
+All calls use `credentials: "include"` for cookies.
+
+### 13. Update `App.tsx`
+- Remove localStorage user loading
+- On mount: call `fetchCurrentUser()` → set user or show login
+- Add loading state while checking session
+- Remove `DEMO_BOARD_ID` constant (will address board routing separately)
+
+### 14. Update `LoginPage.tsx`
+- Replace mock login with: `window.location.href = "/auth/github"`
+- Remove `onLogin` prop (page reload after OAuth handles it)
+
+### 15. Update `hooks/useFrameClient.ts`
+- Before connecting WS, call `createWsTicket()` to get ticket
+- Connect to `/api/ws?ticket=...` instead of bare `/api/ws`
+
+---
+
+## Verification
+1. `cargo fmt --check && cargo clippy` — must pass
+2. `cd client && bun tsc` — must pass
+3. Manual test: click "Login with GitHub" → redirects to GitHub → callback sets cookie → SPA loads with user info
+4. Check `/api/auth/me` returns user JSON with cookie
+5. Check WS connects with ticket and `session:connected` includes user_id
+6. Check logout clears cookie and `/api/auth/me` returns 401
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-gauntlet/8b277191-a898-4f5b-8bcc-e1d71c942419.jsonl
+📋 Model: opus-4.6
+🤖 I'll start by reading the existing codebase to understand the current structure before implementing.
+✅ Task: Explore: "Explore collaboard codebase structure"
+🤖 Now I have a thorough understanding of the codebase. Let me read the specific files I'll be modifying to get exact content.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+🤖 Now let me read the frontend files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+🤖 Now I have all the context I need. Let me create tasks and start implementing.
+✅ TaskCreate: {"activeForm":"Adding axum-extra dependency","description":"Add axum-extra with cookie feature to server/Cargo.toml","subject":"Add axum-extra depende...
+✅ TaskCreate: {"activeForm":"Creating auth and session services","description":"Session token generation/validation and GitHub OAuth service layer","subject":"Creat...
+✅ TaskCreate: {"activeForm":"Creating auth route handlers","description":"OAuth redirect, callback, me, logout, ws-ticket endpoints plus AuthUser FromRequestParts",...
+✅ TaskCreate: {"activeForm":"Wiring up backend auth integration","description":"Wire up auth routes, add GitHubConfig to state, update WS handler for ticket-based a...
+✅ TaskCreate: {"activeForm":"Implementing frontend auth","description":"Update vite proxy, types, create api.ts, update App.tsx, LoginPage.tsx, useFrameClient.ts","...
+✅ TaskCreate: {"activeForm":"Running verification checks","description":"Verify backend and frontend compile cleanly, then autocommit","subject":"Run verification: ...
+✅ TaskUpdate: {"status":"in_progress","taskId":"1"}
+🤖 **Task 1: Add axum-extra dependency**
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ TaskUpdate: {"status":"completed","taskId":"1"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"2"}
+🤖 **Task 2: Create services/session.rs and services/auth.rs**
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Wait, I'm using `hex::encode` but `hex` isn't in the dependencies. Let me use a different approach — format bytes as hex manually or add the dep. Actually, let me just use `format!` with hex encoding via a simple helper to avoid adding another dependency.
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Now create `services/auth.rs`:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs"
+🤖 Update `services/mod.rs`:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"2"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"3"}
+🤖 **Task 3: Create routes/auth.rs**
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"3"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"4"}
+🤖 **Task 4: Wire up backend — routes/mod.rs, state.rs, main.rs, ws.rs**
+
+Update `routes/mod.rs`:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+🤖 Update `state.rs` to add `github` field:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+🤖 Now update the test helpers that call `AppState::new` with 2 args — they need 3 now:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+🤖 Update `main.rs`:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+🤖 Now update `ws.rs` for ticket-based auth:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Now update `object:create` to pass `Some(user_id)` instead of `None`. I need to thread `user_id` through `dispatch_frame`:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Now update the match arms to pass `user_id` to `handle_object`:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Now update `create_object` call to pass `Some(user_id)`:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ TaskUpdate: {"status":"completed","taskId":"4"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"5"}
+🤖 **Task 5: Frontend changes**
+
+Update `vite.config.ts` — add `/auth` proxy:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts"
+🤖 Update `lib/types.ts` — extend User:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+🤖 Create `lib/api.ts`:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/api.ts"
+🤖 Update `App.tsx`:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+🤖 Update `LoginPage.tsx`:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx"
+🤖 Now I need to update `useFrameClient.ts` to use ticket-based WS connection. The FrameClient currently is mock-only — let me update it to support real WS connections with tickets, but since the plan says to update `useFrameClient.ts` to call `createWsTicket()` before connecting, I'll do that:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+🤖 Now I should update the `FrameClient.connect` to use the ticket as a query param (currently it accepts `_ticket` but doesn't use it in mock mode). The connect method signature already takes `_ticket` which is good — the real WS implementation will use it. Let me update `frameClient.ts` to support real connections with the ticket:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ TaskUpdate: {"status":"completed","taskId":"5"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"6"}
+🤖 **Task 6: Verification**
+❌ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/server && cargo fmt --check 2>&1
+❌ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/client && bun tsc 2>&1
+🤖 Formatting issues. Let me fix them:
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/server && cargo fmt 2>&1
+🤖 Good, `cargo fmt` applied. Now let's run both checks:
+✅ Bash: cargo fmt --check 2>&1
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/client && bun tsc 2>&1
+🤖 Now run clippy:
+❌ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/server && cargo clippy 2>&1
+🤖 Several issues to fix:
+
+1. `DATABASE_URL` not set — need to use runtime `query` instead of `query_as!`/`query_scalar!` macros
+2. `FromRef` blanket impl conflict — remove the manual `FromRef` impl
+3. `time::Duration::ZERO` path — use the `time` crate re-export correctly
+
+Let me fix all of these:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/auth.rs"
+🤖 Now I need to add `time` as a dependency (it's a transitive dep of `cookie` but needs to be explicit for the `use time::Duration`):
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+🤖 Now fix the `sqlx::query_as!` / `query_scalar!` macros — they need `DATABASE_URL` at compile time. Let me check how existing code handles this.
+✅ Grep: pattern="query_scalar!|query_as!" path="/Users/ianzepp/github/gauntlet/collaboard/server/src"
+🤖 Only my new files use the compile-time macros. The existing code uses `sqlx::query` (runtime). Let me switch to runtime queries:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Wait, the column in the RETURNING clause is `user_id`, not `id`. Let me fix that:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Now fix `services/auth.rs` — replace the `query_scalar!` macro with runtime query:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/auth.rs"
+🤖 Now let's try building again:
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/server && cargo clippy 2>&1
+🤖 It compiled with only warnings (many pre-existing). No errors. The warnings in my new code are just doc markdown suggestions. Let me fix the one warning in my new code:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/session.rs"
+🤖 Now let's run the final verification:
+❌ Bash: cargo fmt --check 2>&1
+❌ Bash: cargo clippy 2>&1 | grep "^error" | head -5
+❌ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/client && bun tsc 2>&1
+✅ Bash: cargo fmt 2>&1
+✅ Bash: cargo fmt --check 2>&1 && cargo clippy 2>&1 | grep "^error" | head -5 && cd /Users/ianzepp/github/gauntlet/collaboard/client && bun tsc 2>&1
+🤖 All checks pass. Let me update the task and commit.
+✅ TaskUpdate: {"status":"completed","taskId":"6"}
+✅ Bash: cd /Users/ianzepp/github/gauntlet && git status -u
+✅ Bash: git diff --stat
+✅ Bash: git log --oneline -5
+✅ Bash: git add collaboard/client/src/App.tsx collaboard/client/src/hooks/useFrameClient.ts collaboard/client/src/lib/frameClient.ts collaboard/client/src/lib/types.ts collaboard/client/src/pages/LoginPage.ts...
+✅ Bash: git commit -m "$(cat <<'EOF' ↵ Add GitHub OAuth authentication for collaboard ↵  ↵ Implements full GitHub OAuth flow with session management: ↵ - Backend: auth service (GitHub code exchange, profile fetch, us...
+🤖 Done. Here's a summary of what was implemented:
+
+**Backend (4 new files, 5 modified):**
+- `services/session.rs` — token generation, session CRUD, WS ticket CRUD
+- `services/auth.rs` — `GitHubConfig`, OAuth code exchange, GitHub profile fetch, user upsert
+- `routes/auth.rs` — 5 handlers (`/auth/github`, `/auth/github/callback`, `/api/auth/me`, `/api/auth/logout`, `/api/auth/ws-ticket`) + `AuthUser` extractor
+- `routes/ws.rs` — ticket-based auth: extracts `?ticket=` query param, validates via `consume_ws_ticket()`, passes `user_id` through to `session:connected` and `object:create`
+- `state.rs` — added `github: Option<GitHubConfig>` to `AppState`
+- `main.rs` — loads `GitHubConfig` from env vars
+
+**Frontend (1 new file, 5 modified):**
+- `lib/api.ts` — `fetchCurrentUser()`, `logout()`, `createWsTicket()`
+- `App.tsx` — session check on mount via `/api/auth/me`, loading state
+- `LoginPage.tsx` — redirects to `/auth/github` instead of creating fake user
+- `lib/frameClient.ts` — real WebSocket client with ticket-based connection
+- `hooks/useFrameClient.ts` — calls `createWsTicket()` before connecting in non-mock mode
+- `vite.config.ts` — added `/auth` proxy
+
+**Env vars needed:** `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI`
+👤 let's add those env vars to .env.example with comments
+✅ Glob: pattern="collaboard/.env.example"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/.env.example"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/.env.example"
+✅ Bash: git add collaboard/.env.example && git commit -m "$(cat <<'EOF' ↵ Add GitHub OAuth env vars to .env.example ↵  ↵ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com> ↵ EOF ↵ )"
+🤖 Done. Added the three GitHub OAuth env vars with comments pointing to the GitHub developer settings page and noting the callback URL should match the redirect URI.
+👤 how do I set that up without having a fully deployed app? gh wants a public URL for the app?
+🤖 GitHub OAuth actually works fine for local development — it doesn't need a public URL. The callback URL just needs to match what your browser can reach.
+
+**Setup steps:**
+
+1. Go to https://github.com/settings/developers
+2. Click **New OAuth App**
+3. Fill in:
+   - **Application name:** `collaboard-dev` (anything)
+   - **Homepage URL:** `http://localhost:5173`
+   - **Authorization callback URL:** `http://localhost:5173/auth/github/callback`
+4. Click **Register application**
+5. Copy the **Client ID**
+6. Click **Generate a new client secret**, copy it
+
+Then in your `.env`:
+```
+GITHUB_CLIENT_ID=<the client id>
+GITHUB_CLIENT_SECRET=<the secret>
+GITHUB_REDIRECT_URI=http://localhost:5173/auth/github/callback
+```
+
+GitHub doesn't require the callback URL to be public — `localhost` works. The flow is entirely browser-based: GitHub redirects the user's browser to the callback URL, so it just needs to be reachable from *your* browser, not from GitHub's servers.
+
+📋 --- Summary ---
+📋 Duration: 18m
+📋 Messages: 4 user, 42 assistant
+📋 Tool calls: 89 total, 6 failed
+📋 Files: 16 read, 9 written, 10 edited
+📋 Tokens: 139 in, 7.5K out
+📋 Cache: 8.2M read, 258.2K created

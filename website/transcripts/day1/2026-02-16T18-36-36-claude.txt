@@ -1,0 +1,174 @@
+📋 Session: 0d21b26d-320b-4788-9d5e-40e15fede544
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T18:36:36.296+00:00
+📋 Version: 2.1.42
+📋 Branch: HEAD
+
+👤 You are helping with a Pre-Search analysis for a CollabBoard project — a real-time collaborative whiteboard (Miro clone) with an AI agent, built in a one-week sprint. This is for a Gauntlet AI program (10-week intensive for senior engineers). The developer is a solo senior engineer.
+
+Analyze Phase 1: Define Your Constraints. For each section, provide a concrete recommendation with tradeoff analysis. Be opinionated — the goal is defensible decisions, not a menu of options.
+
+**Context:**
+- Solo developer, senior engineer
+- 24hr MVP hard gate (infinite board, pan/zoom, sticky notes, shapes, real-time sync 2+ users, multiplayer cursors, presence, auth, deployed)
+- Full build in 7 days adds: connectors, frames, text, multi-select, rotate, copy/paste, disconnect recovery, persistence, AI agent (6+ commands)
+- Performance: 60 FPS, <100ms object sync, <50ms cursor sync, 500+ objects, 5+ concurrent users
+- Must deploy publicly
+- AI agent uses LLM function calling to manipulate board
+
+**Analyze these sections:**
+
+### 1. Scale & Load Profile
+- Users at launch? In 6 months?
+- Traffic pattern: steady, spiky, or unpredictable?
+- Real-time requirements (websockets, live updates)?
+- Cold start tolerance?
+
+### 2. Budget & Cost Ceiling
+- Monthly spend limit?
+- Pay-per-use acceptable or need fixed costs?
+- Where will you trade money for time?
+
+### 3. Time to Ship
+- MVP timeline?
+- Speed-to-market vs. long-term maintainability priority?
+- Iteration cadence after launch?
+
+### 4. Compliance & Regulatory Needs
+- Health data (HIPAA)?
+- EU users (GDPR)?
+- Enterprise clients (SOC 2)?
+- Data residency requirements?
+
+### 5. Team & Skill Constraints
+- Solo or team?
+- Languages/frameworks you know well?
+- Learning appetite vs. shipping speed preference?
+
+For each section, give:
+1. The decision/answer
+2. Why (1-2 sentences)
+3. Key tradeoff acknowledged
+
+Format as clean markdown sections. Be concise and direct.
+📋 Model: opus-4.6
+🤖 # Phase 1: Define Your Constraints — CollabBoard
+
+## 1. Scale & Load Profile
+
+**Decision:** Design for 5-20 concurrent users per board, 1-5 boards active simultaneously, ~50 total registered users at launch. In 6 months: irrelevant — this is a portfolio/program project, not a startup.
+
+**Why:** This is a Gauntlet program deliverable with a 7-day build window. The performance targets (5+ concurrent users, 500+ objects, 60 FPS) define the real ceiling. Designing beyond that is wasted time.
+
+**Traffic pattern:** Spiky. Demo-driven — load hits when you present or when evaluators test it. Zero traffic otherwise.
+
+**Real-time requirements:** Yes, WebSockets are non-negotiable. The spec demands <100ms object sync and <50ms cursor sync. SSE won't cut it for bidirectional cursor streaming. Use a single WebSocket connection per client multiplexing all message types (cursor, object CRUD, presence).
+
+**Cold start tolerance:** Moderate. A 2-3 second cold start on first board load is acceptable for a demo project. Evaluators won't be hitting it cold repeatedly. Don't waste time on keep-alive hacks.
+
+**Key tradeoff:** You're ignoring horizontal scaling entirely. Single-process WebSocket state means one server handles all connections. This breaks at ~100 concurrent users. That's fine — you'll never hit it.
+
+---
+
+## 2. Budget & Cost Ceiling
+
+**Decision:** $0/month infrastructure target, $20/month hard ceiling (LLM API costs are the only real variable).
+
+**Why:** This is a program project. Use free tiers aggressively. Fly.io free tier gives you enough for a single-instance deployment. SQLite eliminates database costs. The only meaningful spend is OpenAI/Anthropic API calls for the AI agent.
+
+**Where to trade money for time:**
+- **LLM calls:** Pay for a smarter model (Claude Sonnet or GPT-4o-mini) rather than spending days prompt-engineering a cheaper one. Budget ~$5-10 for development iteration and demo usage.
+- **Deployment:** Fly.io free tier (3 shared VMs). Don't pay for managed WebSocket services (Pusher, Ably) — run your own on the same process.
+- **No paid services:** No managed databases, no paid auth providers. Bun + SQLite + simple JWT auth.
+
+**Key tradeoff:** Running WebSockets and HTTP on a single Fly.io free-tier VM means a deploy = brief downtime. Acceptable for a demo. A $5/month second instance with health checks would fix this, but isn't worth it at this stage.
+
+---
+
+## 3. Time to Ship
+
+**Decision:** 24-hour MVP, then 6 remaining days for full feature set. Speed-to-market is the only priority. Maintainability is irrelevant.
+
+**Why:** The 24-hour MVP gate is a hard requirement. You ship or you fail. After that, you have ~6 days to layer on connectors, frames, multi-select, AI agent, and polish. There is no "long-term" — this project's useful life is the evaluation period.
+
+**Iteration cadence:** Continuous during the sprint. After submission: zero. This is not a product you'll maintain.
+
+**Concrete time allocation:**
+| Block | Hours | Deliverable |
+|-------|-------|-------------|
+| Hours 0-4 | 4h | Canvas engine (infinite pan/zoom, render loop, object model) |
+| Hours 4-8 | 4h | Sticky notes + shapes CRUD, selection, drag |
+| Hours 8-14 | 6h | WebSocket server, real-time sync, cursors, presence |
+| Hours 14-18 | 4h | Auth (simple JWT), board CRUD, persistence |
+| Hours 18-22 | 4h | Deploy to Fly.io, integration testing, bug fixes |
+| Hours 22-24 | 2h | Buffer for the inevitable fire |
+| Days 2-3 | 16h | Connectors, frames, text tool, multi-select, rotate |
+| Days 4-5 | 16h | AI agent (LLM function calling, 6+ commands) |
+| Days 6-7 | 16h | Copy/paste, disconnect recovery, polish, performance |
+
+**Key tradeoff:** No tests until day 6 at earliest. Manual testing only during the sprint. The `spec/` directory stays empty until you're feature-complete. This is the correct call for a solo 7-day build — the cost of test infrastructure exceeds its value at this timeline.
+
+---
+
+## 4. Compliance & Regulatory Needs
+
+**Decision:** None. Zero compliance work.
+
+**Why:** This is a program project, not a production SaaS. No real user data beyond demo accounts. No health data, no EU customers, no enterprise buyers. Every hour spent on compliance is an hour stolen from features that get evaluated.
+
+**What you actually do:**
+- Don't store passwords in plaintext (use bcrypt/argon2 — this takes 5 minutes, not a compliance decision).
+- Don't commit secrets to git.
+- That's it.
+
+**Key tradeoff:** If an evaluator asks "what about GDPR?" the answer is "this is a technical demo, not a production service — here's where I'd add consent management and data deletion endpoints." Knowing the answer is more valuable than implementing it.
+
+---
+
+## 5. Team & Skill Constraints
+
+**Decision:** Solo build. Bun + Hono backend, vanilla Canvas 2D API frontend with htmx for non-canvas UI, SQLite via Drizzle, raw WebSocket on Bun.
+
+**Why:** The Gauntlet stack is already defined (Bun, Hono, htmx, SQLite). You're a senior engineer in a program that assumes TypeScript fluency. The constraint isn't skill — it's time.
+
+**Framework choices and rationale:**
+
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Runtime | Bun | Mandated. Also: fast startup, built-in WebSocket support via `Bun.serve()` |
+| HTTP | Hono | Mandated. Lightweight, fast, good middleware model |
+| Canvas | Vanilla Canvas 2D API | No framework. Fabric.js/Konva add learning overhead and bundle weight. For 500 objects with pan/zoom, a hand-rolled render loop is straightforward and gives you full control over the 60 FPS target |
+| UI chrome | htmx | Mandated for non-canvas UI (toolbars, board list, auth forms) |
+| Database | SQLite via Drizzle | Mandated combo. Drizzle gives you typed queries and migration path to Postgres if needed |
+| WebSocket | `Bun.serve()` built-in | No external library. Bun's native WebSocket support is sufficient. No Socket.IO, no ws package |
+| Auth | Simple JWT | No OAuth providers, no Lucia, no Clerk. Hand-roll a JWT issuer in 30 minutes |
+| AI Agent | Anthropic Claude API with tool use | Function calling maps directly to board manipulation commands. Define tools as board operations (create_sticky, move_object, group_objects, etc.) |
+
+**Learning appetite:** Near zero for new frameworks. The only potentially new concept is the Canvas 2D render loop with spatial indexing, but that's algorithmic work, not framework learning. If you haven't built a canvas app before, budget an extra 2 hours in the first block.
+
+**Key tradeoff:** No canvas framework means you write your own hit-testing, selection rectangles, and transform handles. This is ~4 hours of work that Fabric.js gives you free. But Fabric.js also gives you a 300KB bundle, opinions about object models that may clash with your sync architecture, and debugging time when it doesn't do what you need. For a senior engineer on a 7-day timeline, owning the code is faster than fighting the framework.
+
+---
+
+## Summary of Hard Constraints
+
+| Constraint | Value |
+|------------|-------|
+| Team size | 1 |
+| MVP deadline | 24 hours |
+| Full build | 7 days |
+| Budget | ~$0 infra, ~$10 LLM |
+| Scale target | 5 concurrent users, 500 objects |
+| Compliance | None |
+| Stack | Bun + Hono + htmx + Canvas 2D + SQLite + Drizzle + raw WebSocket |
+| Deploy target | Fly.io free tier |
+| Test strategy | Manual until day 6 |
+
+The single biggest risk is the 24-hour MVP gate. Everything in this constraints document optimizes for that: minimal stack, zero compliance overhead, no framework learning curves, single-process architecture. Get the canvas rendering and WebSocket sync working in the first 14 hours, and the rest is plumbing.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 0 total, 0 failed
+📋 Tokens: 3 in, 3 out
+📋 Cache: 0 read, 10.9K created

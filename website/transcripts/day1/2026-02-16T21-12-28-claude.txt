@@ -1,0 +1,580 @@
+📋 Session: 3662effc-a1c0-4706-8dfc-726a462921ef
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-16T21:12:28.891+00:00
+📋 Version: 2.1.42
+📋 Branch: main
+
+👤 Explore /Users/ianzepp/github/ianzepp/prior/ to understand the frame-based protocol and core backend patterns that will be ported to CollabBoard. Specifically find and read:
+
+1. The Frame type definition (likely in kernel/ somewhere) - the struct with id, parent_id, ts, syscall, status, data fields
+2. The Status enum (request, item, done, error, cancel)
+3. Frame serialization/deserialization
+4. The LLM client trait and implementations (Anthropic + OpenAI adapters)
+5. The Axum gateway/WebSocket handler pattern
+6. Any AppState or shared state patterns
+
+For each file you find, provide the full file path and a summary of the key patterns. Read the actual source code, don't just list files. Focus on the patterns that are portable to a new domain (whiteboard collaboration).
+📋 Model: haiku-4.5
+🤖 I'll explore the prior project to understand the frame-based protocol and core patterns. Let me start by examining the directory structure and then locate the key components you mentioned.
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/prior/
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior -type f -name "*.rs" | head -20
+🤖 Good. Now let me search for the key source files in the kernel and related directories:
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior/src -type f -name "*.rs" 2>/dev/null | head -30
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior/kernel -type f -name "*.rs" 2>/dev/null
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior/gateways -type f -name "*.rs" 2>/dev/null
+🤖 Perfect! Now let me read the key files. I'll start with the Frame type definition and related core types:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/client.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/types.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs"
+🤖 Now let me read the OpenAI client and look at some additional state/router patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/openai_client.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/door/types.rs"
+🤖 Now let me read the API gateway and look at the app state pattern:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/lib.rs"
+🤖 Let me also look at the Pipe pattern which is central to the communication model:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/pipe.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/room/types.rs"
+🤖 Perfect! I now have a comprehensive understanding of the Prior architecture. Let me compile this into a structured summary for you.
+
+## Prior Architecture: Frame-Based Protocol and Core Patterns
+
+Based on my exploration of `/Users/ianzepp/github/ianzepp/prior`, here are the key patterns that can be ported to CollabBoard:
+
+---
+
+### 1. **Frame Type Definition**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs`
+
+**Core Struct:**
+```rust
+pub struct Frame {
+    pub id: Uuid,                           // Unique request identifier
+    pub parent_id: Option<Uuid>,            // Response correlation
+    pub ts: i64,                            // Milliseconds since Unix epoch
+    pub ms: Option<i64>,                    // Optional timeout in milliseconds
+    pub room: Option<String>,               // Room context
+    pub from: Option<String>,               // Actor/source identifier
+    pub syscall: String,                    // Operation name (e.g., "vfs:read")
+    pub status: Status,                     // Lifecycle state
+    pub data: Data,                         // Flat HashMap<String, serde_json::Value> payload
+}
+```
+
+**Key Design Principles:**
+- Flat data payload (never nested) — always `HashMap<String, Value>`
+- Routing happens on syscall prefix only; kernel never inspects data payload
+- Owned fields for async boundary crossing (channels, sockets, persistence)
+- Frameworkless — serializable to JSON for wire transport
+
+---
+
+### 2. **Status Enum**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs` (lines 56-76)
+
+```rust
+pub enum Status {
+    Request,     // Initiates a request/response stream
+    Item,        // Streaming response (one result)
+    Done,        // Terminal: successful completion
+    Error,       // Terminal: failure
+    Cancel,      // Terminal: cancellation
+}
+
+impl Status {
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Status::Done | Status::Error | Status::Cancel)
+    }
+}
+```
+
+**Pattern:** Every exchange is `request → item* → done` or `request → error`. No shortcuts. Callers always consume the same stream shape.
+
+---
+
+### 3. **Frame Serialization/Deserialization**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs`
+
+**Construction Methods (Named Constructors):**
+```rust
+Frame::request(syscall, data)           // Create a request
+Frame::cancel(target_id)                // Create a cancel frame
+frame.item(data)                        // Create item response
+frame.done()                            // Create done response
+frame.error("message")                  // Create error response
+frame.error_from(&typed_error)          // Create structured error
+```
+
+**Builder Pattern:**
+```rust
+frame
+    .with_ms(timeout_ms)               // Set timeout
+    .with_room(room_name)              // Set room context
+    .with_from(actor_name)             // Set actor
+    .with_content(text)                // Set FRAME_CONTENT in data
+    .with_data(key, value)             // Add arbitrary data field
+```
+
+**Serde Integration:**
+```rust
+pub type Data = HashMap<String, serde_json::Value>;
+#[derive(Serialize, Deserialize)]
+pub struct Frame { /* ... */ }
+```
+
+**Routing Extraction:**
+```rust
+pub fn prefix(&self) -> &str {
+    let Some((prefix, _)) = self.syscall.split_once(':') else {
+        return &self.syscall;
+    };
+    prefix
+}
+```
+
+---
+
+### 4. **ErrorCode Trait for Structured Error Codes**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs` (lines 108-117)
+
+```rust
+pub trait ErrorCode: std::fmt::Display {
+    fn error_code(&self) -> &'static str;  // e.g., "E_NOT_FOUND"
+    fn retryable(&self) -> bool {
+        false
+    }
+}
+
+// Example implementation in llm/types.rs:
+impl crate::frame::ErrorCode for LlmError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            Self::ApiRequest(_) => "E_API_REQUEST",
+            Self::ApiResponse { status: 429 | 500..=599, .. } => "E_API_RESPONSE",
+            // ...
+        }
+    }
+    fn retryable(&self) -> bool {
+        matches!(self, Self::ApiRequest(_) | Self::ApiResponse { status: 429 | 500..=599, .. })
+    }
+}
+```
+
+**Pattern:** Subsystem error enums carry domain context; the trait extracts grepable codes and retryable flags without changing enum definitions. Frame error responses include `code`, `message`, and `retryable` fields.
+
+---
+
+### 5. **LLM Client Trait and Implementations**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/client.rs`
+
+**Provider-Neutral Architecture:**
+- `Anthropic` and `OpenAI` clients both implement the same interface
+- Translation layer abstracts away provider-specific wire formats
+- Unified `ChatResponse` return type
+
+**Anthropic Client:**
+```rust
+pub struct AnthropicClient {
+    http: reqwest::Client,
+    api_key: String,
+}
+
+impl AnthropicClient {
+    pub async fn chat(
+        &self,
+        model: &str,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError>
+}
+```
+
+**Key Patterns:**
+- HTTP client with timeouts (120s request, 10s connect)
+- Pure parsing functions (testable without mocks)
+- Content blocks preserved structurally: `Text`, `ToolUse`, `ToolResult`, `Thinking`
+- Forward compatibility: `Unknown` block variant for future features
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/openai_client.rs`
+
+**OpenAI Client (Dual-Mode):**
+- Supports two API endpoints: `/chat/completions` (legacy) and `/responses` (newer)
+- Mode configurable per profile via `openai_api` setting
+- Both map to identical `ChatResponse`
+
+**Tool Definition Pattern:**
+```rust
+impl Tool {
+    pub fn syscall() -> Self {
+        Self {
+            name: "syscall".to_string(),
+            description: "Execute a Prior kernel syscall...",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "syscall": { "type": "string" },
+                    "data": { "type": "object" }
+                },
+                "required": ["syscall"]
+            }),
+        }
+    }
+}
+```
+
+**Design Insight:** One generic tool definition instead of per-syscall schemas. The LLM names the syscall; the kernel routes by prefix.
+
+---
+
+### 6. **Pipe: Bidirectional Frame Transport with Call/Response Correlation**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/pipe.rs`
+
+**Core Abstraction:**
+```rust
+pub fn pipe(capacity: usize) -> (PipeEnd, PipeEnd) {
+    // Creates two crossed mpsc channels
+}
+
+pub struct PipeEnd {
+    tx: mpsc::Sender<Frame>,
+    state: PipeState,                      // Direct or Dispatched
+    pending: Arc<Mutex<PendingMap>>,       // Request→CallStream correlations
+}
+
+pub struct CallStream {
+    rx: mpsc::UnboundedReceiver<Frame>,
+    id: Uuid,
+    pending: Arc<Mutex<PendingMap>>,
+}
+
+#[derive(Clone)]
+pub struct Caller {
+    tx: mpsc::Sender<Frame>,
+    pending: Arc<Mutex<PendingMap>>,      // Allows cloning for concurrent calls
+}
+```
+
+**Key Operations:**
+```rust
+// Raw frame exchange
+impl PipeEnd {
+    pub async fn recv(&mut self) -> Option<Frame>
+    pub async fn send(&self, frame: Frame) -> Result<(), PipeError>
+    pub fn try_send(&self, frame: Frame) -> Result<(), PipeError>
+}
+
+// Call/response correlation
+impl PipeEnd {
+    pub async fn call(&mut self, request: Frame) -> Result<CallStream, PipeError>
+    pub fn caller(&mut self) -> Caller  // Get cloneable handle for concurrent calls
+}
+
+impl Caller {
+    pub async fn spam(&self, frame: Frame) -> Result<(), PipeError>  // Unsolicited send
+    pub async fn call(&self, request: Frame) -> Result<CallStream, PipeError>
+}
+
+impl CallStream {
+    pub async fn recv(&mut self) -> Option<Frame>
+    pub async fn collect(self) -> Vec<Frame>  // Consumes self, auto-cleanup
+}
+```
+
+**Lazy Dispatcher Pattern:**
+- Starts in `Direct` mode (zero overhead)
+- Transitions to `Dispatched` on first `call()` — spawns background task
+- Dispatcher routes frames by `parent_id` to correct `CallStream`
+- Unmatched frames flow to `PipeEnd::recv()`
+
+**Design Insights:**
+- Bacpressure: `send()` awaits capacity; `try_send()` returns immediately
+- Unbounded `CallStream` channels (responses may arrive asynchronously)
+- `std::Mutex` for pending map (critical section is tiny, contention negligible)
+- Drop cleanup: `CallStream::drop()` auto-deregisters from pending map
+
+---
+
+### 7. **Kernel Router Architecture**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router.rs`
+
+**Kernel Structure:**
+```rust
+pub struct Kernel {
+    inbound_tx: mpsc::Sender<Frame>,                          // Shared mailbox
+    inbound_rx: Option<mpsc::Receiver<Frame>>,               // Consumed by router
+    routes: HashMap<String, mpsc::Sender<Frame>>,            // Prefix → subsystem
+    pipe_ends: Vec<PipeEnd>,                                  // Subsystem bridges
+    subscribers: Vec<mpsc::Sender<Frame>>,                    // Response destinations
+    frame_db: Option<FrameDb>,                                // Persistent log
+    pending: Arc<Mutex<PendingRoutes>>,                       // Request id → destinations
+    active: Arc<Mutex<ActiveRequests>>,                       // Request id → subsystem
+    heartbeat_tx: broadcast::Sender<()>,                      // Periodic tick
+}
+```
+
+**Registration and Dispatch:**
+```rust
+impl Kernel {
+    pub fn register(&mut self, prefix: &str) -> PipeEnd
+    pub fn register_bridge(&mut self, prefix: &str, pipe_end: PipeEnd)
+    pub fn subscribe(&mut self) -> ResponseHandle
+    pub fn submit(&self, frame: Frame)
+    pub fn heartbeat(&self) -> broadcast::Receiver<()>
+}
+
+pub async fn start(&mut self) -> Result<JoinHandle<()>, KernelError>
+```
+
+**Event Loop Pattern:**
+```rust
+loop {
+    tokio::select! {
+        next = rx.recv() => {
+            state.dispatch_frame(frame).await;
+        }
+        _ = heartbeat.tick() => {
+            // Opt-in broadcast tick for subsystems that need periodic work
+        }
+    }
+}
+```
+
+**Key Design:**
+- Single `mpsc` channel is the kernel's mailbox
+- Requests routed by `syscall` prefix lookup
+- Responses routed by `parent_id` lookup (caller registration)
+- Frame persistence optional (if `FrameDb` attached)
+- Bridge tasks forward subsystem responses back to inbound channel
+- Heartbeat is opt-in (zero overhead for subsystems that don't use it)
+
+---
+
+### 8. **Door: Session Management and Broadcast Registry**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/door/types.rs`
+
+**Session State:**
+```rust
+pub struct Session {
+    pub from: String,                  // Actor name
+    pub room: Option<String>,          // Current room attachment
+}
+
+pub struct DoorRegistry {
+    inner: Arc<Mutex<RegistryInner>>,
+    broadcast: Arc<Mutex<HashMap<String, Vec<mpsc::Sender<Frame>>>>>,
+}
+
+struct RegistryInner {
+    sessions: HashMap<String, Session>,
+    rooms: HashMap<String, HashSet<String>>,
+    room_entities: HashMap<String, i64>,            // Room → EMS entity ID cache
+    room_entities_inflight: HashSet<String>,        // Prevent duplicate creates
+}
+```
+
+**Key Operations:**
+```rust
+impl DoorRegistry {
+    pub fn with<F, R>(&self, f: F) -> R  // Closure-based API (minimal lock scope)
+    pub fn register_sender(&self, room: &str, tx: mpsc::Sender<Frame>)
+    pub fn unregister_sender(&self, room: &str, tx: &mpsc::Sender<Frame>)
+    pub fn broadcast(&self, room: &str, frame: Frame)  // Fire-and-forget fan-out
+}
+```
+
+**Design Insights:**
+- Server-generated session IDs (prevents forgery)
+- In-memory state (fast but ephemeral — lost on restart)
+- Separate broadcast lock to avoid contention with session lookups
+- Deduplication: `same_channel()` prevents duplicate senders
+- Backpressure handling: `try_send()`, skip slow clients, prune closed channels
+- Room normalization: strip gateway-specific prefixes (`#`, `gwroom_`)
+
+**Request/Response Types:**
+```rust
+pub struct ConnectRequest { from: String, room: Option<String> }
+pub struct ConnectResponse { session: String }
+pub struct JoinRequest { session: String, room: String }
+pub struct PartRequest { session: String, room: String }
+pub struct MessageRequest { session: String, room: Option<String>, content: String }
+```
+
+---
+
+### 9. **Axum WebSocket Handler Pattern**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs`
+
+**Connection Lifecycle:**
+```rust
+pub async fn handle_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
+    ws.on_upgrade(move |socket| run_ws(socket, state.caller, state.registry))
+}
+
+async fn run_ws(mut socket: WebSocket, caller: Caller, registry: DoorRegistry) {
+    // 1. Create per-connection Door + mpsc channel
+    let (client_tx, mut client_rx) = mpsc::channel::<Frame>(256);
+    let door = Door::new(caller.clone(), registry, client_tx);
+
+    // 2. Connect session (door:connect)
+    let session = door_connect(&door).await;
+
+    // 3. Main select loop (three channels):
+    loop {
+        tokio::select! {
+            msg = socket.recv() => {
+                // Client sends JSON frame
+                handle_client_frame(&caller, &door, &session, &text, &mut socket, &writer_tx).await;
+            }
+            Some(frame) = client_rx.recv() => {
+                // Broadcast from registry
+                socket.send(Message::Text(frame_to_json(&frame))).await;
+            }
+            Some(json) = writer_rx.recv() => {
+                // Response relay from spawned tasks
+                socket.send(Message::Text(json)).await;
+            }
+        }
+    }
+
+    // 4. Cleanup (door:disconnect)
+    door_disconnect(&door, &session).await;
+}
+```
+
+**Client Frame Handling:**
+```rust
+async fn handle_client_frame(...) {
+    let req: WsRequest = serde_json::from_str(text)?;
+
+    // Door syscalls go through Door (session-aware)
+    if prefix == "door" {
+        let mut frame = Frame::request(&req.syscall, req.data);
+        frame.data.insert("session".into(), serde_json::Value::String(session.into()));
+        door.handle_frame(&frame).await;
+        return;
+    }
+
+    // Other syscalls go through Caller directly, spawned as relay task
+    let mut stream = caller.call(frame).await?;
+    tokio::spawn(async move {
+        while let Some(frame) = stream.recv().await {
+            let terminal = frame.status.is_terminal();
+            let json = frame_to_json(&frame);
+            writer_tx.send(json).await;
+            if terminal { break; }
+        }
+    });
+}
+```
+
+**Key Patterns:**
+- Per-connection Door (session-aware)
+- Three-channel select loop: client frames, broadcasts, relay responses
+- Door syscalls processed synchronously (Door handles relay internally)
+- Other syscalls spawned as tasks (keeps main loop responsive)
+- JSON serialization of frames for wire transport
+- Allow-list for syscall prefixes
+
+---
+
+### 10. **REST/API Gateway with AppState**
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs`
+
+**Shared State:**
+```rust
+#[derive(Clone)]
+pub struct AppState {
+    pub caller: Caller,
+    pub registry: DoorRegistry,
+}
+
+pub fn app(state: AppState) -> Router {
+    Router::new()
+        .route("/healthz", get(healthz))
+        .route("/api/", post(handle_raw))
+        .route("/api/ws", get(crate::ws::handle_ws))
+        .route("/api/{prefix}/{op}", get(handle_get).post(handle_post))
+        .route("/api/{prefix}/{op}/{arg}", get(handle_get_with_arg).post(handle_post_with_arg))
+        .with_state(state)
+}
+```
+
+**Request Mapping to Frames:**
+```rust
+// POST /api/ (raw frame)
+#[derive(Deserialize)]
+struct RawFrameRequest {
+    syscall: String,
+    #[serde(default)]
+    data: Data,
+    room: Option<String>,
+    from: Option<String>,
+}
+
+// GET/POST /api/{prefix}/{op}
+// Query params or JSON body → Data
+// Prefix + op → syscall (e.g., "vfs:read")
+
+// GET/POST /api/{prefix}/{op}/{arg}
+// Path arg injected as data["path"]
+```
+
+**Response Streaming (NDJSON):**
+```rust
+async fn call_and_stream(caller: &Caller, frame: Frame) -> Response {
+    let mut stream = caller.call(frame).await?;
+    
+    Body::from_stream(async move {
+        loop {
+            let Some(frame) = stream.recv().await else { break; };
+            let json = frame_to_json(&frame);
+            if frame.status.is_terminal() {
+                yield json;
+                break;
+            }
+            yield json;
+        }
+    })
+}
+```
+
+---
+
+## Summary: Portable Patterns for CollabBoard
+
+These patterns are **domain-agnostic** and can be ported to CollabBoard:
+
+1. **Frame-based protocol** — Replace "vfs:read" with "canvas:paint" or "board:sync"
+2. **Status enum** — Works for any request/response stream
+3. **Pipe/Caller abstraction** — Core for internal subsystem communication
+4. **Kernel router** — Single mailbox, prefix-based dispatch, response correlation by `parent_id`
+5. **Door registry** — Session management and broadcast fan-out
+6. **WebSocket handler** — Per-connection state, bidirectional relay
+7. **LLM client trait** — Switchable Anthropic/OpenAI (useful for AI-assisted features)
+8. **Named constructors + builders** — Type-safe frame construction
+9. **ErrorCode trait** — Structured error codes and retryability
+10. **Lazy dispatcher pattern** — Zero overhead when features aren't used
+
+**Key Insight:** The entire system is built on async Rust with tokio, using bounded channels for backpressure and Arc<Mutex> for lock scopes that never cross await points.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 7 assistant
+📋 Tool calls: 16 total, 0 failed
+📋 Files: 11 read
+📋 Tokens: 3.6K in, 56 out
+📋 Cache: 523.2K read, 164.7K created

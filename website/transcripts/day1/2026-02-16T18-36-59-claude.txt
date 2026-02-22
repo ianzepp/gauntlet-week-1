@@ -1,0 +1,324 @@
+📋 Session: 0d21b26d-320b-4788-9d5e-40e15fede544
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T18:36:59.020+00:00
+📋 Version: 2.1.42
+📋 Branch: HEAD
+
+👤 You are helping with a Pre-Search architecture discovery for a CollabBoard project — a real-time collaborative whiteboard (Miro clone) with an AI agent, built in a one-week sprint by a solo senior engineer.
+
+Analyze Phase 2: Architecture Discovery. For each section, evaluate 2-3 realistic options, pick one, and defend it. Be opinionated. The goal is a defensible architecture, not a survey.
+
+**Hard constraints:**
+- Solo developer, 7-day timeline (24hr MVP gate)
+- MVP: infinite canvas, pan/zoom, sticky notes, shapes, real-time sync 2+ users, multiplayer cursors, presence, auth, deployed publicly
+- Full: + connectors, frames, text, multi-select, rotate, copy/paste, disconnect/reconnect, persistence, AI agent (6+ command types via LLM function calling)
+- Performance: 60 FPS, <100ms object sync, <50ms cursor sync, 500+ objects, 5+ users
+- AI agent must manipulate board objects, results visible to all users in real-time
+- The developer uses Bun as runtime (but is open to any stack for this project)
+
+**Analyze each section with concrete recommendations:**
+
+### 6. Hosting & Deployment
+- Serverless vs. containers vs. edge vs. VPS?
+- CI/CD requirements?
+- Scaling characteristics?
+- CRITICAL: Must support WebSockets natively (not just HTTP)
+
+### 7. Authentication & Authorization
+- Auth approach: social login, magic links, email/password, SSO?
+- RBAC needed?
+- Multi-tenancy (boards are per-user or shared?)
+
+### 8. Database & Data Layer
+- Database type: relational, document, key-value?
+- Real-time sync approach: CRDT, OT, last-write-wins, or use a real-time DB service?
+- Read/write ratio (high write — every cursor move, every object drag)
+- Persistence strategy (what's in memory vs. DB?)
+
+### 9. Backend/API Architecture
+- Monolith or microservices?
+- REST vs. GraphQL vs. WebSocket-only for board operations?
+- How does the AI agent integrate? (server-side LLM call → board mutation → broadcast?)
+
+### 10. Frontend Framework & Rendering
+- React vs. Vue vs. Svelte vs. Vanilla for the app shell?
+- Canvas library: Konva.js vs. Fabric.js vs. PixiJS vs. raw Canvas vs. SVG?
+- State management for real-time sync?
+- How to hit 60 FPS with 500+ objects?
+
+### 11. Third-Party Integrations
+- LLM provider for AI agent (OpenAI vs. Anthropic)?
+- Any other external services?
+- Pricing risks and rate limits?
+
+For each section, give:
+1. **Options considered** (2-3, one sentence each)
+2. **Decision** (the pick)
+3. **Why** (2-3 sentences)
+4. **Key tradeoff**
+
+Format as clean markdown. Be specific — name exact packages, services, versions where relevant.
+📋 Model: opus-4.6
+🤖 # Phase 2: Architecture Discovery — CollabBoard
+
+---
+
+## 6. Hosting & Deployment
+
+### Options Considered
+1. **Fly.io (containers with persistent WebSocket support)** — Docker containers deployed to edge regions, native WebSocket support, can run long-lived processes, built-in scaling.
+2. **Railway** — Simple container hosting with WebSocket support, easy deploys from Git, but less control over regions and scaling.
+3. **VPS (Hetzner/DigitalOcean)** — Full control, cheap, but manual ops burden (TLS, deploys, monitoring) that eats into a 7-day sprint.
+
+### Decision
+**Fly.io**
+
+### Why
+Fly.io is purpose-built for this scenario: long-lived WebSocket connections on container infrastructure with zero DevOps overhead. `fly deploy` from a Dockerfile gives you TLS, health checks, and multi-region in one command. The free tier (3 shared VMs) is sufficient for the demo, and scaling to multiple machines later requires only a config change, not an architecture change. Railway is close but Fly gives better control over placement and has a more battle-tested WebSocket story.
+
+### Key Tradeoff
+You're locked into Fly's orchestration layer and its occasional cold-start quirks. If the app needs to scale horizontally (multiple WS servers), you'll need sticky sessions or a shared pub/sub layer (Redis) — but that's a Full-phase problem, not MVP.
+
+### CI/CD
+No CI/CD pipeline for a 7-day sprint. `fly deploy` from the terminal. Add a GitHub Action later if there's time. Don't burn hours on automation you'll run three times.
+
+---
+
+## 7. Authentication & Authorization
+
+### Options Considered
+1. **Clerk** — Drop-in auth with social login, session management, and a React component library. Fast to integrate but adds a third-party dependency and a pricing tier.
+2. **NextAuth/Lucia** — Self-hosted auth library, full control, but requires writing session management, password hashing, and OAuth flows yourself.
+3. **Anonymous + shareable link (MVP), upgrade to simple email/password later** — Zero auth friction for MVP demo, just generate a session token on first visit, associate it with a display name.
+
+### Decision
+**Anonymous with display name for MVP; add GitHub OAuth via Lucia for Full phase**
+
+### Why
+The MVP gate is 24 hours. Every minute spent on auth is a minute not spent on the canvas or real-time sync, which are the actual hard problems. For the MVP demo, generate a random session ID stored in a cookie, let the user pick a display name and color, and you have "presence" working immediately. For the Full phase, add Lucia (lightweight, Bun-compatible auth library) with GitHub OAuth — one social provider is enough for a portfolio project. Clerk is overkill and costs money for what amounts to a demo app.
+
+### RBAC
+Not needed. Two roles max: **board owner** (can delete the board) and **collaborator** (can edit). Implement as a simple `role` column on a `board_members` table. Don't build a permissions framework.
+
+### Multi-Tenancy
+Boards are shared via link. Anyone with the link can collaborate (MVP). Owner can optionally restrict access in Full phase. This is the Miro/Figma model and it works.
+
+---
+
+## 8. Database & Data Layer
+
+### Options Considered
+1. **SQLite (via Drizzle ORM) + in-memory board state** — SQLite for persistence (users, boards metadata, board snapshots), in-memory Map for active board state, periodic flush to DB.
+2. **PostgreSQL (Supabase) with Supabase Realtime** — Managed Postgres with built-in real-time subscriptions via WebSocket. Offloads sync to the DB layer.
+3. **Redis + PostgreSQL** — Redis for ephemeral real-time state (cursors, presence), Postgres for durable storage.
+
+### Decision
+**SQLite (via Drizzle) + in-memory board state with periodic snapshots**
+
+### Why
+For a solo dev on a 7-day sprint, SQLite eliminates all infrastructure. No managed database to provision, no connection strings to manage, no cold-start latency. The board's live state (objects, positions, z-index) lives in a server-side `Map<boardId, BoardState>` during active sessions. This is flushed to SQLite as a JSON snapshot on every mutation (debounced to ~1s) and on disconnect. Drizzle gives you type-safe queries and a migration path to Postgres if you ever need it. Supabase Realtime is tempting but adds a dependency and doesn't handle cursor sync at the speed you need — you'd still need your own WebSocket layer on top.
+
+### Real-Time Sync Approach
+**Last-write-wins (LWW) with object-level granularity.** Not CRDTs, not OT.
+
+This is the critical architecture call. Here's why LWW wins for this project:
+
+- CRDTs (Yjs, Automerge) are the "correct" answer for collaborative text editing, but for a whiteboard, objects are discrete units. Two users rarely edit the same sticky note simultaneously — they move different objects. Object-level LWW with a server-authoritative model (server timestamps, server broadcasts) handles 95% of conflicts correctly.
+- The server holds the authoritative state. Client sends a delta (`{ objectId, changes: { x: 100, y: 200 } }`), server applies it, timestamps it, broadcasts to all other clients. No merge logic needed.
+- If two users drag the same object, last one wins. This is how Miro actually works — try it.
+- Cursor positions and presence are purely ephemeral — broadcast and forget, never persisted.
+
+### Persistence Strategy
+| Data | Storage | Lifetime |
+|------|---------|----------|
+| Cursor positions | In-memory only, broadcast via WS | Ephemeral, never persisted |
+| Presence (who's online) | In-memory Set per board | Ephemeral |
+| Board objects (live) | In-memory Map per board | Duration of active session |
+| Board objects (durable) | SQLite JSON column | Permanent |
+| Users, boards metadata | SQLite relational tables | Permanent |
+
+Debounced snapshot: after any object mutation, schedule a write to SQLite in 1 second. If another mutation arrives, reset the timer. On server shutdown or last user disconnect, flush immediately.
+
+### Key Tradeoff
+In-memory state means a server restart loses unsaved changes (mitigated by 1s debounce flush). Single-server only — no horizontal scaling without extracting state to Redis. Acceptable for a 5-user demo.
+
+---
+
+## 9. Backend / API Architecture
+
+### Options Considered
+1. **Hono monolith with WebSocket upgrade** — Single Bun process serving REST endpoints (auth, board CRUD) and upgrading to WebSocket for real-time board operations.
+2. **Elysia (Bun-native framework)** — Similar to Hono but with built-in WebSocket support as a first-class citizen via `Bun.serve` WebSocket handlers, plus end-to-end type safety with Eden Treaty.
+3. **Separate REST API + dedicated WebSocket server** — Two processes, one for HTTP, one for WS. Cleaner separation but doubles operational complexity.
+
+### Decision
+**Elysia monolith**
+
+### Why
+This is a deliberate departure from the CLAUDE.md Hono default, and here's why it's worth it. Elysia has first-class WebSocket support built on Bun's native `ServerWebSocket` — no adapter needed, no polyfills, no `ws` package. Hono's WebSocket story requires `hono/ws` which is an adapter layer and is less mature. For a project where WebSockets are 80% of the traffic, the framework should treat them as a primary concern, not an afterthought. Elysia also gives you runtime type validation via TypeBox (no separate Zod dependency) and Eden Treaty for end-to-end type inference if you want typed client calls. It's Bun-native, so you stay in the Bun ecosystem.
+
+The monolith is non-negotiable for a 7-day sprint. One process, one deploy, one log stream.
+
+### API Surface
+
+**REST (HTTP):**
+- `POST /auth/login` — create anonymous session (MVP) / OAuth (Full)
+- `POST /boards` — create board
+- `GET /boards` — list user's boards
+- `GET /boards/:id` — board metadata
+- `DELETE /boards/:id` — delete board
+
+**WebSocket (`/ws/board/:id`):**
+All board operations go through a single WebSocket connection per client per board:
+
+```
+→ Client sends:  { type: "object:create", data: { kind: "sticky", x, y, ... } }
+← Server sends:  { type: "object:created", data: { id, kind, x, y, ... }, userId }
+← Server sends to others: { type: "object:created", data: { ... }, userId }
+
+→ { type: "object:update", data: { id, x, y } }
+→ { type: "cursor:move", data: { x, y } }
+→ { type: "ai:command", data: { prompt: "organize these sticky notes" } }
+```
+
+### AI Agent Integration
+
+The AI agent is a server-side module, not a separate service.
+
+```
+Client sends AI command via WS
+  → Server extracts board state (serialize current Map)
+  → Server calls LLM with board state + user prompt + function definitions
+  → LLM returns function calls (create_object, move_object, delete_object, etc.)
+  → Server executes each function call as a board mutation
+  → Each mutation broadcasts to all clients via normal WS broadcast
+  → Clients see objects appear/move/change in real-time
+```
+
+The AI agent is just another "user" making mutations. No special rendering path needed. This is the cleanest integration — the AI's actions flow through the exact same pipeline as human actions.
+
+### Key Tradeoff
+Elysia is less mainstream than Hono/Express, so fewer Stack Overflow answers when you hit edge cases. The monolith can't scale WebSocket connections horizontally. Both acceptable for a demo project.
+
+---
+
+## 10. Frontend Framework & Rendering
+
+### Options Considered
+
+**App Shell:**
+1. **React (Vite + SPA)** — Massive ecosystem, most canvas libraries have React bindings, but heavy for what's mostly a canvas app.
+2. **Svelte (SvelteKit)** — Less boilerplate, reactive by default, great perf, but smaller ecosystem for canvas integrations.
+3. **Vanilla TS + lightweight reactive layer (Preact or none)** — Minimal overhead, maximum control, but you write more glue code.
+
+**Canvas Rendering:**
+1. **Konva.js** — Scene graph on top of HTML5 Canvas, React bindings (`react-konva`), good object model (click detection, drag, transform built in), reasonable perf.
+2. **Fabric.js** — Similar to Konva but heavier, more features for image editing that you don't need, worse TypeScript support.
+3. **PixiJS** — WebGL-first renderer, exceptional performance (tens of thousands of objects), but lower-level — no built-in object selection, drag handles, or text editing. You'd build UI primitives from scratch.
+4. **Raw HTML5 Canvas** — Maximum control, zero overhead, but you're writing hit detection, event handling, and a scene graph from scratch.
+
+### Decision
+**React (Vite SPA) + Konva.js (via react-konva)**
+
+### Why
+
+**React:** The app shell outside the canvas (toolbar, sidebar, board list, presence indicators, AI chat panel) is standard UI work. React lets you ship that fast with familiar patterns. The canvas itself is a single `<Stage>` component — React doesn't manage individual canvas objects at 60 FPS, Konva does. Use React for the chrome, Konva for the canvas. Svelte would also work, but `react-konva` is battle-tested and saves days of integration work.
+
+**Konva.js:** This is the sweet spot for a whiteboard. It gives you a scene graph (Layers > Groups > Shapes), built-in drag-and-drop, `Transformer` (resize/rotate handles out of the box), hit detection, event bubbling, and text editing — all things you'd spend 2+ days building on raw Canvas or PixiJS. Performance is solid for 500 objects (Konva uses a virtual canvas per layer and only redraws dirty regions). PixiJS would be faster but you'd burn the entire sprint building UI primitives that Konva hands you for free.
+
+### State Management
+
+```
+┌─────────────────────────────────────────┐
+│  Zustand Store (board state)            │
+│  - objects: Map<id, CanvasObject>       │
+│  - presence: Map<userId, CursorPos>     │
+│  - selection: Set<objectId>             │
+│  - viewport: { x, y, scale }           │
+├─────────────────────────────────────────┤
+│  WebSocket Manager (singleton)          │
+│  - receives server messages             │
+│  - updates Zustand store directly       │
+│  - sends local mutations to server      │
+├─────────────────────────────────────────┤
+│  React renders from Zustand             │
+│  Konva Stage reads objects from store   │
+└─────────────────────────────────────────┘
+```
+
+**Zustand** over Redux/MobX: minimal boilerplate, works outside React components (the WS handler can update the store directly without dispatch ceremonies), and selectors prevent unnecessary re-renders.
+
+### 60 FPS Strategy
+1. **Konva layer separation:** Static objects on one layer, actively-dragged object on another, cursors on a third. Only the active layer redraws during drag.
+2. **Viewport culling:** Only render objects within the visible viewport. Konva doesn't do this automatically — add a `visible` check based on viewport bounds before rendering each object.
+3. **Throttle cursor broadcasts:** Send cursor position at 30 Hz max (every 33ms), not on every `mousemove`. Render remote cursors with CSS transforms (DOM overlay), not on the Konva canvas.
+4. **Batch store updates:** Accumulate incoming WS messages for 16ms (one frame), then apply all at once to trigger a single re-render.
+5. **`React.memo` everything:** Each canvas object component should be memoized. Only re-render when that specific object's data changes.
+
+### Key Tradeoff
+Konva's performance ceiling is lower than PixiJS (~1000-2000 objects before jank vs. ~50,000). For 500 objects this is fine. If the project ever needed to scale to thousands of objects, you'd need to swap to PixiJS or implement canvas-level virtualization. That's not a 7-day problem.
+
+---
+
+## 11. Third-Party Integrations
+
+### Options Considered (LLM Provider)
+1. **Anthropic Claude (claude-sonnet-4-20250514)** — Excellent function calling, strong reasoning, predictable structured output. API is simple.
+2. **OpenAI GPT-4o** — Mature function calling, widest ecosystem support, slightly cheaper at scale.
+3. **Local model (Ollama + Llama 3)** — No API costs, no rate limits, but worse function calling reliability and adds deployment complexity.
+
+### Decision
+**Anthropic Claude (claude-sonnet-4-20250514) via `@anthropic-ai/sdk`**
+
+### Why
+You're building this in the Gauntlet AI program — using Anthropic's model is on-brand and practical. Claude's tool-use/function-calling is reliable and well-documented. Sonnet 4 balances cost and quality: fast enough for interactive use (~1-2s response), smart enough to handle spatial reasoning ("organize these notes in a grid", "group similar topics"). The official TypeScript SDK (`@anthropic-ai/sdk`) works natively with Bun, no adapter needed.
+
+### AI Agent Function Definitions (6+ commands)
+
+| Function | Description |
+|----------|-------------|
+| `create_objects` | Create one or more sticky notes, shapes, or text objects |
+| `move_objects` | Reposition objects by ID to new x,y coordinates |
+| `update_objects` | Change properties (color, text content, size) |
+| `delete_objects` | Remove objects by ID |
+| `organize_layout` | Arrange objects in grid, cluster, or tree layout |
+| `summarize_board` | Read all text content and produce a summary as a new sticky note |
+| `group_by_theme` | Cluster objects by semantic similarity and color-code them |
+
+### Other External Services
+**None.** No external database, no Redis, no S3, no CDN. SQLite is the database. Static assets are served by the Bun process. Keep the dependency surface at zero for a 7-day sprint. The only external call is to the Anthropic API.
+
+### Pricing Risks
+- **Anthropic API:** Sonnet 4 is $3/M input, $15/M output tokens. A board with 100 sticky notes serializes to ~2K tokens. Each AI command costs roughly $0.01-0.05. Set a rate limit of 10 AI commands per minute per board to prevent abuse. Budget: ~$5-10 for the entire demo period.
+- **Fly.io:** Free tier covers 3 shared-cpu-1x VMs. A single VM with 256MB RAM is sufficient. Cost: $0.
+- **Domain/TLS:** Fly provides `*.fly.dev` domains with TLS for free.
+
+### Key Tradeoff
+Single LLM provider means no fallback if Anthropic has an outage. Acceptable for a demo project. If it mattered, add a 5-line fallback to OpenAI behind an env var.
+
+---
+
+## Summary: The Full Stack
+
+| Layer | Choice |
+|-------|--------|
+| **Runtime** | Bun |
+| **Backend** | Elysia (monolith, REST + WebSocket) |
+| **Database** | SQLite via Drizzle ORM |
+| **Real-time state** | In-memory Map, LWW, server-authoritative |
+| **Frontend** | React (Vite SPA) |
+| **Canvas** | Konva.js via react-konva |
+| **State management** | Zustand |
+| **Auth** | Anonymous sessions (MVP), Lucia + GitHub OAuth (Full) |
+| **AI** | Anthropic Claude Sonnet 4, server-side function calling |
+| **Hosting** | Fly.io (single container) |
+| **CI/CD** | `fly deploy` from terminal |
+
+**Total external dependencies:** One (Anthropic API). Everything else runs in a single Bun process on a single Fly.io VM. This is the simplest architecture that meets all the hard constraints.
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 0 total, 0 failed
+📋 Tokens: 3 in, 3 out
+📋 Cache: 8.5K read, 2.7K created

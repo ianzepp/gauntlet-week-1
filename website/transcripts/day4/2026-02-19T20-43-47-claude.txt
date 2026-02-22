@@ -1,0 +1,180 @@
+📋 Session: c3f0f906-d2c0-437e-b657-69a971801121
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-19T20:43:47.985+00:00
+📋 Version: 2.1.47
+📋 Branch: main
+
+👤 Explore the client crate at /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/. I need a concise but engaging summary for a README section. Tell me:
+1. List all source files (glob client/src/**/*.rs)
+2. Read client/src/lib.rs for the top-level structure
+3. What pages exist?
+4. What components exist and what do they do?
+5. How does the WebSocket lifecycle work (reconnect, backoff)?
+6. What state contexts/signals are used?
+7. How does it bridge to the canvas WASM engine?
+
+Be specific — I want to write a compelling crate description.
+📋 Model: sonnet-4.6
+🤖 Let me explore the client crate thoroughly with parallel searches.
+✅ Glob: pattern="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/**/*.rs"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/app.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/net/frame_client.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/dashboard.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/board.rs"
+🤖 Now let me read the components and state files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/canvas_host.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state/board.rs"
+🤖 Now let me quickly read a few more key files to complete the picture.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state/ui.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/toolbar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/status_bar.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/left_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/right_panel.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/state/canvas_view.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/mission_control.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/rewind_shelf.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/board_card.rs"
+🤖 I have all the detail I need. Here is the complete analysis:
+
+---
+
+## `client` Crate — Architecture Summary
+
+### Source Files
+
+46 `.rs` files across 6 modules, with dedicated `_test.rs` siblings for every non-trivial module:
+
+| Module | Files |
+|---|---|
+| `lib.rs`, `app.rs` | Entrypoint, App root |
+| `pages/` | `board.rs`, `dashboard.rs`, `login.rs`, `mod.rs` |
+| `components/` | 13 components + `mod.rs` |
+| `state/` | 7 state structs + tests |
+| `net/` | `api.rs`, `frame_client.rs`, `types.rs` + tests |
+| `util/` | `dark_mode.rs` |
+
+---
+
+### 1. Entrypoint and Wiring
+
+`lib.rs` declares the crate-level module tree and a single `#[wasm_bindgen] pub fn hydrate()` that bootstraps Leptos SSR+hydration via `leptos::mount::hydrate_body(app::App)`. The `hydrate` feature gate ensures all browser-only code compiles out during SSR.
+
+`app.rs` is the composition root. `App` provisions eight `RwSignal` context values, then in a hydrate-only `Effect` it:
+1. Fetches the current user from REST (`net::api::fetch_current_user`)
+2. Calls `frame_client::spawn_frame_client` and stores the returned `UnboundedSender` in a `FrameSender` context wrapper
+3. Reads dark mode preference from `localStorage` and applies it
+
+Routes are `/ → DashboardPage`, `/board/:id → BoardPage`, `/login → LoginPage`.
+
+---
+
+### 2. Pages
+
+**`DashboardPage`** — The authenticated landing screen. Reactively redirects to `/login` when `AuthState` has no user. On first `Connected` status it fires a `board:list` frame; a `spawn_local` async loop re-polls every 10 seconds via `gloo_timers::future::sleep`, respecting a `poll_alive` `Arc<AtomicBool>` that is cleared by `on_cleanup` to stop polling on unmount. Shows a grid of `BoardCard` components, with modal dialogs for create (`board:create` frame) and delete (`board:delete` frame) flows. Navigates automatically to a newly-created board by watching `boards.created_board_id`.
+
+**`BoardPage`** — The board workspace shell. Reads `:id` from route params and manages board membership transitions explicitly, rather than via page unmount, since the component stays mounted across board-to-board navigations. Two `Effect`s handle this cleanly: one sends `board:part` for the previous board and resets `BoardState` when the route param changes; a second sends `board:join` whenever both `board_id` and `self_client_id` are present and the (board, client) key has changed (covering reconnects transparently). `on_cleanup` sends a final `board:part`. The view is a CSS grid composing `Toolbar`, `LeftPanel`, `CanvasHost` + `BoardStamp`, `RightPanel`, and `StatusBar`.
+
+**`LoginPage`** — Auth entry point (not read in detail but exported from `pages/mod.rs`).
+
+---
+
+### 3. Components
+
+| Component | Role |
+|---|---|
+| `CanvasHost` | Core bridge to the WASM engine — see section 7 |
+| `Toolbar` | Top bar: board name, per-user presence chips with color badges, dark mode toggle, logout. Clicking a presence chip opens a `UserFieldReport` popover anchored to the chip's x offset. |
+| `LeftPanel` | Collapsible sidebar holding `ToolRail` (always visible) and `InspectorPanel` (revealed on expand or double-click of a selected object). |
+| `RightPanel` | Icon rail with four tabs — Boards, Field Records, Chat, AI Field Notes — toggling an expandable content panel. Clicking an active tab collapses it. |
+| `ChatPanel` | Real-time board chat driven by `ChatState`. |
+| `AiPanel` | AI Field Notes panel backed by `AiState` with message history and prompt input. |
+| `MissionControl` | Compact board switcher in the right panel's Boards tab. Issues `board:list` on first connect; renders `BoardCard` in mini mode with the active board highlighted. |
+| `RewindShelf` | Field Records tab. Lists savepoints from `BoardState.savepoints` with label, reason, and seq. Offers a "Drop Savepoint" button that sends `board:savepoint:create`. |
+| `InspectorPanel` | Left panel property editor for the selected object. |
+| `ToolRail` | Vertical strip of shape tool buttons mapping to `ToolType`. |
+| `ToolStrip` | Alternative tool presentation (inline). |
+| `BoardCard` | Reusable board card for dashboard and mission control. In non-mini mode it renders a `<canvas>` preview thumbnail by drawing `BoardListPreviewObject` snapshot items using the raw `CanvasRenderingContext2d` API — z-index sorted, fit-to-bounds scaled, rotation-aware. |
+| `BoardStamp` | Overlay watermark / board-identity chip. |
+| `StatusBar` | Bottom bar: color-coded connection dot, board name, object count, camera-locked indicator, world cursor coordinates, camera center, and zoom percentage. |
+| `UserFieldReport` | Presence popover (name, color, follow/jump controls). |
+
+---
+
+### 4. WebSocket Lifecycle — Reconnect and Backoff
+
+The entire real-time transport lives in `net/frame_client.rs`. `spawn_frame_client` creates an `mpsc::unbounded` channel, clones the sender for outbound frames, and calls `leptos::task::spawn_local(frame_client_loop(...))`.
+
+`frame_client_loop` runs forever:
+1. Sets `ConnectionStatus::Connecting`.
+2. Calls `net::api::create_ws_ticket()` (REST) to get a one-shot auth ticket.
+3. If that fails, sleeps for `backoff_ms` (starting at 1 000 ms), doubles it up to a cap of 10 000 ms, and retries.
+4. Builds the WebSocket URL as `ws[s]://<host>/api/ws?ticket=<ticket>`, choosing `wss` when `window.location.href` starts with `https`.
+5. Calls `connect_and_run`, which opens the WebSocket with `gloo_net::websocket::futures::WebSocket::open`, splits it into sink and stream, and runs three concurrent async tasks via nested `futures::future::select`:
+   - **send task**: forwards bytes from the `mpsc::Receiver` to the WS sink.
+   - **recv task**: reads bytes from the WS stream, decodes with `frames::decode_frame`, and dispatches to `dispatch_frame`.
+   - **heartbeat task**: every 20 seconds sends a `board:users:list` request (keeps server session alive and refreshes presence).
+6. When `connect_and_run` returns (clean or error), sets `ConnectionStatus::Disconnected`, sleeps for `backoff_ms`, doubles it, and loops.
+
+The backoff is never reset between loop iterations, which means persistent server outages back off progressively to a 10-second ceiling.
+
+---
+
+### 5. State Contexts and Signals
+
+All signals are `RwSignal<T>` provided via Leptos context from `App`:
+
+| Signal | Type | Contents |
+|---|---|---|
+| `auth` | `AuthState` | `user: Option<User>`, `loading: bool` |
+| `board` | `BoardState` | Active board: `board_id`, `board_name`, `self_client_id`, `follow_client_id`, `jump_to_client_id`, `connection_status: ConnectionStatus`, `objects: HashMap<String, BoardObject>`, `drag_objects`, `drag_updated_at`, `presence: HashMap<String, Presence>`, `cursor_updated_at`, `savepoints`, `selection: HashSet<String>`, `join_streaming` |
+| `boards` | `BoardsState` | Dashboard: `items: Vec<BoardListItem>`, `loading`, `error`, `create_pending`, `created_board_id`, `list_rev` (opaque revision token for noop polling) |
+| `ui` | `UiState` | `dark_mode`, `active_tool: ToolType`, `home_viewport_seq`, `left_panel_expanded`, `left_tab: LeftTab`, `right_panel_expanded`, `right_tab: RightTab` |
+| `chat` | `ChatState` | `messages: Vec<ChatMessage>` |
+| `ai` | `AiState` | `messages: Vec<AiMessage>` with `mutations` count, `loading` |
+| `canvas_view` | `CanvasViewState` | Read-only telemetry published by `CanvasHost`: `cursor_world`, `camera_center_world`, `zoom`, `pan_x`, `pan_y`, `view_rotation_deg`, `viewport_width/height` |
+| `frame_sender` | `FrameSender` | Wraps `Option<UnboundedSender<Vec<u8>>>`. `send(&Frame) -> bool` serializes the frame and pushes it to the channel; returns `false` on disconnect. `None` on SSR. |
+
+---
+
+### 6. Bridge to the Canvas WASM Engine
+
+`CanvasHost` is where the Rust/WASM boundary lives. It holds an `Rc<RefCell<Option<Engine>>>` — a single-threaded, ref-counted optional handle to a `canvas::engine::Engine`.
+
+**Mount:** When the `NodeRef<Canvas>` resolves, `Engine::new(canvas)` initializes the engine, `sync_viewport` sets DPR-aware dimensions, `center_world_origin` centers the camera, and `engine.render()` draws the first frame.
+
+**Sync loop (reactive, runs on every `_board.get()`):** Builds a `Vec<canvas::doc::BoardObject>` by mapping wire `BoardObject` records (with drag overlay applied) through `to_canvas_object`, which translates kind strings (`"sticky_note"`, `"youtube_embed"`, etc.) to `CanvasKind` and normalizes prop aliases (`backgroundColor→fill`, `borderColor→stroke`). Calls `engine.load_snapshot(snapshot)`, sets the active tool via `engine.set_tool(map_tool(...))`, then re-renders.
+
+**Input events:** `on_pointer_down/move/up`, `on_wheel`, `on_key_down` all call the corresponding `engine.on_*` methods with mapped `CanvasPoint`, `CanvasButton`, and `CanvasModifiers`. Each returns a `Vec<Action>` that `process_actions` handles:
+- `Action::ObjectCreated` → optimistic local insert + `object:create` frame
+- `Action::ObjectUpdated { id, fields }` → sparse field patch + `object:update` frame
+- `Action::ObjectDeleted` → local remove + `object:delete` frame
+
+**Drag broadcast (30fps throttle):** During `on_pointer_move`, `send_object_drag_if_needed` inspects `engine.core.input` for `DraggingObject | ResizingObject | RotatingObject | DraggingEdgeEndpoint` and emits `object:drag` frames at most once per 33 ms using `js_sys::Date::now()`.
+
+**Drag smoothing (incoming):** In `frame_client`, peer `object:drag` frames are interpolated using timestamped lerp with three alpha tiers (0.45 / 0.55 / 0.65) based on inter-frame gap (80–200+ ms), and stale drag entries older than 1 500 ms are culled automatically.
+
+**Cursor presence:** `send_cursor_presence_if_needed` fires `cursor:moved` frames carrying world-space cursor position and full camera telemetry (center, zoom, rotation), rate-limited to 40 ms for camera-only updates and with a deadband on center distance (0.2 world units), zoom (0.001), and rotation (0.1 deg) to suppress noise. `CanvasViewState` is updated alongside, so the status bar and overlay elements stay synchronized without coupling directly to the engine.
+
+**Compass:** A draggable compass widget (`on_compass_pointer_down/move/up`) sets `engine.set_view_rotation_deg(angle)`. Cardinal snapping triggers within 6 degrees; Shift key enables 15-degree stepped snapping. Four labeled buttons (N/E/S/W) jump directly to 0/90/180/270 degrees. The knob rotates to reflect the live angle.
+
+**Remote cursors:** Projected from `BoardState.presence` to screen space via `cursor.x * zoom + pan_x` and rendered as CSS `transform: translate(...)` overlays inside a `canvas-world-overlay` that itself rotates with the camera.
+
+**YouTube embeds:** Double-clicking a `Youtube` kind object shows a positioned `<iframe>` overlay. Hit-testing uses `canvas::hit::point_in_rect` and `world_to_local` for the play button circle and screen region. Video IDs are parsed from full URLs or bare IDs with sanitization (8–15 alphanumeric characters).
+
+---
+
+### Compelling Summary (ready to use)
+
+The `client` crate is a full-stack Leptos 0.8 application compiled to WASM via the `hydrate` feature and served via SSR from the `server` crate. It is pure Rust top-to-bottom — no TypeScript, no React, no JS framework. Eight reactive `RwSignal` contexts flow from `App` to every component without prop drilling. A persistent WebSocket frame client with exponential backoff (1 s → 10 s) and ticket-based auth drives all real-time state. The centerpiece is `CanvasHost`, a Leptos component that mounts a `canvas::Engine` into a `<canvas>` element, feeds it object snapshots from websocket state, routes pointer/wheel/keyboard events through the engine's action system, and translates returned `Action` values into outbound protocol frames — keeping rendering performance in native WASM while keeping protocol authority on the server. Incoming peer drag events are smoothed with a three-tier lerp based on inter-frame timing, stale state is culled automatically, and cursor presence is broadcast with deadband filtering to minimize network chatter.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 20 total, 0 failed
+📋 Files: 18 read
+📋 Tokens: 30 in, 290 out
+📋 Cache: 837.9K read, 257.7K created

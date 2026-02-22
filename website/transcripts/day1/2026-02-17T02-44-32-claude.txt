@@ -1,0 +1,87 @@
+📋 Session: 170e69ac-cc65-4c37-ac66-d45c66470e61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T02:44:32.828+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 please get up to speed on client/
+📋 Model: opus-4.6
+✅ Task: Explore: "Explore client/ codebase"
+🤖 Here's a summary of the **client/** codebase:
+
+## Stack
+- **React 19** + **TypeScript 5.7** + **Vite 6** + **Zustand** for state
+- **Konva** (react-konva) for canvas rendering
+- **Bun** as package manager, **Biome** for linting/formatting
+- Pure CSS modules with CSS variables (no framework)
+
+## Directory Layout
+```
+src/
+├── canvas/       # Konva canvas, StickyNote, Shape, TextEditor, GridLines
+├── components/   # Toolbar, ToolRail, RightPanel (Inspector + AI), StatusBar
+├── hooks/        # useFrameClient, useAI, useCanvasSize
+├── lib/          # FrameClient (WebSocket), API helpers, types
+├── pages/        # BoardPage, LoginPage
+├── store/        # Zustand store (board.ts) — objects, selection, viewport, presence, AI
+└── styles/       # CSS variables, light/dark theme
+```
+
+## Key Architecture
+- **Frame-based WebSocket protocol** — custom `FrameClient` class sends/receives `Frame` objects with syscalls like `object:create`, `object:update`, `cursor:moved`, `ai:prompt`. Request/response pairing via `parent_id`.
+- **Optimistic UI** — objects created locally with temp UUIDs, swapped for server IDs on confirmation.
+- **Zustand store** (`useBoardStore`) — single store for canvas objects (Map), selection (Set), viewport, tool state, presence, AI messages, connection status.
+- **GitHub OAuth** auth with ticket-based WebSocket upgrade.
+
+## Features
+- **Canvas**: pan/zoom, 20px/100px grid, drag/transform/rotate objects
+- **Object types**: sticky notes (8 colors, Caveat font, random tilt), rectangles, ellipses
+- **Real-time collaboration**: remote cursors with user labels/colors, presence tracking
+- **AI panel**: streaming AI responses over WebSocket, can mutate board objects
+- **Inspector panel**: position/size/rotation/color editing for selected objects
+- **Dark mode**: CSS variable theming, persisted in localStorage
+
+## Performance
+- Cursor frames throttled to 50ms and skip logging
+- Memoized grid lines and object lists
+- Konva node refs for efficient transformer attachment
+
+Let me know what you'd like to work on!
+👤 hows our git status
+✅ Bash: git status
+✅ Bash: git log --oneline -10
+🤖 **Branch**: `main`, **19 commits ahead** of origin (not pushed).
+
+**Working tree**:
+- `server/Cargo.lock` — modified (unstaged)
+- `docker-compose.yml` — untracked
+- `../.DS_Store` — untracked (ignore-worthy)
+
+Nothing staged. Pretty clean — just the Cargo.lock change and that new docker-compose file. Want me to push, commit anything, or get to work on something?
+👤 delete ds store, commit the rest
+✅ Bash: rm /Users/ianzepp/github/gauntlet/.DS_Store
+✅ Bash: git -C /Users/ianzepp/github/gauntlet/collaboard add server/Cargo.lock docker-compose.yml && git -C /Users/ianzepp/github/gauntlet/collaboard commit -m "$(cat <<'EOF' ↵ Add docker-compose and update Car...
+🤖 Done. Committed `server/Cargo.lock` and `docker-compose.yml`, deleted `.DS_Store`.
+👤 ok, big mind time, put on your serious root cause problem solver hat. the front end UI is VERY BUGGY around object being displayed. unable to resize, unable to reselect, unable to transform.. it's a serious problem.
+✅ EnterPlanMode: {}
+🤖 Let me dig deep into the canvas interaction code to find the root causes.
+✅ Task: Explore: "Explore store and frame sync"
+✅ Task: Explore: "Explore canvas selection/transform"
+🤖 Excellent analysis. Let me read the critical files myself to validate the top findings before writing the plan.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+🤖 Now let me read the useFrameClient hook to see how server updates interact with local state.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+🤖 Now I have a clear picture. Let me write the plan.
+✅ Write: file="/Users/ianzepp/.claude/plans/parallel-yawning-goblet.md"
+❌ ExitPlanMode: {"plan":"# Fix Canvas Object Selection, Resize, and Transform Bugs\n\n## Context\n\nThe canvas UI has critical bugs: objects become unselectable, untr...
+
+📋 --- Summary ---
+📋 Duration: 7m
+📋 Messages: 4 user, 7 assistant
+📋 Tool calls: 15 total, 1 failed
+📋 Files: 5 read, 1 written
+📋 Tokens: 42 in, 1.3K out
+📋 Cache: 623.8K read, 81.5K created

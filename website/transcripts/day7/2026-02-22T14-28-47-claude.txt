@@ -1,0 +1,66 @@
+📋 Session: 4ff8754d-2a24-4ac3-98a7-405cf2f1a52f
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-22T14:28:47.913+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 Run this command to get all commits from Day 1 (Feb 16, 2026) with short hash, time, and subject. Use 2am EST boundaries:
+
+git -C /Users/ianzepp/github/ianzepp/gauntlet-week-1 log --after="2026-02-16T02:00:00-05:00" --before="2026-02-17T02:00:00-05:00" --reverse --format="%h|%ad|%s" --date=format:"%H:%M"
+
+Return the raw output.
+📋 Model: opus-4.6
+✅ Bash: git -C /Users/ianzepp/github/ianzepp/gauntlet-week-1 log --after="2026-02-16T02:00:00-05:00" --before="2026-02-17T02:00:00-05:00" --reverse --format="%h|%ad|%s" --date=format:"%H:%M"
+🤖 Here is the raw output:
+
+```
+cf05398|13:56|Add CollabBoard Pre-Search document
+3bf294a|14:14|Update Pre-Search after review: budget, auth, architecture, testing
+afb6ff3|14:26|Resolve PRE-SEARCH gaps: auth, sync, persistence, reconnect, and open questions
+9b8dc14|14:29|Add CollabBoard project brief PDF
+3e83cba|16:30|Add design system spec and move project docs to docs/
+dbe3ffb|16:31|Move PRE-SEARCH.md to docs/
+f9a61b9|16:34|Add Rust + Axum backend scaffold for CollabBoard
+8adcfc1|16:35|Add .gitignore for Rust project
+7de815d|16:57|Add React + Vite + Konva frontend scaffold for CollabBoard
+107d8ee|16:59|Add README and move G4 spec to docs/
+ccfce3e|17:44|Move backend to server/, add AI agent loop and WS dispatch
+aa3b1c4|18:17|Add Transformer-based selection/resize and UI polish
+4bcebc7|18:22|Add rate limiting and prompt injection defense to AI service (#12)
+537a594|18:28|Add LLM multi-provider adapter, object service, and tool definitions (#12)
+f5036fc|18:32|Fix .gitignore to exclude server/target/ build artifacts
+a874cf0|18:57|Replace 7 consolidated AI tools with 9 spec-matching tools (#28)
+363c343|18:59|Add GitHub OAuth authentication for collaboard
+67783d3|19:01|Add GitHub OAuth env vars to .env.example
+8f7e2eb|19:02|Merge branch 'issue-28'
+e33dec8|19:30|Wire up WebSocket real-time sync and cursor presence (#17)
+9cdd9da|19:37|Add frontend AI chat panel with collapsible sidebar (#26)
+bc643c3|19:49|Add buffered frame persistence to frames table
+7313a7b|19:52|Tighten persistence flush interval from 1s to 100ms
+2de3864|19:53|Switch persistence loop from interval to sleep-after-flush
+1840a01|20:05|Load .env file at startup via dotenvy
+81f3cb9|20:09|Serve frontend static files from Axum with SPA fallback
+da5f568|20:35|Redesign UI layout: left tool rail, tabbed right panel, board stamp
+62850ba|20:41|Add placeholder tools to left rail: line, arrow, text, draw, eraser
+ad8e3be|20:48|Add user field report popover on status bar user chips
+cec205b|20:53|Fix user field report: stamp user_id on frames, query board_objects
+2d47c3f|20:56|Fix profile stats: query in-memory boards and legacy frame data
+72fd769|21:01|Remove frame buffer: persist frames directly to DB on send
+f1ebab5|21:05|Accept full Frame from client, persist inbound frames to DB
+e42cda3|21:25|Fix Frame deserialization: use null instead of empty strings
+43b43a1|21:29|Fix AI stuck on "thinking": filter thinking blocks, guarantee item frame
+282d916|21:32|Add structured logging for frame and AI prompt debugging
+b9c7def|21:36|Fix frame deserialization: demo board ID must be valid UUID
+c29759b|21:39|Skip logging and persistence for cursor frames
+87cb6e1|21:48|Add docker-compose and update Cargo.lock
+1137120|21:54|Fix canvas object selection, resize, and transform bugs
+```
+
+38 commits on Day 1, spanning from 13:56 to 21:54.
+
+📋 --- Summary ---
+📋 Duration: 13s
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 1 total, 0 failed
+📋 Tokens: 4 in, 21 out
+📋 Cache: 5.6K read, 6.7K created

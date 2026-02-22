@@ -1,0 +1,510 @@
+📋 Session: 3662effc-a1c0-4706-8dfc-726a462921ef
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-16T21:12:33.957+00:00
+📋 Version: 2.1.42
+📋 Branch: main
+
+👤 Explore /Users/ianzepp/github/ianzepp/prior/ to understand the service layer, routing, and middleware patterns. Specifically find and read:
+
+1. How Axum routes are organized (gateways/ directory)
+2. WebSocket upgrade and frame dispatch logic
+3. How services are structured and injected (shared state pattern)
+4. Error handling patterns (HttpError or similar)
+5. Database/persistence patterns (sqlx usage, migrations)
+6. The Cargo.toml for dependency list
+7. Any middleware patterns (CORS, auth extraction, etc.)
+8. How the server is started (main.rs or similar entry point)
+
+For each file you find, provide the full file path and key code excerpts showing the patterns. Focus on what's portable to a simpler whiteboard domain.
+📋 Model: haiku-4.5
+🤖 I'll explore the `/Users/ianzepp/github/ianzepp/prior/` directory to understand the service layer, routing, and middleware patterns. Let me start by getting an overview of the structure.
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior -type f -name "*.rs" -o -name "Cargo.toml" | head -30
+🤖 Let me focus on the source code structure:
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior/src -type f -name "*.rs" 2>/dev/null | sort
+🤖 Let me check the directory structure:
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/prior/ | head -30
+🤖 Now let me explore the main source code structure:
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior/kernel /Users/ianzepp/github/ianzepp/prior/gateways /Users/ianzepp/github/ianzepp/prior/cli -type f -name "*.rs" | sort
+🤖 Perfect! Now let me read the key files. I'll start with the main entry points and then explore the routing, middleware, and service patterns.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs"
+🤖 Now let me read the kernel service layer and routing patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router.rs"
+🤖 Now let me read the dispatcher and frame types:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router_dispatch.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/pipe.rs"
+🤖 Now let me read about the Door (session management) and Room (service) patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/door/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/room/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/config.rs"
+🤖 Perfect! Now let me get the Cargo.toml files to understand the dependencies:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/Cargo.toml"
+🤖 Now let me check the daemon startup pattern:
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/daemon.rs"
+🤖 Excellent! Now I have all the information I need. Let me compile a comprehensive summary of the patterns.
+
+## Summary: Prior Architecture & Portable Patterns for CollabBoard
+
+Based on my exploration of `/Users/ianzepp/github/ianzepp/prior/`, here are the key architectural patterns and their applicability to CollabBoard:
+
+---
+
+### 1. ROUTING & GATEWAY PATTERNS
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs`
+
+**Pattern: REST + WebSocket Dual Gateway**
+- Single `AppState` struct holds shared `Caller` (pipe) and `DoorRegistry`
+- Axum Router with stateless REST endpoints and WebSocket upgrade
+- Routes map to syscall names: `POST /api/{prefix}/{op}` → `prefix:op` frame
+- Responses streamed as NDJSON (one JSON line per frame)
+
+**Key Code:**
+```rust
+#[derive(Clone)]
+pub struct AppState {
+    pub(crate) caller: Caller,
+    pub(crate) registry: DoorRegistry,
+}
+
+pub fn app(state: AppState) -> Router {
+    Router::new()
+        .route("/healthz", get(healthz))
+        .route("/api/", post(handle_raw))
+        .route("/api/ws", get(crate::ws::handle_ws))
+        .route("/api/{prefix}/{op}", get(handle_get).post(handle_post))
+        .with_state(state)
+}
+
+async fn dispatch(caller: &Caller, prefix: &str, op: &str, data: Data) -> Response {
+    if !allow_prefix(prefix) {
+        return error_response(StatusCode::FORBIDDEN, ...);
+    }
+    let syscall = format!("{prefix}:{op}");
+    let frame = Frame::request(syscall, data);
+    call_and_stream(caller, frame).await
+}
+```
+
+**Portable to CollabBoard:** YES
+- Replace syscall prefixes with whiteboard-specific ones: `canvas:*`, `note:*`, `shape:*`
+- Allowlist only what's needed: `("canvas" | "board" | "sync")`
+
+---
+
+### 2. WEBSOCKET FRAME RELAY & SESSION PATTERN
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs`
+
+**Pattern: Per-Connection Door + Bidirectional Relay**
+- Each WebSocket connection creates a `Door` instance (session-specific)
+- `mpsc` channel for client↔socket relay (WebSocket not Clone)
+- Main loop uses `tokio::select!` to multiplex: client frames, broadcast frames, writer queue
+- Spawned relay tasks keep the select loop responsive
+
+**Key Code:**
+```rust
+async fn run_ws(mut socket: WebSocket, caller: Caller, registry: DoorRegistry) {
+    let (client_tx, mut client_rx) = mpsc::channel::<Frame>(256);
+    let door = Door::new(caller.clone(), registry, client_tx);
+    
+    let session = door_connect(&door).await?;
+    let (writer_tx, mut writer_rx) = mpsc::channel::<String>(256);
+    
+    loop {
+        tokio::select! {
+            msg = socket.recv() => {
+                handle_client_frame(&caller, &door, &session, &text, &mut socket, &writer_tx).await;
+            }
+            Some(frame) = client_rx.recv() => {
+                if socket.send(Message::Text(json.into())).await.is_err() { break; }
+            }
+            Some(json) = writer_rx.recv() => {
+                if socket.send(Message::Text(json.into())).await.is_err() { break; }
+            }
+        }
+    }
+    door_disconnect(&door, &session).await;
+}
+
+async fn handle_client_frame(caller: &Caller, door: &Door, ...) {
+    if prefix == "door" {
+        door.handle_frame(&frame).await;
+        return;
+    }
+    let stream = caller.call(frame).await?;
+    let writer_tx = writer_tx.clone();
+    tokio::spawn(async move {
+        while let Some(frame) = stream.recv().await {
+            let json = frame_to_json(&frame);
+            writer_tx.send(json).await;
+            if frame.status.is_terminal() { break; }
+        }
+    });
+}
+```
+
+**Portable to CollabBoard:** YES
+- Per-user connections already need per-room state
+- Relay pattern works for canvas updates, note changes, shape operations
+- Session validation via Door + allowlist prevents unauthorized ops
+
+---
+
+### 3. FRAME PROTOCOL & UNIVERSAL MESSAGE TYPE
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs`
+
+**Pattern: Flat, Opaque Data Payload with Status Envelope**
+```rust
+pub type Data = HashMap<String, serde_json::Value>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Status {
+    Request, Item, Done, Error, Cancel,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Frame {
+    pub id: Uuid,
+    pub parent_id: Option<Uuid>,
+    pub ts: i64,
+    pub ms: Option<i64>,
+    pub room: Option<String>,
+    pub from: Option<String>,
+    pub syscall: String,
+    pub status: Status,
+    pub data: Data,
+}
+```
+
+**Portable to CollabBoard:** YES
+- Use `room` field for board ID
+- `from` field for user/client ID
+- `syscall` pattern for operations: `"canvas:draw"`, `"note:create"`, `"board:list"`
+- Streaming responses (Item → Item → Done) naturally handle multi-step operations
+
+---
+
+### 4. PIPE: BIDIRECTIONAL CALL/RESPONSE CORRELATION
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/pipe.rs`
+
+**Pattern: Channel-Based RPC with Lazy Dispatcher**
+- `pipe(capacity)` creates two crossed mpsc channels
+- `PipeEnd::call()` sends request, returns `CallStream` (responses only for that request)
+- `Caller` wraps sender + pending map, allows concurrent outbound calls
+- Lazy dispatcher spawned on first call (zero overhead for simple recv/send)
+
+**Key Code:**
+```rust
+pub async fn call(&self, request: Frame) -> Result<CallStream, PipeError> {
+    let (stream_tx, stream_rx) = mpsc::unbounded_channel();
+    let id = request.id;
+    
+    {
+        let mut guard = lock_pending(&self.pending);
+        guard.insert(id, stream_tx);
+    }
+    
+    if let Err(_) = self.tx.send(request).await {
+        let mut guard = lock_pending(&self.pending);
+        guard.remove(&id);
+        return Err(PipeError::Closed);
+    }
+    
+    Ok(CallStream { rx: stream_rx, id, pending: Arc::clone(&self.pending) })
+}
+
+impl CallStream {
+    pub async fn collect(mut self) -> Vec<Frame> {
+        let mut frames = Vec::new();
+        while let Some(frame) = self.rx.recv().await {
+            let terminal = frame.status.is_terminal();
+            frames.push(frame);
+            if terminal { break; }
+        }
+        frames
+    }
+}
+```
+
+**Portable to CollabBoard:** PARTIALLY
+- Works for service-to-service communication
+- But for WebSocket clients, use direct frame handling (no correlation needed)
+- Could use for server-side canvas persistence calls
+
+---
+
+### 5. SESSION MANAGEMENT & BROADCAST (Door Pattern)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/door/mod.rs`
+
+**Pattern: Per-Connection Validation Bridge + Broadcast Registry**
+- `Door` = per-WebSocket-connection handler
+- `DoorRegistry` = shared (Arc) session + broadcast state
+- Validates room membership before forwarding messages
+- Allowlist policy prevents untrusted gateway calls
+- Inflight tracking for graceful cancellation on disconnect
+
+**Key Code:**
+```rust
+pub struct Door {
+    caller: Caller,
+    registry: DoorRegistry,
+    client_tx: mpsc::Sender<Frame>,
+    inflight: Arc<Mutex<HashSet<uuid::Uuid>>>,
+}
+
+pub async fn handle_frame(&self, frame: &Frame) {
+    if frame.status != Status::Request { return; }
+    
+    let prefix = frame.prefix();
+    if prefix == "door" {
+        self.dispatch_door(frame).await;
+        return;
+    }
+    
+    if !allow_gateway_passthrough(prefix) {
+        self.send_frame(frame.error(...)).await;
+        return;
+    }
+    
+    let stream = self.caller.call(frame.clone()).await?;
+    let mut guard = lock_inflight(&self.inflight);
+    guard.insert(kernel_req_id);
+    drop(guard);
+    
+    tokio::spawn(async move {
+        relay_stream(door_frame, stream, &client_tx).await;
+        let mut guard = lock_inflight(&inflight);
+        guard.remove(&kernel_req_id);
+    });
+}
+```
+
+**Portable to CollabBoard:** YES
+- Door = per-user WebSocket connection
+- Validate board access before relaying canvas/note ops
+- DoorRegistry broadcasts board updates to all connected users
+- Inflight tracking prevents orphaned operations on disconnect
+
+---
+
+### 6. SERVICE LAYER (Room Pattern)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/room/mod.rs`
+
+**Pattern: Router Loop + Per-Room Workers**
+- Top-level router receives all frames, dispatches to per-room workers
+- Each room gets independent worker task (concurrent rooms, sequential ops/room)
+- Workers own room state (actors, history, inflight)
+- Cleanup signals when room becomes empty
+
+**Key Code:**
+```rust
+pub struct Room {
+    pipe: PipeEnd,
+    workers: HashMap<String, mpsc::Sender<Frame>>,
+    persist: bool,
+    wake_periods: HashMap<String, u64>,
+    heartbeat_tx: broadcast::Sender<()>,
+}
+
+impl Room {
+    async fn run(mut self) {
+        let sender = self.pipe.sender();
+        let caller = self.pipe.caller();
+        let (cleanup_tx, mut cleanup_rx) = mpsc::channel(CLEANUP_MAILBOX);
+        
+        while let Some(frame) = self.pipe.recv().await {
+            self.drain_cleanup(&mut cleanup_rx);
+            
+            if frame.status == Status::Cancel {
+                self.route_cancel(&frame);
+                continue;
+            }
+            
+            let Some(room) = frame.room.clone() else {
+                send_frame(&sender, frame.error("missing room")).await;
+                continue;
+            };
+            
+            let worker_tx = self.get_or_create_worker(...);
+            if let Err(e) = worker_tx.try_send(frame) {
+                warn!("room: worker mailbox full");
+            }
+        }
+    }
+}
+```
+
+**Portable to CollabBoard:** YES
+- Replace `Room` with `Board` service
+- Each board gets a worker task (canvas state, notes, shapes)
+- Router validates frame prefixes, dispatches to board workers
+- Cleanup on last user leaving
+
+---
+
+### 7. ERROR HANDLING
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs`
+
+**Pattern: ErrorCode Trait + Structured Error Frames**
+```rust
+pub trait ErrorCode: std::fmt::Display {
+    fn error_code(&self) -> &'static str;
+    fn retryable(&self) -> bool { false }
+}
+
+impl Frame {
+    pub fn error(&self, message: impl Into<String>) -> Self {
+        let mut data = Data::new();
+        data.insert(FRAME_MESSAGE.into(), Value::String(message.into()));
+        self.reply(Status::Error, data)
+    }
+    
+    pub fn error_from(&self, err: &(impl ErrorCode + ?Sized)) -> Self {
+        let mut data = Data::new();
+        data.insert(FRAME_CODE.into(), Value::String(err.error_code().to_string()));
+        data.insert(FRAME_MESSAGE.into(), Value::String(err.to_string()));
+        data.insert(FRAME_RETRYABLE.into(), Value::Bool(err.retryable()));
+        self.reply(Status::Error, data)
+    }
+}
+```
+
+**Portable to CollabBoard:** YES
+- Define `WhiteboardError` enum implementing `ErrorCode`
+- Variants: `NotFound`, `Unauthorized`, `BoardFull`, `InvalidOperation`
+- Returns consistent `{code, message, retryable}` in error frames
+
+---
+
+### 8. DATABASE & PERSISTENCE (FrameDb + SQLite)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/frame_db.rs`
+
+**Pattern: SQLx with SQLite (compatible with PostgreSQL)**
+```rust
+// Dependencies
+[dependencies.sqlx]
+version = "0.8"
+default-features = false
+features = ["runtime-tokio", "sqlite", "postgres"]
+```
+
+**Portable to CollabBoard:** YES
+- Use SQLx for board state, canvas operations, user sessions
+- Supports SQLite for dev, PostgreSQL for prod
+- Async-first design fits Tokio runtime
+
+---
+
+### 9. CONFIGURATION & STARTUP
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/config.rs` & `/Users/ianzepp/github/ianzepp/prior/kernel/src/daemon.rs`
+
+**Pattern: Layered Config + Daemon Orchestration**
+- Three layers: code defaults → workspace config → user overrides
+- All subsystems registered with kernel before start
+- Async initialization (create dirs, init DB, spawn subsystems)
+
+**Key Code:**
+```rust
+pub async fn setup(config: PriorConfig) -> Result<DaemonHandle, ...> {
+    let mut kernel = Kernel::new();
+    
+    let door_pipe = kernel.register("door");
+    let room_pipe = kernel.register("room");
+    // ... other subsystems
+    
+    kernel.set_frame_db(frame_db);
+    let kernel_handle = kernel.start()?;
+    
+    Ok(DaemonHandle { caller, registry, kernel_handle, ... })
+}
+```
+
+**Portable to CollabBoard:** YES
+- Config file for board names, WebSocket bind address, DB connection
+- Startup registers Canvas, Note, Shape services with kernel
+- DaemonHandle returned to gateways for use
+
+---
+
+### 10. TOOLING & DEPENDENCIES
+
+**Key Dependencies:**
+- **axum 0.8**: Web framework with WebSocket support
+- **tokio 1**: Async runtime (full feature set)
+- **sqlx 0.8**: Async database with SQLite + PostgreSQL
+- **serde + serde_json**: Serialization
+- **uuid v4**: Frame IDs
+- **thiserror 2**: Error types
+
+**Cargo.toml approach:**
+```toml
+[workspace]
+members = ["kernel", "gateways/api"]
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres"] }
+```
+
+---
+
+## ARCHITECTURE RECOMMENDATIONS FOR COLLABOARD
+
+**Simplified Adaption:**
+
+1. **Kernel (simple version)**
+   - Single `Router` task (no subsystem routing, all ops in-process)
+   - Or skip kernel, use direct service calls from gateway
+
+2. **Services**
+   - `CanvasService`: draw operations, stroke history
+   - `NoteService`: create/update/delete sticky notes
+   - `ShapeService`: create/modify geometric shapes
+   - `BoardService`: list, create, delete boards
+
+3. **Gateway**
+   - REST for CRUD (board create/list, note create)
+   - WebSocket for real-time (canvas updates, broadcasts)
+
+4. **Frame Protocol** (optional but recommended)
+   - Lightweight version: only `Request`, `Item`, `Done`, `Error`
+   - Skip correlation overhead if no nested calls
+
+5. **Session/Auth**
+   - Simple JWT in Authorization header
+   - Per-connection user ID for broadcasts
+
+---
+
+**Most Directly Portable Patterns:**
+- WebSocket relay loop (Axum + tokio::select!)
+- Per-connection state management (Door equivalent)
+- Broadcast registry (DoorRegistry equivalent)
+- Frame envelope for streaming responses (Item → Item → Done)
+- SQLx for persistence (both SQLite & PostgreSQL)
+- Error frames with codes
+
+All code is in **Rust**, leveraging **Axum**, **Tokio**, and **SQLx** — production-grade libraries with excellent async support.
+
+📋 --- Summary ---
+📋 Duration: 57s
+📋 Messages: 1 user, 11 assistant
+📋 Tool calls: 20 total, 0 failed
+📋 Files: 16 read
+📋 Tokens: 92 in, 76 out
+📋 Cache: 831.8K read, 198.6K created

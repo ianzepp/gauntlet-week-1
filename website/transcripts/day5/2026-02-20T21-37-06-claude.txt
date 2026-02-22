@@ -1,0 +1,16 @@
+📋 Session: fe0fde4b-7132-4789-beb5-05e4a7cbf944
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-20T21:37:06.512+00:00
+📋 Version: 2.1.49
+📋 Branch: main
+
+👤 question: when I cmd+shift+5 to screenrecord, how do i stop the recording at the end?
+📋 Model: sonnet-4.6
+🤖 Press **cmd+ctrl+esc** to stop the screen recording, or click the **stop button** (square icon) that appears in the menu bar at the top of the screen.
+
+📋 --- Summary ---
+📋 Duration: 2s
+📋 Messages: 1 user, 1 assistant
+📋 Tool calls: 0 total, 0 failed
+📋 Tokens: 3 in, 1 out
+📋 Cache: 18.6K read, 2.8K created

@@ -1,0 +1,527 @@
+📋 Session: 9f885a11-b6cd-425d-a1ff-815510d63cc0
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-19T23:31:02.862+00:00
+📋 Version: 2.1.47
+📋 Branch: main
+
+👤 Read these files to understand the current server-side board and member management:
+1. server/src/routes/boards.rs - the HTTP routes
+2. server/src/services/board.rs - the service layer
+3. server/src/routes/ws.rs - websocket handlers, especially board-related syscalls
+4. Any migration files related to boards and board_members
+
+I need to understand what database operations exist and how the websocket protocol works for board operations. Report the key patterns, function signatures, and how new features are typically added.
+📋 Model: haiku-4.5
+🤖 I'll help you understand the server-side board and member management. Let me start by reading the key files.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+🤖 Now let me search for migration files and explore the database schema:
+✅ Glob: pattern="**/migrations/**"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+🤖 Now let me read the migration files for boards and board_members:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/002_boards.sql"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/008_board_members.sql"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/003_board_objects.sql"
+🤖 Let me also check the Frame type and see how syscalls are structured:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs"
+✅ Glob: pattern="**/services/*.rs"
+🤖 Let me look at the services/mod.rs and object.rs to understand the general patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/object.rs"
+🤖 Perfect! Now let me check the savepoint service to see another service example, and then examine how new routes are added:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/savepoint.rs"
+✅ Bash: find /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes -name "*.rs" | head -20
+🤖 Let me check the routes/mod.rs to see how routes are registered:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+🤖 Now let me look at an example test to understand the patterns better:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board_test.rs"
+🤖 Perfect! Now I have a comprehensive understanding. Let me create a final summary document:
+
+## Comprehensive Analysis: Server-Side Board and Member Management
+
+Based on my thorough exploration of the codebase, here's the complete architecture and patterns used in this project:
+
+---
+
+### DATABASE SCHEMA
+
+**Key Tables:**
+
+1. **boards** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/002_boards.sql`)
+   - `id` (UUID, PK)
+   - `name` (TEXT)
+   - `owner_id` (UUID, FK to users, nullable - legacy compatibility)
+   - `created_at` (TIMESTAMPTZ)
+
+2. **board_members** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/008_board_members.sql`)
+   - `board_id` (UUID, FK → boards(id) CASCADE)
+   - `user_id` (UUID, FK → users(id) CASCADE)
+   - `role` (TEXT: 'viewer'|'editor'|'admin')
+   - `created_at` (TIMESTAMPTZ)
+   - **PK:** (board_id, user_id)
+   - **Index:** idx_board_members_user on user_id
+
+3. **board_objects** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/003_board_objects.sql`)
+   - `id` (UUID, PK)
+   - `board_id` (UUID, FK)
+   - `kind` (TEXT)
+   - `x, y` (DOUBLE PRECISION)
+   - `width, height` (DOUBLE PRECISION, nullable)
+   - `rotation` (DOUBLE PRECISION)
+   - `z_index` (INTEGER)
+   - `props` (JSONB, defaults to {})
+   - `created_by` (UUID, FK to users)
+   - `version` (INTEGER, for LWW conflict resolution)
+   - `updated_at` (TIMESTAMPTZ)
+
+---
+
+### ARCHITECTURE LAYERS
+
+#### 1. **HTTP Routes Layer** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs`)
+
+**Pattern:** REST-like endpoints for board member management, use Axum extractors for auth and path params.
+
+**Member Management Endpoints:**
+- `GET /api/boards/{id}/members` → `list_members()` - Lists all board members
+- `POST /api/boards/{id}/members` → `upsert_member()` - Add or update member (requires admin)
+- `PATCH /api/boards/{id}/members/{user_id}` → `update_member()` - Update role only (requires admin)
+- `DELETE /api/boards/{id}/members/{user_id}` → `delete_member()` - Remove member (requires admin)
+
+**Key Helper:**
+```rust
+fn board_error_to_status(err: board::BoardError) -> StatusCode
+```
+Maps domain errors to HTTP status codes.
+
+---
+
+#### 2. **Service Layer** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs`)
+
+**Pattern:** Business logic separated from transport. Services own all database interactions and validation.
+
+**Core Types:**
+
+```rust
+pub enum BoardError {
+    NotFound(Uuid),
+    Forbidden(Uuid),
+    Database(#[from] sqlx::Error),
+}
+
+pub enum BoardRole {
+    Viewer,
+    Editor,
+    Admin,
+}
+
+pub enum BoardPermission {
+    View,
+    Edit,
+    Admin,
+}
+
+pub struct BoardMemberRow {
+    pub user_id: Uuid,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub color: String,
+    pub role: BoardRole,
+    pub is_owner: bool,
+}
+
+pub struct BoardUser {
+    pub client_id: Uuid,
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_color: String,
+}
+```
+
+**Key Functions - CRUD:**
+
+```rust
+// Board creation (owner becomes admin implicitly)
+pub async fn create_board(pool: &PgPool, name: &str, owner_id: Uuid) 
+    -> Result<BoardRow, BoardError>
+
+// List accessible boards (owned + with membership)
+pub async fn list_boards(pool: &PgPool, user_id: Uuid) 
+    -> Result<Vec<BoardRow>, BoardError>
+
+// Delete board (requires admin permission)
+pub async fn delete_board(pool: &PgPool, board_id: Uuid, user_id: Uuid) 
+    -> Result<(), BoardError>
+```
+
+**Key Functions - Permission:**
+
+```rust
+// Core: Check if user has permission (legacy null owner_id boards are public)
+pub async fn ensure_board_permission(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+    permission: BoardPermission,
+) -> Result<(), BoardError>
+
+// In-memory: Check if connected client has permission
+pub async fn client_has_permission(
+    state: &AppState,
+    board_id: Uuid,
+    client_id: Uuid,
+    permission: BoardPermission,
+) -> bool
+```
+
+**Key Functions - Member Management:**
+
+```rust
+// List members (includes owner if not already in members table)
+pub async fn list_board_members(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<BoardMemberRow>, BoardError>
+
+// Upsert member with role (requester must be admin)
+pub async fn add_or_update_board_member(
+    pool: &PgPool,
+    board_id: Uuid,
+    acting_user_id: Uuid,
+    target_user_id: Uuid,
+    role: BoardRole,
+) -> Result<(), BoardError>
+
+// Remove member (cannot remove owner, requester must be admin)
+pub async fn remove_board_member(
+    pool: &PgPool,
+    board_id: Uuid,
+    acting_user_id: Uuid,
+    target_user_id: Uuid,
+) -> Result<(), BoardError>
+
+// Helper: Resolve user by email
+pub async fn resolve_user_id_by_email(pool: &PgPool, email: &str) 
+    -> Result<Option<Uuid>, BoardError>
+```
+
+**Key Functions - Join/Part Lifecycle:**
+
+```rust
+// Join board: hydrate from DB if first client, add to memory, return objects
+pub async fn join_board(
+    state: &AppState,
+    board_id: Uuid,
+    user_id: Uuid,
+    user_name: &str,
+    user_color: &str,
+    client_id: Uuid,
+    tx: mpsc::Sender<Frame>,
+) -> Result<Vec<BoardObject>, BoardError>
+
+// Part board: remove client, flush dirty objects if last client
+pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid)
+
+// Broadcast frame to all clients in a board
+pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude: Option<Uuid>)
+
+// List currently connected users for a board
+pub async fn list_board_users(state: &AppState, board_id: Uuid) 
+    -> Vec<BoardUser>
+```
+
+**Key Functions - Hydration & Persistence:**
+
+```rust
+// Load objects from DB when board first joins
+async fn hydrate_objects(pool: &PgPool, board_id: Uuid) 
+    -> Result<HashMap<Uuid, BoardObject>, sqlx::Error>
+
+// Upsert objects to Postgres (ON CONFLICT DO UPDATE)
+pub async fn flush_objects(pool: &PgPool, objects: &[BoardObject]) 
+    -> Result<(), sqlx::Error>
+```
+
+---
+
+#### 3. **WebSocket Handler Layer** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs`)
+
+**Pattern:** Async dispatch loop that:
+1. Parses binary frames
+2. Routes to prefix handlers
+3. Applies Outcome (reply/broadcast/both)
+4. Persists non-ephemeral frames
+
+**Key Type - Outcome:**
+
+```rust
+enum Outcome {
+    Broadcast(Data),                      // Reply to sender, broadcast to peers
+    BroadcastExcludeSender(Data),         // Broadcast to peers only (cursors)
+    Reply(Data),                          // Reply to sender only
+    ReplyStream { items: Vec<Data>, done: Data },  // Stream + done
+    Done,                                 // Empty done
+    ReplyAndBroadcast { reply, broadcast },        // Different replies
+    ReplyStreamAndBroadcast { items, done, broadcast },
+}
+```
+
+**Board Handler Functions:**
+
+```rust
+// handle_board() dispatches to:
+async fn handle_board_join(...)        // board:join
+async fn handle_board_part(...)        // board:part
+async fn handle_board_create(...)      // board:create
+async fn handle_board_list(...)        // board:list
+async fn handle_board_users_list(...)  // board:users:list
+async fn handle_board_delete(...)      // board:delete
+async fn handle_board_savepoint_create(...)
+async fn handle_board_savepoint_list(...)
+```
+
+**Frame Processing Pipeline:**
+
+```
+WebSocket Binary Message
+  ↓
+decode_frame() → parse_inbound_bytes()
+  ↓
+Frame::try_from() → stamp from as user_id
+  ↓
+dispatch_frame() → route on prefix
+  ↓
+handler returns Result<Outcome, Frame>
+  ↓
+apply Outcome:
+  - Enqueue frame for persistence (non-ephemeral)
+  - Send reply frames to sender
+  - Broadcast to peers
+  - Serialize and send via WebSocket
+```
+
+**Ephemeral Frames** (skipped from persistence):
+- `cursor:*`
+- `object:drag`
+- `object:drag:end`
+
+---
+
+### IN-MEMORY STATE ARCHITECTURE
+
+**AppState** (`/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs`):
+
+```rust
+pub struct AppState {
+    pub pool: PgPool,
+    pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,      // Live board state
+    pub ws_clients: Arc<RwLock<HashMap<Uuid, mpsc::Sender<Frame>>>>,  // All connected clients
+    pub frame_persist_tx: Option<mpsc::Sender<Frame>>,       // Async frame persistence queue
+    pub llm: Option<Arc<dyn LlmChat>>,                       // Optional LLM
+    pub rate_limiter: RateLimiter,                           // AI rate limiting
+    pub github: Option<GitHubConfig>,                        // OAuth config
+}
+```
+
+**BoardState** (per board):
+
+```rust
+pub struct BoardState {
+    pub objects: HashMap<Uuid, BoardObject>,           // Current objects
+    pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,   // Sender per client
+    pub users: HashMap<Uuid, ConnectedClient>,         // User metadata per client
+    pub dirty: HashSet<Uuid>,                          // Objects modified since last flush
+}
+
+pub struct ConnectedClient {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_color: String,
+    pub can_edit: bool,
+    pub can_admin: bool,
+}
+```
+
+---
+
+### PERMISSION MODEL
+
+**Role-based Access Control:**
+
+1. **Owner** (implicit admin)
+   - Board owner_id matches user → admin permission
+   - Cannot be removed from board_members
+
+2. **Admin**
+   - role = 'admin' in board_members
+   - Can add/update/delete other members
+   - Full edit access
+
+3. **Editor**
+   - role = 'editor' in board_members
+   - Can edit objects
+   - Cannot manage members
+
+4. **Viewer**
+   - role = 'viewer' in board_members
+   - View only, no object mutations
+
+5. **Legacy Boards** (owner_id IS NULL)
+   - Globally accessible (no membership required)
+
+**Permission Check Flow:**
+
+```rust
+fn role_satisfies(role: BoardRole, permission: BoardPermission) -> bool {
+    match permission {
+        BoardPermission::View => true,                        // All roles can view
+        BoardPermission::Edit => matches!(role, Editor | Admin),
+        BoardPermission::Admin => matches!(role, Admin),
+    }
+}
+```
+
+---
+
+### PATTERNS FOR ADDING NEW FEATURES
+
+#### Example 1: Adding a New Board Operation
+
+To add a new board handler (e.g., `board:rename`):
+
+1. **Add Service Function** in `services/board.rs`:
+```rust
+pub async fn rename_board(
+    pool: &PgPool,
+    board_id: Uuid,
+    user_id: Uuid,
+    new_name: &str,
+) -> Result<BoardRow, BoardError> {
+    ensure_board_permission(pool, board_id, user_id, BoardPermission::Admin).await?;
+    sqlx::query("UPDATE boards SET name = $1 WHERE id = $2")
+        .bind(new_name)
+        .bind(board_id)
+        .execute(pool)
+        .await?;
+    Ok(BoardRow { id: board_id, name: new_name.to_string(), owner_id: Some(user_id) })
+}
+```
+
+2. **Add Handler** in `routes/ws.rs`:
+```rust
+async fn handle_board_rename(state: &AppState, user_id: Uuid, req: &Frame) 
+    -> Result<Outcome, Frame> {
+    let Some(board_id) = board_id_from_frame(req, None) else {
+        return Err(req.error("board_id required"));
+    };
+    let new_name = req.data.get("name").and_then(|v| v.as_str()).unwrap_or("Untitled");
+    
+    match services::board::rename_board(&state.pool, board_id, user_id, new_name).await {
+        Ok(row) => {
+            broadcast_board_list_refresh(state).await;
+            let mut data = Data::new();
+            data.insert("name".into(), serde_json::json!(row.name));
+            Ok(Outcome::Reply(data))
+        }
+        Err(e) => Err(req.error_from(&e)),
+    }
+}
+```
+
+3. **Wire Handler** in `handle_board()` match statement
+
+#### Example 2: Adding a New HTTP Endpoint
+
+For board member invites by email:
+
+1. **Add Route** in `routes/mod.rs`:
+```rust
+.route(
+    "/api/boards/{id}/members/invite",
+    post(boards::invite_member_by_email),
+)
+```
+
+2. **Add Handler** in `routes/boards.rs`:
+```rust
+pub async fn invite_member_by_email(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(board_id): Path<Uuid>,
+    Json(body): Json<InviteBody>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // Send email, create pending invite, etc.
+    board::add_or_update_board_member(...)
+        .await
+        .map_err(board_error_to_status)?;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+```
+
+---
+
+### KEY DESIGN DECISIONS
+
+1. **Dual-Layer Hydration**
+   - Boards loaded lazily on first client join
+   - Objects loaded from Postgres, kept in memory while clients connected
+   - Flushed back on last client departure
+
+2. **Outcome-Based Dispatch**
+   - Handlers never send frames directly
+   - Dispatch layer owns all I/O concerns
+   - Enables testability of business logic without transport
+
+3. **Role-Based with Owner Immunity**
+   - Owner cannot be removed or have role changed
+   - Protects against accidental board orphaning
+   - Legacy null-owner boards remain public
+
+4. **Lazy Permission Checks**
+   - In-memory state tracks permission flags per client
+   - Fast path for connected clients
+   - DB fallback for REST endpoints
+
+5. **Frame Persistence Layer**
+   - Non-ephemeral frames queued asynchronously
+   - Enables frame replay and audit
+   - Separate worker process handles batching
+
+---
+
+### KEY IMPLEMENTATION DETAILS
+
+**Lock Management:**
+- RwLock for boards (many readers, few writers)
+- Locks held only for state mutations
+- DB I/O outside locks
+
+**Error Handling:**
+- Custom error types with `ErrorCode` trait
+- Maps to HTTP status codes via `board_error_to_status()`
+- Database errors map to 500 INTERNAL_SERVER_ERROR
+
+**Testing Pattern:**
+```rust
+#[tokio::test]
+async fn test_scenario() {
+    let state = test_helpers::test_app_state();
+    let board_id = test_helpers::seed_board(&state).await;
+    // Test with in-memory channels, no real DB
+}
+```
+
+---
+
+This architecture prioritizes **simplicity, testability, and clarity** through layered separation of concerns while maintaining the performance and real-time characteristics needed for a collaborative whiteboard.
+
+📋 --- Summary ---
+📋 Duration: 54s
+📋 Messages: 1 user, 9 assistant
+📋 Tool calls: 17 total, 0 failed
+📋 Files: 14 read
+📋 Tokens: 164 in, 57 out
+📋 Cache: 927.7K read, 133.8K created

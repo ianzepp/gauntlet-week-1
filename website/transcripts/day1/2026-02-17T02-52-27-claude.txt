@@ -1,0 +1,160 @@
+📋 Session: 170e69ac-cc65-4c37-ac66-d45c66470e61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T02:52:27.342+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 [Request interrupted by user for tool use]
+👤 Implement the following plan:
+
+# Fix Canvas Object Selection, Resize, and Transform Bugs
+
+## Context
+
+The canvas UI has critical bugs: objects become unselectable, untransformable, and unresizable. Root cause analysis identified three primary issues, all stemming from how the optimistic ID swap interacts with Konva's ref system, plus a server-broadcast duplication problem.
+
+## Root Causes
+
+### Bug 1: Server broadcasts duplicate objects after creation (CRITICAL)
+- `Canvas.tsx:297-308` — after creating an object with temp UUID, `sendObjectCreate` listens for `object:create` response to swap temp→server ID
+- BUT `useFrameClient.ts:46-51` — `handleCreated` listens on `object:created` and calls `addObject()` for ALL incoming create broadcasts
+- This means the server broadcast adds a SECOND copy of the same object (with server ID) to the store, while the original temp-ID copy also exists
+- Result: duplicate objects, broken selection, stale refs
+
+### Bug 2: Transformer loses refs after ID swap (CRITICAL)
+- `Canvas.tsx:152-159` — `nodeMapRef` stores Konva node refs keyed by object ID
+- When `replaceObjectId()` changes the key, React unmounts (old key) and remounts (new key) because `key={obj.id}` on lines 411/427
+- The remount fires ref callbacks correctly (old→null, new→node), so nodeMapRef IS updated
+- BUT the `selectionKey` useEffect (line 168) may not re-fire if selection was updated in the same render batch as the objects map
+- More critically: the remount itself destroys component state (editing mode, etc.) and causes visual jank
+
+### Bug 3: Object created by local user gets overwritten by server broadcast
+- User creates object → `addObject(tempObj)` → `sendObjectCreate(tempObj)`
+- Server processes create, broadcasts `object:created` with server ID
+- `handleCreated` in useFrameClient adds the server version as a NEW object
+- `handleCreateResponse` in Canvas tries to `replaceObjectId(tempId, serverId)` but the server object already exists under `serverId`
+- Now we have both temp-ID object AND server-ID object in the store
+
+## Plan
+
+### Fix 1: Prevent duplicate objects from server broadcast (useFrameClient.ts)
+
+In `handleCreated`, skip adding objects that were created locally. The local user already has the object in the store (under temp ID). The `handleCreateResponse` in Canvas handles the ID swap.
+
+**Approach**: Track locally-created object request IDs. In `handleCreated`, check if the frame's `parent_id` matches a local request — if so, skip it (the Canvas handler will do the ID swap).
+
+**Simpler approach**: In `handleCreated`, check if an object with matching properties already exists in the store. But this is fragile.
+
+**Simplest approach**: Move the entire ID-swap logic out of Canvas into useFrameClient, and have `handleCreated` be the single handler for both local and remote creates:
+- For local creates: detect via a pending-creates Set, call `replaceObjectId`
+- For remote creates: call `addObject` as before
+
+**File**: `client/src/hooks/useFrameClient.ts`
+- Add a `pendingCreates: Map<requestId, tempObjectId>` tracked via ref
+- Export a `sendObjectCreate` function from the hook (or manage it via store)
+- In `handleCreated`: if `frame.parent_id` is in pendingCreates → `replaceObjectId(tempId, serverObj.id)` and remove from pending. Otherwise → `addObject(serverObj)`
+
+**File**: `client/src/canvas/Canvas.tsx`
+- Remove `sendObjectCreate` callback and all its handler registration logic (lines 271-308)
+- Instead, call a centralized create function that tracks the request
+
+### Fix 2: Eliminate the ID swap remount problem (Canvas.tsx, store)
+
+The key={obj.id} pattern means React remounts when ID changes. Instead:
+
+**Approach**: Give each object a stable `localKey` at creation time that never changes, use it as the React key.
+
+**File**: `client/src/store/board.ts`
+- In `addObject`: if the object doesn't have a `localKey`, assign one (its current ID at creation time)
+- In `replaceObjectId`: preserve the `localKey` from the temp object
+- Store `localKey` as a local-only field (not sent to server)
+
+**File**: `client/src/canvas/Canvas.tsx`
+- Change `key={obj.id}` to `key={obj.localKey ?? obj.id}` on StickyNote and Shape
+
+This prevents React remount on ID swap, preserving Konva node refs and component state.
+
+### Fix 3: Guard transformer attachment (Canvas.tsx)
+
+Add a small safety net: after ID swap, force-refresh the transformer.
+
+**File**: `client/src/canvas/Canvas.tsx`
+- In the `selectionKey` useEffect, add `objects` to the dependency array (or use a separate trigger)
+- This ensures transformer re-attaches after any object map change
+
+## Files to Modify
+
+1. **`client/src/hooks/useFrameClient.ts`** — centralize create handling, track pending creates
+2. **`client/src/canvas/Canvas.tsx`** — remove inline sendObjectCreate, use stable keys, fix transformer deps
+3. **`client/src/store/board.ts`** — add `localKey` to object tracking in addObject/replaceObjectId
+4. **`client/src/lib/types.ts`** — add optional `localKey` field to BoardObject
+
+## Verification
+
+1. `bun tsc` — must pass with no errors
+2. Manual test:
+   - Create a sticky note → should appear, be immediately selectable
+   - Click to select → blue transform handles visible
+   - Drag to move → position persists
+   - Resize via handles → dimensions update
+   - Create multiple objects → all independently selectable/transformable
+   - Deselect by clicking empty canvas → handles disappear
+   - Re-select → handles reappear
+   - No duplicate objects visible after creation
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-gauntlet-collaboard/170e69ac-cc65-4c37-ac66-d45c66470e61.jsonl
+📋 Model: opus-4.6
+🤖 I'll start by reading the key files to understand the current code before making changes.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+🤖 Now I have a clear picture of the code. Let me implement all the fixes.
+✅ TaskCreate: {"activeForm":"Fixing canvas selection and transform bugs","description":"Fix three root causes: (1) server broadcasts creating duplicate objects, (2)...
+✅ TaskUpdate: {"status":"in_progress","taskId":"1"}
+🤖 **Step 1: Add `localKey` to BoardObject type**
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+🤖 **Step 2: Update store — addObject assigns localKey, replaceObjectId preserves it**
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+🤖 **Step 3: Centralize create handling in useFrameClient — track pending creates, prevent duplicates**
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+🤖 Now update `handleCreated` to detect local creates and do the ID swap instead of adding a duplicate:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+🤖 **Step 4: Update Canvas.tsx — remove inline sendObjectCreate, use stable keys, fix transformer deps**
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Now remove the inline `sendObjectCreate` callback and its `object:create` listener logic:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Remove `sendObjectCreate` from the dependency array of `handleStageClick`:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Now use stable `localKey` for React keys:
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 **Step 5: Fix transformer deps — add `objects` to dependency array so it re-attaches after ID swap**
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Now let me verify with `bun tsc`:
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/client && bun tsc --noEmit 2>&1
+✅ Bash: bun tsc --noEmit 2>&1 | head -50
+🤖 TypeScript passes cleanly. Now let me also verify the backend still builds:
+❌ Bash: cd /Users/ianzepp/github/gauntlet/collaboard && cargo fmt --check 2>&1 && cargo clippy 2>&1 | tail -5
+🤖 Backend is in a subdirectory — no Rust changes needed here anyway. Let me autocommit the frontend fix:
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard && git status
+✅ Bash: git diff
+✅ Bash: git log --oneline -5
+✅ Bash: git add client/src/canvas/Canvas.tsx client/src/hooks/useFrameClient.ts client/src/lib/types.ts client/src/store/board.ts && git commit -m "$(cat <<'EOF' ↵ Fix canvas object selection, resize, and trans...
+✅ TaskUpdate: {"status":"completed","taskId":"1"}
+🤖 All three fixes are implemented and committed. Here's a summary of what changed:
+
+**Fix 1 — Prevent duplicate objects** (`useFrameClient.ts`): Moved `sendObjectCreate` out of Canvas into a module-level function that tracks pending creates in a `Map<requestId, tempObjectId>`. The `handleCreated` handler now checks if the incoming frame is a response to a local create — if so, it does `replaceObjectId` instead of `addObject`, preventing duplicates.
+
+**Fix 2 — Stable React keys** (`types.ts`, `board.ts`, `Canvas.tsx`): Added an optional `localKey` field to `BoardObject`. `addObject` assigns `localKey = id` at creation time. `replaceObjectId` preserves the original `localKey`. Components now use `key={obj.localKey ?? obj.id}`, so the temp→server ID swap no longer causes React to remount the Konva node (preserving refs, component state, and avoiding visual jank).
+
+**Fix 3 — Transformer re-attachment** (`Canvas.tsx`): Added `objects` to the transformer useEffect's dependency array so it re-fires whenever the object map changes, ensuring transform handles stay attached after ID swaps.
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 2 user, 15 assistant
+📋 Tool calls: 24 total, 1 failed
+📋 Files: 4 read, 4 edited
+📋 Tokens: 49 in, 4.2K out
+📋 Cache: 1.3M read, 53.9K created

@@ -1,0 +1,115 @@
+📋 Session: 6f9c138d-b51f-440e-8970-8cea6ff3770c
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T19:14:40.808+00:00
+📋 Version: 2.1.42
+📋 Branch: HEAD
+
+👤 see @collaboard/PRE-SEARCH.md
+📋 Model: opus-4.6
+🤖 I've read the PRE-SEARCH.md document. It's a comprehensive architecture plan for CollabBoard. 
+
+I notice a significant tension with the root `CLAUDE.md` conventions:
+
+- **PRE-SEARCH says**: Rust + Axum backend, PostgreSQL (Neon), React + Konva frontend
+- **CLAUDE.md says**: Bun + Hono backend, SQLite, htmx (React only when genuinely needed)
+
+The PRE-SEARCH document was clearly written with a different stack in mind. What would you like to do?
+❌ AskUserQuestion: {"questions":[{"header":"Stack choice","multiSelect":false,"options":[{"description":"Follow CLAUDE.md conventions. Adapt the PRE-SEARCH architecture ...
+🤖 What would you like to clarify about the stack choice?
+👤 GPT 5.2 had similar comments: 
+
+Biggest gaps / inconsistencies I’d tighten before building:
+- Stack mismatch with Gauntlet defaults: repo guidance says Bun + Hono + htmx, but this doc commits to Rust + Axum + React. If Rust/React is intentional, call out why you’re diverging (and what you’re giving up).
+- Auth/session story is split-brained: “signed cookie (JWT or opaque token)” vs “WS token as query param”. Decide one canonical mechanism (cookie-based WS auth is doable) and document CSRF implications for /api/auth/logout + any REST endpoints.
+- Access control is underspecified for “anyone with the link can collaborate”: you’ll still need board_members (or an “invite token” model) and a clear rule for join permission (public-by-link vs explicit membership). Schema currently lacks board_members, sessions, and any invite/link token storage.
+- Testing section still references a kernel/door subsystem (“Kernel routing”, “Door lifecycle”) after you decided “traditional Axum handlers, not kernel”. Either remove those tests or restate that you are keeping a thin door/kernal-like layer for WS dispatch/authz.
+- File path inconsistency: “Frame type in kernel/src/frame.rs” but earlier you specify a single-crate layout with src/frame.rs. Worth fixing now to avoid drift.
+- LWW needs a clock/source-of-truth decision: if server timestamps everything, say so explicitly and ignore client ts. If you accept client timestamps, you need skew handling. Also define object versioning/idempotency (e.g., per-object updated_at / version to drop out-of-order updates).
+- Reconnect/recovery is named but not designed: you’ll want an explicit “resync” flow (board:state snapshot + maybe “since seq” replay from frames.seq) and a policy for missed frames, duplicate sends, and ordering guarantees.
+- Persistence plan is hand-wavy around the 1s debounce: define what happens on crash between updates, and whether you persist each mutation synchronously (safer) vs buffered (faster). For a demo, “persist on every mutation” may be simpler than “debounce + flush on last disconnect”.
+- Frames table is described as append-only audit log, but you don’t define retention, growth expectations, or indexes for the queries you’ll actually run (e.g., WHERE board_id=? AND seq>? ORDER BY seq). Current index idx_frames_board(board_id, syscall, status) won’t help replay-by-seq much.
+- Deployment/static assets: “served by Axum or a CDN” is undecided. Pick one (Axum serving the built SPA is simplest on Fly) and note gzip/brotli + cache headers.
+- Rate limiting needs a storage/placement plan: “Door enforced” doesn’t exist in the chosen architecture; also clarify whether limits are per-process in-memory (fine) and what happens on restart.
+- Minor: compliance section mentions argon2, but you’ve explicitly said “no local auth/passwords”; that line is either unnecessary or implies a fallback auth path you’re not actually building.
+🤖 Good feedback from GPT 5.2. These are legitimate gaps. Let me address them systematically and update the PRE-SEARCH doc.
+
+Let me start with the fundamental question first:
+✅ AskUserQuestion: {"questions":[{"header":"Stack","multiSelect":false,"options":[{"description":"Follow CLAUDE.md for backend (faster iteration, same ecosystem as front...
+🤖 Clear. Here's the resolution for all 11 gaps:
+
+1. **Stack**: Rust + Axum + React+Konva stays. Will add explicit note to PRE-SEARCH explaining the divergence from CLAUDE.md.
+
+2. **Auth**: Token-based. Opaque session token stored server-side in Postgres. REST via `Authorization: Bearer <token>` header. WS via short-lived upgrade ticket (generated from session, valid 30s, single-use). No cookies.
+
+3. **Access**: Public-by-link. No `board_members` table. Anyone with the board UUID can join. Owner (creator) can delete. No invite tokens.
+
+4. **Persistence**: Debounced 1s buffer (your choice). Will document: on crash, up to 1s of mutations lost. Final flush on last disconnect. Acceptable for demo.
+
+5. **Testing references**: Remove kernel/door references. Replace with "WS dispatch routing" and "session lifecycle" tests.
+
+6. **File path**: Fix `kernel/src/frame.rs` → `src/frame.rs`. Single crate, no workspace.
+
+7. **LWW clock**: Server timestamps everything. Client `ts` ignored. Per-object `updated_at` column used to drop out-of-order updates.
+
+8. **Reconnect/recovery**: On reconnect, client sends `board:join` again, gets full `board:state` snapshot. No incremental replay for MVP. Post-MVP: replay from `frames.seq` with `WHERE board_id=? AND seq>? ORDER BY seq`.
+
+9. **Frames index**: Replace `idx_frames_board(board_id, syscall, status)` with `idx_frames_board_seq(board_id, seq)` for replay queries. Add retention note: no cleanup for MVP, ~100K frames expected max.
+
+10. **Static assets**: Axum serves the built SPA from an embedded directory. `tower-http` for gzip + cache headers. Single binary deployment.
+
+11. **Rate limiting**: In-memory per-process. `HashMap<UserId, RateLimiter>` reset on restart. No Redis.
+
+**Also fixing**:
+- Remove argon2 mention (no passwords)
+- Add `sessions` table to schema
+- Remove `board_members` table reference
+
+Let me update the document now.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Now I'll write the updated PRE-SEARCH.md with all 11 gaps fixed. This is a large document so I'll write it in full.
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Done. Here's a summary of all 11 fixes applied:
+
+| # | Gap | Resolution |
+|---|-----|-----------|
+| 1 | Stack mismatch with CLAUDE.md | Added explicit divergence rationale in §5 and Summary |
+| 2 | Auth split-brained (cookie vs token) | Unified: token-based. Bearer header for REST, single-use upgrade tickets for WS. No cookies. |
+| 3 | Access control underspecified | Public-by-link. No `board_members` table. Owner can delete. |
+| 4 | Testing references kernel/door | Replaced with "WS dispatch routing" and "session lifecycle" |
+| 5 | File path `kernel/src/frame.rs` | Fixed to `src/frame.rs` throughout |
+| 6 | LWW clock undefined | Server timestamps everything, client `ts` ignored. Added `version` column for out-of-order detection. |
+| 7 | Reconnect not designed | MVP: full snapshot on rejoin. Post-MVP: incremental replay via `frames.seq`. |
+| 8 | Persistence hand-wavy | Documented: dirty marking, 1s background flush, final flush on disconnect, crash = up to 1s loss. |
+| 9 | Frames index wrong | Changed to `idx_frames_board_seq(board_id, seq)`. Added retention note. |
+| 10 | Static assets undecided | Axum `ServeDir` + gzip + cache headers. Single binary. |
+| 11 | Rate limiting no storage plan | In-memory `HashMap` per-process, resets on restart. No Redis. |
+
+**Also fixed:** Removed argon2 (no passwords), added `sessions` + `ws_tickets` tables to schema, added `github_id`/`avatar_url` to users, removed `board_members` reference, removed `jsonwebtoken` dep (no JWTs), added `rand` dep.
+👤 New section at the bottom "Notes" that defines what the Prior project is in a short paragraph, read just the readme at ~/github/ianzepp/prior, and note also this is a private personal github repo.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/README.md"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Done. Added a "Notes" section at the bottom with a paragraph on Prior — what it is, what it does architecturally, and what CollabBoard ports from it. Noted it's a private personal repo.
+👤 New section at the end: Gaps to address later / open questions.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+🤖 Done. Added 12 open questions covering auth delivery, cleanup tasks, board lifecycle, locking, AI context, multi-board, undo/redo, z-index, text concurrency, connectors, file upload, and token rotation. Each notes what the issue is, what the options are, and when it matters.
+👤 please commit all and push
+✅ Bash: git status
+✅ Bash: git diff --stat
+✅ Bash: git log --oneline -5
+✅ Bash: git add collaboard/PRE-SEARCH.md collaboard/REQUIREMENTS.md && git commit -m "$(cat <<'EOF' ↵ Resolve PRE-SEARCH gaps: auth, sync, persistence, reconnect, and open questions ↵  ↵ Address 11 consistency gaps...
+✅ Bash: git push
+🤖 Committed and pushed. One commit: `9a83b9f` with the updated PRE-SEARCH.md (11 gap fixes, Prior notes, 12 open questions) and the new REQUIREMENTS.md.
+👤 please commit the generated PDF as well
+✅ Bash: git add "collaboard/G4 Week 1 - CollabBoard.pdf" && git commit -m "$(cat <<'EOF' ↵ Add CollabBoard project brief PDF ↵  ↵ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com> ↵ EOF ↵ )"
+✅ Bash: git push
+🤖 Done. Committed and pushed: `ec98695`.
+
+📋 --- Summary ---
+📋 Duration: 14m
+📋 Messages: 6 user, 10 assistant
+📋 Tool calls: 16 total, 1 failed
+📋 Files: 2 read, 1 written, 1 edited
+📋 Tokens: 46 in, 1.5K out
+📋 Cache: 1.6M read, 98.3K created

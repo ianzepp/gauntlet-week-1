@@ -1,0 +1,351 @@
+📋 Session: 3374fd90-0423-4de4-b88e-bd16619cc81c
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T22:47:19.915+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Analyze the testability of the Rust backend at /Users/ianzepp/github/gauntlet/collaboard/server/. I need to understand:
+
+1. What tests exist currently? Check src/ for #[cfg(test)] modules and any tests/ directory.
+
+2. What are the key testability problems? Look at:
+   - services/ai.rs — does it depend directly on LlmClient, AppState, PgPool?
+   - services/object.rs — does it take AppState directly?
+   - services/board.rs — same question
+   - routes/ws.rs — is dispatch logic tangled with WebSocket I/O?
+   - llm/mod.rs — is LlmClient a concrete struct or trait-based?
+   - state.rs — is AppState easy to construct in tests?
+
+3. What patterns exist for dependency injection? Are there traits? Or is everything concrete structs?
+
+4. Check Cargo.toml for test dependencies (mockall, etc.)
+
+Be thorough — read the key files and report on what's tightly coupled vs. what could be tested in isolation.
+📋 Model: haiku-4.5
+🤖 I'll analyze the testability of the Rust backend at `/Users/ianzepp/github/gauntlet/collaboard/server/`. Let me start by exploring the structure and examining the key files.
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server -type f -name "*.rs" | head -30
+❌ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server"
+🤖 Now let me read the Cargo.toml and key source files to understand the testability:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+🤖 Now let me examine the services and routes to understand the dependency patterns:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+🤖 Now let me check a few more files to complete the analysis:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server/src -name "*.rs" -type f | xargs grep -l "#\[cfg(test)\]" 2>/dev/null || echo "No test modules found"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/server -type d -name "tests" 2>/dev/null || echo "No tests directory found"
+🤖 Now let me check the frame and db modules to understand the complete picture:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/db/mod.rs"
+✅ Bash: grep -A 5 "#\[cfg(test)\]" /Users/ianzepp/github/gauntlet/collaboard/server/src/frame.rs
+🤖 Perfect! Now let me check the services/mod.rs and llm modules more carefully:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs"
+🤖 Perfect! Now I have a comprehensive understanding of the codebase. Let me compile my findings into a thorough testability analysis.
+
+## Testability Analysis Report: Collaboard Rust Backend
+
+### 1. EXISTING TESTS
+
+**Current Test Coverage:**
+- **Only 1 test module found:** `frame.rs` contains a `#[cfg(test)]` section with 8 unit tests covering:
+  - Frame field construction
+  - Reply context inheritance
+  - Terminal status checks
+  - Prefix extraction
+  - JSON serialization round-trip
+  - Typed error construction
+  - Cancel frame creation
+
+- **No `tests/` directory exists** at the root level
+- **No integration tests** for services, routes, or database operations
+- **Zero tests** for `services/`, `routes/`, `llm/`, or `state/` modules
+
+### 2. KEY TESTABILITY PROBLEMS
+
+#### **A. AppState — Hard to Construct in Tests**
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs` (lines 76-93)
+
+```rust
+pub struct AppState {
+    pub pool: PgPool,                              // Requires live PostgreSQL
+    pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+    pub llm: Option<Arc<LlmClient>>,
+}
+```
+
+**Problems:**
+- `AppState::new()` requires a **real `PgPool`** — no test helper to create a mock or in-memory version
+- `llm` is `Option<Arc<LlmClient>>` — concrete struct, not trait-based, so you can't inject a mock
+- No builder pattern or test constructor for partial setup
+- `boards` is Arc-wrapped, making it harder to inspect in tests without async locking
+
+---
+
+#### **B. LlmClient — Concrete Struct, Not Trait-Based**
+**Files:** 
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs` (lines 20-90)
+- `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs` (lines 18-31)
+
+```rust
+pub struct LlmClient {
+    inner: LlmProvider,  // Enum dispatch to concrete providers
+    model: String,
+}
+
+enum LlmProvider {
+    Anthropic(anthropic::AnthropicClient),  // Concrete
+    OpenAi(openai::OpenAiClient),            // Concrete
+}
+```
+
+**Problems:**
+- **No trait** — `LlmClient` is a concrete struct that directly wraps provider implementations
+- `LlmClient::from_env()` reads environment variables at construction time, no way to inject config in tests
+- `AnthropicClient` constructs a real `reqwest::Client` (line 25-29), making all tests hit the network
+- `services/ai.rs` takes `&Arc<LlmClient>` directly (line 73) — **no abstraction layer** to swap in a mock
+
+**Example:** In `services/ai.rs`, line 96:
+```rust
+let response = llm.chat(MAX_TOKENS, &system, &messages, Some(&tools)).await?;
+```
+This calls the real LLM API; you cannot test tool execution logic without hitting Anthropic/OpenAI.
+
+---
+
+#### **C. services/object.rs — Tightly Coupled to AppState**
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs` (lines 51-173)
+
+```rust
+pub async fn create_object(
+    state: &AppState,           // Takes full AppState
+    board_id: Uuid,
+    kind: &str,
+    x: f64,
+    y: f64,
+    props: serde_json::Value,
+    created_by: Option<Uuid>,
+) -> Result<BoardObject, ObjectError>
+```
+
+**Problems:**
+- Each function takes **`&AppState`** directly
+- Must hold the `state.boards.write().await` lock (line 60) — **implicit async locking** makes unit tests harder
+- Direct access to `state.pool` for deletes (line 169) — tests need a live Postgres to verify
+- **No trait abstraction** — functions don't depend on a `BoardStore` or `ObjectRepository` trait
+- Cannot unit-test update logic in isolation; must spin up full board state
+
+---
+
+#### **D. services/ai.rs — Multi-Level Dependencies**
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs` (lines 71-170)
+
+```rust
+pub async fn handle_prompt(
+    state: &AppState,
+    llm: &Arc<LlmClient>,
+    board_id: Uuid,
+    prompt: &str,
+) -> Result<AiResult, AiError>
+```
+
+**Problems:**
+- Takes both **`&AppState`** (for board state) and **`&Arc<LlmClient>`** (for API calls)
+- **Two hard-to-mock dependencies**, mixed at the function boundary
+- `build_system_prompt()` (line 176) is testable in isolation (pure function), but called inline — no injection
+- Line 79-82: reads from `state.boards.read().await` and clones all objects — **implicit snapshot dependency**
+- Calls `super::object::*` functions (lines 215-220) — **nested service calls** tightly coupled
+- No way to test "AI agent receives response, parses tools, executes mutations" without mocking both state and LLM
+
+**Key risk:** Tool execution functions like `execute_create_objects()` (line 229) take `state` and mutate board state through `services::object::create_object()` — testing any part requires the full call chain.
+
+---
+
+#### **E. services/board.rs — Database Coupling**
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs` (lines 57-186)
+
+```rust
+pub async fn create_board(pool: &PgPool, name: &str) -> Result<BoardRow, BoardError>
+pub async fn list_boards(pool: &PgPool) -> Result<Vec<BoardRow>, BoardError>
+pub async fn hydrate_objects(pool: &PgPool, board_id: Uuid) -> Result<HashMap<Uuid, BoardObject>, sqlx::Error>
+```
+
+**Problems:**
+- Every function takes `&PgPool` directly — **no `Database` trait**
+- SQL queries are hand-written (lines 59, 73-75, 92, etc.) — **no ORM abstraction**
+- `join_board()` (line 113) mixes database checks with in-memory state management
+- `part_board()` (line 148) has complex lock management with a `drop(boards)` hack (line 168) — hard to test ordering
+- Tests must either:
+  1. Spin up a real PostgreSQL instance
+  2. Or skip database tests entirely (no testcontainers support in Cargo.toml)
+
+---
+
+#### **F. routes/ws.rs — Dispatch Logic Tangled with WebSocket I/O**
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs` (lines 33-438)
+
+```rust
+async fn run_ws(mut socket: WebSocket, state: AppState) {
+    // ... connection loop with select!
+    loop {
+        tokio::select! {
+            msg = socket.recv() => { dispatch_frame(...).await; }
+            Some(frame) = client_rx.recv() => { send_frame(...).await; }
+        }
+    }
+}
+```
+
+**Problems:**
+- **WebSocket I/O is embedded in business logic:**
+  - `send_frame()` (line 457) returns `Result<(), ()>` — errors silently dropped
+  - Dispatch functions like `handle_board()` (line 131) take `&mut socket` and call `send_frame()` inline
+  - Cannot unit-test routing logic without mocking async I/O
+- **Frame parsing is inside the loop** (line 100): `serde_json::from_str(text)` — no separated parser
+- **Services are called directly from dispatch:**
+  - Line 159: `services::board::join_board(state, board_id, client_id, client_tx.clone()).await`
+  - Cannot test "user joins → service hydrates → response sent" without full WebSocket mock
+- **State mutation is scattered across handlers** — `current_board: &mut Option<Uuid>` (line 55) is mutated by multiple handlers
+- **No integration between handlers** — each `handle_*` function is semi-independent, making behavior hard to reason about
+
+**Example:** `handle_ai()` (line 362) does:
+1. Check if board joined (line 369)
+2. Extract LLM (line 377)
+3. Call `services::ai::handle_prompt()` (line 396)
+4. Broadcast mutations (line 399-418)
+5. Send response (line 425)
+
+All mixed with WebSocket send calls; impossible to test without a mock socket.
+
+---
+
+### 3. DEPENDENCY INJECTION PATTERNS
+
+#### **What Exists:**
+- ✓ `Frame` has builder methods (`.with_board_id()`, `.with_data()`) — small testability win
+- ✓ `services/ai.rs` has pure functions like `build_system_prompt()` (line 176) and `execute_tool()` (line 207) — these ARE testable if you can inject the right state
+- ✓ `anthropic.rs` has `parse_response()` (line 99) as a **pure parsing function** — great for unit tests
+
+#### **What's Missing:**
+- ❌ **No traits** — everything is concrete structs
+- ❌ **No dependency injection** — functions take `AppState` or `PgPool` directly
+- ❌ **No builders or factories** — no way to construct partial/test versions of `AppState` or `LlmClient`
+- ❌ **No `#[cfg(test)]` test helpers** — no mock constructors anywhere
+- ❌ **No feature flags** for test builds
+- ❌ **Implicit dependencies** — most things are discovered at runtime (env vars, locks, async channels)
+
+---
+
+### 4. CARGO.toml ANALYSIS
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml` (lines 1-32)
+
+```toml
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+...
+
+[dev-dependencies]
+tokio-tungstenite = "0.26"
+```
+
+**Problems:**
+- ✓ `tokio` includes `full` features — good for tests
+- ❌ **NO mocking libraries:** missing `mockall`, `mockito`, `wiremock`
+- ❌ **NO test utilities:** missing `testcontainers` for database testing
+- ❌ **NO assertion helpers:** missing `assert_matches`, `proptest`
+- ❌ **Only 1 dev dependency** — `tokio-tungstenite` (for WebSocket client testing, but unused)
+
+---
+
+### 5. SUMMARY TABLE
+
+| Component | Testability | Issue | Severity |
+|-----------|-------------|-------|----------|
+| **frame.rs** | ✓ Good | Already has 8 tests | Low |
+| **state.rs** | ❌ Poor | `AppState` needs live PgPool + LlmClient | Critical |
+| **llm/mod.rs** | ❌ Poor | Concrete struct, reads env vars, no trait | Critical |
+| **llm/anthropic.rs** | ❌ Poor | Real HTTP client, no mock injection | Critical |
+| **services/ai.rs** | ❌ Poor | Depends on AppState + LlmClient, hard to mock | Critical |
+| **services/object.rs** | ❌ Poor | Takes AppState, implicit locking, DB calls | High |
+| **services/board.rs** | ❌ Poor | Direct PgPool dependency, no abstraction | High |
+| **routes/ws.rs** | ❌ Very Poor | I/O tangled with logic, mutable state scattered | Critical |
+| **services/cursor.rs** | ? Unknown | Not yet examined | — |
+| **services/persistence.rs** | ? Unknown | Not yet examined | — |
+
+---
+
+### 6. ROOT CAUSE ANALYSIS
+
+**Why is testability so poor?**
+
+1. **Architecture follows "Concrete Structs + Env Vars" pattern:**
+   - `LlmClient` reads `LLM_PROVIDER`, `LLM_API_KEY_ENV` at startup
+   - `AppState` wraps hard-to-construct types
+   - No room for test doubles
+
+2. **Ported from Prior ("kernel/src") without refactoring for testability:**
+   - Comments reference Prior's original design (e.g., "Ported from Prior's kernel/src/ws.rs")
+   - Design works for a monolithic backend but doesn't support modular testing
+
+3. **Heavy use of async + Arc + RwLock:**
+   - Makes mock injection harder (lifetimes, trait objects, Pin)
+   - State changes require `.write().await`, hard to intercept in tests
+
+4. **No separation of concerns in routes/ws.rs:**
+   - Frame I/O, parsing, routing, service calls all in one file
+   - Classic "can't test without integration test" trap
+
+---
+
+## 7. ACTIONABLE NEXT STEPS
+
+**High-Impact fixes (in priority order):**
+
+1. **Extract `LlmClient` trait** — Replace concrete `LlmClient` with:
+   ```rust
+   pub trait Llm: Send + Sync {
+       async fn chat(&self, ...) -> Result<ChatResponse, LlmError>;
+   }
+   ```
+   Allows injecting mock implementations.
+
+2. **Extract `BoardStore` trait** — Replace direct `PgPool` + `state.boards` access with:
+   ```rust
+   pub trait BoardStore: Send + Sync {
+       async fn load_board(&self, id: Uuid) -> Result<BoardState, Error>;
+       async fn save_object(&self, obj: &BoardObject) -> Result<(), Error>;
+   }
+   ```
+   Allows in-memory test implementations.
+
+3. **Decouple WebSocket I/O from routing logic** — Move frame dispatch into a separate `FrameRouter` trait:
+   ```rust
+   pub trait FrameRouter {
+       async fn dispatch(&self, frame: &Frame) -> Result<Frame, Error>;
+   }
+   ```
+   Test dispatch without socket mocks.
+
+4. **Add test doubles** in `Cargo.toml`:
+   - `mockall` for trait mocking
+   - `testcontainers` for Postgres in tests
+   - `tokio-test` for deterministic async testing
+
+5. **Extract `Config` struct** — Replace `LlmClient::from_env()` with dependency injection of a `Config` value.
+
+These changes would unlock unit testing for ~80% of the codebase.
+
+📋 --- Summary ---
+📋 Duration: 47s
+📋 Messages: 1 user, 7 assistant
+📋 Tool calls: 18 total, 1 failed
+📋 Files: 13 read
+📋 Tokens: 163 in, 58 out
+📋 Cache: 560.1K read, 131.3K created

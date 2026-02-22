@@ -1,0 +1,50 @@
+📋 Session: 019c6b4f-fda4-72d1-9130-99eb2b14ed58
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T11:15:30.340+00:00
+📋 CLI: codex 0.101.0
+📋 Branch: main
+
+👤 Find whether this repository has integration tests for the AI/LLM chat path. Identify test files, test names, and whether they truly hit the chat path end-to-end or only unit/mock layers. Return concise evidence with file paths and key lines.
+📋 Model: gpt-5.1-codex-mini
+✅ exec_command: {"cmd":"pwd"}
+✅ exec_command: {"cmd":"ls"}
+✅ exec_command: {"cmd":"echo 'Initial update: Reviewing repo structure to locate AI/LLM chat integration tests, starting with locating test files.'"}
+✅ exec_command: {"cmd":"rg --files | grep -i test"}
+✅ exec_command: {"cmd":"ls server"}
+✅ exec_command: {"cmd":"rg --files server/src | grep test"}
+✅ exec_command: {"cmd":"ls server/src"}
+✅ exec_command: {"cmd":"find server -maxdepth 4 -name '*test*' -print"}
+✅ exec_command: {"cmd":"ls client"}
+✅ exec_command: {"cmd":"rg --files client/src | grep -i test"}
+✅ exec_command: {"cmd":"find server -type d -name tests -print"}
+✅ exec_command: {"cmd":"find . -maxdepth 4 -type d -name tests"}
+✅ exec_command: {"cmd":"find client/src -maxdepth 5 -type d -name '__tests__'"}
+✅ exec_command: {"cmd":"cat client/package.json"}
+✅ exec_command: {"cmd":"rg -n \"#[\\w\\s]*test\" -n server/src"}
+✅ exec_command: {"cmd":"ls server/src/llm"}
+✅ exec_command: {"cmd":"ls server/src/routes"}
+✅ exec_command: {"cmd":"rg -n \"chat\" -n"}
+✅ exec_command: {"cmd":"rg -n \"\\#\\[cfg\\(test\\)\" -n server/src"}
+✅ exec_command: {"cmd":"echo 'Update: I have scanned for test annotations and identified #[cfg(test)] blocks in server modules such as services/ai.rs, llm/openai.rs, ...
+✅ exec_command: {"cmd":"sed -n '600,780p' server/src/services/ai.rs"}
+✅ exec_command: {"cmd":"sed -n '780,1100p' server/src/services/ai.rs"}
+✅ exec_command: {"cmd":"sed -n '1100,1400p' server/src/services/ai.rs"}
+✅ exec_command: {"cmd":"sed -n '500,720p' server/src/llm/openai.rs"}
+✅ exec_command: {"cmd":"sed -n '100,220p' server/src/llm/anthropic.rs"}
+✅ exec_command: {"cmd":"nl -ba server/src/services/ai.rs | sed -n '600,760p'"}
+✅ exec_command: {"cmd":"nl -ba server/src/services/ai.rs | sed -n '900,1180p'"}
+✅ exec_command: {"cmd":"nl -ba server/src/llm/openai.rs | sed -n '520,690p'"}
+✅ exec_command: {"cmd":"nl -ba server/src/llm/anthropic.rs | sed -n '100,220p'"}
+🤖 `server/src/services/ai.rs` defines the only tests that exercise the AI/chat service logic (`handle_prompt`, `execute_tool`, rate limiting, prompt wrapping, etc.). All of them instantiate the inline `MockLlm` (lines 642‑674) and pass it to `handle_prompt` (e.g., `handle_prompt_text_only`, `handle_prompt_with_tool_call`, `handle_prompt_rate_limited`, `handle_prompt_mutations_only_returns_text` around lines 916‑1134). Because `MockLlm::chat` simply returns the canned `ChatResponse` sequence you preload, these tests exercise the service and mutation plumbing but never invoke a real provider or the HTTP chat endpoints; the behaviour is entirely driven by the in‑process mock vectors.
+
+`server/src/llm/openai.rs` contains `parse_chat_completions_response`/`parse_responses_response` tests (`cc_parse_text_response`, `cc_parse_tool_call`, etc., lines 529‑635) that build synthetic JSON payloads and verify parsing logic. Likewise, `server/src/llm/anthropic.rs` has `parse_response` tests (lines 117‑210) that feed handcrafted JSON blobs and assert the filtering/decoding. Neither file issues outbound requests or makes use of the live `/chat/completions` or Anthropic endpoints.
+
+Conclusion: the repo only has unit- and service-level tests that rely on mocked/chat-response fixtures; there are no integration tests that exercise the AI/LLM chat path end-to-end against a real provider.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Model: gpt-5.1-codex-mini
+📋 Messages: 1 user, 1 assistant
+📋 Function calls: 29 total, 0 failed
+📋 Tokens: 432.3K in, 6.9K out
+📋 Cache: 356.1K read, 0 created

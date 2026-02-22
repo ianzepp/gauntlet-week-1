@@ -1,0 +1,197 @@
+📋 Session: f602000f-b41e-44b5-89c0-dbb9b0a1a3e2
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T13:11:20.989+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Explore the collaboard frontend at /Users/ianzepp/github/gauntlet/collaboard/client/src/ to understand:
+
+1. The current ToolRail component (left side rail) - read ToolRail.tsx and ToolRail.module.css fully
+2. The current RightPanel component - read RightPanel.tsx and RightPanel.module.css fully  
+3. The InspectorPanel component - read InspectorPanel.tsx fully
+4. The BoardPage layout - read pages/BoardPage.tsx fully
+5. The board store - check store/board.ts for any state related to left panel, right panel, tabs, inspector
+
+I need to understand how the right panel rail + expandable panel works so we can replicate the same pattern on the left side, moving the Inspector from the right to a new left panel.
+📋 Model: sonnet-4.5
+🤖 I'll read all the relevant files in parallel to give you a complete picture.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ Glob: pattern="/Users/ianzepp/github/gauntlet/collaboard/client/src/**/*.{tsx,ts,css}"
+🤖 Now let me read all the component files in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ToolRail.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ToolRail.module.css"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/RightPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/RightPanel.module.css"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.module.css"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+🤖 Here is a complete analysis of all the files you need to understand the right panel pattern and how to replicate it on the left side.
+
+---
+
+## Current Layout Structure (BoardPage.tsx)
+
+```
+<div column, height 100vh>
+  <Toolbar />
+  <div flex row, flex:1>
+    <ToolRail />                     ← left: 52px wide, tool buttons only
+    <div flex:1>
+      <Canvas />
+      <BoardStamp />
+    </div>
+    <RightPanel />                   ← right: rail (52px) + optional panel (320px)
+  </div>
+  <StatusBar />
+</div>
+```
+
+The canvas center area is sandwiched between `ToolRail` (left) and `RightPanel` (right). Both are `flex-shrink: 0`.
+
+---
+
+## ToolRail — What it currently is
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ToolRail.tsx`
+
+- A plain 52px column of tool buttons. No expand/collapse. No tabs. No panel.
+- Renders three `ToolGroup` sections separated by `<div className={styles.separator} />`.
+- Active tool shows a green 2px bar on the **left** edge via `::after` (i.e., `left: 0`).
+- SVG icons, 20x20, stroke-only.
+- No store-driven panel state — just reads `activeTool` and calls `setTool`.
+
+**CSS key points (`ToolRail.module.css`):**
+- `.rail`: `width: 52px`, `border-right: 1px solid var(--border-default)`, column flex.
+- `.toolButton.active::after`: accent bar on the **left** side (`left: 0`).
+- `.label` class exists in CSS but is never used in the TSX — dead code.
+
+---
+
+## RightPanel — The pattern to replicate
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/RightPanel.tsx`
+
+### Structure
+
+```tsx
+<div className={styles.wrapper}>        // flex row, height:100%
+  <div className={styles.rail}>         // 52px, border-left, flex column
+    {TABS.map(tab => <button ... />)}   // icon buttons for each tab
+    <div className={styles.railSpacer} />
+    <button className={styles.railToggle}>  // chevron toggle at bottom
+      {expanded ? <path d="M7 4 L13 10 L7 16" /> : <path d="M13 4 L7 10 L13 16" />}
+    </button>
+  </div>
+  {expanded && (
+    <div className={styles.panel}>      // 320px, border-left, flex column
+      <div className={styles.header}>   // 36px tall, title + close button
+        <span className={styles.title}>{activeTabLabel}</span>
+        <button onClick={collapseRightPanel}>✕</button>
+      </div>
+      <div className={styles.content}> // flex:1, overflow:hidden
+        {activeTab === "inspector" && <InspectorPanel />}
+        {activeTab === "ai" && <AiPanel />}
+        {activeTab === "chat" && <ChatPanel />}
+        {activeTab === "boards" && <MissionControl />}
+      </div>
+    </div>
+  )}
+</div>
+```
+
+### Tab toggle logic (click behavior)
+
+```ts
+const handleRailClick = (tabId: RightTab) => {
+  if (expanded && activeTab === tabId) {
+    collapseRightPanel();     // clicking the active tab collapses
+  } else {
+    expandRightPanel(tabId);  // clicking any other tab expands to that tab
+  }
+};
+```
+
+The bottom chevron button separately toggles expanded/collapsed without changing the active tab.
+
+### Auto-raise on selection
+
+```ts
+useEffect(() => {
+  if (selection.size > 0 && prevSelectionSize.current === 0) {
+    setRightTab("inspector");  // just switches tab, does NOT force expand
+  }
+  prevSelectionSize.current = selection.size;
+}, [selection.size, setRightTab]);
+```
+
+---
+
+## CSS key differences between ToolRail and RightPanel rail
+
+| Detail | ToolRail | RightPanel rail |
+|---|---|---|
+| Border | `border-right` | `border-left` |
+| Active bar position | `left: 0` | `right: 0` |
+| Wrapper | none (is the rail itself) | `.wrapper` flex row wraps rail + panel |
+| Panel expands | no | yes, to the left of the rail |
+| Toggle button | none | chevron at bottom of rail |
+
+---
+
+## Store state (store/board.ts)
+
+**Right-panel specific state:**
+```ts
+export type RightTab = "inspector" | "ai" | "boards" | "chat";
+
+activeRightTab: RightTab          // default: "ai"
+rightPanelExpanded: boolean       // default: true
+
+setRightTab(tab)                  // switch tab, no expand/collapse side effect
+expandRightPanel(tab)             // set expanded=true AND switch tab
+collapseRightPanel()              // set expanded=false
+```
+
+There is **no equivalent left-panel state** yet. You will need to add it.
+
+---
+
+## InspectorPanel
+
+**File:** `/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.tsx`
+
+- Self-contained. Takes no props. Reads from `useBoardStore` directly.
+- Renders: object kind, position (x/y), size (w/h/rotation), color swatches (sticky notes only), meta (id, z_index, version).
+- Has three states: empty (no selection), multi-select count, single object detail.
+- The `useIsDark()` helper reads `document.documentElement.classList.contains("dark-mode")` directly — no React state, called on render only (not reactive to theme changes).
+- Sends `object:update` syscalls through `frameClient` when color changes.
+
+---
+
+## What you need to build a LeftPanel (mirroring the right pattern)
+
+1. **Store additions** — add `LeftTab`, `activeLeftTab`, `leftPanelExpanded`, `setLeftTab`, `expandLeftPanel`, `collapseLeftPanel` to `board.ts`.
+
+2. **New `LeftPanel` component** — mirrors `RightPanel` but:
+   - `.wrapper` is `flex-direction: row-reverse` (or keep as `row` but put the rail on the right of the panel, so the panel expands rightward into the canvas... actually no — you want it to expand leftward, meaning the rail is on the RIGHT edge of the left panel block, and the panel content is to its left). Actually the simplest mirror is: rail on the left, panel expands to the right. Both sit to the left of the canvas.
+   - `.rail` gets `border-right` instead of `border-left`
+   - Active bar moves to `right: 0` (or keep `left: 0` to match ToolRail convention — your call)
+   - `.panel` gets `border-right` instead of `border-left`
+   - Chevron arrows are flipped (expand points right, collapse points left)
+   - Tabs include "inspector" (moved from RightPanel) plus whatever else belongs on the left
+
+3. **Remove Inspector from RightPanel** — delete the `"inspector"` entry from `TABS` in `RightPanel.tsx` and the `{activeTab === "inspector" && <InspectorPanel />}` render line.
+
+4. **Move ToolRail into LeftPanel** — the tool buttons can become a section within `LeftPanel`'s rail (always-visible, above the tab buttons), or the `ToolRail` can remain separate above the `LeftPanel`. The cleanest approach matching the right-side pattern would be to fold tool buttons into the left rail directly.
+
+5. **BoardPage.tsx** — swap `<ToolRail />` for `<LeftPanel />`.
+
+6. **Auto-raise** — move the `useEffect` that watches `selection.size` from `RightPanel` into `LeftPanel`, calling `expandLeftPanel("inspector")` instead.
+
+📋 --- Summary ---
+📋 Duration: 48s
+📋 Messages: 1 user, 3 assistant
+📋 Tool calls: 9 total, 0 failed
+📋 Files: 8 read
+📋 Tokens: 22.7K in, 18 out
+📋 Cache: 102.0K read, 61.7K created

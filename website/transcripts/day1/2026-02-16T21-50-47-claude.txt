@@ -1,0 +1,403 @@
+📋 Session: 3662effc-a1c0-4706-8dfc-726a462921ef
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-16T21:50:47.176+00:00
+📋 Version: 2.1.42
+📋 Branch: main
+
+👤 [Request interrupted by user for tool use]
+👤 Implement the following plan:
+
+# CollabBoard Frontend Scaffold — Implementation Plan
+
+## Context
+
+Scaffold the React + Vite + Konva.js frontend for CollabBoard in `client/`. The backend (Rust/Axum, WebSocket frame protocol) is already built. This plan targets:
+
+- **#14** (design system CSS) — fully
+- **#15** (project scaffold) — partial: Vite setup, types, stub login. No dashboard, no real auth, no REST client.
+- **#16** (canvas, sticky notes, shapes, toolbar) — fully
+- **#17** (frame client) — partial: mock mode only. No real WS, no cursors, no reconnect.
+
+**Key decisions:** Standalone frontend (no backend dependency), stub auto-login, BoardPage + canvas only, `bun` as package manager.
+
+---
+
+## Step 1: Project Init
+
+Create `client/` with Vite + React + TypeScript.
+
+**Files:**
+- `client/package.json` — deps: react, react-dom, konva, react-konva, zustand. devDeps: typescript, vite, @vitejs/plugin-react, @biomejs/biome, @types/react, @types/react-dom
+- `client/tsconfig.json` — strict, ESNext, react-jsx, bundler resolution
+- `client/biome.json` — K&R style, 4-space indent, double quotes, semicolons
+- `client/vite.config.ts` — react plugin, proxy `/api` to localhost:3000 (ready for later), WS proxy
+- `client/index.html` — mount point + Google Fonts (IBM Plex Mono + Caveat)
+- `client/.gitignore` — node_modules, dist
+
+**Run:** `cd client && bun install`
+
+**Verify:** `bun run dev` starts without errors
+
+---
+
+## Step 2: Design System CSS (#14)
+
+Implement full `docs/DESIGN.md` as CSS foundation.
+
+**File: `client/src/styles/global.css`**
+- `:root` — all light mode CSS variables from DESIGN.md (canvas, chrome, text, accents, borders, 8 object colors, 8 user colors, fonts, spacing, `--radius: 0`, `--shadow: none`)
+- `.dark-mode` — all dark mode overrides from DESIGN.md
+- Global reset: `* { box-sizing: border-box; margin: 0; padding: 0 }`
+- Body: `font-family: var(--font-mono)`, `font-size: 13px`, `background: var(--bg-primary)`, `color: var(--text-primary)`
+- Button/input reset: `border-radius: 0; box-shadow: none; outline: none`
+- Scrollbar: 8px, thumb in `--border-default`
+- Interactive transitions: 150ms ease
+
+**Dark mode logic** (in App.tsx, step 7):
+- Check `localStorage` for saved preference, fall back to `prefers-color-scheme`
+- Toggle adds/removes `.dark-mode` on `<html>`
+
+**Closes: #14**
+
+---
+
+## Step 3: Type Definitions
+
+Mirror backend types in TypeScript.
+
+**File: `client/src/lib/types.ts`**
+- `FrameStatus` — `"request" | "item" | "done" | "error" | "cancel"`
+- `Frame` — mirrors `src/frame.rs`: `{ id, parent_id, ts, board_id, from, syscall, status, data }`
+- `BoardObject` — mirrors `src/state.rs`: `{ id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version }`
+- `ObjectKind` — `"sticky_note" | "rectangle" | "ellipse" | "line" | "connector" | "text"`
+- `Presence` — `{ user_id, name, color, cursor: { x, y } | null }`
+- `Viewport` — `{ x, y, scale }`
+- `ToolType` — `"select" | "sticky" | "rectangle" | "ellipse"`
+
+Use `null` (not `undefined`) for optional fields to match Rust `Option<T>` serialization.
+
+---
+
+## Step 4: Zustand Store
+
+**File: `client/src/store/board.ts`**
+
+State:
+- `boardId: string | null`
+- `objects: Map<string, BoardObject>`
+- `presence: Map<string, Presence>`
+- `selection: Set<string>`
+- `viewport: Viewport` (default `{ x: 0, y: 0, scale: 1 }`)
+- `activeTool: ToolType` (default `"select"`)
+
+Actions:
+- `setBoardId`, `setObjects` (bulk), `addObject`, `updateObject`, `deleteObject`
+- `setPresence`, `removePresence`
+- `setSelection`, `toggleSelection`, `clearSelection`
+- `setViewport`, `setTool`
+
+Use immutable updates (new Map/Set on every mutation). Consumers use selectors to minimize re-renders.
+
+---
+
+## Step 5: Frame Client (Mock Mode)
+
+**File: `client/src/lib/frameClient.ts`**
+- `FrameClient` class with `mockMode: boolean` constructor param
+- `connect(url, ticket)` — in mock mode: log + dispatch fake `session:connected`
+- `send(frame)` — in mock mode: log only
+- `on(syscall, handler)` — register handler by syscall string
+- `off(syscall, handler)` — unregister
+- `disconnect()` — close WS if connected
+- Internal `dispatch(frame)` calls matching handlers
+
+**File: `client/src/hooks/useFrameClient.ts`**
+- Creates `FrameClient(mockMode=true)` on mount
+- Registers handlers: `object:created` → `addObject`, `object:updated` → `updateObject`, `object:deleted` → `deleteObject`
+- Cleans up on unmount
+- Returns client ref (for sending frames from components)
+
+---
+
+## Step 6: Stub Login Page
+
+**File: `client/src/pages/LoginPage.tsx`**
+- Centered layout, dark background (`--bg-nav`)
+- Shows "LOGIN WITH GITHUB" button styled per DESIGN.md (IBM Plex Mono, uppercase, no radius)
+- On click: auto-login with fake user `{ id: crypto.randomUUID(), name: "Demo User" }`
+- Stores user in `localStorage("collaboard_user")`
+- Calls `onLogin(user)` callback
+
+Styled with design system variables, not hardcoded colors.
+
+---
+
+## Step 7: App + Main Wiring
+
+**File: `client/src/main.tsx`**
+- Import `global.css`, render `<App />` in `StrictMode`
+
+**File: `client/src/App.tsx`**
+- Check `localStorage` for existing user → skip login
+- If no user → show `LoginPage`
+- If user → show `BoardPage` with hardcoded demo boardId
+- Initialize dark mode from localStorage / `prefers-color-scheme`
+- Initialize `useFrameClient(mockMode=true)`
+
+---
+
+## Step 8: BoardPage + Toolbar
+
+**File: `client/src/pages/BoardPage.tsx`**
+- Flexbox column: `<Toolbar />` (44px fixed) + `<Canvas />` (flex: 1)
+- Sets `boardId` in Zustand on mount
+
+**File: `client/src/components/Toolbar.tsx`**
+- 44px height, `--bg-nav` background
+- Tool buttons: Select, Sticky, Rectangle, Ellipse
+- Each button: icon character + label (IBM Plex Mono 10px uppercase)
+- Active tool: `--text-nav-active` color + 2px bottom border `--accent-green`
+- Inactive: `--text-nav` color
+- 1px vertical separators between tool groups
+- Right side: dark mode toggle button
+
+**File: `client/src/components/Toolbar.module.css`**
+
+---
+
+## Step 9: Konva Canvas with Grid
+
+**File: `client/src/canvas/Canvas.tsx`**
+- Konva `Stage` filling canvas area (use `useCanvasSize` hook)
+- Background color: `--canvas-bg` (set via Stage container style)
+- Grid layer (`listening={false}`): 20px line grid, every 5th line (100px) heavier
+- Object layer: renders objects from Zustand store by `kind`
+- Stage props: `scaleX/Y` = viewport.scale, `x/y` = viewport offset
+- Pan: wheel event or middle-click drag → update viewport
+- Zoom: ctrl+wheel → update viewport scale
+- Click empty canvas → `clearSelection()`
+- Click canvas with creation tool active → create object at click position
+
+**File: `client/src/hooks/useCanvasSize.ts`**
+- Returns `{ width, height }` tracking window resize
+- Height = `window.innerHeight - 44` (toolbar)
+
+**Object creation logic (in Canvas):**
+- If `activeTool` is `sticky`: create `BoardObject` with `kind: "sticky_note"`, default 200x200, random color from 8 palette options, slight random rotation (±2°)
+- If `activeTool` is `rectangle`/`ellipse`: create with `kind` matching tool, default 100x100
+- Add to store via `addObject`, switch tool back to `select`
+
+---
+
+## Step 10: StickyNote Component
+
+**File: `client/src/canvas/StickyNote.tsx`**
+- `React.memo` wrapped
+- Konva `Group` (x, y, rotation, draggable)
+- `Rect`: fill = `props.color` (default cream `#F5F0E8`), 1px darker border, no border-radius
+- `Text`: Caveat 20px, `--text-primary` color, 8px padding, word wrap
+- Drag: update object position in store on `dragEnd`
+- Click: select object
+- Double-click: open text editing overlay (DOM `<textarea>` positioned over the note)
+
+**File: `client/src/canvas/TextEditor.tsx`**
+- Absolute-positioned `<textarea>` overlaying the canvas at object's screen position
+- Caveat font, matches note size
+- On blur or Escape: save text to `props.text`, close editor
+- On Enter (no shift): save and close
+
+---
+
+## Step 11: Shape Component
+
+**File: `client/src/canvas/Shape.tsx`**
+- `React.memo` wrapped
+- Konva `Group` (x, y, rotation, draggable)
+- `kind === "rectangle"`: `Rect` with 1px stroke `#8A8178`, no fill, sharp corners
+- `kind === "ellipse"`: `Ellipse` centered in bounding box, 1px stroke, no fill
+- Selected: stroke changes to `#2C2824`, 2px width
+- Drag/click behavior same as StickyNote
+
+---
+
+## File Structure
+
+```
+client/
+├── package.json
+├── tsconfig.json
+├── biome.json
+├── vite.config.ts
+├── index.html
+├── .gitignore
+└── src/
+    ├── main.tsx
+    ├── App.tsx
+    ├── lib/
+    │   ├── types.ts
+    │   └── frameClient.ts
+    ├── store/
+    │   └── board.ts
+    ├── hooks/
+    │   ├── useCanvasSize.ts
+    │   └── useFrameClient.ts
+    ├── pages/
+    │   ├── LoginPage.tsx
+    │   ├── BoardPage.tsx
+    │   └── BoardPage.module.css
+    ├── components/
+    │   ├── Toolbar.tsx
+    │   └── Toolbar.module.css
+    ├── canvas/
+    │   ├── Canvas.tsx
+    │   ├── StickyNote.tsx
+    │   ├── Shape.tsx
+    │   └── TextEditor.tsx
+    └── styles/
+        └── global.css
+```
+
+## Verification
+
+1. `cd client && bun install` — installs without errors
+2. `bun run dev` — Vite dev server starts
+3. Browser loads → stub login → click → BoardPage renders
+4. Canvas shows with grid background
+5. Click canvas with sticky tool → sticky note appears
+6. Drag sticky note → position updates
+7. Double-click sticky note → text editor opens
+8. Click rectangle/ellipse tools → create shapes
+9. Click objects → selection border appears
+10. Dark mode toggle → colors switch
+11. `bunx biome check .` — no lint errors
+
+## Issues Addressed
+
+| Issue | Coverage |
+|-------|----------|
+| #14 Design system CSS | **Full** — all variables, fonts, dark mode, rules |
+| #15 Project scaffold | **Partial** — Vite, types, stub login. No dashboard, routing, REST client, real auth |
+| #16 Canvas + objects | **Full** — Konva canvas, grid, sticky notes, shapes, toolbar, Zustand store |
+| #17 Frame client | **Partial** — mock mode client + hook. No real WS, cursors, presence, reconnect |
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/ianzepp/.claude/projects/-Users-ianzepp-github-gauntlet-collaboard/3662effc-a1c0-4706-8dfc-726a462921ef.jsonl
+📋 Model: opus-4.6
+🤖 I'll implement this plan step by step. Let me start by reading the design system spec, then create all the files.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/docs/DESIGN.md"
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/
+🤖 Good, I have the design spec. Now let me create all the files. I'll work through the steps systematically.
+✅ TaskCreate: {"activeForm":"Creating project scaffold","description":"Step 1: package.json, tsconfig, biome.json, vite.config, index.html, .gitignore + bun install...
+✅ TaskCreate: {"activeForm":"Creating design system CSS","description":"Step 2: global.css with all CSS variables from DESIGN.md","subject":"Create design system CS...
+✅ TaskCreate: {"activeForm":"Creating types and store","description":"Steps 3-4: types.ts and board store","subject":"Create type definitions and Zustand store"}
+✅ TaskCreate: {"activeForm":"Creating frame client","description":"Step 5: frameClient.ts, useFrameClient.ts, useCanvasSize.ts","subject":"Create frame client and h...
+✅ TaskCreate: {"activeForm":"Creating pages and components","description":"Steps 6-8: LoginPage, App, main, BoardPage, Toolbar","subject":"Create pages and componen...
+✅ TaskCreate: {"activeForm":"Creating canvas components","description":"Steps 9-11: Canvas, StickyNote, Shape, TextEditor","subject":"Create canvas and object compo...
+✅ TaskCreate: {"activeForm":"Installing and verifying","description":"Run bun install, bun run dev, biome check","subject":"Install dependencies and verify"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"1"}
+✅ Bash: mkdir -p /Users/ianzepp/github/gauntlet/collaboard/client/src/{lib,store,hooks,pages,components,canvas,styles}
+🤖 Now let me create all the scaffold files in parallel:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/package.json"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/tsconfig.json"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/biome.json"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/index.html"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/.gitignore"
+✅ TaskUpdate: {"status":"completed","taskId":"1"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"2"}
+🤖 Now the design system CSS:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/styles/global.css"
+✅ TaskUpdate: {"status":"completed","taskId":"2"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"3"}
+🤖 Now types and store:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+✅ TaskUpdate: {"status":"completed","taskId":"3"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"4"}
+🤖 Now frame client and hooks:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useCanvasSize.ts"
+✅ TaskUpdate: {"status":"completed","taskId":"4"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"5"}
+🤖 Now pages and components:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.module.css"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/main.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ TaskUpdate: {"status":"completed","taskId":"5"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"6"}
+🤖 Now the canvas and object components:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/TextEditor.tsx"
+✅ TaskUpdate: {"status":"completed","taskId":"6"}
+✅ TaskUpdate: {"status":"in_progress","taskId":"7"}
+🤖 Now install dependencies and verify:
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard/client && bun install
+🤖 Good. Now let me check for TypeScript errors:
+❌ Bash: bunx tsc --noEmit 2>&1
+🤖 Need CSS modules type declaration:
+✅ Write: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/vite-env.d.ts"
+✅ Bash: bunx tsc --noEmit 2>&1
+🤖 Clean. Now lint:
+❌ Bash: bunx biome check . 2>&1
+🤖 Let me auto-fix the formatting issues and address the lint errors:
+❌ Bash: bunx biome check --write --unsafe . 2>&1
+🤖 Two remaining issues. Let me fix the array index key and the non-null assertion:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/main.tsx"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+✅ Edit: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/main.tsx"
+✅ Bash: bunx biome check . 2>&1 && bunx tsc --noEmit 2>&1
+🤖 All clean. Let me do a quick dev server test:
+✅ Bash: timeout 5 bun run dev 2>&1 || true
+✅ TaskUpdate: {"status":"completed","taskId":"7"}
+🤖 All done. Here's a summary of what was created:
+
+**`client/` — 18 files created:**
+
+| File | Purpose |
+|------|---------|
+| `package.json` | React 19 + Konva + Zustand + Vite + Biome |
+| `tsconfig.json` | Strict TS, ESNext, react-jsx |
+| `biome.json` | 4-space, double quotes, semicolons |
+| `vite.config.ts` | React plugin, API/WS proxy ready |
+| `index.html` | Mount point + IBM Plex Mono + Caveat fonts |
+| `src/styles/global.css` | Full design system: light/dark CSS vars, reset, scrollbar |
+| `src/lib/types.ts` | Frame, BoardObject, Presence, Viewport, ToolType |
+| `src/lib/frameClient.ts` | Mock-mode FrameClient with event dispatch |
+| `src/store/board.ts` | Zustand store: objects, selection, viewport, tool |
+| `src/hooks/useFrameClient.ts` | Wires FrameClient events to store |
+| `src/hooks/useCanvasSize.ts` | Window resize tracking (minus toolbar) |
+| `src/main.tsx` | Entry point |
+| `src/App.tsx` | Auth gate + dark mode init |
+| `src/pages/LoginPage.tsx` | Stub auto-login with demo user |
+| `src/pages/BoardPage.tsx` | Toolbar + Canvas layout |
+| `src/components/Toolbar.tsx` | Tool buttons (Select/Sticky/Rect/Ellipse) + dark mode toggle |
+| `src/canvas/Canvas.tsx` | Konva Stage with grid, pan/zoom, object creation |
+| `src/canvas/StickyNote.tsx` | Draggable sticky with color, text, inline editing |
+| `src/canvas/Shape.tsx` | Rectangle + Ellipse with selection highlight |
+| `src/canvas/TextEditor.tsx` | DOM textarea overlay for note editing |
+
+**Verification:** TypeScript compiles clean, Biome passes with zero errors, Vite dev server starts successfully.
+👤 please commit just your changes.
+✅ Bash: cd /Users/ianzepp/github/gauntlet/collaboard && git status
+✅ Bash: git diff --stat
+✅ Bash: git log --oneline -5
+🤖 I'll only commit the `client/` directory — the PDF move and `.DS_Store` are pre-existing changes unrelated to my work.
+✅ Bash: git add client/
+✅ Bash: git commit -m "$(cat <<'EOF' ↵ Add React + Vite + Konva frontend scaffold for CollabBoard ↵  ↵ Standalone client/ with design system CSS (light/dark), Zustand store, ↵ mock frame client, stub login, toolbar, ...
+✅ Bash: git status
+🤖 Committed as `3a8c060` — only the `client/` directory (24 files, 1630 insertions). The pre-existing PDF move and `.DS_Store` remain uncommitted.
+
+📋 --- Summary ---
+📋 Duration: 6m
+📋 Messages: 3 user, 18 assistant
+📋 Tool calls: 64 total, 3 failed
+📋 Files: 3 read, 23 written, 2 edited
+📋 Tokens: 94 in, 4.2K out
+📋 Cache: 3.2M read, 95.7K created

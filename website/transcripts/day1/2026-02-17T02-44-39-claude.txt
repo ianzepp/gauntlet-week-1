@@ -1,0 +1,357 @@
+📋 Session: 170e69ac-cc65-4c37-ac66-d45c66470e61
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-17T02:44:39.249+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Explore the /Users/ianzepp/github/gauntlet/collaboard/client/ directory thoroughly. I need a comprehensive overview of:
+
+1. Project setup: package.json, tsconfig, build tool, framework
+2. Directory structure: what are the main folders and their purposes
+3. Key architectural patterns: state management, routing, component organization
+4. How real-time/WebSocket communication works
+5. Main features implemented (canvas, boards, auth, etc.)
+6. Any notable patterns, custom hooks, or utilities
+
+Be very thorough - read key files to understand the architecture, not just list file names. Provide a detailed summary.
+📋 Model: haiku-4.5
+🤖 I'll conduct a thorough exploration of the collaboard client directory. Let me start by examining the project setup and structure.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/package.json"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client -type f -name "tsconfig*" -o -name "bunfig*" | head -20
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/client/ | head -30
+🤖 Now let me examine the configuration files and directory structure:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/tsconfig.json"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/vite.config.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/biome.json"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client/src -type d | head -30
+🤖 Let me get a detailed overview of the source structure:
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client/src -type f -name "*.ts" -o -name "*.tsx" | sort
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/client/src/
+🤖 Now let me read the key files to understand the architecture:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/main.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/App.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/types.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/store/board.ts"
+🤖 Now let me examine the core library files for WebSocket/FrameClient and API:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/frameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/lib/api.ts"
+🤖 Now let me examine the hooks and main page components:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useFrameClient.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useAI.ts"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/hooks/useCanvasSize.ts"
+🤖 Now let me examine the pages and main canvas/components:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/BoardPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/pages/LoginPage.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Canvas.tsx"
+🤖 Now let me examine the component files:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/StickyNote.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/Shape.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/Toolbar.tsx"
+🤖 Let me continue examining components:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/RightPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/AiPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/ToolRail.tsx"
+🤖 Let me examine more components and check the styles:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/InspectorPanel.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/StatusBar.tsx"
+✅ Bash: ls -la /Users/ianzepp/github/gauntlet/collaboard/client/src/styles/
+🤖 Let me check the global styles and remaining components:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/styles/global.css"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/BoardStamp.tsx"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/canvas/TextEditor.tsx"
+🤖 Let me check the remaining components:
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/src/components/UserFieldReport.tsx"
+✅ Bash: find /Users/ianzepp/github/gauntlet/collaboard/client/src/components -name "*.module.css" | head -10
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/client/index.html"
+🤖 Now let me verify the structure with a summary view:
+✅ Bash: tree -L 2 /Users/ianzepp/github/gauntlet/collaboard/client/src --dirsfirst
+🤖 Perfect! Now I have a comprehensive understanding of the codebase. Let me create a detailed summary.
+
+## Comprehensive Overview of Collaboard Client Architecture
+
+### 1. Project Setup
+
+**Build Tool & Framework:**
+- **Frontend Framework**: React 19.0.0
+- **Build Tool**: Vite 6.0.0
+- **Package Manager**: Bun (as per project conventions)
+- **Language**: TypeScript 5.7.0
+- **State Management**: Zustand 5.0.3
+
+**Configuration Files:**
+- `tsconfig.json`: ESNext target, JSX support, strict mode enabled
+- `vite.config.ts`: Includes React plugin with dev server proxies for `/api`, `/auth`, and `/ws` endpoints (pointing to `http://localhost:3000` for HTTP, `ws://localhost:3000` for WebSocket)
+- `biome.json`: Code formatting and linting with Biome (indent 4, double quotes, semicolons)
+
+**Fonts**: IBM Plex Mono (primary), Caveat (script/handwriting style for sticky notes)
+
+---
+
+### 2. Directory Structure
+
+```
+src/
+├── canvas/              # Canvas rendering & drawing components
+├── components/          # UI components (toolbar, panels, rails)
+├── hooks/              # Custom React hooks (frame client, AI, canvas sizing)
+├── lib/                # Core libraries (API, WebSocket, types)
+├── pages/              # Page-level components (Board, Login)
+├── store/              # Global state management (Zustand)
+├── styles/             # Global CSS variables and base styles
+├── App.tsx             # Root component with auth & routing
+└── main.tsx            # React DOM entry point
+```
+
+---
+
+### 3. Key Architectural Patterns
+
+#### A. State Management (Zustand)
+**File**: `/src/store/board.ts`
+
+Central store (`useBoardStore`) manages:
+- **Canvas State**: Objects (Map<id, BoardObject>), selection (Set), viewport (x, y, scale)
+- **User State**: Current user, presence of remote users (Map<userId, Presence>)
+- **Tool State**: Active tool (select, sticky, rectangle, ellipse, etc.)
+- **Connection State**: WebSocket connection status, frame client reference
+- **UI State**: Right panel visibility, active tab (Inspector/AI), AI messages & loading state
+
+**Key mutations**: Add/update/delete objects, manage selection, broadcast presence, handle AI messages
+
+#### B. Component Organization
+
+**Pages** (`/src/pages/`):
+- `BoardPage`: Main workspace - orchestrates canvas + toolbar + panels + tool rail
+- `LoginPage`: GitHub OAuth entry point
+
+**Canvas Components** (`/src/canvas/`):
+- `Canvas`: Main Konva Stage - handles viewport, zoom, pan, object rendering, cursor tracking
+- `StickyNote`: Individual sticky note with drag/transform/edit capabilities
+- `Shape`: Rectangle and ellipse shapes with transform handling
+- `TextEditor`: Fixed-position textarea for editing note content (scaled with viewport)
+
+**UI Components** (`/src/components/`):
+- `Toolbar`: Top bar with board name, user presence chips, AI button, dark mode toggle
+- `ToolRail`: Left sidebar with tool buttons (select, shapes, draw tools)
+- `RightPanel`: Tabbed side panel (Inspector for object properties, AI for Field Notes)
+- `InspectorPanel`: Shows position, size, rotation, color picker for selected objects
+- `AiPanel`: Chat-like interface for AI prompts with response streaming
+- `StatusBar`: Bottom bar with connection status, object count, zoom level, user chips
+- `BoardStamp`: "Station Log" overlay showing board metadata
+- `UserFieldReport`: Popover with user profile stats
+
+---
+
+### 4. Real-Time & WebSocket Communication
+
+#### Frame-Based Protocol
+**File**: `/src/lib/frameClient.ts`
+
+Custom `FrameClient` class implements a frame-based messaging system:
+
+```typescript
+interface Frame {
+  id: string;              // Unique frame ID
+  parent_id: string | null; // Links child frames to parent requests
+  ts: number;              // Timestamp
+  board_id: string | null; // Board context
+  from: string | null;     // Originating user
+  syscall: string;         // Operation type (e.g., "object:create", "cursor:moved")
+  status: "request" | "item" | "done" | "error" | "cancel";
+  data: Record<string, unknown>;
+}
+```
+
+**Syscalls** (RPC-style operations):
+- `session:connected` / `session:disconnected`: Connection lifecycle
+- `board:join`: Join a board (receives array of BoardObjects)
+- `object:create`, `object:update`, `object:deleted`: Object mutations
+- `cursor:moved`: Real-time cursor tracking (throttled to 50ms)
+- `ai:prompt`: Send AI prompt, receive streaming responses
+
+**Mock Mode**: Can operate without WebSocket (for testing)
+
+#### Connection Setup
+**File**: `/src/hooks/useFrameClient.ts`
+
+1. Creates FrameClient instance on app load
+2. Obtains WebSocket ticket via `/api/auth/ws-ticket` (HTTP)
+3. Connects to `/api/ws` with ticket parameter
+4. Registers frame handlers for all syscalls
+5. Subscribes to updates (objects, presence, connection status)
+6. Broadcasts board:join when boardId is set
+
+---
+
+### 5. Main Features Implemented
+
+#### Canvas & Drawing
+- **Grid system**: 20px minor grid, 100px major grid (adaptive scaling with zoom)
+- **Pan & Zoom**: Mouse wheel (Ctrl+scroll for zoom, plain scroll for pan)
+- **Object types**: Sticky notes, rectangles, ellipses
+- **Transformations**: Drag to move, transform handles for scale/rotate
+- **Selection**: Single/multi-select with transformer widget
+- **Real-time collaboration**: Remote cursors with user names/colors
+
+#### Sticky Notes
+- **Colors**: 8 preset colors (Cream, Sage, Terracotta, Slate, Dust, Gold, Stone, Moss)
+- **Rotation**: Slight random tilt on creation
+- **Text editing**: Double-click to inline edit with auto-scaling textarea
+- **Font**: Caveat (handwriting style)
+- **Persistence**: Updates sent to server on drag/transform/text change
+
+#### Object Management
+- **Temporary IDs**: Optimistically created locally with UUID, replaced with server ID on response
+- **Version tracking**: Each object has version field for conflict detection
+- **Selective sync**: Only non-cursor frames logged; cursor frames are high-frequency
+- **Z-index**: Objects ordered by creation sequence
+
+#### Authentication
+- **GitHub OAuth**: Redirect to `/auth/github` on login
+- **User data**: Fetched from `/api/auth/me` with credentials
+- **Sessions**: Ticket-based WebSocket auth for real-time channel
+
+#### AI Integration
+- **Endpoint**: `ai:prompt` syscall over WebSocket
+- **Streaming**: Supports `item` frames with partial responses
+- **Mutations**: AI can modify objects (count reported in response)
+- **Error handling**: Graceful fallback for connection/error states
+- **Chat UI**: Persists conversation history with role indicators
+
+#### Presence & Collaboration
+- **User tracking**: Live presence map (userId → cursor + metadata)
+- **Cursor indicators**: Remote cursors rendered as arrows with user labels
+- **Color coding**: Each user has distinct color from palette
+- **User profiles**: Popover with stats (transmissions, objects created, boards active, top syscalls)
+
+#### Inspector Panel
+- **Property display**: Position (X, Y), size (W, H), rotation, z-index, version
+- **Color picker**: 8 swatches for sticky notes (light/dark mode variants)
+- **Multi-select**: Shows count when multiple objects selected
+
+#### Dark Mode
+- **Theme switching**: Toggle via toolbar button
+- **Persistence**: Stored in localStorage
+- **System preference**: Respects prefers-color-scheme on first load
+- **CSS variables**: Complete color palette override (:root vs .dark-mode)
+
+---
+
+### 6. Notable Patterns & Custom Hooks
+
+#### useFrameClient Hook
+- Initializes WebSocket connection once on mount
+- Registers frame handlers for all syscalls
+- Returns ref for manual frame sending
+- Cleanup disconnects and clears handlers
+
+#### useAI Hook
+- Wraps prompt sending with request tracking
+- Uses parent_id to correlate responses
+- Manages loading state and message accumulation
+- Handles streaming item frames
+
+#### useCanvasSize Hook
+- Calculates canvas dimensions accounting for chrome (toolbar 36px, status bar 24px, tool rail 52px)
+- Updates on window resize
+
+#### sendObjectUpdate Pattern
+- Shared utility in StickyNote and Shape components
+- Sends optimistic updates to store first
+- Then sends frame over WebSocket
+- Updates include version for conflict detection
+
+#### Optimistic UI
+- Objects created locally with temp UUID before server confirmation
+- `replaceObjectId` store action swaps temp ID with server ID
+- Selection preserved across ID swap
+
+#### Viewport Management
+- Canvas position/scale stored in state
+- All rendering coordinates adjusted by viewport
+- Remote cursors and grid adapt to zoom level
+
+---
+
+### 7. Styling Architecture
+
+**File**: `/src/styles/global.css`
+
+**Design System**:
+- **Color palette**: 8 note colors + user colors (0-7) + semantic colors
+- **Light mode** (default): Warm beige/tan palette
+- **Dark mode**: Deep charcoal/slate palette
+- **CSS variables**: Complete theming via --color-name convention
+- **No framework**: Pure CSS with variables (no Tailwind, Material, etc.)
+
+**Typography**:
+- Monospace (IBM Plex Mono) for UI
+- Script font (Caveat) for handwritten notes
+
+**Spacing**: --space-xs (4px) through --space-xl (32px)
+
+**Module CSS**: Each component has `.module.css` for scoped styles
+
+---
+
+### 8. API Surface
+
+**HTTP Endpoints** (in `/src/lib/api.ts`):
+- `GET /api/auth/me`: Fetch current user
+- `POST /api/auth/logout`: Sign out
+- `POST /api/auth/ws-ticket`: Obtain WebSocket ticket
+- `GET /api/users/{userId}/profile`: Fetch user stats/activity
+
+**WebSocket Syscalls**:
+- All operations flow through `/api/ws` with request/item/done/error frames
+- Streaming support for AI responses
+- Request/response pairing via parent_id
+
+---
+
+### 9. Type System
+
+**Core Types** (`/src/lib/types.ts`):
+- `Frame`: WebSocket message structure
+- `BoardObject`: Canvas object with position, size, kind, props
+- `Presence`: Remote user cursor + metadata
+- `Viewport`: Camera position and scale
+- `ToolType`: Union of available tools
+- `User` & `UserProfile`: Auth and stats
+- `FrameStatus`: Message lifecycle stages
+
+---
+
+### 10. Performance Optimizations
+
+1. **Cursor throttling**: 50ms minimum interval between cursor:moved frames
+2. **Selective logging**: Cursor frames skip console logs (high volume)
+3. **Memoization**: Objects/presence lists memoized to prevent re-renders
+4. **Konva refs**: Node map tracks Konva objects for transformer attachment
+5. **Event delegation**: Canvas click handler filters for empty vs. filled areas
+6. **Grid memoization**: GridLines component memoizes line array based on viewport
+
+---
+
+### 11. Development Workflow
+
+**Build & Run**:
+- `bun install`: Install dependencies
+- `bun run dev`: Start Vite dev server with HMR
+- `bun run build`: TypeScript check + Vite build to dist/
+- `bun run lint`: Biome check
+- `bun run lint:fix`: Auto-fix formatting
+
+**Type Safety**: Strict TypeScript with ESNext target
+
+---
+
+This architecture demonstrates a production-grade real-time collaborative app with clean separation of concerns: canvas rendering (Konva), state management (Zustand), WebSocket communication (custom frame protocol), and a polished UI with dark mode support and comprehensive feature set for board collaboration and AI integration.
+
+📋 --- Summary ---
+📋 Duration: 57s
+📋 Messages: 1 user, 14 assistant
+📋 Tool calls: 37 total, 0 failed
+📋 Files: 29 read
+📋 Tokens: 339 in, 76 out
+📋 Cache: 1.3M read, 158.3K created

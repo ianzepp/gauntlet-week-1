@@ -625,6 +625,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--gap-lg);
+  padding: var(--gap-md);
 }
 
 /* --- Timeline Log Panel (left panel) --- */
@@ -861,19 +862,22 @@ body {
 }
 
 .carousel-arrow {
-  width: 32px;
-  height: 32px;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 50%;
+  border-radius: 4px;
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   flex-shrink: 0;
   z-index: 5;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .carousel-arrow:hover {

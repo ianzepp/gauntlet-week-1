@@ -1,0 +1,269 @@
+📋 Session: c3f0f906-d2c0-437e-b657-69a971801121
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-19T20:32:33.828+00:00
+📋 Version: 2.1.47
+📋 Branch: main
+
+👤 Explore the gauntlet-week-1 project thoroughly. I need to understand:
+
+1. What the project actually does — read the server crate's main files, routes, handlers, and any design docs
+2. What the canvas crate does — read its lib.rs and key modules
+3. Any design docs (especially konva-rust-revised.md)
+4. The frontend — check for any HTML, JS, CSS files in the server or static directories
+5. The Dockerfile and docker-compose if any
+6. Cargo.toml files for both workspace root, server, and canvas
+
+Give me a comprehensive summary of what this project is, what it does, its tech stack, and any notable features.
+📋 Model: sonnet-4.6
+🤖 I'll explore the project thoroughly by reading all the key files in parallel.
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1
+✅ Glob: pattern="**/*.toml" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Glob: pattern="**/*.md" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/README.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/Dockerfile"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/docker-compose.yml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/Cargo.toml"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/state.rs"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ && ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ && ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/...
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/lib.rs"
+🤖 Now let me read the canvas modules and the design docs:
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/engine.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src/camera.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/docs/konva-rust-revised.md"
+🤖 Now let me read the remaining key areas — the client frontend, frames crate, services, and the LLM integration:
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/ && ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/ && ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/public/ 2>/dev/null; ls...
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/app.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib.rs"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/pages/ && ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/components/ && ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/client...
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/tools.rs"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/ | head -20
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/001_users.sql"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/002_boards.sql"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/db/migrations/003_board_objects.sql"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/net/frame_client.rs"
+🤖 I now have a thorough picture of the entire project. Here is a comprehensive summary:
+
+---
+
+## CollabBoard — Project Summary
+
+### What It Is
+
+CollabBoard is a **real-time collaborative whiteboard application** with AI-assisted editing. It is a Gauntlet Week 1 portfolio project built entirely in Rust, running both server-side and in the browser via WebAssembly.
+
+---
+
+### Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Rust, Axum 0.8, SQLx 0.8, PostgreSQL |
+| Frontend | Leptos 0.8 (SSR + WASM hydration), Rust compiled to WASM |
+| Canvas engine | Rust `canvas` crate (WASM, imperative engine) |
+| Wire protocol | Binary protobuf via `prost`, shared `frames` crate |
+| Auth | GitHub OAuth + session cookies + one-time WS tickets |
+| AI | Anthropic (Claude) or OpenAI (configurable), tool-calling |
+| Build | `cargo-leptos` for integrated server + WASM build |
+| Deployment | Docker + docker-compose, PostgreSQL 16 |
+
+---
+
+### Workspace Layout (5 Crates)
+
+```
+server/   — Axum backend: HTTP routes, WebSocket handler, DB, AI service
+client/   — Leptos frontend: SSR + WASM hydration, pages, components, net
+canvas/   — WASM canvas engine: input FSM, doc store, camera, hit-testing
+frames/   — Shared wire types + protobuf codec (used by both server and client)
+perf/     — Live end-to-end performance/load test harness
+```
+
+---
+
+### Server Crate (`server`)
+
+**Main responsibilities:**
+- Boots from `DATABASE_URL`, connects to Postgres, runs auto-migrations
+- Optionally initializes LLM (Anthropic or OpenAI) and GitHub OAuth
+- Starts background workers: object dirty-flush loop + async frame persistence queue
+- Serves the Axum + Leptos integrated app on a single port (default 3000)
+
+**Routes:**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /auth/github` | GitHub OAuth redirect |
+| `GET /auth/github/callback` | OAuth callback, sets session cookie |
+| `GET /api/auth/me` | Fetch current user |
+| `POST /api/auth/ws-ticket` | Issue one-time WS upgrade ticket |
+| `POST /api/dev/ws-ticket` | Dev bypass ticket (when `PERF_TEST_AUTH_BYPASS=true`) |
+| `GET /api/ws?ticket=...` | WebSocket upgrade |
+| `GET /api/users/:id/profile` | User profile |
+| `GET /healthz` | Health check |
+
+**WebSocket frame dispatch (syscall prefixes):**
+
+- `board:*` — join, part, create, list, delete, users list, savepoint create/list
+- `object:*` — create, update, delete, drag (ephemeral), drag:end
+- `cursor:*` — moved, clear (ephemeral, not persisted)
+- `chat:*` — message (broadcast), history (query frames table)
+- `ai:*` — prompt (LLM tool loop), history
+
+**Database schema (6 migrations):**
+- `users` — UUID PK, github_id, name, avatar_url, color
+- `boards` — UUID PK, name, owner_id FK
+- `board_objects` — UUID PK, board_id FK, kind (text), x/y/width/height/rotation, z_index, props (JSONB), version
+- `frames` — persisted frame event log (all non-ephemeral frames)
+- `sessions` — session cookies + one-time WS tickets
+- `board_savepoints` — named/auto savepoints of board state
+
+**Application state (`AppState`):**
+- `PgPool` for DB
+- `Arc<RwLock<HashMap<Uuid, BoardState>>>` — in-memory live board states (objects + connected clients + dirty set)
+- `Arc<RwLock<HashMap<Uuid, Sender<Frame>>>>` — global WS client registry for board-list-refresh fanouts
+- Optional `LlmClient` and `RateLimiter`
+- Optional `GitHubConfig`
+
+**Frame persistence:** All non-ephemeral frames go through a bounded async `mpsc` queue to a batched writer (`FRAME_PERSIST_BATCH_SIZE=128`, flush every 5ms with retries). Object dirty state is flushed separately on a 100ms interval loop.
+
+---
+
+### Canvas Crate (`canvas`)
+
+A pure Rust library compiled to WASM. The host Leptos `client` crate wires it to the DOM. Key modules:
+
+| Module | Status | Description |
+|---|---|---|
+| `doc` | Done | `BoardObject`, `ObjectKind` (rect/ellipse/diamond/star/line/arrow/frame), `DocStore` (HashMap), `Props`, `PartialBoardObject` |
+| `camera` | Done | `Camera { pan_x, pan_y, zoom, view_rotation_deg }`, `screen_to_world`, `world_to_screen`, `screen_dist_to_world` |
+| `consts` | Done | Shared constants: `ZOOM_MIN=0.1`, `ZOOM_MAX=10.0`, `ZOOM_FACTOR=1.1`, `HANDLE_RADIUS_PX=8.0`, `MIN_SHAPE_SIZE=2.0` |
+| `hit` | Done | 99 geometry tests; rect/ellipse/diamond/star body in local space, edge distance-to-segment, resize handles (8 anchors), rotate handle |
+| `input` | Done | `Tool`, `Button`, `Key`, `Modifiers`, `WheelDelta`, `UiState`, `InputState` FSM (Idle/Panning/DraggingObject/DrawingShape/ResizingObject/RotatingObject/DraggingEdgeEndpoint) |
+| `engine` | Logic done, render stub | `EngineCore` (all input handling, 360+ tests), wraps in `Engine` + `HtmlCanvasElement`. Full pointer/key/wheel events, server snapshot/update APIs, frame grouping (Frame object moves children) |
+| `render` | Stub | `draw()` signature exists, body is `todo!()` |
+
+**Action enum** (returned from input handlers for the Leptos host):
+```rust
+enum Action {
+    None,
+    ObjectCreated(BoardObject),
+    ObjectUpdated { id, fields: PartialBoardObject },
+    ObjectDeleted { id },
+    EditTextRequested { id, head, text, foot },
+    SetCursor(String),
+    RenderNeeded,
+}
+```
+
+**Coordinate system:** All object geometry stored in world coordinates. Camera converts world ↔ screen (CSS pixels). Resize math runs in object-local (inverse-rotated) axes. Frame objects group children: moving or rotating a Frame carries enclosed objects.
+
+---
+
+### Client Crate (`client`)
+
+Leptos SSR + WASM hydration frontend. Pages and components:
+
+**Pages:**
+- `LoginPage` — GitHub OAuth login
+- `DashboardPage` — board list grid, create/delete boards
+- `BoardPage` — canvas whiteboard with full toolbar/panels
+
+**Components:**
+- `CanvasHost` — bridge between Leptos and the `canvas` WASM engine
+- `Toolbar` / `ToolRail` / `ToolStrip` — drawing tools selection
+- `ChatPanel` — persistent board chat
+- `AiPanel` — AI prompt input + response history
+- `InspectorPanel` — object property inspector
+- `LeftPanel` / `RightPanel` / `StatusBar`
+- `MissionControl` — board UI chrome
+- `RewindShelf` — savepoint / rewind interface
+- `BoardCard` / `BoardStamp` — dashboard thumbnails
+
+**State contexts (Leptos signals):**
+- `AuthState` — current user, loading
+- `BoardState` — active board objects, connection status, presence, cursors
+- `BoardsState` — dashboard board list with preview snapshots
+- `UiState` — dark mode, selected tool
+- `ChatState` — chat messages
+- `AiState` — AI conversation history
+- `CanvasViewState` — canvas rotation
+
+**Network (`net` module):**
+- `frame_client` — WebSocket lifecycle manager with reconnect + exponential backoff, dispatches inbound frames to state signals, provides `spawn_frame_client` and `send_frame`
+- `api` — REST calls (`fetch_current_user`, etc.)
+- `types` — client-side `Frame` type
+
+---
+
+### Frames Crate (`frames`)
+
+Shared between server and client. Provides:
+- `Frame` struct with `id`, `parent_id`, `ts`, `board_id`, `from`, `syscall`, `status`, `data: serde_json::Value`
+- `Status` enum: `Request / Item / Done / Error / Cancel`
+- `encode_frame(frame) -> Vec<u8>` — serialize to protobuf binary
+- `decode_frame(bytes) -> Result<Frame, CodecError>` — deserialize from protobuf binary
+- Internal `WireFrame` (prost `Message` derive) with `prost_types::Value` for the flexible JSON payload
+- Request→Item*→Done streaming protocol for multi-object responses (e.g., `board:join` streams all objects as items then a done with count)
+
+---
+
+### AI Integration
+
+**9 AI tools** (matching Gauntlet Week 1 spec, tool-calling against LLM):
+- `createStickyNote`, `createShape`, `createFrame`, `createConnector`
+- `moveObject`, `resizeObject`, `updateText`, `changeColor`, `getBoardState`
+
+**Flow:** `ai:prompt` frame → board state context built → LLM tool-call loop (up to 10 iterations) → object mutations applied + broadcast to all board peers → response frame with text + mutation count.
+
+**Rate limiting:** Per-client request count + global count + token budget (all configurable via env vars).
+
+---
+
+### Notable Design Decisions
+
+1. **Everything is a Frame** — a single uniform message type for all WS communication, persisted to the `frames` table for audit log + AI history. Syscall routing by prefix string (`board:`, `object:`, etc.).
+
+2. **Outcome pattern** — WS handler functions never send frames directly; they return typed `Outcome` variants (`Broadcast`, `BroadcastExcludeSender`, `Reply`, `ReplyStream`, `Done`, `ReplyAndBroadcast`, etc.) and a central dispatch layer applies them.
+
+3. **`EngineCore` / `Engine` split** — all canvas logic in `EngineCore` (no WASM dependencies, fully unit-testable in native `cargo test`); `Engine` wraps it with a browser canvas element. 360+ tests run without a browser.
+
+4. **In-memory authority** — board state is authoritative in memory for real-time performance; Postgres is the durable store, updated via background dirty-flush loop and async frame queue.
+
+5. **Savepoints** — manual and auto savepoints of board state (triggered on `object:create` and `object:delete`), exposed via a rewind shelf UI.
+
+6. **Board list polling** — the dashboard polls `board:list` every 10 seconds using a revision token (`since_rev`) to detect changes. The server returns a `noop: true` response when nothing has changed to avoid unnecessary rerenders. Board mutations also broadcast a `board:list:refresh` fanout event to all connected WS clients.
+
+7. **Canvas view rotation** — viewport-level rotation (not object rotation) with a bottom-left compass control supporting drag, cardinal snap, shift-snap, and reset. Camera follow/jump syncs include center, zoom, and rotation.
+
+---
+
+### Current Implementation Status
+
+- Server: fully implemented and tested (auth, board CRUD, object CRUD, chat, cursors, AI, savepoints, persistence workers)
+- Client Leptos UI: pages, components, state, net layer all present
+- Canvas `doc`, `camera`, `hit`, `input`, `engine` (logic): done with extensive tests
+- Canvas `render::draw()`: stub only — no actual drawing to canvas yet
+- `Engine::render()` call chain: compiles but `todo!()` body
+- Text rendering on canvas: not yet implemented (text stored and committed to props, but `fillText` rendering pending)
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 4 assistant
+📋 Tool calls: 37 total, 0 failed
+📋 Files: 28 read
+📋 Tokens: 49 in, 669 out
+📋 Cache: 1.5M read, 328.9K created

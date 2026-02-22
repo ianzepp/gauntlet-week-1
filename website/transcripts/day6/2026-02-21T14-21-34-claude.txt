@@ -1,0 +1,309 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T14:21:34.098+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 Analyze the low-coverage server source files in this Rust/Axum project. The goal is to figure out how much code is truly untestable (needs a running server, database, HTTP connections, WebSocket state) vs logic that could be extracted into pure testable functions.
+
+For each of the following files (these are the low-coverage ones from cargo-llvm-cov), read the file and categorize lines into:
+1. **Framework/infra** — Axum handler signatures, extractors, response building, database queries (sqlx), WebSocket send/receive, tower middleware, tokio spawns
+2. **Extractable logic** — conditionals, match arms, data transformations, validation, string/JSON building, business rules, filtering, parsing, calculations — anything that takes inputs and produces outputs without needing Axum/sqlx/tokio
+
+Files to analyze:
+- server/src/routes/ws.rs (40.1% — 445/1111 covered)
+- server/src/services/board.rs (18.9% — 109/577 covered)
+- server/src/llm/openai.rs (36.0% — 129/358 covered)
+- server/src/routes/boards.rs (0% — 0/257 covered)
+- server/src/services/savepoint.rs (0% — 0/211 covered)
+- server/src/routes/auth.rs (6.3% — 13/206 covered)
+- server/src/llm/tools.rs (8.9% — 17/192 covered)
+- server/src/services/persistence.rs (32.8% — 58/177 covered)
+- server/src/services/email_auth.rs (28.9% — 44/152 covered)
+- server/src/services/auth.rs (19.3% — 16/83 covered)
+- server/src/main.rs (0% — 0/133 covered)
+
+For each file, report:
+- Total non-blank, non-comment lines (approximate)
+- Estimated lines of extractable logic
+- Brief description of what logic could be extracted
+
+Then give a summary total: how many lines across all files are extractable vs truly framework-bound.
+
+Do NOT modify any files — research only.
+📋 Model: opus-4.6
+🤖 I'll read all 11 files in parallel to analyze them.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/openai.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/boards.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/savepoint.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/routes/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/llm/tools.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/persistence.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/email_auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/services/auth.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/server/src/main.rs"
+🤖 Now I have all 11 files. Let me analyze each one systematically.
+
+---
+
+## File-by-File Analysis
+
+### 1. `server/src/routes/ws.rs` (40.1% covered -- 445/1111)
+
+**Approximate non-blank, non-comment lines:** ~370
+
+**Extractable logic (~155 lines):**
+- `ws_client_channel_capacity()` (lines 35-40) -- env parsing, 5 lines
+- `board_id_from_frame()` (lines 388-395) -- pure data extraction from Frame, 7 lines
+- `make_board_part_frame()` (lines 397-404) -- pure Frame construction, 7 lines
+- `handle_cursor()` (lines 1047-1107) -- already pure (no async, no state), ~60 lines. Builds Data from request fields.
+- `object_to_data()` (lines 1394-1410) -- pure struct-to-map conversion, 16 lines
+- `allow_external_tool_syscalls()` (lines 1121-1126) -- env check, 5 lines
+- `is_ephemeral` logic (line 259) -- prefix matching, 1 line
+- Object create field extraction (lines 892-923) -- parsing fields from `req.data`, ~30 lines
+- Object update version parsing (lines 965-974) -- numeric coercion logic, ~10 lines
+- Object drag key-forwarding loop (lines 1017-1024) -- data copying, ~7 lines
+- Chat message validation/trimming (lines 819-831) -- ~10 lines
+- AI history `filter_map` transformation (lines 1323-1356) -- row-to-JSON mapping, pure once you have the rows, ~30 lines
+
+**Framework/infra (~215 lines):**
+- `handle_ws` upgrade handler, WebSocket recv/send loop, `run_ws`, `dispatch_frame`, `process_inbound_bytes` orchestration, all `services::` calls, `sqlx::query` in `handle_board_join`/`handle_board_list`/`handle_chat::history`/`ai_history`, broadcast calls, persistence enqueue calls, `send_frame`, `fetch_user_identity`.
+
+**Summary:** The cursor handler and `object_to_data` are already pure. The largest extraction opportunity is the field-parsing/validation logic scattered across `handle_object`, `handle_chat`, and `handle_ai` -- currently interleaved with service calls but could be split into "parse request -> validated params" pure functions.
+
+---
+
+### 2. `server/src/services/board.rs` (18.9% covered -- 109/577)
+
+**Approximate non-blank, non-comment lines:** ~310
+
+**Extractable logic (~55 lines):**
+- `BoardRole::as_str()` / `BoardRole::from_str()` (lines 67-83) -- pure enum conversion, 16 lines
+- `role_satisfies()` (lines 187-193) -- pure permission check, 6 lines
+- `clear_flushed_dirty_ids()` (lines 745-755) -- pure mutation on `BoardState`, 10 lines (takes mutable ref, no async)
+- `generate_random_code()` (lines 457-466) -- pure code generation, 9 lines
+- `ACCESS_CODE_CHARSET` / `ACCESS_CODE_LENGTH` constants and the redeem code normalization `code.trim().to_ascii_uppercase()` (line 431) -- 2 lines
+- `resolve_user_id_by_email` email normalization (line 384) -- 3 lines
+- Row-to-struct mapping in `list_boards`, `hydrate_objects` (purely mechanical but tightly coupled to sqlx tuple), ~9 lines total
+
+**Framework/infra (~255 lines):**
+- All `create_board`, `list_boards`, `ensure_board_permission`, `list_board_members`, `add_or_update_board_member`, `remove_board_member`, `generate_access_code`, `redeem_access_code`, `list_board_preview_objects`, `list_board_export_objects`, `delete_board`, `set_board_visibility`, `join_board`, `part_board`, `list_board_users`, `broadcast`, `hydrate_objects`, `flush_objects` -- all require either `PgPool` or `AppState` (RwLock on boards map).
+
+**Summary:** This is heavily infrastructure-bound. The main extractable pieces are the role/permission enums, the random code generator, the dirty-flag clearing logic, and small normalization helpers.
+
+---
+
+### 3. `server/src/llm/openai.rs` (36.0% covered -- 129/358)
+
+**Approximate non-blank, non-comment lines:** ~280
+
+**Extractable logic (~195 lines):**
+- `env_parse_u64()` (lines 16-21) -- 5 lines
+- `build_chat_completions_messages()` (lines 211-272) -- pure Message-to-CcMessage transformation, ~60 lines
+- `build_responses_input()` (lines 336-377) -- pure Message-to-RespInputItem transformation, ~40 lines
+- `parse_chat_completions_response()` (lines 383-456) -- pure JSON parsing, ~73 lines
+- `parse_responses_response()` (lines 458-542) -- pure JSON parsing, ~84 lines
+- `CcToolDef::from()` / `RespToolDef::from()` (lines 198-209, 330-334) -- pure conversion, ~15 lines
+- Wire type struct definitions (lines 150-196, 278-328) -- ~55 lines (already testable as data structures)
+
+**Framework/infra (~85 lines):**
+- `OpenAiClient::new()` (reqwest client build), `chat()`, `chat_completions()`, `responses()`, `send_json()` -- all require HTTP client.
+
+**Summary:** This file is the biggest win. The four `build_*` and `parse_*` functions are entirely pure -- they take strings/slices and return data. Together they are ~195 lines of extractable logic, and only ~85 lines are truly HTTP-bound.
+
+---
+
+### 4. `server/src/routes/boards.rs` (0% covered -- 0/257)
+
+**Approximate non-blank, non-comment lines:** ~210
+
+**Extractable logic (~100 lines):**
+- `to_response()` (lines 24-33) -- struct conversion, 9 lines
+- `board_error_to_status()` (lines 117-123) -- error mapping, 6 lines
+- `parse_import_object_line()` (lines 210-290) -- pure JSON line parsing to `BoardObject`, ~80 lines. This is a significant chunk of logic.
+- `now_ms_i64()` (lines 203-208) -- 5 lines (deterministic except for system clock)
+- Struct definitions (`BoardExportMetaLine`, `BoardExportObjectLine`, etc.) -- ~30 lines
+
+**Framework/infra (~110 lines):**
+- All route handlers (`list_members`, `upsert_member`, `update_member`, `delete_member`, `export_jsonl`, `import_jsonl`) use Axum extractors + service calls.
+
+**Summary:** `parse_import_object_line` is the big win here -- ~80 lines of pure JSON-to-struct parsing that is completely testable without any framework. The error mapper and struct converter are small but also extractable.
+
+---
+
+### 5. `server/src/services/savepoint.rs` (0% covered -- 0/211)
+
+**Approximate non-blank, non-comment lines:** ~155
+
+**Extractable logic (~35 lines):**
+- `now_ms()` (lines 50-55) -- 5 lines
+- `auto_savepoint_debounce_ms()` (lines 57-62) -- env parsing, 5 lines
+- `savepoint_row_to_json()` (lines 254-266) -- pure struct-to-JSON, 12 lines
+- `savepoint_rows_to_json()` (lines 268-270) -- trivial wrapper, 2 lines
+- `SavepointRow` struct definition + error type (lines 37-48, 20-35) -- ~25 lines (data definitions)
+- Debounce check logic (lines 244-248) -- 4 lines of timestamp comparison (could be extracted)
+
+**Framework/infra (~120 lines):**
+- `ensure_board_access`, `snapshot_objects`, `current_board_seq`, `create_savepoint`, `list_savepoints`, `maybe_create_auto_savepoint` -- all require `PgPool` or `AppState`.
+
+**Summary:** Mostly database-bound. The JSON serialization helpers and debounce logic are the only extractable pieces.
+
+---
+
+### 6. `server/src/routes/auth.rs` (6.3% covered -- 13/206)
+
+**Approximate non-blank, non-comment lines:** ~185
+
+**Extractable logic (~30 lines):**
+- `env_bool()` (lines 17-25) -- pure string-to-bool parsing, 8 lines
+- `cookie_secure()` (lines 27-35) -- env-derived bool, 8 lines
+- `perf_test_auth_bypass_enabled()` (lines 37-39) -- 2 lines
+- `include_email_code_in_response()` (lines 232-234) -- 2 lines
+- `resend_env()` (lines 236-243) -- env parsing, 7 lines
+- Struct definitions for request/response bodies (lines 99-103, 210-230) -- ~20 lines
+
+**Framework/infra (~155 lines):**
+- `AuthUser` extractor impl, all route handlers (`github_redirect`, `github_callback`, `me`, `logout`, `ws_ticket`, `request_email_code`, `verify_email_code`, `dev_ws_ticket`) -- all Axum extractors + cookie handling + service calls.
+
+**Summary:** Almost entirely framework-bound. The extractable pieces are tiny env-parsing helpers and struct definitions.
+
+---
+
+### 7. `server/src/llm/tools.rs` (8.9% covered -- 17/192)
+
+**Approximate non-blank, non-comment lines:** ~175
+
+**Extractable logic (~175 lines):**
+- `apply_changes_yaml_tool()` (lines 16-28) -- pure Tool construction, 12 lines
+- `gauntlet_week_1_tools()` (lines 34-39) -- pure branching on const, 5 lines
+- `legacy_tools()` (lines 43-216) -- pure Tool vec construction, ~155 lines
+
+**Framework/infra: 0 lines**
+
+**Summary:** This entire file is already pure logic. It builds `Tool` structs with JSON schemas -- no async, no database, no HTTP. The low coverage is simply because tests only exercise the YAML-only mode path, not the legacy tools path. Full coverage is trivially achievable.
+
+---
+
+### 8. `server/src/services/persistence.rs` (32.8% covered -- 58/177)
+
+**Approximate non-blank, non-comment lines:** ~160
+
+**Extractable logic (~30 lines):**
+- `env_parse()` (lines 54-62) -- generic env parsing, 8 lines
+- `FramePersistConfig::from_env()` (lines 43-52) -- struct construction from env, 9 lines
+- `enqueue_frame()` logic (lines 125-139) -- the match on `try_send` result is small, ~8 lines, but depends on tokio channel
+- `DirtyFlushBatch` struct (lines 190-195) -- 5 lines
+
+**Framework/infra (~130 lines):**
+- `spawn_persistence_task`, `spawn_frame_persistence_worker` (tokio spawns), `flush_all_dirty`, `clear_flushed_dirty_ids`, `flush_frame_batch_with_retry`, `persist_frame`, `persist_frame_batch` -- all require `PgPool` or `AppState` with RwLock.
+
+**Summary:** Heavily infrastructure-bound. The background task loops and DB write logic dominate. Only env parsing and config construction are extractable.
+
+---
+
+### 9. `server/src/services/email_auth.rs` (28.9% covered -- 44/152)
+
+**Approximate non-blank, non-comment lines:** ~120
+
+**Extractable logic (~55 lines):**
+- `normalize_email()` (lines 32-42) -- pure string validation, 10 lines
+- `normalize_code()` (lines 45-55) -- pure string validation, 10 lines
+- `generate_access_code()` (lines 58-66) -- pure code generation, 8 lines
+- `hash_access_code()` (lines 69-74) -- pure SHA256 hash, 5 lines
+- `name_from_email()` (lines 76-83) -- pure string extraction, 7 lines
+- `render_email_auth_template()` (lines 196-200) -- pure template substitution, 4 lines
+- Constants and error enum (lines 12-29) -- ~17 lines
+
+**Framework/infra (~65 lines):**
+- `request_access_code`, `verify_access_code` (sqlx queries), `send_access_code_email` (Resend API call).
+
+**Summary:** Nearly half the file is extractable. The pure validation, hashing, and template functions are straightforward to test.
+
+---
+
+### 10. `server/src/services/auth.rs` (19.3% covered -- 16/83)
+
+**Approximate non-blank, non-comment lines:** ~85
+
+**Extractable logic (~15 lines):**
+- `GitHubConfig::from_env()` (lines 28-33) -- env loading, 5 lines
+- `GitHubConfig::authorize_url()` (lines 43-52) -- URL construction (uses reqwest::Url but purely deterministic), 9 lines
+- Struct definitions (`GitHubConfig`, `GitHubUser`, `TokenResponse`, `AuthError`) -- ~25 lines
+
+**Framework/infra (~70 lines):**
+- `exchange_code` (HTTP POST to GitHub), `fetch_github_user` (HTTP GET), `upsert_user` (sqlx query).
+
+**Summary:** Mostly HTTP/DB bound. The `authorize_url` builder is the only meaningful extractable function. `from_env` is trivially testable too.
+
+---
+
+### 11. `server/src/main.rs` (0% covered -- 0/133)
+
+**Approximate non-blank, non-comment lines:** ~115
+
+**Extractable logic (~45 lines):**
+- `env_or_default()` (lines 23-25) -- 2 lines
+- `has_flag()` (lines 27-29) -- 2 lines
+- `env_parse_or()` (lines 31-39) -- 8 lines
+- `env_is_set()` (lines 41-43) -- 2 lines
+- `ensure_leptos_env_defaults()` (lines 45-53) -- 8 lines (side-effecting via `set_var` but testable)
+- `log_env_line()` (line 55-57) -- 2 lines
+- `log_startup_env_config()` (lines 59-126) -- ~65 lines, but purely logging with env reads; the logic is trivial
+
+**Framework/infra (~70 lines):**
+- `main()` (lines 128-189) -- tokio runtime, DB pool init, LLM init, OAuth init, state wiring, task spawning, server binding.
+
+**Summary:** The `main()` function is inherently untestable (server bootstrap). The env helpers are tiny but extractable. `log_startup_env_config` is large but trivial (just log statements).
+
+---
+
+## Summary Totals
+
+| File | ~Total Lines | Extractable Logic | Framework/Infra |
+|---|---|---|---|
+| `routes/ws.rs` | 370 | **155** | 215 |
+| `services/board.rs` | 310 | **55** | 255 |
+| `llm/openai.rs` | 280 | **195** | 85 |
+| `routes/boards.rs` | 210 | **100** | 110 |
+| `services/savepoint.rs` | 155 | **35** | 120 |
+| `routes/auth.rs` | 185 | **30** | 155 |
+| `llm/tools.rs` | 175 | **175** | 0 |
+| `services/persistence.rs` | 160 | **30** | 130 |
+| `services/email_auth.rs` | 120 | **55** | 65 |
+| `services/auth.rs` | 85 | **15** | 70 |
+| `main.rs` | 115 | **45** | 70 |
+| **TOTALS** | **~2,165** | **~890 (41%)** | **~1,275 (59%)** |
+
+---
+
+## Key Findings
+
+**~890 lines are extractable** across these 11 files, representing about 41% of the uncovered code. The other 59% is genuinely framework-bound (Axum handlers, sqlx queries, tokio spawns, WebSocket I/O, HTTP clients).
+
+**Highest-value extraction targets (by line count):**
+
+1. **`llm/openai.rs`** -- 195 lines. The `build_chat_completions_messages`, `build_responses_input`, `parse_chat_completions_response`, and `parse_responses_response` functions are entirely pure. They take strings/slices in and return structured data. These are the single biggest coverage win available.
+
+2. **`llm/tools.rs`** -- 175 lines. Already 100% pure. The `legacy_tools()` path just needs a test that calls it. Trivial fix.
+
+3. **`routes/ws.rs`** -- 155 lines. `handle_cursor` (60 lines) is already pure. The object field-parsing in `handle_object` and version coercion logic could be extracted into `parse_object_create_params()` / `parse_object_update_params()` style functions. The `object_to_data` and `board_id_from_frame` helpers are already pure.
+
+4. **`routes/boards.rs`** -- 100 lines. `parse_import_object_line` (80 lines) is fully pure JSON-to-struct parsing. `board_error_to_status` and `to_response` are trivial but testable.
+
+5. **`services/email_auth.rs`** -- 55 lines. `normalize_email`, `normalize_code`, `hash_access_code`, `generate_access_code`, `name_from_email`, `render_email_auth_template` are all pure functions already factored out and ready for unit tests.
+
+**Lowest-value targets:**
+- `services/auth.rs` (15 extractable lines) -- almost entirely HTTP calls to GitHub.
+- `routes/auth.rs` (30 lines) -- mostly cookie/handler boilerplate.
+- `services/persistence.rs` (30 lines) -- background task infrastructure.
+- `services/savepoint.rs` (35 lines) -- DB-heavy with only JSON helpers extractable.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 11 total, 0 failed
+📋 Files: 11 read
+📋 Tokens: 37 in, 25 out
+📋 Cache: 138.5K read, 91.0K created

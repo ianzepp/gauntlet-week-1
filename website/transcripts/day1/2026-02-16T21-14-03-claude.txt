@@ -1,0 +1,909 @@
+📋 Session: 3662effc-a1c0-4706-8dfc-726a462921ef
+📋 Project: /Users/ianzepp/github/gauntlet/collaboard
+📋 Started: 2026-02-16T21:14:03.857+00:00
+📋 Version: 2.1.42
+📋 Branch: main
+
+👤 Design a detailed implementation plan for the CollabBoard backend (Rust + Axum), porting patterns from the Prior project. This is the initial project scaffold — skip auth entirely.
+
+## Context
+CollabBoard is a real-time collaborative whiteboard. The PRE-SEARCH doc specifies:
+- Rust + Axum backend, React + Konva frontend  
+- Frame-based WebSocket protocol (ported from Prior)
+- PostgreSQL (Neon) for persistence, in-memory state for real-time
+- LWW conflict resolution, server-authoritative
+- Debounced 1s persistence flush
+
+## Prior Patterns to Port (with simplifications)
+
+### Frame Type (from kernel/src/frame.rs)
+```rust
+pub struct Frame {
+    pub id: Uuid,
+    pub parent_id: Option<Uuid>,
+    pub ts: i64,
+    pub ms: Option<i64>,  // SKIP: no timeout needed
+    pub room: Option<String>,  // RENAME to board_id: Option<Uuid>
+    pub from: Option<String>,
+    pub syscall: String,
+    pub status: Status,
+    pub data: Data,
+}
+```
+Simplifications for CollabBoard:
+- Replace `room: Option<String>` with `board_id: Option<Uuid>` (domain-specific)
+- Drop `ms` (timeout) field — not needed
+- Keep Status enum identical: Request, Item, Done, Error, Cancel
+- Keep constructors: request(), item(), done(), error(), error_from()
+- Keep builder pattern: with_board_id(), with_from(), with_data(), with_content()
+- Keep prefix() routing helper
+
+### LLM Client (from kernel/src/llm/)
+- Port the `LlmClient` enum pattern with Anthropic + OpenAI variants
+- Port `AnthropicClient` (kernel/src/llm/client.rs) — thin HTTP wrapper
+- Port `OpenAiClient` (kernel/src/llm/openai_client.rs) — supports chat_completions + responses modes
+- Port types: `ContentBlock`, `Content`, `Message`, `Tool`, `ChatResponse`, `LlmError`
+- Simplify: no config file loading, use env vars directly (LLM_PROVIDER, LLM_MODEL, LLM_API_KEY)
+- CollabBoard-specific tools instead of the generic syscall tool
+
+### WebSocket Handler (from gateways/api/src/ws.rs)
+- Port the select! loop pattern: socket.recv() + client_rx.recv() + writer_rx.recv()
+- Port the spawned relay task pattern for non-blocking response streaming
+- Simplify: no Door/DoorRegistry abstraction — direct dispatch by syscall prefix
+- CollabBoard-specific: board:join adds to board presence, cursor:move broadcasts
+
+### API Gateway (from gateways/api/src/api.rs)
+- Port AppState pattern (Clone, shared services)
+- Port Router assembly with healthz
+- Simplify: no REST frame dispatch — just /api/ws and /api/auth/* and healthz
+
+### Frame DB (from kernel/src/kernel/frame_db.rs)
+- Port append-only frame log concept
+- Adapt from SQLite to PostgreSQL (BIGSERIAL instead of AUTOINCREMENT, JSONB instead of TEXT)
+- Keep insert() method
+- Add board-specific queries
+
+## What to Build (Backend Only, Skip Auth)
+
+### Phase 1: Project Scaffold
+1. Cargo.toml with dependencies (axum, tokio, sqlx with postgres feature, serde, uuid, reqwest, tower-http, tracing, rand)
+2. .env.example
+3. Dockerfile
+4. fly.toml
+5. src/main.rs — env loading, PgPool init, AppState construction, Axum server start
+6. Clippy/fmt configuration (rustfmt.toml, clippy config in Cargo.toml)
+
+### Phase 2: Frame Type
+1. src/frame.rs — Frame struct, Status enum, Data type alias, constructors, builders, prefix()
+2. Tests: serialization, deserialization, status terminal check, prefix extraction
+
+### Phase 3: Database Layer  
+1. src/db/mod.rs — pool initialization
+2. src/db/migrations/ — SQL migration files:
+   - 001_users.sql (users table)
+   - 002_boards.sql (boards table) 
+   - 003_board_objects.sql (board_objects table with version column for LWW)
+   - 004_frames.sql (append-only frame log, BIGSERIAL seq)
+   - 005_sessions.sql (sessions + ws_tickets tables)
+
+### Phase 4: Shared State & Services
+1. src/state.rs — AppState with PgPool, board state (Arc<RwLock<HashMap<Uuid, BoardState>>>), LLM client
+2. BoardState struct: objects HashMap, presence HashMap, dirty set, last_flush timestamp
+3. src/services/mod.rs
+4. src/services/board.rs — Board CRUD + in-memory state management + join/part
+5. src/services/object.rs — Object mutations, LWW version check, dirty marking
+6. src/services/cursor.rs — Ephemeral cursor broadcast
+7. src/services/persistence.rs — Debounced 1s flush background task
+
+### Phase 5: WebSocket Handler
+1. src/routes/mod.rs — Router assembly
+2. src/routes/ws.rs — WS upgrade, frame dispatch loop (select! pattern from Prior)
+   - Parse incoming JSON as Frame
+   - Dispatch by syscall prefix: board:*, object:*, cursor:*, ai:*
+   - Broadcast outgoing frames to board peers
+   - Handle disconnect cleanup
+
+### Phase 6: LLM Adapter (post-MVP, but scaffold)
+1. src/llm/mod.rs — LlmClient enum + build_client()
+2. src/llm/types.rs — ContentBlock, Content, Message, Tool, ChatResponse, LlmError
+3. src/llm/anthropic.rs — AnthropicClient (port from Prior)
+4. src/llm/openai.rs — OpenAiClient (port from Prior)
+5. src/llm/tools.rs — CollabBoard-specific tool definitions
+6. src/services/ai.rs — AI prompt handler (LLM -> tool calls -> object mutations)
+
+## Key Design Decisions
+
+1. **No kernel abstraction** — Direct Axum handlers + shared services, not Prior's kernel/subsystem/pipe architecture. The kernel pattern adds ~4h of scaffolding with no benefit at this scale.
+
+2. **Board-scoped broadcasting** — Each board has a `HashMap<Uuid, mpsc::Sender<Frame>>` for connected clients. Object mutations and cursor moves broadcast to all peers in the same board.
+
+3. **Persistence task** — A `tokio::spawn` background loop that wakes every 1s, checks dirty objects across all boards, and batch-upserts them to Postgres.
+
+4. **LWW at object level** — Object updates carry a version. Server increments version on accept, rejects if incoming version < current version.
+
+## File Structure
+```
+collaboard/
+├── Cargo.toml
+├── .env.example
+├── Dockerfile
+├── fly.toml
+├── rustfmt.toml
+├── src/
+│   ├── main.rs
+│   ├── frame.rs
+│   ├── state.rs
+│   ├── routes/
+│   │   ├── mod.rs
+│   │   └── ws.rs
+│   ├── services/
+│   │   ├── mod.rs
+│   │   ├── board.rs
+│   │   ├── object.rs
+│   │   ├── cursor.rs
+│   │   ├── persistence.rs
+│   │   └── ai.rs
+│   ├── llm/
+│   │   ├── mod.rs
+│   │   ├── types.rs
+│   │   ├── anthropic.rs
+│   │   ├── openai.rs
+│   │   └── tools.rs
+│   └── db/
+│       ├── mod.rs
+│       └── migrations/
+│           ├── 001_users.sql
+│           ├── 002_boards.sql
+│           ├── 003_board_objects.sql
+│           ├── 004_frames.sql
+│           └── 005_sessions.sql
+└── tests/
+    ├── frame_test.rs
+    └── ...
+```
+
+Please produce a step-by-step implementation plan with concrete file paths, focusing on what to build first (core types, then services, then WS handler). The plan should be executable in order — each step should compile after completion.
+📋 Model: opus-4.6
+🤖 I'll explore the codebase to understand the current state and the Prior project patterns before producing the plan.
+✅ Bash: ls /Users/ianzepp/github/gauntlet/collaboard/
+✅ Bash: ls /Users/ianzepp/github/gauntlet/
+🤖 No Prior project directory is visible here. Let me search for it and examine the PRE-SEARCH document.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/PRE-SEARCH.md"
+❌ Bash: ls /Users/ianzepp/github/gauntlet/*/Cargo.toml 2>/dev/null; ls /Users/ianzepp/github/*/Cargo.toml 2>/dev/null; ls /Users/ianzepp/github/gauntlet/prior 2>/dev/null
+🤖 Now let me look for the Prior project to examine the source patterns.
+✅ Bash: find /Users/ianzepp/github -name "Cargo.toml" -maxdepth 3 2>/dev/null
+❌ Bash: ls /Users/ianzepp/github/prior 2>/dev/null || ls /Users/ianzepp/prior 2>/dev/null || find /Users/ianzepp -name "frame.rs" -maxdepth 5 2>/dev/null | head -10
+🤖 Found the Prior project. Let me examine the key source files.
+✅ Bash: ls /Users/ianzepp/github/ianzepp/prior/
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/Cargo.toml"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/prior/kernel/src/
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/rustfmt.toml"
+🤖 Now let me examine the WS handler and LLM client from Prior.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/Cargo.toml"
+🤖 Now let me look at the LLM client patterns and the API gateway state.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs"
+✅ Bash: ls /Users/ianzepp/github/ianzepp/prior/kernel/src/llm/
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/types.rs"
+🤖 Now let me look at the Anthropic and OpenAI client implementations.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/client.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/openai_client.rs"
+🤖 Now let me check the Prior kernel's frame_db for the persistence pattern.
+✅ Bash: ls /Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/frame_db.rs"
+🤖 Now let me check the Prior clippy config to match the lint style.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/clippy.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/rust-toolchain.toml"
+🤖 I now have a thorough understanding of the Prior codebase patterns and the CollabBoard requirements. Here is the complete implementation plan.
+
+---
+
+## CollabBoard Backend Implementation Plan
+
+### Overview
+
+This plan scaffolds the CollabBoard Rust + Axum backend in 10 sequential steps. Each step compiles after completion. Auth is skipped entirely -- WebSocket connections are anonymous for now.
+
+The plan ports three core patterns from Prior (`/Users/ianzepp/github/ianzepp/prior`):
+1. The `Frame` type from `kernel/src/frame.rs`
+2. The `select!` WebSocket loop from `gateways/api/src/ws.rs`
+3. The `LlmClient` enum with Anthropic + OpenAI variants from `kernel/src/llm/`
+
+---
+
+### Step 1: Project Scaffold and Configuration Files
+
+**Goal:** A `cargo build` that succeeds with an empty `main.rs`.
+
+**Files to create:**
+
+**`/Users/ianzepp/github/gauntlet/collaboard/Cargo.toml`**
+```toml
+[package]
+name = "collaboard"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "fs", "trace"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+rand = "0.9"
+thiserror = "2"
+
+[dev-dependencies]
+tokio-tungstenite = "0.26"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+collapsible_if = "allow"
+collapsible_else_if = "allow"
+wildcard_imports = "allow"
+needless_pass_by_value = "allow"
+unnecessary_map_or = "allow"
+unnecessary_result_map_or_else = "allow"
+unnecessary_option_map_or_else = "allow"
+```
+
+The clippy lint section is ported verbatim from Prior's `kernel/Cargo.toml` (line 33-40). This ensures the same code style.
+
+**`/Users/ianzepp/github/gauntlet/collaboard/rustfmt.toml`**
+Port from `/Users/ianzepp/github/ianzepp/prior/rustfmt.toml`:
+```toml
+max_width = 120
+fn_call_width = 80
+chain_width = 60
+struct_lit_width = 120
+edition = "2021"
+```
+
+**`/Users/ianzepp/github/gauntlet/collaboard/clippy.toml`**
+Port from `/Users/ianzepp/github/ianzepp/prior/clippy.toml`:
+```toml
+cognitive-complexity-threshold = 10
+too-many-lines-threshold = 100
+```
+
+**`/Users/ianzepp/github/gauntlet/collaboard/rust-toolchain.toml`**
+```toml
+[toolchain]
+channel = "1.93"
+```
+
+**`/Users/ianzepp/github/gauntlet/collaboard/.env.example`**
+```
+DATABASE_URL=postgres://***:***@localhost:5432/collaboard
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-sonnet-4-20250514
+LLM_API_KEY=sk-ant-...
+HOST=0.0.0.0
+PORT=3000
+```
+
+**`/Users/ianzepp/github/gauntlet/collaboard/src/main.rs`**
+Minimal stub:
+```rust
+fn main() {
+    println!("collaboard");
+}
+```
+
+**Verification:** `cargo build && cargo clippy && cargo fmt --check`
+
+---
+
+### Step 2: Frame Type
+
+**Goal:** Port the Frame struct, Status enum, constructors, builders, and prefix routing from Prior.
+
+**Source reference:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs` (287 lines)
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/frame.rs`**
+
+Port the entire file with these modifications:
+- **Replace** `room: Option<String>` with `board_id: Option<Uuid>` -- domain-specific naming
+- **Drop** `ms: Option<i64>` -- timeout field not needed
+- **Rename** `with_room()` to `with_board_id()` taking `Uuid`
+- **Keep identical:** `Status` enum (Request/Item/Done/Error/Cancel), `Data` type alias, `ErrorCode` trait, `FRAME_*` constants, `now_ms()`, all constructors (`request()`, `cancel()`, `item()`, `done()`, `error()`, `error_from()`), all builders (`with_from()`, `with_content()`, `with_data()`), `prefix()` routing helper
+- **Update** `reply()` to inherit `board_id` instead of `room`
+
+The `Frame` struct becomes:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Frame {
+    pub id: Uuid,
+    pub parent_id: Option<Uuid>,
+    pub ts: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub board_id: Option<Uuid>,
+    pub from: Option<String>,
+    pub syscall: String,
+    pub status: Status,
+    pub data: Data,
+}
+```
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/frame.test.rs`**
+
+Port tests from `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.test.rs` and adapt:
+- `reply_inherits_context` -- use `with_board_id(Uuid::new_v4())` instead of `with_room("project-alpha")`
+- Add new test: `json_round_trip` -- serialize a Frame to JSON and deserialize it back, verify all fields match
+- Add new test: `cancel_status_is_terminal`
+
+**Update `src/main.rs`:** Add `mod frame;`
+
+**Verification:** `cargo test`
+
+---
+
+### Step 3: Database Module and Migrations
+
+**Goal:** PgPool initialization and SQL migration files for all 5 tables.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/db/mod.rs`**
+```rust
+use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
+
+pub async fn init_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(database_url)
+        .await?;
+    sqlx::migrate!("src/db/migrations").run(&pool).await?;
+    Ok(pool)
+}
+```
+
+**Migration files** (in `/Users/ianzepp/github/gauntlet/collaboard/src/db/migrations/`):
+
+Use `sqlx` migration convention: numbered `.sql` files.
+
+**`001_users.sql`** -- Ported from PRE-SEARCH schema (line 203-209). The `github_id` column stays for when auth is added later, but `NOT NULL` constraint is dropped for now (skip auth):
+```sql
+CREATE TABLE users (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    github_id   BIGINT UNIQUE,
+    name        TEXT NOT NULL,
+    avatar_url  TEXT,
+    color       TEXT NOT NULL DEFAULT '#4CAF50',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**`002_boards.sql`** -- From PRE-SEARCH line 212-216:
+```sql
+CREATE TABLE boards (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    owner_id    UUID REFERENCES users(id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+`owner_id` is nullable because auth is skipped.
+
+**`003_board_objects.sql`** -- From PRE-SEARCH line 218-234:
+```sql
+CREATE TABLE board_objects (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    board_id    UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL,
+    x           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    y           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    width       DOUBLE PRECISION,
+    height      DOUBLE PRECISION,
+    rotation    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    z_index     INTEGER NOT NULL DEFAULT 0,
+    props       JSONB NOT NULL DEFAULT '{}',
+    created_by  UUID REFERENCES users(id),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    version     INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX idx_board_objects_board ON board_objects(board_id);
+```
+
+**`004_frames.sql`** -- Adapted from Prior's `frame_db.rs` (line 164-185), changed from SQLite to Postgres:
+```sql
+CREATE TABLE frames (
+    seq         BIGSERIAL PRIMARY KEY,
+    ts          BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM now()) * 1000)::BIGINT,
+    id          UUID NOT NULL,
+    parent_id   UUID,
+    syscall     TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    board_id    UUID,
+    "from"      TEXT,
+    data        JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX idx_frames_board_seq ON frames(board_id, seq);
+```
+
+**`005_sessions.sql`** -- Stub tables for future auth. Created now so the schema is complete:
+```sql
+CREATE TABLE sessions (
+    token       TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 days')
+);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+
+CREATE TABLE ws_tickets (
+    ticket      TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '30 seconds')
+);
+```
+
+**Update `src/main.rs`:** Add `mod db;`
+
+**Verification:** `cargo build` (migrations are compile-time if using `sqlx::migrate!` macro, but we use runtime migrations so just needs to compile)
+
+---
+
+### Step 4: AppState and BoardState
+
+**Goal:** Shared state struct that holds PgPool, board state map, and broadcast channels. This is the Axum state extracted from Prior's `AppState` pattern in `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs` (line 39-48).
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/state.rs`**
+
+```rust
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
+use uuid::Uuid;
+use sqlx::PgPool;
+
+use crate::frame::Frame;
+
+/// Per-board live state. Kept in memory for real-time performance.
+/// Flushed to Postgres by the persistence task.
+pub struct BoardState {
+    /// Current objects keyed by object ID.
+    pub objects: HashMap<Uuid, BoardObject>,
+    /// Connected clients: user_id -> sender for outgoing frames.
+    pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,
+    /// Object IDs modified since last flush.
+    pub dirty: HashSet<Uuid>,
+    /// Last flush timestamp (epoch millis).
+    pub last_flush: i64,
+}
+
+/// In-memory representation of a board object.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardObject {
+    pub id: Uuid,
+    pub board_id: Uuid,
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+    pub props: serde_json::Value,
+    pub created_by: Option<Uuid>,
+    pub version: i32,
+}
+
+/// Shared application state, injected into Axum handlers via State extractor.
+/// Clone is required by Axum -- all inner fields are Arc-wrapped or Clone.
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: PgPool,
+    pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+}
+
+impl AppState {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            pool,
+            boards: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+```
+
+Key design note: `BoardState.clients` is a `HashMap<Uuid, mpsc::Sender<Frame>>` -- each connected WebSocket has a receiver half. When an object mutation happens, the service iterates over all clients in the board and sends the broadcast frame. This replaces Prior's `DoorRegistry` pattern with direct board-scoped channels.
+
+**Update `src/main.rs`:** Add `mod state;`
+
+**Verification:** `cargo build`
+
+---
+
+### Step 5: Service Layer -- Board Service
+
+**Goal:** Board CRUD operations, in-memory state hydration from Postgres, join/part logic.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/services/mod.rs`**
+```rust
+pub mod board;
+pub mod object;
+pub mod cursor;
+pub mod persistence;
+```
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/services/board.rs`**
+
+Functions:
+- `create_board(pool, name) -> Result<Board, sqlx::Error>` -- INSERT into boards, return the row
+- `list_boards(pool) -> Result<Vec<Board>, sqlx::Error>` -- SELECT all boards
+- `get_board(pool, board_id) -> Result<Board, sqlx::Error>`
+- `delete_board(pool, board_id) -> Result<(), sqlx::Error>`
+- `join_board(state, board_id, client_id, tx) -> Result<Vec<BoardObject>, Error>` -- Hydrate board state from Postgres if not in memory, add client sender to `BoardState.clients`, return current objects list
+- `part_board(state, board_id, client_id)` -- Remove client from `BoardState.clients`, if last client then flush dirty objects and optionally evict
+
+The `join_board` function is the critical one. It:
+1. Acquires write lock on `state.boards`
+2. If board not in memory: `SELECT * FROM board_objects WHERE board_id = $1`, populates `BoardState.objects`
+3. Inserts the client sender
+4. Returns cloned objects list for the `board:state` response frame
+
+**Update `src/main.rs`:** Add `mod services;`
+
+**Verification:** `cargo build`
+
+---
+
+### Step 6: Service Layer -- Object Service
+
+**Goal:** Object mutations with LWW versioning and dirty marking.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/services/object.rs`**
+
+Functions:
+- `create_object(state, board_id, kind, x, y, props, created_by) -> Result<BoardObject, Error>` -- Create new `BoardObject` with `version=1`, insert into `BoardState.objects`, mark dirty, return the object
+- `update_object(state, board_id, object_id, updates, incoming_version) -> Result<BoardObject, Error>` -- LWW check: if `incoming_version < current.version`, reject with error. Otherwise apply updates, increment version, mark dirty
+- `delete_object(state, board_id, object_id) -> Result<(), Error>` -- Remove from `BoardState.objects`, issue `DELETE FROM board_objects WHERE id = $1` immediately (deletions are not deferred)
+
+The LWW check mirrors the PRE-SEARCH design (line 241-243): "each `board_object` has a `version` column. When the server receives an `object:update`, it compares the incoming `version` against the current version. If incoming `version < current version`, the update is stale and dropped."
+
+**Verification:** `cargo build`
+
+---
+
+### Step 7: Service Layer -- Persistence and Cursor
+
+**Goal:** Background flush task and ephemeral cursor broadcast.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/services/persistence.rs`**
+
+Spawns a `tokio::spawn` background loop:
+```rust
+pub fn spawn_persistence_task(state: AppState) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        loop {
+            interval.tick().await;
+            flush_dirty_objects(&state).await;
+        }
+    })
+}
+```
+
+`flush_dirty_objects`:
+1. Acquire read lock on `state.boards`
+2. For each board, collect dirty object IDs
+3. Clone dirty objects, clear dirty set
+4. Release lock
+5. Batch upsert: `INSERT INTO board_objects (...) VALUES (...) ON CONFLICT (id) DO UPDATE SET ...`
+
+This implements the "debounced 1s persistence flush" from PRE-SEARCH line 261-263.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/services/cursor.rs`**
+
+```rust
+pub async fn broadcast_cursor(state: &AppState, board_id: Uuid, from_client_id: Uuid, x: f64, y: f64) {
+    // Build cursor:moved frame
+    // Broadcast to all clients in board except sender
+}
+```
+
+Pure ephemeral broadcast -- no persistence, no state storage. Cursor data lives only in transit.
+
+**Verification:** `cargo build`
+
+---
+
+### Step 8: WebSocket Handler and Router
+
+**Goal:** The core WS handler, ported from Prior's `ws.rs`. This is the largest single step.
+
+**Source reference:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs` (284 lines)
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/routes/mod.rs`**
+```rust
+pub mod ws;
+
+use axum::Router;
+use axum::routing::get;
+use crate::state::AppState;
+
+pub fn app(state: AppState) -> Router {
+    Router::new()
+        .route("/healthz", get(healthz))
+        .route("/api/ws", get(ws::handle_ws))
+        .with_state(state)
+}
+
+async fn healthz() -> axum::http::StatusCode {
+    axum::http::StatusCode::OK
+}
+```
+
+This mirrors Prior's `api.rs` router pattern (line 55-63) but without the REST frame dispatch routes.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/routes/ws.rs`**
+
+Port the `select!` loop from Prior's `ws.rs` (line 75-104) with CollabBoard-specific dispatch:
+
+```rust
+pub async fn handle_ws(
+    State(state): State<AppState>,
+    ws: WebSocketUpgrade,
+) -> Response {
+    ws.on_upgrade(move |socket| run_ws(socket, state))
+}
+
+async fn run_ws(mut socket: WebSocket, state: AppState) {
+    // Generate anonymous client ID (no auth)
+    let client_id = Uuid::new_v4();
+    
+    // Per-connection channel for receiving broadcast frames
+    let (client_tx, mut client_rx) = mpsc::channel::<Frame>(256);
+    
+    // Writer channel for spawned tasks (same pattern as Prior ws.rs line 72)
+    let (writer_tx, mut writer_rx) = mpsc::channel::<String>(256);
+    
+    // Send session:connected
+    let welcome = Frame::request("session:connected", Data::new())
+        .with_data("client_id", client_id.to_string());
+    send_frame_to_socket(&mut socket, &welcome).await;
+    
+    // Track which board this client joined (single board per connection)
+    let mut current_board: Option<Uuid> = None;
+    
+    loop {
+        tokio::select! {
+            msg = socket.recv() => {
+                // Parse JSON as Frame, dispatch by prefix
+                // board:* -> board service
+                // object:* -> object service (broadcast result to peers)
+                // cursor:* -> cursor broadcast
+                // ai:* -> spawn LLM task with writer_tx (same pattern as Prior ws.rs line 180-192)
+            }
+            Some(frame) = client_rx.recv() => {
+                // Broadcast frame from another client -> send to this socket
+            }
+            Some(json) = writer_rx.recv() => {
+                // Spawned task output (AI responses) -> send to socket
+            }
+        }
+    }
+    
+    // Cleanup: part_board if joined
+}
+```
+
+The dispatch function parses the incoming frame's `prefix()` and routes to the appropriate service. For `object:create`, `object:update`, `object:delete`: call the object service, then broadcast the result frame to all board peers (iterate `BoardState.clients`).
+
+The AI dispatch uses the same spawned relay task pattern as Prior `ws.rs` line 180-192: spawn a task that calls the LLM, converts tool calls to object mutations, and sends result frames through `writer_tx`.
+
+**Incoming WsRequest type** (ported from Prior `ws.rs` line 199-206):
+```rust
+#[derive(Deserialize)]
+struct WsRequest {
+    syscall: String,
+    #[serde(default)]
+    data: Data,
+    board_id: Option<Uuid>,
+}
+```
+
+**Update `src/main.rs`:** Add `mod routes;` and wire up the full async main:
+```rust
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::init();
+    
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL required");
+    let port: u16 = std::env::var("PORT").unwrap_or_else(|_| "3000".into()).parse().expect("invalid PORT");
+    
+    let pool = db::init_pool(&database_url).await.expect("database init failed");
+    let state = AppState::new(pool);
+    
+    // Spawn persistence task
+    let _persistence = services::persistence::spawn_persistence_task(state.clone());
+    
+    let app = routes::app(state);
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    tracing::info!("listening on port {port}");
+    axum::serve(listener, app).await.unwrap();
+}
+```
+
+**Verification:** `cargo build`
+
+---
+
+### Step 9: LLM Adapter (Scaffold)
+
+**Goal:** Port the LLM client pattern for post-MVP AI features. The module compiles and the trait exists, but it is not wired into the WS dispatch yet.
+
+**Source reference:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/`
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/llm/mod.rs`**
+
+Port the `LlmClient` enum pattern from Prior `llm/mod.rs` (line 374-401), simplified:
+```rust
+pub mod types;
+pub mod anthropic;
+pub mod openai;
+pub mod tools;
+
+use types::LlmError;
+
+pub enum LlmClient {
+    Anthropic(anthropic::AnthropicClient),
+    OpenAi(openai::OpenAiClient),
+}
+
+impl LlmClient {
+    pub fn from_env() -> Result<Self, LlmError> {
+        let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into());
+        let api_key = std::env::var("LLM_API_KEY")
+            .map_err(|_| LlmError::MissingApiKey { var: "LLM_API_KEY".into() })?;
+        match provider.as_str() {
+            "anthropic" => Ok(Self::Anthropic(anthropic::AnthropicClient::new(api_key)?)),
+            "openai" => Ok(Self::OpenAi(openai::OpenAiClient::new(api_key, None, None)?)),
+            other => Err(LlmError::ConfigParse(format!("unknown provider: {other}"))),
+        }
+    }
+    
+    pub async fn chat(&self, model: &str, max_tokens: u32, system: &str, messages: &[types::Message], tools: Option<&[types::Tool]>) -> Result<types::ChatResponse, LlmError> {
+        match self {
+            Self::Anthropic(c) => c.chat(model, max_tokens, system, messages, tools).await,
+            Self::OpenAi(c) => c.chat(model, max_tokens, system, messages, tools).await,
+        }
+    }
+}
+```
+
+Key simplification vs Prior: no config file loading, no named profiles. Just `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` from environment.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/llm/types.rs`**
+
+Port verbatim from `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/types.rs` (254 lines). The types are provider-neutral and need no domain modification:
+- `LlmError` enum (drop `PipeSend` variant, add nothing)
+- `ContentBlock` enum (Text, ToolUse, ToolResult, Thinking, Unknown)
+- `Content` enum (Text, Blocks)
+- `Tool` struct -- **replace** the generic `syscall()` factory with CollabBoard-specific tools (done in `tools.rs`)
+- `Message` struct
+- `ChatRequest` -- simplified: drop `history` and `context`, just `messages` and `tools`
+- `ChatResponse` struct
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/llm/anthropic.rs`**
+
+Port verbatim from `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/client.rs` (139 lines). No changes needed -- the Anthropic Messages API client is domain-agnostic.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/llm/openai.rs`**
+
+Port from `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/openai_client.rs` (576 lines). No changes needed -- both `chat_completions` and `responses` modes are domain-agnostic.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/src/llm/tools.rs`**
+
+CollabBoard-specific tool definitions replacing Prior's generic `Tool::syscall()`:
+```rust
+pub fn collaboard_tools() -> Vec<Tool> {
+    vec![
+        Tool { name: "create_objects".into(), description: "Create sticky notes, shapes, or text objects on the board".into(), input_schema: serde_json::json!({...}) },
+        Tool { name: "move_objects".into(), ... },
+        Tool { name: "update_objects".into(), ... },
+        Tool { name: "delete_objects".into(), ... },
+        Tool { name: "organize_layout".into(), ... },
+        Tool { name: "summarize_board".into(), ... },
+        Tool { name: "group_by_theme".into(), ... },
+    ]
+}
+```
+
+**Update `src/main.rs`:** Add `mod llm;`
+
+**Verification:** `cargo build`
+
+---
+
+### Step 10: Deployment Files
+
+**Goal:** Dockerfile and fly.toml for Fly.io deployment.
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/Dockerfile`**
+```dockerfile
+FROM rust:1.93-slim AS builder
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/collaboard /usr/local/bin/collaboard
+CMD ["collaboard"]
+```
+
+**File: `/Users/ianzepp/github/gauntlet/collaboard/fly.toml`**
+```toml
+app = "collaboard"
+primary_region = "dfw"
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+
+[env]
+  PORT = "3000"
+  HOST = "0.0.0.0"
+```
+
+**Verification:** `docker build .` (if Docker is available), otherwise visual inspection.
+
+---
+
+### Build Order Summary
+
+| Step | Files | Compiles After? | Dependencies |
+|------|-------|----------------|--------------|
+| 1 | Cargo.toml, rustfmt.toml, clippy.toml, rust-toolchain.toml, .env.example, src/main.rs | Yes | None |
+| 2 | src/frame.rs, src/frame.test.rs | Yes | Step 1 |
+| 3 | src/db/mod.rs, src/db/migrations/*.sql | Yes | Step 1 |
+| 4 | src/state.rs | Yes | Steps 2, 3 |
+| 5 | src/services/mod.rs, src/services/board.rs | Yes | Step 4 |
+| 6 | src/services/object.rs | Yes | Step 5 |
+| 7 | src/services/persistence.rs, src/services/cursor.rs | Yes | Step 6 |
+| 8 | src/routes/mod.rs, src/routes/ws.rs, update main.rs | Yes | Step 7 |
+| 9 | src/llm/mod.rs, types.rs, anthropic.rs, openai.rs, tools.rs | Yes | Step 2 (Frame types) |
+| 10 | Dockerfile, fly.toml | N/A | Step 8 |
+
+### Anticipated Challenges
+
+1. **sqlx compile-time checking**: If using `sqlx::query!` macros, a live Postgres connection is needed at compile time. Workaround: use `sqlx::query()` (runtime, string-based) for initial scaffold. Switch to compile-time checked queries after the database exists.
+
+2. **Axum WebSocket message type**: Axum 0.8 changed `Message::Text` to take `String` directly (not `Cow`). The Prior code uses `.into()` which handles this, but watch for API differences.
+
+3. **Board state lock contention**: The `Arc<RwLock<HashMap<Uuid, BoardState>>>` is a single global lock. For 5-20 users this is fine. If it becomes a bottleneck, switch to per-board locks (`HashMap<Uuid, Arc<RwLock<BoardState>>>`). This is an optimization that can be done later.
+
+4. **Persistence task and lock ordering**: The flush task and WS handlers both access `state.boards`. The flush task should acquire the lock briefly (collect dirty IDs + clone objects), release, then do the SQL writes outside the lock. This prevents lock starvation.
+
+---
+
+### Critical Files for Implementation
+
+- `/Users/ianzepp/github/gauntlet/collaboard/src/frame.rs` - Core message type, ported from Prior's frame.rs with board_id adaptation
+- `/Users/ianzepp/github/gauntlet/collaboard/src/routes/ws.rs` - WebSocket handler with select! loop, frame dispatch, and broadcast
+- `/Users/ianzepp/github/gauntlet/collaboard/src/state.rs` - AppState and BoardState structs that hold all shared state
+- `/Users/ianzepp/github/gauntlet/collaboard/src/services/object.rs` - Object mutations with LWW versioning, the hot path for real-time collaboration
+- `/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/client.rs` - Reference implementation to port for the Anthropic LLM client
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 10 assistant
+📋 Tool calls: 25 total, 2 failed
+📋 Files: 16 read
+📋 Tokens: 41 in, 218 out
+📋 Cache: 1.2M read, 202.0K created

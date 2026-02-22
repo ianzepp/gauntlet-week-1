@@ -1,0 +1,179 @@
+📋 Session: c3f0f906-d2c0-437e-b657-69a971801121
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-19T20:43:54.626+00:00
+📋 Version: 2.1.47
+📋 Branch: main
+
+👤 Explore the frames and perf crates at /Users/ianzepp/github/ianzepp/gauntlet-week-1/. I need concise but engaging summaries for README sections.
+
+For frames/:
+1. List all source files
+2. Read the main lib.rs or mod files
+3. What does the Frame type look like?
+4. How does protobuf encoding/decoding work?
+5. What's the Status enum?
+6. How many tests?
+
+For perf/:
+1. List all source files
+2. Read the main files
+3. What benchmarks/scenarios exist?
+4. How does auth bootstrapping work for tests?
+5. What metrics does it measure?
+
+Be specific with numbers and details.
+📋 Model: sonnet-4.6
+🤖 Let me explore both crates in parallel.
+✅ Bash: find /Users/ianzepp/github/ianzepp/gauntlet-week-1/frames -type f | sort
+✅ Bash: find /Users/ianzepp/github/ianzepp/gauntlet-week-1/perf -type f | sort
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/e2e_perf_test.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/Cargo.toml"
+🤖 Here are the detailed summaries for both crates:
+
+---
+
+## `frames/` Crate
+
+### Source Files (2 total)
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib.rs` — 194 lines, all production code
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/frames/src/lib_test.rs` — 213 lines, all tests
+
+### What it does
+Shared wire-transport library used by both `server` and `client`. It owns the binary frame encoding for the realtime WebSocket protocol. The design keeps payloads flexible (`serde_json::Value`) while encoding over compact binary protobuf.
+
+### The `Frame` Type
+8 fields, all public:
+
+```rust
+pub struct Frame {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub ts: i64,
+    pub board_id: Option<String>,
+    pub from: Option<String>,
+    pub syscall: String,
+    pub status: Status,
+    pub data: Value,           // serde_json::Value — fully flexible payload
+}
+```
+
+`Frame` derives `Clone`, `Debug`, `PartialEq`, `Serialize`, `Deserialize`. There is a parallel internal `WireFrame` struct (also 8 fields) that maps directly to protobuf field tags 1–8 using `prost`.
+
+### Protobuf Encoding/Decoding
+Two public functions at the crate root:
+
+```rust
+pub fn encode_frame(frame: &Frame) -> Vec<u8>
+pub fn decode_frame(bytes: &[u8]) -> Result<Frame, CodecError>
+```
+
+The translation path is:
+
+- `encode_frame` -> `frame_to_wire` (maps `Frame` to `WireFrame`) -> `prost::Message::encode`
+- `decode_frame` -> `prost::Message::decode` -> `wire_to_frame` (maps `WireFrame` back to `Frame`)
+
+The trickiest part is the `data` field: `json_to_proto_value` and `proto_to_json_value` recursively convert between `serde_json::Value` and `prost_types::Value` (the protobuf well-known struct type). One deliberate behavior: NaN floats from protobuf decode as JSON `null` since `serde_json::Number::from_f64` returns `None` for NaN. Integer JSON numbers are also normalized to `f64` on the round trip.
+
+### The `Status` Enum
+5 variants, with wire integer assignments:
+
+| Variant   | Wire i32 |
+|-----------|---------|
+| `Request` | 0       |
+| `Done`    | 1       |
+| `Error`   | 2       |
+| `Cancel`  | 3       |
+| `Item`    | 4       |
+
+Note: `Item` is 4 in the public `Status` but was inserted at the end of `WireFrameStatus` after the others. Serializes to JSON as lowercase strings (`"request"`, `"item"`, etc.) via `#[serde(rename_all = "lowercase")]`. Invalid wire integers produce a `CodecError::InvalidStatus(i32)`.
+
+### Error Type
+```rust
+pub enum CodecError {
+    Decode(#[from] prost::DecodeError),
+    InvalidStatus(i32),
+}
+```
+
+### Test Count: 13 tests across these scenarios:
+1. `status_numeric_mapping_matches_wire_enum` — all 5 status wire values
+2. `status_round_trips_from_wire_values` — all 5 variants
+3. `status_from_wire_rejects_out_of_range_value` — value 99
+4. `encode_decode_round_trip_preserves_frame` — full sample frame
+5. `encode_frame_outputs_non_empty_binary`
+6. `decode_frame_rejects_malformed_bytes` — `[0xff, 0x00, 0x01]`
+7. `decode_frame_rejects_invalid_wire_status` — status value 77
+8. `decode_frame_defaults_missing_data_to_empty_object`
+9. `decode_frame_converts_nan_number_to_json_null`
+10. `wire_conversion_preserves_empty_optional_fields`
+11. `nested_payload_round_trips` — arrays and nested objects
+12. `integer_json_numbers_are_normalized_to_float_numbers`
+13. `status_serializes_as_lowercase_json` / `status_deserializes_from_lowercase_json` / `status_rejects_non_lowercase_json` (3 assertions in 3 `#[test]` functions)
+
+---
+
+## `perf/` Crate
+
+### Source Files (2 total)
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/lib.rs` — 423 lines, production harness code
+- `/Users/ianzepp/github/ianzepp/gauntlet-week-1/perf/src/e2e_perf_test.rs` — 239 lines, 3 benchmark tests
+
+### What it does
+End-to-end performance harness that benchmarks a live running server from the outside. It uses real HTTP and WebSocket connections, sends binary protobuf frames using the `frames` crate, and reports statistical latency metrics. All tests are marked `#[ignore]` — they require a running server to be meaningful.
+
+### Benchmark Scenarios (3 tests)
+All are `#[tokio::test(flavor = "multi_thread")]` and `#[ignore]`:
+
+1. **`ws_round_trip_latency_test`** (4 worker threads): Fires `baseline_requests` (default: 200) sequential `board:list` requests and measures round-trip latency.
+
+2. **`board_complexity_object_create_perf_test`** (4 worker threads): Creates a board, then for each complexity level in `complexity_counts` (default: `[100, 500, 1000]`), creates that many `object:create` (`sticky_note` kind) requests. Objects are laid out on a grid. Reports separate metrics per complexity level.
+
+3. **`mass_user_concurrent_perf_test`** (8 worker threads): Spawns `mass_users` (default: 25) concurrent Tokio tasks, each joining the same board and firing `mass_requests_per_user` (default: 20) `board:users:list` requests. Uses a `tokio::sync::Barrier` to synchronize all workers before the load burst begins. Aggregates all latencies across all workers.
+
+### Auth Bootstrapping
+Three-tier fallback, resolved in `acquire_ws_ticket`:
+
+1. **`PERF_WS_TICKET`** env var — Use a pre-provided one-time ticket directly (cannot be reused for multi-user tests; returns `PerfError::StaticTicketInsufficient(n)` if count > 1).
+2. **`PERF_SESSION_TOKEN`** env var — POST to `/api/auth/ws-ticket` with a `session_token={token}` cookie; parses `{"ticket": "..."}` from the JSON response.
+3. **Dev bypass fallback** — POST to `/api/dev/ws-ticket` (requires server-side `PERF_TEST_AUTH_BYPASS=true`); same response shape. Returns `PerfError::MissingAuth` if the server rejects it.
+
+For multi-user tests, `acquire_many_ws_tickets` calls `acquire_ws_ticket` N times sequentially, issuing a fresh HTTP request each time.
+
+### Metrics Measured
+The `LatencyMetrics` struct captures 8 values per scenario:
+
+| Field        | Description                        |
+|--------------|------------------------------------|
+| `count`      | Number of samples                  |
+| `min_ms`     | Minimum latency                    |
+| `max_ms`     | Maximum latency                    |
+| `avg_ms`     | Arithmetic mean                    |
+| `p50_ms`     | Median                             |
+| `p95_ms`     | 95th percentile                    |
+| `p99_ms`     | 99th percentile                    |
+| `ops_per_sec`| Throughput (count / total seconds) |
+
+Results are printed as a human-readable table and also as a JSON blob on stdout (prefixed `JSON:`), making them machine-parseable for CI or dashboards.
+
+### `PerfConfig` Environment Variables
+| Variable                   | Default                 | Purpose                           |
+|----------------------------|-------------------------|-----------------------------------|
+| `PERF_BASE_URL`            | `http://127.0.0.1:3000` | Server base URL                   |
+| `PERF_WS_TICKET`           | (none)                  | Pre-issued one-time WS ticket     |
+| `PERF_SESSION_TOKEN`       | (none)                  | Session cookie for ticket fetch   |
+| `PERF_BASELINE_REQUESTS`   | `200`                   | Requests in round-trip test       |
+| `PERF_COMPLEXITY_COUNTS`   | `100,500,1000`          | Object counts for complexity test |
+| `PERF_MASS_USERS`          | `25`                    | Concurrent users in mass test     |
+| `PERF_MASS_REQUESTS_PER_USER` | `20`               | Requests per user in mass test    |
+
+📋 --- Summary ---
+📋 Duration: 52s
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 8 total, 0 failed
+📋 Files: 6 read
+📋 Tokens: 16 in, 112 out
+📋 Cache: 112.2K read, 23.3K created

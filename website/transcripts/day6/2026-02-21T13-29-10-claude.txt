@@ -1,0 +1,196 @@
+📋 Session: 2767f5af-6947-40d5-b07a-e7a88ec71d4b
+📋 Project: /Users/ianzepp/github/ianzepp/gauntlet-week-1
+📋 Started: 2026-02-21T13:29:10.989+00:00
+📋 Version: 2.1.50
+📋 Branch: main
+
+👤 You are the rust-correctness-surgeon agent. Your full instructions:
+
+You are a Rust correctness analyst with the combined instincts of a Staff Engineer at a top-tier tech company and a systems engineer from a high-frequency trading firm. You don't review code for style — you hunt for incorrectness. Every line of code is guilty until proven correct.
+
+## Project Context
+- Workspace: root Cargo.toml with members: server, client, canvas, frames, traces, perf
+- Edition 2024, rust-version 1.90, clippy pedantic
+- No panic-capable code in non-test code. No .unwrap(), .expect(), panic!(), todo!() in production code.
+- Client is a Leptos WASM app
+
+## Your Task
+Analyze the CLIENT crate's new utility modules for correctness issues. Focus on these files:
+- client/src/util/selection_actions.rs (874 lines — largest new file, highest priority)
+- client/src/util/canvas_viewport.rs (190 lines)
+- client/src/util/object_props.rs (184 lines)
+- client/src/util/frame_emit.rs (111 lines)
+- client/src/util/dial_math.rs (143 lines)
+- client/src/util/shape_palette.rs (139 lines)
+- client/src/util/selection_metrics.rs (114 lines)
+- client/src/util/canvas_input.rs (114 lines)
+- client/src/util/color.rs
+- client/src/util/auth.rs
+- client/src/util/mod.rs
+
+Read the CLAUDE.md first, then read each file. Apply the full analysis framework:
+1. Soundness & Safety (unwrap, overflow, bounds, unsafe)
+2. Error Handling Integrity (Result handling, silent drops, context)
+3. Data Flow & Invariants (preconditions, state consistency)
+4. Logic Correctness (match arms, conditions, loops, defaults)
+5. Resource & Lifecycle Management
+6. Architectural Violations
+
+Output findings in this format:
+**[SEVERITY] Description**
+- **Location**: file:line
+- **What's wrong**: precise description
+- **Why it matters**: concrete failure scenario
+- **Fix**: specific code change
+
+DO NOT modify any files. This is a read-only audit. Report findings only.
+📋 Model: opus-4.6
+🤖 I'll start by reading the CLAUDE.md and then systematically analyze each file in the client utility modules.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/CLAUDE.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/mod.rs"
+🤖 Now let me read all the target files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/shape_palette.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_metrics.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_input.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth.rs"
+🤖 Now let me check for a few specific concerns across the codebase.
+✅ Read: file="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs"
+✅ Grep: pattern="\.unwrap\(\)|\.expect\(|panic!\(|todo!\(" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util"
+✅ Grep: pattern="as usize|as i64|as u8|as i32|as u32" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util"
+🤖 Now let me check the `screen_to_world` function signature and `value_as_f64` for the i64-to-f64 cast concern.
+✅ Grep: pattern="pub fn screen_to_world" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/canvas/src"
+✅ Grep: pattern="signed_angle_delta_deg" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src"
+🤖 Now let me check the `color.rs` for the string slicing safety concern with non-ASCII input.
+✅ Grep: pattern="values\.len\(\) as f64" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util"
+✅ Grep: pattern="\.len\(\) as f64" path="/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util"
+🤖 I have enough information to produce the full audit. Here is my analysis.
+
+---
+
+# Correctness Audit: Client Utility Modules
+
+## 1. Soundness & Safety
+
+**[MEDIUM] Potential panic from non-ASCII string slicing in `parse_hex_rgb`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs:13-28`
+- **What's wrong**: The function uses byte-index string slicing (`&trimmed[1..]`, `&hex[0..1]`, `&hex[0..2]`, etc.) directly on user-provided input. If the input string contains multi-byte UTF-8 characters after the `#`, the byte-offset slicing will panic at runtime with "byte index is not a char boundary."
+- **Why it matters**: Any malicious or malformed color string like `"#\u{00e9}abc"` passed from the server or user input would cause a panic in production code, violating the project safety rules. Even though hex characters are expected, the function does not validate that the remaining characters are ASCII before slicing.
+- **Fix**: Guard with `if !hex.is_ascii() { return None; }` immediately after `let hex = &trimmed[1..];` on line 13. Since all valid hex digits are ASCII, this is a safe precondition to enforce early.
+
+**[LOW] `as i64` truncation in `format_border_width_label` and `format_text_size_label`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs:127` and `:138`
+- **What's wrong**: `rounded as i64` truncates toward zero. For very large f64 values (well beyond `i64::MAX`), this is undefined behavior in debug mode and wraps in release. While the inputs are clamped earlier in the pipeline, these particular formatting functions accept raw `f64` parameters with no clamping.
+- **Why it matters**: If these functions are ever called outside their expected dial pipeline (e.g., directly with an extreme value), the cast produces garbage or UB. In practice, the risk is low because callers clamp, but the function signatures do not enforce this invariant.
+- **Fix**: Add `.clamp(BORDER_WIDTH_MIN, BORDER_WIDTH_MAX)` / `.clamp(TEXT_SIZE_MIN, TEXT_SIZE_MAX)` inside the format functions before casting, or use `rounded as i32` since the ranges are small.
+
+**[LOW] `as u8` cast in `apply_lightness_shift_to_hex` is safe but relies on prior clamp**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs:116`
+- **What's wrong**: The `adjusted.round().clamp(0.0, 255.0) as u8` cast is correct only because `.clamp(0.0, 255.0)` is applied first. However, if `adjusted` is `NaN` (which cannot happen given the current arithmetic, but is worth noting), `.clamp()` returns `NaN`, and `NaN as u8` is 0 in Rust 2024 with saturating casts. This is safe but potentially surprising.
+- **Why it matters**: No real failure scenario given current callers, but worth documenting the `NaN` edge case assumption.
+- **Fix**: No change strictly required. Optionally add a NaN guard: `if adjusted.is_nan() { return 0; }`.
+
+## 2. Error Handling Integrity
+
+**[MEDIUM] Silently dropped send failures across all frame emission paths**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/frame_emit.rs:84,95,110`
+- **What's wrong**: `let _ = sender.get_untracked().send(&frame);` explicitly discards the return value indicating whether the frame was actually sent. There is no logging, no retry, no error propagation.
+- **Why it matters**: If the WebSocket is disconnected or the send buffer is full, user actions (scale changes, rotation changes, property updates) are silently lost. The local board state has already been mutated, creating a permanent divergence between client and server state. The user sees their change locally but it never persists.
+- **Fix**: At minimum, log a warning via `web_sys::console::warn_1()` when `send()` returns false. Ideally, queue failed frames for retry or revert the local state change.
+
+**[INFO] `send_cursor_presence_if_needed` does check the send return value (line 146)**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/canvas_viewport.rs:146`
+- **What's wrong**: This is actually _correct_ -- it only updates `last_sent_ms` and `last_sent_view` when the send succeeds. This is inconsistent with `frame_emit.rs` which ignores send failures. The inconsistency is a design smell.
+- **Fix**: Standardize the pattern -- either all callers check the result, or provide a wrapper that handles failures uniformly.
+
+## 3. Data Flow & Invariants
+
+**[HIGH] Stale `version` used in commit functions causes lost server-side updates**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs:288,424,563,707` (all `commit_selection_*_updates` functions)
+- **What's wrong**: All commit functions use `seed.version` (captured at drag-start time) when sending the update frame to the server, rather than the object's current `obj.version` from the board state. During a drag operation, the server may have sent version bumps (from other clients' concurrent edits). The stale version will cause the server to reject the update or apply it to the wrong base, depending on server-side conflict resolution.
+- **Why it matters**: In a collaborative editing scenario, two users modifying the same object simultaneously will produce version conflicts. Sending the stale drag-start version means the server either (a) rejects the update, silently losing the user's work, or (b) applies it incorrectly, causing data corruption.
+- **Fix**: In each commit function, use `obj.version` from the current board state read (which is already available since the code does `state.objects.get(&seed.id)`) instead of `seed.version`. For example at line 288: change `seed.version` to `obj.version`.
+
+**[MEDIUM] `apply_group_scale_target` also sends with `obj.version` read post-update, but the version field is never incremented locally**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs:336-347`
+- **What's wrong**: The `board.update()` call on line 311 mutates `obj.width`, `obj.height`, `obj.x`, `obj.y`, and props, but never bumps `obj.version`. Then the post-read on line 331 sends this stale version. If the server uses optimistic concurrency (version check), this will cause silent conflicts.
+- **Why it matters**: Same collaborative editing conflict scenario as above.
+- **Fix**: Either increment version locally after mutation, or rely on server to assign versions (but then the client must handle version rejections).
+
+**[MEDIUM] `normalize_hex_color` docstring says "lowercase" but `apply_lightness_shift_to_hex` outputs uppercase**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs:118` vs `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/color.rs:35`
+- **What's wrong**: `normalize_hex_color` produces lowercase (`{r:02x}`), but `apply_lightness_shift_to_hex` uses `{:02X}` (uppercase). When a color goes through `normalize_hex_color` -> store -> `apply_lightness_shift_to_hex`, the case changes. This means string comparisons (`fill != start_fill` in `selection_color_changed`) will report a change when there is none, just due to case difference.
+- **Why it matters**: This triggers unnecessary network updates on every color drag commit, even when the user didn't actually change the color. It wastes bandwidth and may cause version bumps on the server.
+- **Fix**: Change `object_props.rs:118` from `format!("#{:02X}{:02X}{:02X}", ...)` to `format!("#{:02x}{:02x}{:02x}", ...)` to match the lowercase convention.
+
+## 4. Logic Correctness
+
+**[MEDIUM] `signed_angle_delta_deg` can loop infinitely on `f64::INFINITY` or `NaN` inputs**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs:21-30`
+- **What's wrong**: The `while delta > 180.0` and `while delta < -180.0` loops will never terminate if `current` or `start` is `f64::INFINITY`, `f64::NEG_INFINITY`, or `NaN` (since NaN comparisons are always false, the loop body is skipped but `NaN - 360.0` is still `NaN`, and `INFINITY - 360.0` is still `INFINITY`).
+- **Why it matters**: If a corrupted or malicious object arrives from the server with `rotation: Infinity`, any rotation drag operation will hang the UI thread in an infinite loop, freezing the browser tab.
+- **Fix**: Replace the while loops with `rem_euclid`-based normalization: `let mut delta = (current - start).rem_euclid(360.0); if delta > 180.0 { delta -= 360.0; } delta`. Or add a guard: `if !delta.is_finite() { return 0.0; }`.
+
+**[LOW] `dial_angle_from_zoom` is not the inverse of `zoom_from_dial_angle`**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs:76-82`
+- **What's wrong**: `dial_angle_from_zoom(zoom) = (zoom - 1.0) * 180.0` and `zoom_from_dial_angle(angle) = 1.0 + (angle / 180.0)`. While these are algebraically inverses, the clamp ranges differ: the angle clamps to `[-135, 135]` while zoom clamps to `[0.1, 10.0]`. This means `zoom_from_dial_angle(dial_angle_from_zoom(10.0))` = `zoom_from_dial_angle(135.0)` = `1.75`, not `10.0`. The mapping is not bijective across its stated zoom range.
+- **Why it matters**: A user at zoom level 2.5 (well within the `[0.1, 10.0]` range) sees dial angle `(2.5-1.0)*180 = 270`, which gets clamped to 135, mapping back to zoom 1.75. The zoom dial cannot represent zooms above 1.75x or below 0.25x, which may be intentional but the clamp ranges are misleading.
+- **Fix**: If the full `[0.1, 10.0]` zoom range should be representable on the dial, use a logarithmic mapping. If the restricted range is intentional, document it clearly and adjust the zoom clamp in `zoom_from_dial_angle` to match the actual representable range `[0.25, 1.75]`.
+
+**[LOW] `apply_zoom_tick_tension` can overshoot tick positions when multiple ticks overlap**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/dial_math.rs:54-73`
+- **What's wrong**: The function iterates through tick marks and applies cumulative adjustments. If a point is within the tension range of two adjacent ticks (e.g., ticks at -45 and 0 with a 14-degree tension range, and the input is at -10), both adjustments are applied sequentially, and the first adjustment moves the value closer to the second tick, amplifying its effect.
+- **Why it matters**: Near tick boundaries, the user experiences unpredictable "jumping" where the dial snaps erratically. This is a UX bug rather than a safety issue.
+- **Fix**: Use a "nearest tick wins" approach: find the single closest tick within range and apply only that one adjustment.
+
+## 5. Resource & Lifecycle Management
+
+**[LOW] Repeated `board.get_untracked()` pattern creates unnecessary clones**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/selection_actions.rs` (throughout -- e.g., lines 301+331, 432+453, 571+592)
+- **What's wrong**: Multiple functions call `board.get_untracked()` twice -- once before the `board.update()` closure to build a selected-IDs list, then again after to read the post-mutation state. Each call clones the entire `BoardState` (including the full `objects` HashMap).
+- **Why it matters**: For boards with many objects, this is O(n) clone overhead per action. In a collaborative whiteboard with hundreds or thousands of objects, this adds unnecessary latency to interactive operations.
+- **Fix**: Use `board.with_untracked()` or `board.update()` with return values to avoid full clones. Or accumulate the frames to send inside the `update` closure and send them after.
+
+## 6. Architectural Violations
+
+**[HIGH] Production code uses `.unwrap_or()` on `Option<f64>` from JSON -- safe but inconsistent with stated `unwrap()` ban**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/object_props.rs:12-13`
+- **What's wrong**: `value_as_f64` uses `v.as_i64().map(|n| n as f64)`. The `as f64` cast from `i64` is lossy for values outside the `[-2^53, 2^53]` range. While this is not `.unwrap()`, the project rules specify no panic-capable code, and `as` casts that can lose precision are a related class of silent incorrectness.
+- **Why it matters**: If a JSON number like `9007199254740993` (2^53 + 1) arrives as an integer, it gets silently rounded to `9007199254740992.0`. For version numbers or IDs stored as i64, this could cause incorrect equality checks.
+- **Fix**: For the current use case (reading scale, shift, border width, font size), the values are always small, so this is low risk. Document the assumption or use `i64::try_from()` / range checks if larger values are possible.
+
+**[INFO] `install_unauth_redirect` has a redundant `navigate.clone()` on line 25**
+- **Location**: `/Users/ianzepp/github/ianzepp/gauntlet-week-1/client/src/util/auth.rs:25`
+- **What's wrong**: `let navigate = navigate.clone();` is immediately before the `move` closure on line 26, but `navigate` is already owned by the function parameter. The clone is unnecessary -- the `move` closure would capture the owned value directly.
+- **Why it matters**: No correctness issue, just a wasteful clone.
+- **Fix**: Remove line 25; let the `move` closure capture `navigate` directly.
+
+---
+
+## Summary by Severity
+
+| Severity | Count | Key Issues |
+|----------|-------|------------|
+| HIGH | 2 | Stale version in commit functions; hex case mismatch causing phantom updates |
+| MEDIUM | 4 | Panic on non-ASCII color input; silent frame send failures; infinite loop on non-finite angles; stale version in `apply_group_scale_target` |
+| LOW | 5 | Truncation casts; NaN edge case; non-bijective zoom mapping; tick tension overshoot; redundant cloning |
+| INFO | 2 | Send result inconsistency; redundant clone |
+
+The most impactful issues to address first are:
+1. The **uppercase/lowercase hex mismatch** (object_props.rs line 118) -- trivial one-character fix, prevents unnecessary network chatter.
+2. The **stale version** in all commit functions -- potential data loss in collaborative scenarios.
+3. The **non-ASCII string slicing panic** in `parse_hex_rgb` -- violates the project's no-panic safety rule.
+4. The **infinite loop** in `signed_angle_delta_deg` -- potential browser tab freeze.
+
+📋 --- Summary ---
+📋 Duration: 1m
+📋 Messages: 1 user, 6 assistant
+📋 Tool calls: 19 total, 0 failed
+📋 Files: 12 read
+📋 Tokens: 31 in, 47 out
+📋 Cache: 486.4K read, 138.7K created

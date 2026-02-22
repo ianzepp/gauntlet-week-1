@@ -1,0 +1,2732 @@
+📋 Session: 8e84f48f-b03e-407c-9bfe-1f1a69d2fbed
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T22:52:49.805+00:00
+📋 Version: 2.1.44
+📋 Branch: main
+
+👤 Read ALL of the following files and return their complete contents. This is critical - I need every line of every file:
+
+1. /Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml
+2. /Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs
+3. /Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs
+4. /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs
+5. /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs
+6. /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs
+7. /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs
+8. /Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs
+9. /Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs
+10. /Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs
+11. /Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs
+12. /Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs
+13. /Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs
+14. /Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs
+
+Read each file completely and return ALL contents.
+📋 Model: haiku-4.5
+🤖 I'll read all of these files for you. Let me fetch them in parallel.
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs"
+✅ Read: file="/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs"
+🤖 Here are the complete contents of all 14 requested files:
+
+## 1. `/Users/ianzepp/github/gauntlet/collaboard/server/Cargo.toml`
+
+```toml
+[package]
+name = "collaboard"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "migrate", "macros", "uuid", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "fs", "trace"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+rand = "0.9"
+thiserror = "2"
+
+[dev-dependencies]
+tokio-tungstenite = "0.26"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+collapsible_if = "allow"
+collapsible_else_if = "allow"
+wildcard_imports = "allow"
+needless_pass_by_value = "allow"
+unnecessary_map_or = "allow"
+unnecessary_result_map_or_else = "allow"
+```
+
+## 2. `/Users/ianzepp/github/gauntlet/collaboard/server/src/main.rs`
+
+```rust
+mod db;
+mod frame;
+mod llm;
+mod routes;
+mod services;
+mod state;
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL required");
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "3000".into())
+        .parse()
+        .expect("invalid PORT");
+
+    let pool = db::init_pool(&database_url)
+        .await
+        .expect("database init failed");
+
+    // Initialize LLM client (non-fatal: AI features disabled if config missing).
+    let llm = match llm::LlmClient::from_env() {
+        Ok(client) => {
+            tracing::info!(model = client.model(), "LLM client initialized");
+            Some(client)
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "LLM client not configured — AI features disabled");
+            None
+        }
+    };
+
+    let state = state::AppState::new(pool, llm);
+
+    // Spawn background persistence task.
+    let _persistence = services::persistence::spawn_persistence_task(state.clone());
+
+    let app = routes::app(state);
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
+        .await
+        .expect("failed to bind");
+
+    tracing::info!(%port, "collaboard listening");
+    axum::serve(listener, app).await.expect("server failed");
+}
+```
+
+## 3. `/Users/ianzepp/github/gauntlet/collaboard/server/src/state.rs`
+
+```rust
+//! Shared application state.
+//!
+//! DESIGN
+//! ======
+//! `AppState` is injected into Axum handlers via the `State` extractor.
+//! It holds the database pool and a map of live board states. Each board
+//! has its own in-memory object store, connected clients, and dirty set
+//! for debounced persistence.
+
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use tokio::sync::{RwLock, mpsc};
+use uuid::Uuid;
+
+use crate::frame::Frame;
+use crate::llm::LlmClient;
+
+// =============================================================================
+// BOARD OBJECT
+// =============================================================================
+
+/// In-memory representation of a board object. Mirrors the `board_objects` table.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardObject {
+    pub id: Uuid,
+    pub board_id: Uuid,
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub rotation: f64,
+    pub z_index: i32,
+    pub props: serde_json::Value,
+    pub created_by: Option<Uuid>,
+    pub version: i32,
+}
+
+// =============================================================================
+// BOARD STATE
+// =============================================================================
+
+/// Per-board live state. Kept in memory for real-time performance.
+/// Flushed to Postgres by the persistence task.
+pub struct BoardState {
+    /// Current objects keyed by object ID.
+    pub objects: HashMap<Uuid, BoardObject>,
+    /// Connected clients: client_id -> sender for outgoing frames.
+    pub clients: HashMap<Uuid, mpsc::Sender<Frame>>,
+    /// Object IDs modified since last flush.
+    pub dirty: HashSet<Uuid>,
+}
+
+impl BoardState {
+    #[must_use]
+    pub fn new() -> Self {
+        Self { objects: HashMap::new(), clients: HashMap::new(), dirty: HashSet::new() }
+    }
+}
+
+impl Default for BoardState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
+// APP STATE
+// =============================================================================
+
+/// Shared application state, injected into Axum handlers via State extractor.
+/// Clone is required by Axum — all inner fields are Arc-wrapped or Clone.
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: PgPool,
+    pub boards: Arc<RwLock<HashMap<Uuid, BoardState>>>,
+    /// Optional LLM client. `None` if LLM env vars are not configured.
+    pub llm: Option<Arc<LlmClient>>,
+}
+
+impl AppState {
+    #[must_use]
+    pub fn new(pool: PgPool, llm: Option<LlmClient>) -> Self {
+        Self {
+            pool,
+            boards: Arc::new(RwLock::new(HashMap::new())),
+            llm: llm.map(Arc::new),
+        }
+    }
+}
+```
+
+## 4. `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/mod.rs`
+
+```rust
+//! LLM — multi-provider adapter for AI agent features.
+//!
+//! DESIGN
+//! ======
+//! Ported from Prior's `kernel/src/llm/mod.rs`. Simplified: uses environment
+//! variables instead of config files. The `LlmClient` enum dispatches to
+//! Anthropic or OpenAI based on `LLM_PROVIDER`.
+
+pub mod anthropic;
+pub mod openai;
+pub mod tools;
+pub mod types;
+
+use types::{ChatResponse, LlmError, Message, Tool};
+
+// =============================================================================
+// CLIENT DISPATCH
+// =============================================================================
+
+pub struct LlmClient {
+    inner: LlmProvider,
+    model: String,
+}
+
+enum LlmProvider {
+    Anthropic(anthropic::AnthropicClient),
+    OpenAi(openai::OpenAiClient),
+}
+
+impl LlmClient {
+    /// Build an LLM client from environment variables.
+    ///
+    /// - `LLM_PROVIDER`: "anthropic" (default) or "openai"
+    /// - `LLM_API_KEY_ENV`: name of env var holding the API key (e.g. "ANTHROPIC_API_KEY")
+    /// - `LLM_MODEL`: model name (e.g. "claude-sonnet-4-5-20250929")
+    /// - `LLM_OPENAI_MODE`: "responses" (default) or "chat_completions"
+    /// - `LLM_OPENAI_BASE_URL`: custom base URL for OpenAI-compatible APIs
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the API key is missing or the HTTP client fails.
+    pub fn from_env() -> Result<Self, LlmError> {
+        let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic".into());
+
+        // Indirection: LLM_API_KEY_ENV names the env var that holds the actual key.
+        let key_var = std::env::var("LLM_API_KEY_ENV")
+            .map_err(|_| LlmError::MissingApiKey { var: "LLM_API_KEY_ENV".into() })?;
+        let api_key = std::env::var(&key_var)
+            .map_err(|_| LlmError::MissingApiKey { var: key_var.clone() })?;
+
+        let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| match provider.as_str() {
+            "openai" => "gpt-4o".into(),
+            _ => "claude-sonnet-4-5-20250929".into(),
+        });
+
+        let inner = match provider.as_str() {
+            "anthropic" => LlmProvider::Anthropic(anthropic::AnthropicClient::new(api_key)?),
+            "openai" => {
+                let mode = std::env::var("LLM_OPENAI_MODE").ok();
+                let base_url = std::env::var("LLM_OPENAI_BASE_URL").ok();
+                LlmProvider::OpenAi(openai::OpenAiClient::new(
+                    api_key,
+                    mode.as_deref(),
+                    base_url.as_deref(),
+                )?)
+            }
+            other => return Err(LlmError::ConfigParse(format!("unknown LLM_PROVIDER: {other}"))),
+        };
+
+        Ok(Self { inner, model })
+    }
+
+    /// The configured model name.
+    pub fn model(&self) -> &str {
+        &self.model
+    }
+
+    pub async fn chat(
+        &self,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError> {
+        match &self.inner {
+            LlmProvider::Anthropic(c) => c.chat(&self.model, max_tokens, system, messages, tools).await,
+            LlmProvider::OpenAi(c) => c.chat(&self.model, max_tokens, system, messages, tools).await,
+        }
+    }
+}
+```
+
+## 5. `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/types.rs`
+
+```rust
+//! LLM types — provider-neutral message types and errors.
+//!
+//! Ported from Prior's `kernel/src/llm/types.rs`. Provider-neutral types
+//! shared by Anthropic and OpenAI clients.
+
+use serde::{Deserialize, Serialize};
+
+// =============================================================================
+// ERROR
+// =============================================================================
+
+#[derive(Debug, thiserror::Error)]
+pub enum LlmError {
+    #[error("config parse failed: {0}")]
+    ConfigParse(String),
+
+    #[error("missing API key: env var {var} not set")]
+    MissingApiKey { var: String },
+
+    #[error("API request failed: {0}")]
+    ApiRequest(String),
+
+    #[error("API response error: status {status}")]
+    ApiResponse { status: u16, body: String },
+
+    #[error("API response parse failed: {0}")]
+    ApiParse(String),
+
+    #[error("HTTP client build failed: {0}")]
+    HttpClientBuild(String),
+}
+
+impl crate::frame::ErrorCode for LlmError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            Self::ConfigParse(_) => "E_CONFIG_PARSE",
+            Self::MissingApiKey { .. } => "E_MISSING_API_KEY",
+            Self::ApiRequest(_) => "E_API_REQUEST",
+            Self::ApiResponse { .. } => "E_API_RESPONSE",
+            Self::ApiParse(_) => "E_API_PARSE",
+            Self::HttpClientBuild(_) => "E_HTTP_CLIENT_BUILD",
+        }
+    }
+
+    fn retryable(&self) -> bool {
+        matches!(self, Self::ApiRequest(_) | Self::ApiResponse { status: 429 | 500..=599, .. })
+    }
+}
+
+// =============================================================================
+// CONTENT BLOCKS
+// =============================================================================
+
+/// A structured content block in a message or API response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+
+    #[serde(rename = "tool_use")]
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
+
+    #[serde(rename = "tool_result")]
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        is_error: Option<bool>,
+    },
+
+    #[serde(rename = "thinking")]
+    Thinking { thinking: String },
+
+    #[serde(other)]
+    Unknown,
+}
+
+/// Message content — either plain text or structured blocks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Content {
+    Text(String),
+    Blocks(Vec<ContentBlock>),
+}
+
+// =============================================================================
+// TOOL DEFINITION
+// =============================================================================
+
+/// A tool definition passed to the LLM provider API.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tool {
+    pub name: String,
+    pub description: String,
+    pub input_schema: serde_json::Value,
+}
+
+// =============================================================================
+// MESSAGE TYPES
+// =============================================================================
+
+/// A single message in a conversation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub role: String,
+    pub content: Content,
+}
+
+/// Response from an LLM chat call.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChatResponse {
+    pub content: Vec<ContentBlock>,
+    pub model: String,
+    pub stop_reason: String,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+```
+
+## 6. `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/anthropic.rs`
+
+```rust
+//! Anthropic Messages API client.
+//!
+//! Ported from Prior's `kernel/src/llm/client.rs`. Thin HTTP wrapper for
+//! `/v1/messages`. Pure parsing in `parse_response` for testability.
+
+use super::types::{ChatResponse, ContentBlock, LlmError, Message, Tool};
+use std::time::Duration;
+
+const API_URL: &str = "https://api.anthropic.com/v1/messages";
+const API_VERSION: &str = "2023-06-01";
+const REQUEST_TIMEOUT_SECS: u64 = 120;
+const CONNECT_TIMEOUT_SECS: u64 = 10;
+
+// =============================================================================
+// CLIENT
+// =============================================================================
+
+pub struct AnthropicClient {
+    http: reqwest::Client,
+    api_key: String,
+}
+
+impl AnthropicClient {
+    pub fn new(api_key: String) -> Result<Self, LlmError> {
+        let http = reqwest::Client::builder()
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+            .build()
+            .map_err(|e| LlmError::HttpClientBuild(e.to_string()))?;
+        Ok(Self { http, api_key })
+    }
+
+    pub async fn chat(
+        &self,
+        model: &str,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError> {
+        let body = ApiRequest { model, max_tokens, system, messages, tools };
+
+        let response = self
+            .http
+            .post(API_URL)
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", API_VERSION)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| LlmError::ApiRequest(e.to_string()))?;
+
+        let status = response.status().as_u16();
+        let text = response
+            .text()
+            .await
+            .map_err(|e| LlmError::ApiRequest(e.to_string()))?;
+
+        if status != 200 {
+            return Err(LlmError::ApiResponse { status, body: text });
+        }
+
+        parse_response(&text)
+    }
+}
+
+// =============================================================================
+// WIRE TYPES
+// =============================================================================
+
+#[derive(serde::Serialize)]
+struct ApiRequest<'a> {
+    model: &'a str,
+    max_tokens: u32,
+    system: &'a str,
+    messages: &'a [Message],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<&'a [Tool]>,
+}
+
+#[derive(serde::Deserialize)]
+struct ApiResponse {
+    content: Vec<ContentBlock>,
+    model: String,
+    stop_reason: String,
+    usage: Usage,
+}
+
+#[derive(serde::Deserialize)]
+struct Usage {
+    input_tokens: u64,
+    output_tokens: u64,
+}
+
+// =============================================================================
+// PARSING
+// =============================================================================
+
+fn parse_response(json: &str) -> Result<ChatResponse, LlmError> {
+    let api: ApiResponse = serde_json::from_str(json).map_err(|e| LlmError::ApiParse(e.to_string()))?;
+
+    let content: Vec<ContentBlock> = api
+        .content
+        .into_iter()
+        .filter(|block| !matches!(block, ContentBlock::Unknown))
+        .collect();
+
+    Ok(ChatResponse {
+        content,
+        model: api.model,
+        stop_reason: api.stop_reason,
+        input_tokens: api.usage.input_tokens,
+        output_tokens: api.usage.output_tokens,
+    })
+}
+```
+
+## 7. `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/openai.rs`
+
+```rust
+//! OpenAI-compatible API client.
+//!
+//! Ported from Prior's `kernel/src/llm/openai_client.rs`. Supports both
+//! `/v1/chat/completions` and `/v1/responses` endpoints.
+
+use serde::Serialize;
+use serde_json::Value;
+use std::time::Duration;
+
+use super::types::{ChatResponse, Content, ContentBlock, LlmError, Message, Tool};
+
+const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
+const REQUEST_TIMEOUT_SECS: u64 = 120;
+const CONNECT_TIMEOUT_SECS: u64 = 10;
+
+#[derive(Debug, Clone, Copy)]
+pub enum OpenAiApiMode {
+    ChatCompletions,
+    Responses,
+}
+
+pub struct OpenAiClient {
+    http: reqwest::Client,
+    api_key: String,
+    base_url: String,
+    mode: OpenAiApiMode,
+}
+
+impl OpenAiClient {
+    pub fn new(api_key: String, mode: Option<&str>, base_url: Option<&str>) -> Result<Self, LlmError> {
+        let mode = match mode.unwrap_or("responses") {
+            "responses" => OpenAiApiMode::Responses,
+            "chat_completions" => OpenAiApiMode::ChatCompletions,
+            other => {
+                return Err(LlmError::ConfigParse(format!(
+                    "unsupported openai_api mode '{other}' (expected 'responses' or 'chat_completions')"
+                )));
+            }
+        };
+        let base_url = base_url
+            .unwrap_or(DEFAULT_OPENAI_BASE_URL)
+            .trim_end_matches('/')
+            .to_string();
+        let http = reqwest::Client::builder()
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+            .build()
+            .map_err(|e| LlmError::HttpClientBuild(e.to_string()))?;
+        Ok(Self { http, api_key, base_url, mode })
+    }
+
+    pub async fn chat(
+        &self,
+        model: &str,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError> {
+        match self.mode {
+            OpenAiApiMode::ChatCompletions => {
+                self.chat_completions(model, max_tokens, system, messages, tools)
+                    .await
+            }
+            OpenAiApiMode::Responses => {
+                self.responses(model, max_tokens, system, messages, tools)
+                    .await
+            }
+        }
+    }
+
+    async fn chat_completions(
+        &self,
+        model: &str,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError> {
+        let msgs = build_chat_completions_messages(system, messages);
+        let tool_defs: Option<Vec<CcToolDef<'_>>> = tools.map(|t| t.iter().map(CcToolDef::from).collect());
+        let body = CcRequest { model, max_tokens, messages: &msgs, tools: tool_defs.as_deref() };
+        let text = self.send_json("/chat/completions", &body).await?;
+        parse_chat_completions_response(&text)
+    }
+
+    async fn responses(
+        &self,
+        model: &str,
+        max_tokens: u32,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[Tool]>,
+    ) -> Result<ChatResponse, LlmError> {
+        let input = build_responses_input(messages);
+        let tool_defs: Option<Vec<RespToolDef<'_>>> = tools.map(|t| t.iter().map(RespToolDef::from).collect());
+        let body = RespRequest {
+            model,
+            max_output_tokens: max_tokens,
+            instructions: system,
+            input: &input,
+            tools: tool_defs.as_deref(),
+        };
+        let text = self.send_json("/responses", &body).await?;
+        parse_responses_response(&text)
+    }
+
+    async fn send_json(&self, path: &str, body: &impl Serialize) -> Result<String, LlmError> {
+        let url = format!("{}{}", self.base_url, path);
+        let response = self
+            .http
+            .post(url)
+            .bearer_auth(&self.api_key)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| LlmError::ApiRequest(e.to_string()))?;
+
+        let status = response.status().as_u16();
+        let text = response
+            .text()
+            .await
+            .map_err(|e| LlmError::ApiRequest(e.to_string()))?;
+        if status != 200 {
+            return Err(LlmError::ApiResponse { status, body: text });
+        }
+        Ok(text)
+    }
+}
+
+// =============================================================================
+// CHAT COMPLETIONS — wire types
+// =============================================================================
+
+#[derive(Serialize)]
+struct CcRequest<'a> {
+    model: &'a str,
+    max_tokens: u32,
+    messages: &'a [CcMessage],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<&'a [CcToolDef<'a>]>,
+}
+
+#[derive(Serialize)]
+struct CcMessage {
+    role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<CcToolCall>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct CcToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    call_type: &'static str,
+    function: CcFunctionCall,
+}
+
+#[derive(Serialize)]
+struct CcFunctionCall {
+    name: String,
+    arguments: String,
+}
+
+#[derive(Serialize)]
+struct CcToolDef<'a> {
+    #[serde(rename = "type")]
+    tool_type: &'static str,
+    function: CcFunctionDef<'a>,
+}
+
+#[derive(Serialize)]
+struct CcFunctionDef<'a> {
+    name: &'a str,
+    description: &'a str,
+    parameters: &'a Value,
+}
+
+impl<'a> From<&'a Tool> for CcToolDef<'a> {
+    fn from(tool: &'a Tool) -> Self {
+        Self {
+            tool_type: "function",
+            function: CcFunctionDef {
+                name: &tool.name,
+                description: &tool.description,
+                parameters: &tool.input_schema,
+            },
+        }
+    }
+}
+
+fn build_chat_completions_messages(system: &str, messages: &[Message]) -> Vec<CcMessage> {
+    let mut out = Vec::new();
+    if !system.trim().is_empty() {
+        out.push(CcMessage {
+            role: "system".to_string(),
+            content: Some(system.to_string()),
+            tool_calls: None,
+            tool_call_id: None,
+        });
+    }
+    for message in messages {
+        match &message.content {
+            Content::Text(text) => {
+                out.push(CcMessage {
+                    role: message.role.clone(),
+                    content: Some(text.clone()),
+                    tool_calls: None,
+                    tool_call_id: None,
+                });
+            }
+            Content::Blocks(blocks) => {
+                let mut text = String::new();
+                let mut tool_calls = Vec::new();
+                let mut tool_results = Vec::new();
+                for block in blocks {
+                    match block {
+                        ContentBlock::Text { text: t } => text.push_str(t),
+                        ContentBlock::ToolUse { id, name, input } => {
+                            tool_calls.push(CcToolCall {
+                                id: id.clone(),
+                                call_type: "function",
+                                function: CcFunctionCall {
+                                    name: name.clone(),
+                                    arguments: serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string()),
+                                },
+                            });
+                        }
+                        ContentBlock::ToolResult { tool_use_id, content, is_error: _ } => {
+                            tool_results.push(CcMessage {
+                                role: "tool".to_string(),
+                                content: Some(content.clone()),
+                                tool_calls: None,
+                                tool_call_id: Some(tool_use_id.clone()),
+                            });
+                        }
+                        ContentBlock::Thinking { .. } | ContentBlock::Unknown => {}
+                    }
+                }
+                if !text.is_empty() || !tool_calls.is_empty() {
+                    out.push(CcMessage {
+                        role: message.role.clone(),
+                        content: if text.is_empty() { None } else { Some(text) },
+                        tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+                        tool_call_id: None,
+                    });
+                }
+                out.extend(tool_results);
+            }
+        }
+    }
+    out
+}
+
+// =============================================================================
+// RESPONSES — wire types
+// =============================================================================
+
+#[derive(Serialize)]
+struct RespRequest<'a> {
+    model: &'a str,
+    max_output_tokens: u32,
+    instructions: &'a str,
+    input: &'a [RespInputItem],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<&'a [RespToolDef<'a>]>,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type")]
+enum RespInputItem {
+    #[serde(rename = "message")]
+    Message {
+        role: String,
+        content: Vec<RespTextContent>,
+    },
+
+    #[serde(rename = "function_call")]
+    FunctionCall {
+        call_id: String,
+        name: String,
+        arguments: String,
+    },
+
+    #[serde(rename = "function_call_output")]
+    FunctionCallOutput { call_id: String, output: String },
+}
+
+#[derive(Serialize)]
+struct RespTextContent {
+    #[serde(rename = "type")]
+    content_type: &'static str,
+    text: String,
+}
+
+impl RespTextContent {
+    fn input_text(text: String) -> Self {
+        Self { content_type: "input_text", text }
+    }
+}
+
+#[derive(Serialize)]
+struct RespToolDef<'a> {
+    #[serde(rename = "type")]
+    tool_type: &'static str,
+    name: &'a str,
+    description: &'a str,
+    parameters: &'a Value,
+}
+
+impl<'a> From<&'a Tool> for RespToolDef<'a> {
+    fn from(tool: &'a Tool) -> Self {
+        Self { tool_type: "function", name: &tool.name, description: &tool.description, parameters: &tool.input_schema }
+    }
+}
+
+fn build_responses_input(messages: &[Message]) -> Vec<RespInputItem> {
+    let mut out = Vec::new();
+    for message in messages {
+        match &message.content {
+            Content::Text(text) => {
+                out.push(RespInputItem::Message {
+                    role: message.role.clone(),
+                    content: vec![RespTextContent::input_text(text.clone())],
+                });
+            }
+            Content::Blocks(blocks) => {
+                let mut text = String::new();
+                for block in blocks {
+                    match block {
+                        ContentBlock::Text { text: t } => text.push_str(t),
+                        ContentBlock::ToolUse { id, name, input } => {
+                            out.push(RespInputItem::FunctionCall {
+                                call_id: id.clone(),
+                                name: name.clone(),
+                                arguments: serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string()),
+                            });
+                        }
+                        ContentBlock::ToolResult { tool_use_id, content, is_error: _ } => {
+                            out.push(RespInputItem::FunctionCallOutput {
+                                call_id: tool_use_id.clone(),
+                                output: content.clone(),
+                            });
+                        }
+                        ContentBlock::Thinking { .. } | ContentBlock::Unknown => {}
+                    }
+                }
+                if !text.is_empty() {
+                    out.push(RespInputItem::Message {
+                        role: message.role.clone(),
+                        content: vec![RespTextContent::input_text(text)],
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+// =============================================================================
+// RESPONSE PARSING
+// =============================================================================
+
+fn parse_chat_completions_response(json_text: &str) -> Result<ChatResponse, LlmError> {
+    let root: Value = serde_json::from_str(json_text).map_err(|e| LlmError::ApiParse(e.to_string()))?;
+    let model = root
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_default();
+    let prompt_tokens = root
+        .get("usage")
+        .and_then(|u| u.get("prompt_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let completion_tokens = root
+        .get("usage")
+        .and_then(|u| u.get("completion_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+
+    let Some(choice) = root
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|arr| arr.first())
+    else {
+        return Err(LlmError::ApiParse("chat_completions: missing choices[0]".to_string()));
+    };
+    let finish_reason = choice
+        .get("finish_reason")
+        .and_then(Value::as_str)
+        .unwrap_or("stop");
+    let message = choice.get("message").cloned().unwrap_or(Value::Null);
+
+    let mut content = Vec::new();
+    if let Some(text) = message.get("content").and_then(Value::as_str) {
+        if !text.is_empty() {
+            content.push(ContentBlock::Text { text: text.to_string() });
+        }
+    }
+
+    if let Some(tool_calls) = message.get("tool_calls").and_then(Value::as_array) {
+        for call in tool_calls {
+            let Some(name) = call
+                .get("function")
+                .and_then(|f| f.get("name"))
+                .and_then(Value::as_str)
+            else {
+                continue;
+            };
+            let Some(id) = call.get("id").and_then(Value::as_str).map(str::to_owned) else {
+                return Err(LlmError::ApiParse("chat_completions: tool call missing id".to_string()));
+            };
+            let args = call
+                .get("function")
+                .and_then(|f| f.get("arguments"))
+                .and_then(Value::as_str)
+                .unwrap_or("{}");
+            let input =
+                serde_json::from_str::<Value>(args).unwrap_or_else(|_| Value::Object(serde_json::Map::default()));
+            content.push(ContentBlock::ToolUse { id, name: name.to_string(), input });
+        }
+    }
+
+    let stop_reason = if content
+        .iter()
+        .any(|block| matches!(block, ContentBlock::ToolUse { .. }))
+    {
+        "tool_use".to_string()
+    } else if finish_reason == "length" {
+        "max_tokens".to_string()
+    } else {
+        "end_turn".to_string()
+    };
+
+    Ok(ChatResponse { content, model, stop_reason, input_tokens: prompt_tokens, output_tokens: completion_tokens })
+}
+
+fn parse_responses_response(json_text: &str) -> Result<ChatResponse, LlmError> {
+    let root: Value = serde_json::from_str(json_text).map_err(|e| LlmError::ApiParse(e.to_string()))?;
+    let model = root
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_default();
+    let input_tokens = root
+        .get("usage")
+        .and_then(|u| u.get("input_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let output_tokens = root
+        .get("usage")
+        .and_then(|u| u.get("output_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+
+    let mut content = Vec::new();
+    if let Some(items) = root.get("output").and_then(Value::as_array) {
+        for item in items {
+            match item.get("type").and_then(Value::as_str) {
+                Some("message") => {
+                    let Some(parts) = item.get("content").and_then(Value::as_array) else {
+                        continue;
+                    };
+                    for part in parts {
+                        let kind = part.get("type").and_then(Value::as_str);
+                        let text = part
+                            .get("text")
+                            .or_else(|| part.get("output_text"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("");
+                        if matches!(kind, Some("output_text" | "text")) && !text.is_empty() {
+                            content.push(ContentBlock::Text { text: text.to_string() });
+                        }
+                    }
+                }
+                Some("function_call") => {
+                    let Some(id) = item
+                        .get("call_id")
+                        .or_else(|| item.get("id"))
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                    else {
+                        return Err(LlmError::ApiParse("responses: function_call missing call_id".to_string()));
+                    };
+                    let Some(name) = item.get("name").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    let args = item
+                        .get("arguments")
+                        .and_then(Value::as_str)
+                        .unwrap_or("{}");
+                    let input = serde_json::from_str::<Value>(args)
+                        .unwrap_or_else(|_| Value::Object(serde_json::Map::default()));
+                    content.push(ContentBlock::ToolUse { id, name: name.to_string(), input });
+                }
+                _ => {}
+            }
+        }
+    } else if let Some(output_text) = root.get("output_text").and_then(Value::as_str) {
+        if !output_text.is_empty() {
+            content.push(ContentBlock::Text { text: output_text.to_string() });
+        }
+    }
+
+    let stop_reason = if content
+        .iter()
+        .any(|block| matches!(block, ContentBlock::ToolUse { .. }))
+    {
+        "tool_use".to_string()
+    } else if root
+        .get("incomplete_details")
+        .and_then(|d| d.get("reason"))
+        .and_then(Value::as_str)
+        == Some("max_output_tokens")
+    {
+        "max_tokens".to_string()
+    } else {
+        "end_turn".to_string()
+    };
+
+    Ok(ChatResponse { content, model, stop_reason, input_tokens, output_tokens })
+}
+```
+
+## 8. `/Users/ianzepp/github/gauntlet/collaboard/server/src/llm/tools.rs`
+
+```rust
+//! CollabBoard-specific tool definitions for the AI agent.
+
+use super::types::Tool;
+
+/// Build the set of tools available to the CollabBoard AI agent.
+#[must_use]
+pub fn collaboard_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "create_objects".into(),
+            description: "Create one or more objects (sticky notes, shapes, text) on the board.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "objects": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "kind": { "type": "string", "enum": ["sticky_note", "rectangle", "ellipse", "text"] },
+                                "x": { "type": "number" },
+                                "y": { "type": "number" },
+                                "props": {
+                                    "type": "object",
+                                    "properties": {
+                                        "text": { "type": "string" },
+                                        "color": { "type": "string" }
+                                    }
+                                }
+                            },
+                            "required": ["kind", "x", "y"]
+                        }
+                    }
+                },
+                "required": ["objects"]
+            }),
+        },
+        Tool {
+            name: "move_objects".into(),
+            description: "Reposition objects by their IDs to new x,y coordinates.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "moves": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": { "type": "string", "format": "uuid" },
+                                "x": { "type": "number" },
+                                "y": { "type": "number" }
+                            },
+                            "required": ["id", "x", "y"]
+                        }
+                    }
+                },
+                "required": ["moves"]
+            }),
+        },
+        Tool {
+            name: "update_objects".into(),
+            description: "Change properties (color, text, size) of objects by their IDs.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "updates": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": { "type": "string", "format": "uuid" },
+                                "props": { "type": "object" },
+                                "width": { "type": "number" },
+                                "height": { "type": "number" }
+                            },
+                            "required": ["id"]
+                        }
+                    }
+                },
+                "required": ["updates"]
+            }),
+        },
+        Tool {
+            name: "delete_objects".into(),
+            description: "Remove objects from the board by their IDs.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "ids": {
+                        "type": "array",
+                        "items": { "type": "string", "format": "uuid" }
+                    }
+                },
+                "required": ["ids"]
+            }),
+        },
+        Tool {
+            name: "organize_layout".into(),
+            description: "Arrange objects in a grid, cluster, or tree layout.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "layout": { "type": "string", "enum": ["grid", "cluster", "tree", "circle"] },
+                    "ids": {
+                        "type": "array",
+                        "items": { "type": "string", "format": "uuid" },
+                        "description": "Object IDs to arrange. If empty, arranges all objects."
+                    },
+                    "spacing": { "type": "number", "description": "Pixels between objects" }
+                },
+                "required": ["layout"]
+            }),
+        },
+        Tool {
+            name: "summarize_board".into(),
+            description: "Read all text content on the board and produce a summary as a new sticky note.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "position": {
+                        "type": "object",
+                        "properties": {
+                            "x": { "type": "number" },
+                            "y": { "type": "number" }
+                        }
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "group_by_theme".into(),
+            description: "Cluster objects by semantic similarity and color-code them by group.".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "num_groups": { "type": "integer", "minimum": 2, "maximum": 10, "description": "Number of groups to create" }
+                }
+            }),
+        },
+    ]
+}
+```
+
+## 9. `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/mod.rs`
+
+```rust
+pub mod ai;
+pub mod board;
+pub mod cursor;
+pub mod object;
+pub mod persistence;
+```
+
+## 10. `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/ai.rs`
+
+```rust
+//! AI service — LLM prompt → tool calls → board mutations.
+//!
+//! DESIGN
+//! ======
+//! Receives an `ai:prompt` frame, sends the board state + user prompt to
+//! the LLM with CollabBoard tools, executes returned tool calls as object
+//! mutations, and broadcasts results to board peers.
+
+use std::sync::Arc;
+
+use serde_json::json;
+use tracing::{info, warn};
+use uuid::Uuid;
+
+use crate::frame::Data;
+use crate::llm::LlmClient;
+use crate::llm::tools::collaboard_tools;
+use crate::llm::types::{Content, ContentBlock, Message};
+use crate::state::{AppState, BoardObject};
+
+const MAX_TOOL_ITERATIONS: usize = 10;
+const MAX_TOKENS: u32 = 4096;
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+#[derive(Debug, thiserror::Error)]
+pub enum AiError {
+    #[error("LLM not configured")]
+    LlmNotConfigured,
+    #[error("board not loaded: {0}")]
+    BoardNotLoaded(Uuid),
+    #[error("LLM error: {0}")]
+    LlmError(#[from] crate::llm::types::LlmError),
+    #[error("object error: {0}")]
+    ObjectError(#[from] super::object::ObjectError),
+}
+
+impl crate::frame::ErrorCode for AiError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            Self::LlmNotConfigured => "E_LLM_NOT_CONFIGURED",
+            Self::BoardNotLoaded(_) => "E_BOARD_NOT_LOADED",
+            Self::LlmError(_) => "E_LLM_ERROR",
+            Self::ObjectError(_) => "E_OBJECT_ERROR",
+        }
+    }
+
+    fn retryable(&self) -> bool {
+        matches!(self, Self::LlmError(e) if e.retryable())
+    }
+}
+
+/// Result of an AI prompt: mutated objects + optional text response.
+pub struct AiResult {
+    pub mutations: Vec<AiMutation>,
+    pub text: Option<String>,
+}
+
+pub enum AiMutation {
+    Created(BoardObject),
+    Updated(BoardObject),
+    Deleted(Uuid),
+}
+
+// =============================================================================
+// MAIN ENTRY POINT
+// =============================================================================
+
+pub async fn handle_prompt(
+    state: &AppState,
+    llm: &Arc<LlmClient>,
+    board_id: Uuid,
+    prompt: &str,
+) -> Result<AiResult, AiError> {
+    // Snapshot board objects for context.
+    let board_snapshot = {
+        let boards = state.boards.read().await;
+        let board = boards.get(&board_id).ok_or(AiError::BoardNotLoaded(board_id))?;
+        board.objects.values().cloned().collect::<Vec<_>>()
+    };
+
+    let system = build_system_prompt(&board_snapshot);
+    let tools = collaboard_tools();
+
+    let mut messages = vec![Message {
+        role: "user".into(),
+        content: Content::Text(prompt.into()),
+    }];
+
+    let mut all_mutations = Vec::new();
+    let mut final_text: Option<String> = None;
+
+    for iteration in 0..MAX_TOOL_ITERATIONS {
+        let response = llm.chat(MAX_TOKENS, &system, &messages, Some(&tools)).await?;
+
+        info!(
+            iteration,
+            stop_reason = %response.stop_reason,
+            input_tokens = response.input_tokens,
+            output_tokens = response.output_tokens,
+            "ai: LLM response"
+        );
+
+        // Collect text blocks.
+        let text_parts: Vec<&str> = response
+            .content
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::Text { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        if !text_parts.is_empty() {
+            final_text = Some(text_parts.join("\n"));
+        }
+
+        // Collect tool_use blocks.
+        let tool_calls: Vec<(String, String, serde_json::Value)> = response
+            .content
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::ToolUse { id, name, input } => {
+                    Some((id.clone(), name.clone(), input.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+
+        // If no tool calls, we're done.
+        if tool_calls.is_empty() {
+            break;
+        }
+
+        // Push assistant message with the full content blocks.
+        messages.push(Message {
+            role: "assistant".into(),
+            content: Content::Blocks(response.content),
+        });
+
+        // Execute each tool call and collect results.
+        let mut tool_results = Vec::new();
+        for (tool_id, tool_name, input) in &tool_calls {
+            let result = execute_tool(state, board_id, tool_name, input, &mut all_mutations).await;
+            let (content, is_error) = match result {
+                Ok(msg) => (msg, None),
+                Err(e) => (e.to_string(), Some(true)),
+            };
+            tool_results.push(ContentBlock::ToolResult {
+                tool_use_id: tool_id.clone(),
+                content,
+                is_error,
+            });
+        }
+
+        // Push tool results as a user message.
+        messages.push(Message {
+            role: "user".into(),
+            content: Content::Blocks(tool_results),
+        });
+
+        // If stop_reason is not tool_use, break.
+        if response.stop_reason != "tool_use" {
+            break;
+        }
+    }
+
+    Ok(AiResult { mutations: all_mutations, text: final_text })
+}
+
+// =============================================================================
+// SYSTEM PROMPT
+// =============================================================================
+
+fn build_system_prompt(objects: &[BoardObject]) -> String {
+    let mut prompt = String::from(
+        "You are an AI assistant for CollabBoard, a collaborative whiteboard application. \
+         You can create, move, update, and delete objects on the board using the provided tools.\n\n\
+         Current board objects:\n",
+    );
+
+    if objects.is_empty() {
+        prompt.push_str("(empty board — no objects yet)\n");
+    } else {
+        for obj in objects {
+            let text = obj.props.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            let color = obj.props.get("color").and_then(|v| v.as_str()).unwrap_or("");
+            prompt.push_str(&format!(
+                "- id={} kind={} x={:.0} y={:.0} text={:?} color={:?}\n",
+                obj.id, obj.kind, obj.x, obj.y, text, color,
+            ));
+        }
+    }
+
+    prompt.push_str(
+        "\nUse tools to manipulate the board. Place new objects with reasonable spacing \
+         (e.g. 200px apart). Use varied colors for visual distinction.",
+    );
+    prompt
+}
+
+// =============================================================================
+// TOOL EXECUTION
+// =============================================================================
+
+async fn execute_tool(
+    state: &AppState,
+    board_id: Uuid,
+    tool_name: &str,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    match tool_name {
+        "create_objects" => execute_create_objects(state, board_id, input, mutations).await,
+        "move_objects" => execute_move_objects(state, board_id, input, mutations).await,
+        "update_objects" => execute_update_objects(state, board_id, input, mutations).await,
+        "delete_objects" => execute_delete_objects(state, board_id, input, mutations).await,
+        "organize_layout" => execute_organize_layout(state, board_id, input, mutations).await,
+        "summarize_board" => execute_summarize_board(state, board_id, input, mutations).await,
+        "group_by_theme" => {
+            // group_by_theme is an LLM-level operation; just acknowledge it.
+            Ok("group_by_theme: acknowledged. Use update_objects to apply color changes.".into())
+        }
+        _ => Ok(format!("unknown tool: {tool_name}")),
+    }
+}
+
+async fn execute_create_objects(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let objects = input.get("objects").and_then(|v| v.as_array());
+    let Some(objects) = objects else {
+        return Ok("error: missing 'objects' array".into());
+    };
+
+    let mut created_ids = Vec::new();
+    for obj_def in objects {
+        let kind = obj_def.get("kind").and_then(|v| v.as_str()).unwrap_or("sticky_note");
+        let x = obj_def.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let y = obj_def.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let props = obj_def.get("props").cloned().unwrap_or(json!({}));
+
+        let obj = super::object::create_object(state, board_id, kind, x, y, props, None).await?;
+        created_ids.push(obj.id.to_string());
+        mutations.push(AiMutation::Created(obj));
+    }
+
+    Ok(format!("created {} objects: [{}]", created_ids.len(), created_ids.join(", ")))
+}
+
+async fn execute_move_objects(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let moves = input.get("moves").and_then(|v| v.as_array());
+    let Some(moves) = moves else {
+        return Ok("error: missing 'moves' array".into());
+    };
+
+    let mut moved = 0;
+    for mv in moves {
+        let Some(id) = mv.get("id").and_then(|v| v.as_str()).and_then(|s| s.parse::<Uuid>().ok()) else {
+            continue;
+        };
+        let mut data = Data::new();
+        if let Some(x) = mv.get("x") {
+            data.insert("x".into(), x.clone());
+        }
+        if let Some(y) = mv.get("y") {
+            data.insert("y".into(), y.clone());
+        }
+
+        match super::object::update_object(state, board_id, id, &data, 0).await {
+            Ok(obj) => {
+                mutations.push(AiMutation::Updated(obj));
+                moved += 1;
+            }
+            Err(e) => warn!(error = %e, %id, "ai: move_objects failed for object"),
+        }
+    }
+
+    Ok(format!("moved {moved} objects"))
+}
+
+async fn execute_update_objects(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let updates = input.get("updates").and_then(|v| v.as_array());
+    let Some(updates) = updates else {
+        return Ok("error: missing 'updates' array".into());
+    };
+
+    let mut updated = 0;
+    for upd in updates {
+        let Some(id) = upd.get("id").and_then(|v| v.as_str()).and_then(|s| s.parse::<Uuid>().ok()) else {
+            continue;
+        };
+        let mut data = Data::new();
+        if let Some(props) = upd.get("props") {
+            data.insert("props".into(), props.clone());
+        }
+        if let Some(w) = upd.get("width") {
+            data.insert("width".into(), w.clone());
+        }
+        if let Some(h) = upd.get("height") {
+            data.insert("height".into(), h.clone());
+        }
+
+        match super::object::update_object(state, board_id, id, &data, 0).await {
+            Ok(obj) => {
+                mutations.push(AiMutation::Updated(obj));
+                updated += 1;
+            }
+            Err(e) => warn!(error = %e, %id, "ai: update_objects failed for object"),
+        }
+    }
+
+    Ok(format!("updated {updated} objects"))
+}
+
+async fn execute_delete_objects(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let ids = input.get("ids").and_then(|v| v.as_array());
+    let Some(ids) = ids else {
+        return Ok("error: missing 'ids' array".into());
+    };
+
+    let mut deleted = 0;
+    for id_val in ids {
+        let Some(id) = id_val.as_str().and_then(|s| s.parse::<Uuid>().ok()) else {
+            continue;
+        };
+
+        match super::object::delete_object(state, board_id, id).await {
+            Ok(()) => {
+                mutations.push(AiMutation::Deleted(id));
+                deleted += 1;
+            }
+            Err(e) => warn!(error = %e, %id, "ai: delete_objects failed for object"),
+        }
+    }
+
+    Ok(format!("deleted {deleted} objects"))
+}
+
+async fn execute_organize_layout(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let layout = input.get("layout").and_then(|v| v.as_str()).unwrap_or("grid");
+    let spacing = input.get("spacing").and_then(|v| v.as_f64()).unwrap_or(200.0);
+
+    // Get target IDs or all objects.
+    let target_ids: Vec<Uuid> = if let Some(ids) = input.get("ids").and_then(|v| v.as_array()) {
+        ids.iter()
+            .filter_map(|v| v.as_str().and_then(|s| s.parse().ok()))
+            .collect()
+    } else {
+        let boards = state.boards.read().await;
+        let Some(board) = boards.get(&board_id) else {
+            return Ok("error: board not loaded".into());
+        };
+        board.objects.keys().copied().collect()
+    };
+
+    if target_ids.is_empty() {
+        return Ok("no objects to organize".into());
+    }
+
+    let cols = (target_ids.len() as f64).sqrt().ceil() as usize;
+    let mut moved = 0;
+
+    for (i, id) in target_ids.iter().enumerate() {
+        let (x, y) = match layout {
+            "grid" => {
+                let col = i % cols;
+                let row = i / cols;
+                (col as f64 * spacing + 100.0, row as f64 * spacing + 100.0)
+            }
+            "circle" => {
+                let angle = 2.0 * std::f64::consts::PI * (i as f64) / (target_ids.len() as f64);
+                let radius = spacing * (target_ids.len() as f64).max(3.0) / (2.0 * std::f64::consts::PI);
+                (500.0 + radius * angle.cos(), 500.0 + radius * angle.sin())
+            }
+            _ => {
+                // cluster / tree fallback to grid
+                let col = i % cols;
+                let row = i / cols;
+                (col as f64 * spacing + 100.0, row as f64 * spacing + 100.0)
+            }
+        };
+
+        let mut data = Data::new();
+        data.insert("x".into(), json!(x));
+        data.insert("y".into(), json!(y));
+
+        match super::object::update_object(state, board_id, *id, &data, 0).await {
+            Ok(obj) => {
+                mutations.push(AiMutation::Updated(obj));
+                moved += 1;
+            }
+            Err(e) => warn!(error = %e, %id, "ai: organize_layout failed for object"),
+        }
+    }
+
+    Ok(format!("organized {moved} objects in {layout} layout"))
+}
+
+async fn execute_summarize_board(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    // Collect all text from board objects.
+    let texts: Vec<String> = {
+        let boards = state.boards.read().await;
+        let Some(board) = boards.get(&board_id) else {
+            return Ok("error: board not loaded".into());
+        };
+        board
+            .objects
+            .values()
+            .filter_map(|obj| obj.props.get("text").and_then(|v| v.as_str()).map(String::from))
+            .collect()
+    };
+
+    let summary = if texts.is_empty() {
+        "No text content on the board.".to_string()
+    } else {
+        format!("Board contains {} items: {}", texts.len(), texts.join("; "))
+    };
+
+    let x = input
+        .get("position")
+        .and_then(|p| p.get("x"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(100.0);
+    let y = input
+        .get("position")
+        .and_then(|p| p.get("y"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(100.0);
+
+    let obj = super::object::create_object(
+        state,
+        board_id,
+        "sticky_note",
+        x,
+        y,
+        json!({"text": summary, "color": "#FFE066"}),
+        None,
+    )
+    .await?;
+
+    let result = format!("created summary note: {}", obj.id);
+    mutations.push(AiMutation::Created(obj));
+
+    Ok(result)
+}
+```
+
+## 11. `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/object.rs`
+
+```rust
+//! Object service — create, update, delete with LWW versioning.
+//!
+//! DESIGN
+//! ======
+//! Object mutations update in-memory state immediately, mark the object
+//! as dirty for debounced persistence, and return the updated object for
+//! broadcast. LWW conflict resolution: incoming version must be >= current
+//! version, otherwise the update is rejected as stale.
+
+use uuid::Uuid;
+
+use crate::frame::Data;
+use crate::state::{AppState, BoardObject};
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+#[derive(Debug, thiserror::Error)]
+pub enum ObjectError {
+    #[error("object not found: {0}")]
+    NotFound(Uuid),
+    #[error("board not loaded: {0}")]
+    BoardNotLoaded(Uuid),
+    #[error("stale update: incoming version {incoming} < current {current}")]
+    StaleUpdate { incoming: i32, current: i32 },
+    #[error("database error: {0}")]
+    Database(#[from] sqlx::Error),
+}
+
+impl crate::frame::ErrorCode for ObjectError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            Self::NotFound(_) => "E_OBJECT_NOT_FOUND",
+            Self::BoardNotLoaded(_) => "E_BOARD_NOT_LOADED",
+            Self::StaleUpdate { .. } => "E_STALE_UPDATE",
+            Self::Database(_) => "E_DATABASE",
+        }
+    }
+}
+
+// =============================================================================
+// CREATE
+// =============================================================================
+
+/// Create a new object on a board.
+///
+/// # Errors
+///
+/// Returns `BoardNotLoaded` if the board isn't in memory.
+pub async fn create_object(
+    state: &AppState,
+    board_id: Uuid,
+    kind: &str,
+    x: f64,
+    y: f64,
+    props: serde_json::Value,
+    created_by: Option<Uuid>,
+) -> Result<BoardObject, ObjectError> {
+    let mut boards = state.boards.write().await;
+    let board = boards
+        .get_mut(&board_id)
+        .ok_or(ObjectError::BoardNotLoaded(board_id))?;
+
+    let obj = BoardObject {
+        id: Uuid::new_v4(),
+        board_id,
+        kind: kind.to_string(),
+        x,
+        y,
+        width: None,
+        height: None,
+        rotation: 0.0,
+        z_index: board.objects.len() as i32,
+        props,
+        created_by,
+        version: 1,
+    };
+
+    let result = obj.clone();
+    board.dirty.insert(obj.id);
+    board.objects.insert(obj.id, obj);
+
+    Ok(result)
+}
+
+// =============================================================================
+// UPDATE
+// =============================================================================
+
+/// Update an existing object with LWW conflict resolution.
+///
+/// # Errors
+///
+/// Returns `StaleUpdate` if `incoming_version < current.version`.
+pub async fn update_object(
+    state: &AppState,
+    board_id: Uuid,
+    object_id: Uuid,
+    updates: &Data,
+    incoming_version: i32,
+) -> Result<BoardObject, ObjectError> {
+    let mut boards = state.boards.write().await;
+    let board = boards
+        .get_mut(&board_id)
+        .ok_or(ObjectError::BoardNotLoaded(board_id))?;
+    let obj = board
+        .objects
+        .get_mut(&object_id)
+        .ok_or(ObjectError::NotFound(object_id))?;
+
+    // LWW: reject stale updates.
+    if incoming_version < obj.version {
+        return Err(ObjectError::StaleUpdate { incoming: incoming_version, current: obj.version });
+    }
+
+    // Apply updates from data map.
+    if let Some(x) = updates.get("x").and_then(|v| v.as_f64()) {
+        obj.x = x;
+    }
+    if let Some(y) = updates.get("y").and_then(|v| v.as_f64()) {
+        obj.y = y;
+    }
+    if let Some(w) = updates.get("width").and_then(|v| v.as_f64()) {
+        obj.width = Some(w);
+    }
+    if let Some(h) = updates.get("height").and_then(|v| v.as_f64()) {
+        obj.height = Some(h);
+    }
+    if let Some(r) = updates.get("rotation").and_then(|v| v.as_f64()) {
+        obj.rotation = r;
+    }
+    if let Some(z) = updates.get("z_index").and_then(|v| v.as_i64()) {
+        obj.z_index = z as i32;
+    }
+    if let Some(p) = updates.get("props") {
+        obj.props = p.clone();
+    }
+
+    obj.version += 1;
+    board.dirty.insert(object_id);
+
+    Ok(obj.clone())
+}
+
+// =============================================================================
+// DELETE
+// =============================================================================
+
+/// Delete an object from a board. Removes from memory and Postgres immediately.
+///
+/// # Errors
+///
+/// Returns `NotFound` if the object doesn't exist.
+pub async fn delete_object(state: &AppState, board_id: Uuid, object_id: Uuid) -> Result<(), ObjectError> {
+    let mut boards = state.boards.write().await;
+    let board = boards
+        .get_mut(&board_id)
+        .ok_or(ObjectError::BoardNotLoaded(board_id))?;
+
+    if board.objects.remove(&object_id).is_none() {
+        return Err(ObjectError::NotFound(object_id));
+    }
+    board.dirty.remove(&object_id);
+
+    // Delete from Postgres immediately (not deferred).
+    sqlx::query("DELETE FROM board_objects WHERE id = $1")
+        .bind(object_id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(())
+}
+```
+
+## 12. `/Users/ianzepp/github/gauntlet/collaboard/server/src/services/board.rs`
+
+```rust
+//! Board service — CRUD, join/part, and state hydration.
+//!
+//! DESIGN
+//! ======
+//! Boards are created and listed via REST-like operations (dispatched from
+//! WS frames). Board state is hydrated from Postgres on first join and kept
+//! in memory while any client is connected.
+
+use std::collections::HashMap;
+
+use sqlx::PgPool;
+use tokio::sync::mpsc;
+use tracing::info;
+use uuid::Uuid;
+
+use crate::frame::Frame;
+use crate::state::{AppState, BoardObject, BoardState};
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+#[derive(Debug, thiserror::Error)]
+pub enum BoardError {
+    #[error("board not found: {0}")]
+    NotFound(Uuid),
+    #[error("database error: {0}")]
+    Database(#[from] sqlx::Error),
+}
+
+impl crate::frame::ErrorCode for BoardError {
+    fn error_code(&self) -> &'static str {
+        match self {
+            Self::NotFound(_) => "E_BOARD_NOT_FOUND",
+            Self::Database(_) => "E_DATABASE",
+        }
+    }
+}
+
+/// Row returned from board queries.
+#[derive(Debug, Clone)]
+pub struct BoardRow {
+    pub id: Uuid,
+    pub name: String,
+    pub owner_id: Option<Uuid>,
+}
+
+// =============================================================================
+// CRUD
+// =============================================================================
+
+/// Create a new board.
+///
+/// # Errors
+///
+/// Returns a database error if the insert fails.
+pub async fn create_board(pool: &PgPool, name: &str) -> Result<BoardRow, BoardError> {
+    let id = Uuid::new_v4();
+    sqlx::query("INSERT INTO boards (id, name) VALUES ($1, $2)")
+        .bind(id)
+        .bind(name)
+        .execute(pool)
+        .await?;
+
+    Ok(BoardRow { id, name: name.to_string(), owner_id: None })
+}
+
+/// List all boards.
+///
+/// # Errors
+///
+/// Returns a database error if the query fails.
+pub async fn list_boards(pool: &PgPool) -> Result<Vec<BoardRow>, BoardError> {
+    let rows = sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
+        "SELECT id, name, owner_id FROM boards ORDER BY created_at DESC",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(id, name, owner_id)| BoardRow { id, name, owner_id })
+        .collect())
+}
+
+/// Delete a board by ID.
+///
+/// # Errors
+///
+/// Returns a database error if the delete fails.
+pub async fn delete_board(pool: &PgPool, board_id: Uuid) -> Result<(), BoardError> {
+    let result = sqlx::query("DELETE FROM boards WHERE id = $1")
+        .bind(board_id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(BoardError::NotFound(board_id));
+    }
+    Ok(())
+}
+
+// =============================================================================
+// JOIN / PART
+// =============================================================================
+
+/// Join a board. Hydrates from Postgres if not already in memory.
+/// Returns the current list of board objects.
+///
+/// # Errors
+///
+/// Returns a database error if hydration fails.
+pub async fn join_board(
+    state: &AppState,
+    board_id: Uuid,
+    client_id: Uuid,
+    tx: mpsc::Sender<Frame>,
+) -> Result<Vec<BoardObject>, BoardError> {
+    // Verify board exists in database.
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM boards WHERE id = $1)")
+        .bind(board_id)
+        .fetch_one(&state.pool)
+        .await?;
+
+    if !exists {
+        return Err(BoardError::NotFound(board_id));
+    }
+
+    let mut boards = state.boards.write().await;
+    let board_state = boards.entry(board_id).or_insert_with(BoardState::new);
+
+    // Hydrate from Postgres if this is the first client.
+    if board_state.clients.is_empty() {
+        let objects = hydrate_objects(&state.pool, board_id).await?;
+        board_state.objects = objects;
+        info!(%board_id, count = board_state.objects.len(), "hydrated board from database");
+    }
+
+    board_state.clients.insert(client_id, tx);
+    let objects: Vec<BoardObject> = board_state.objects.values().cloned().collect();
+
+    info!(%board_id, %client_id, clients = board_state.clients.len(), "client joined board");
+    Ok(objects)
+}
+
+/// Leave a board. Removes the client sender. If last client, flushes
+/// dirty objects and evicts the board state from memory.
+pub async fn part_board(state: &AppState, board_id: Uuid, client_id: Uuid) {
+    let mut boards = state.boards.write().await;
+    let Some(board_state) = boards.get_mut(&board_id) else {
+        return;
+    };
+
+    board_state.clients.remove(&client_id);
+    info!(%board_id, %client_id, remaining = board_state.clients.len(), "client left board");
+
+    if board_state.clients.is_empty() {
+        // Final flush of dirty objects before eviction.
+        if !board_state.dirty.is_empty() {
+            let dirty_objects: Vec<BoardObject> = board_state
+                .dirty
+                .iter()
+                .filter_map(|id| board_state.objects.get(id).cloned())
+                .collect();
+            board_state.dirty.clear();
+
+            // Release lock before writing to Postgres.
+            drop(boards);
+            if let Err(e) = flush_objects(&state.pool, &dirty_objects).await {
+                tracing::error!(error = %e, %board_id, "final flush failed");
+            }
+
+            // Re-acquire and evict.
+            let mut boards = state.boards.write().await;
+            if let Some(bs) = boards.get(&board_id) {
+                if bs.clients.is_empty() {
+                    boards.remove(&board_id);
+                    info!(%board_id, "evicted board from memory");
+                }
+            }
+        } else {
+            boards.remove(&board_id);
+            info!(%board_id, "evicted board from memory");
+        }
+    }
+}
+
+// =============================================================================
+// BROADCAST
+// =============================================================================
+
+/// Broadcast a frame to all clients in a board, optionally excluding one.
+pub async fn broadcast(state: &AppState, board_id: Uuid, frame: &Frame, exclude: Option<Uuid>) {
+    let boards = state.boards.read().await;
+    let Some(board_state) = boards.get(&board_id) else {
+        return;
+    };
+
+    for (client_id, tx) in &board_state.clients {
+        if exclude == Some(*client_id) {
+            continue;
+        }
+        // Best-effort: if a client's channel is full, skip it.
+        let _ = tx.try_send(frame.clone());
+    }
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+async fn hydrate_objects(pool: &PgPool, board_id: Uuid) -> Result<HashMap<Uuid, BoardObject>, sqlx::Error> {
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            String,
+            f64,
+            f64,
+            Option<f64>,
+            Option<f64>,
+            f64,
+            i32,
+            serde_json::Value,
+            Option<Uuid>,
+            i32,
+        ),
+    >(
+        "SELECT id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version \
+         FROM board_objects WHERE board_id = $1",
+    )
+    .bind(board_id)
+    .fetch_all(pool)
+    .await?;
+
+    let mut objects = HashMap::new();
+    for (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version) in rows {
+        objects.insert(
+            id,
+            BoardObject { id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version },
+        );
+    }
+    Ok(objects)
+}
+
+/// Batch upsert objects to Postgres.
+pub async fn flush_objects(pool: &PgPool, objects: &[BoardObject]) -> Result<(), sqlx::Error> {
+    for obj in objects {
+        sqlx::query(
+            "INSERT INTO board_objects (id, board_id, kind, x, y, width, height, rotation, z_index, props, created_by, version, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now()) \
+             ON CONFLICT (id) DO UPDATE SET \
+                 x = EXCLUDED.x, y = EXCLUDED.y, width = EXCLUDED.width, height = EXCLUDED.height, \
+                 rotation = EXCLUDED.rotation, z_index = EXCLUDED.z_index, props = EXCLUDED.props, \
+                 version = EXCLUDED.version, updated_at = now()",
+        )
+        .bind(obj.id)
+        .bind(obj.board_id)
+        .bind(&obj.kind)
+        .bind(obj.x)
+        .bind(obj.y)
+        .bind(obj.width)
+        .bind(obj.height)
+        .bind(obj.rotation)
+        .bind(obj.z_index)
+        .bind(&obj.props)
+        .bind(obj.created_by)
+        .bind(obj.version)
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+```
+
+## 13. `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/ws.rs`
+
+```rust
+//! WebSocket handler — bidirectional frame relay.
+//!
+//! DESIGN
+//! ======
+//! Ported from Prior's `gateways/api/src/ws.rs` with CollabBoard-specific
+//! dispatch. On upgrade, generates an anonymous client ID and enters a
+//! `select!` loop that handles:
+//! - Incoming client frames → parse + dispatch by syscall prefix
+//! - Broadcast frames from board peers → forward to client
+//!
+//! LIFECYCLE
+//! =========
+//! 1. Upgrade → send `session:connected` with client_id
+//! 2. Client sends frames → validate prefix → dispatch to service
+//! 3. Broadcast frames from peers → forwarded to client
+//! 4. Close → `board:part` → cleanup
+
+use axum::extract::State;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+use axum::response::Response;
+use tokio::sync::mpsc;
+use tracing::{info, warn};
+use uuid::Uuid;
+
+use crate::frame::{Data, Frame};
+use crate::services;
+use crate::state::AppState;
+
+// =============================================================================
+// UPGRADE
+// =============================================================================
+
+pub async fn handle_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
+    ws.on_upgrade(move |socket| run_ws(socket, state))
+}
+
+// =============================================================================
+// CONNECTION
+// =============================================================================
+
+async fn run_ws(mut socket: WebSocket, state: AppState) {
+    let client_id = Uuid::new_v4();
+
+    // Per-connection channel for receiving broadcast frames from peers.
+    let (client_tx, mut client_rx) = mpsc::channel::<Frame>(256);
+
+    // Send session:connected.
+    let welcome = Frame::request("session:connected", Data::new()).with_data("client_id", client_id.to_string());
+    if send_frame(&mut socket, &welcome).await.is_err() {
+        return;
+    }
+
+    info!(%client_id, "ws: client connected");
+
+    // Track which board this client has joined.
+    let mut current_board: Option<Uuid> = None;
+
+    // Main loop — same select! pattern as Prior's ws.rs.
+    loop {
+        tokio::select! {
+            msg = socket.recv() => {
+                let Some(msg) = msg else { break };
+                let Ok(msg) = msg else { break };
+                match msg {
+                    Message::Text(text) => {
+                        dispatch_frame(&state, &mut socket, &mut current_board, client_id, &client_tx, &text).await;
+                    }
+                    Message::Close(_) => break,
+                    _ => {}
+                }
+            }
+            Some(frame) = client_rx.recv() => {
+                if send_frame(&mut socket, &frame).await.is_err() {
+                    break;
+                }
+            }
+        }
+    }
+
+    // Cleanup: part the board if joined.
+    if let Some(board_id) = current_board {
+        services::board::part_board(&state, board_id, client_id).await;
+    }
+    info!(%client_id, "ws: client disconnected");
+}
+
+// =============================================================================
+// FRAME DISPATCH
+// =============================================================================
+
+/// Parse an incoming JSON frame and dispatch by syscall prefix.
+async fn dispatch_frame(
+    state: &AppState,
+    socket: &mut WebSocket,
+    current_board: &mut Option<Uuid>,
+    client_id: Uuid,
+    client_tx: &mpsc::Sender<Frame>,
+    text: &str,
+) {
+    let req: WsRequest = match serde_json::from_str(text) {
+        Ok(r) => r,
+        Err(e) => {
+            let err = Frame::request("gateway:error", Data::new()).with_data("message", format!("invalid json: {e}"));
+            let _ = send_frame(socket, &err).await;
+            return;
+        }
+    };
+
+    let prefix = req
+        .syscall
+        .split_once(':')
+        .map_or(req.syscall.as_str(), |(p, _)| p);
+
+    match prefix {
+        "board" => handle_board(state, socket, current_board, client_id, client_tx, &req).await,
+        "object" => handle_object(state, socket, current_board, client_id, &req).await,
+        "cursor" => handle_cursor(state, current_board, client_id, &req).await,
+        "ai" => handle_ai(state, socket, current_board, client_id, &req).await,
+        _ => {
+            let err =
+                Frame::request("gateway:error", Data::new()).with_data("message", format!("unknown prefix: {prefix}"));
+            let _ = send_frame(socket, &err).await;
+        }
+    }
+}
+
+// =============================================================================
+// BOARD HANDLERS
+// =============================================================================
+
+async fn handle_board(
+    state: &AppState,
+    socket: &mut WebSocket,
+    current_board: &mut Option<Uuid>,
+    client_id: Uuid,
+    client_tx: &mpsc::Sender<Frame>,
+    req: &WsRequest,
+) {
+    let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
+    let parent = Frame::request(&req.syscall, req.data.clone());
+
+    match op {
+        "join" => {
+            let Some(board_id) = req.board_id.or_else(|| {
+                req.data
+                    .get("board_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse().ok())
+            }) else {
+                let _ = send_frame(socket, &parent.error("board_id required")).await;
+                return;
+            };
+
+            // Part current board if already joined.
+            if let Some(old_board) = current_board.take() {
+                services::board::part_board(state, old_board, client_id).await;
+            }
+
+            match services::board::join_board(state, board_id, client_id, client_tx.clone()).await {
+                Ok(objects) => {
+                    let mut data = Data::new();
+                    data.insert("objects".into(), serde_json::to_value(&objects).unwrap_or_default());
+                    let _ = send_frame(socket, &parent.item(data)).await;
+                    let _ = send_frame(socket, &parent.done()).await;
+                    *current_board = Some(board_id);
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        "create" => {
+            let name = req
+                .data
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Untitled Board");
+            match services::board::create_board(&state.pool, name).await {
+                Ok(row) => {
+                    let mut data = Data::new();
+                    data.insert("id".into(), serde_json::json!(row.id));
+                    data.insert("name".into(), serde_json::json!(row.name));
+                    let _ = send_frame(socket, &parent.item(data)).await;
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        "list" => match services::board::list_boards(&state.pool).await {
+            Ok(boards) => {
+                let list: Vec<serde_json::Value> = boards
+                    .iter()
+                    .map(|b| serde_json::json!({"id": b.id, "name": b.name}))
+                    .collect();
+                let mut data = Data::new();
+                data.insert("boards".into(), serde_json::json!(list));
+                let _ = send_frame(socket, &parent.item(data)).await;
+                let _ = send_frame(socket, &parent.done()).await;
+            }
+            Err(e) => {
+                let _ = send_frame(socket, &parent.error_from(&e)).await;
+            }
+        },
+        "delete" => {
+            let Some(board_id) = req
+                .data
+                .get("board_id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse().ok())
+            else {
+                let _ = send_frame(socket, &parent.error("board_id required")).await;
+                return;
+            };
+            match services::board::delete_board(&state.pool, board_id).await {
+                Ok(()) => {
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        _ => {
+            let _ = send_frame(socket, &parent.error(format!("unknown board op: {op}"))).await;
+        }
+    }
+}
+
+// =============================================================================
+// OBJECT HANDLERS
+// =============================================================================
+
+async fn handle_object(
+    state: &AppState,
+    socket: &mut WebSocket,
+    current_board: &Option<Uuid>,
+    client_id: Uuid,
+    req: &WsRequest,
+) {
+    let Some(board_id) = *current_board else {
+        let parent = Frame::request(&req.syscall, Data::new());
+        let _ = send_frame(socket, &parent.error("must join a board first")).await;
+        return;
+    };
+
+    let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
+    let parent = Frame::request(&req.syscall, req.data.clone()).with_board_id(board_id);
+
+    match op {
+        "create" => {
+            let kind = req
+                .data
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("sticky_note");
+            let x = req.data.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let y = req.data.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let props = req
+                .data
+                .get("props")
+                .cloned()
+                .unwrap_or(serde_json::json!({}));
+
+            match services::object::create_object(state, board_id, kind, x, y, props, None).await {
+                Ok(obj) => {
+                    let data = object_to_data(&obj);
+                    let broadcast = Frame::request("object:created", data.clone()).with_board_id(board_id);
+                    services::board::broadcast(state, board_id, &broadcast, None).await;
+                    let _ = send_frame(socket, &parent.item(data)).await;
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        "update" => {
+            let Some(object_id) = req
+                .data
+                .get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse().ok())
+            else {
+                let _ = send_frame(socket, &parent.error("id required")).await;
+                return;
+            };
+            let version = req
+                .data
+                .get("version")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0) as i32;
+
+            match services::object::update_object(state, board_id, object_id, &req.data, version).await {
+                Ok(obj) => {
+                    let data = object_to_data(&obj);
+                    let broadcast = Frame::request("object:updated", data.clone()).with_board_id(board_id);
+                    services::board::broadcast(state, board_id, &broadcast, Some(client_id)).await;
+                    let _ = send_frame(socket, &parent.item(data)).await;
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        "delete" => {
+            let Some(object_id) = req
+                .data
+                .get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse().ok())
+            else {
+                let _ = send_frame(socket, &parent.error("id required")).await;
+                return;
+            };
+
+            match services::object::delete_object(state, board_id, object_id).await {
+                Ok(()) => {
+                    let mut data = Data::new();
+                    data.insert("id".into(), serde_json::json!(object_id));
+                    let broadcast = Frame::request("object:deleted", data.clone()).with_board_id(board_id);
+                    services::board::broadcast(state, board_id, &broadcast, None).await;
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        _ => {
+            let _ = send_frame(socket, &parent.error(format!("unknown object op: {op}"))).await;
+        }
+    }
+}
+
+// =============================================================================
+// CURSOR HANDLERS
+// =============================================================================
+
+async fn handle_cursor(state: &AppState, current_board: &Option<Uuid>, client_id: Uuid, req: &WsRequest) {
+    let Some(board_id) = *current_board else {
+        return; // Silently ignore cursor moves before joining.
+    };
+
+    let x = req.data.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let y = req.data.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let name = req
+        .data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("anonymous");
+
+    services::cursor::broadcast_cursor(state, board_id, client_id, x, y, name).await;
+}
+
+// =============================================================================
+// AI HANDLERS
+// =============================================================================
+
+async fn handle_ai(
+    state: &AppState,
+    socket: &mut WebSocket,
+    current_board: &Option<Uuid>,
+    _client_id: Uuid,
+    req: &WsRequest,
+) {
+    let Some(board_id) = *current_board else {
+        let parent = Frame::request(&req.syscall, Data::new());
+        let _ = send_frame(socket, &parent.error("must join a board first")).await;
+        return;
+    };
+
+    let parent = Frame::request(&req.syscall, req.data.clone()).with_board_id(board_id);
+
+    let Some(llm) = &state.llm else {
+        let _ = send_frame(socket, &parent.error("AI features not configured")).await;
+        return;
+    };
+
+    let op = req.syscall.split_once(':').map_or("", |(_, op)| op);
+    match op {
+        "prompt" => {
+            let prompt = req
+                .data
+                .get("prompt")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if prompt.is_empty() {
+                let _ = send_frame(socket, &parent.error("prompt required")).await;
+                return;
+            }
+
+            match services::ai::handle_prompt(state, llm, board_id, prompt).await {
+                Ok(result) => {
+                    // Broadcast all object mutations to board peers.
+                    for mutation in &result.mutations {
+                        match mutation {
+                            services::ai::AiMutation::Created(obj) => {
+                                let data = object_to_data(obj);
+                                let broadcast = Frame::request("object:created", data).with_board_id(board_id);
+                                services::board::broadcast(state, board_id, &broadcast, None).await;
+                            }
+                            services::ai::AiMutation::Updated(obj) => {
+                                let data = object_to_data(obj);
+                                let broadcast = Frame::request("object:updated", data).with_board_id(board_id);
+                                services::board::broadcast(state, board_id, &broadcast, None).await;
+                            }
+                            services::ai::AiMutation::Deleted(id) => {
+                                let mut data = Data::new();
+                                data.insert("id".into(), serde_json::json!(id));
+                                let broadcast = Frame::request("object:deleted", data).with_board_id(board_id);
+                                services::board::broadcast(state, board_id, &broadcast, None).await;
+                            }
+                        }
+                    }
+
+                    // Send text response to requesting client.
+                    if let Some(text) = &result.text {
+                        let mut data = Data::new();
+                        data.insert("text".into(), serde_json::json!(text));
+                        data.insert("mutations".into(), serde_json::json!(result.mutations.len()));
+                        let _ = send_frame(socket, &parent.item(data)).await;
+                    }
+                    let _ = send_frame(socket, &parent.done()).await;
+                }
+                Err(e) => {
+                    let _ = send_frame(socket, &parent.error_from(&e)).await;
+                }
+            }
+        }
+        _ => {
+            let _ = send_frame(socket, &parent.error(format!("unknown ai op: {op}"))).await;
+        }
+    }
+}
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+#[derive(serde::Deserialize)]
+struct WsRequest {
+    syscall: String,
+    #[serde(default)]
+    data: Data,
+    #[serde(default)]
+    board_id: Option<Uuid>,
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+async fn send_frame(socket: &mut WebSocket, frame: &Frame) -> Result<(), ()> {
+    let json = match serde_json::to_string(frame) {
+        Ok(j) => j,
+        Err(e) => {
+            warn!(error = %e, "ws: failed to serialize frame");
+            return Err(());
+        }
+    };
+    socket
+        .send(Message::Text(json.into()))
+        .await
+        .map_err(|_| ())
+}
+
+fn object_to_data(obj: &crate::state::BoardObject) -> Data {
+    let mut data = Data::new();
+    data.insert("id".into(), serde_json::json!(obj.id));
+    data.insert("board_id".into(), serde_json::json!(obj.board_id));
+    data.insert("kind".into(), serde_json::json!(obj.kind));
+    data.insert("x".into(), serde_json::json!(obj.x));
+    data.insert("y".into(), serde_json::json!(obj.y));
+    data.insert("width".into(), serde_json::json!(obj.width));
+    data.insert("height".into(), serde_json::json!(obj.height));
+    data.insert("rotation".into(), serde_json::json!(obj.rotation));
+    data.insert("z_index".into(), serde_json::json!(obj.z_index));
+    data.insert("props".into(), obj.props.clone());
+    data.insert("version".into(), serde_json::json!(obj.version));
+    data
+}
+```
+
+## 14. `/Users/ianzepp/github/gauntlet/collaboard/server/src/routes/mod.rs`
+
+```rust
+//! Router assembly.
+
+pub mod ws;
+
+use axum::Router;
+use axum::http::StatusCode;
+use axum::routing::get;
+use tower_http::cors::{Any, CorsLayer};
+
+use crate::state::AppState;
+
+pub fn app(state: AppState) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    Router::new()
+        .route("/healthz", get(healthz))
+        .route("/api/ws", get(ws::handle_ws))
+        .layer(cors)
+        .with_state(state)
+}
+
+async fn healthz() -> StatusCode {
+    StatusCode::OK
+}
+```
+
+These are all the files you requested. The codebase shows a complete backend implementation for a collaborative whiteboard with:
+
+- LLM multi-provider support (Anthropic and OpenAI)
+- AI tool system for board manipulation
+- WebSocket-based real-time frame dispatch
+- Service layer for board state, object management, and AI operations
+- Custom frame protocol with syscall-style routing
+- Postgres persistence with debounced flushing
+
+📋 --- Summary ---
+📋 Duration: 2m
+📋 Messages: 1 user, 2 assistant
+📋 Tool calls: 14 total, 0 failed
+📋 Files: 14 read
+📋 Tokens: 52 in, 76 out
+📋 Cache: 148.8K read, 68.3K created

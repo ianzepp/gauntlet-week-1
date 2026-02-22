@@ -1,0 +1,1103 @@
+📋 Session: 0e32f99e-7f26-4dc4-9117-1642c82791ed
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T15:43:03.022+00:00
+📋 Version: 2.1.42
+📋 Branch: HEAD
+
+👤 Explore ~/github/ianzepp/monk-api/ thoroughly to understand the Hono and router patterns used. I need to document this as a default Hono approach for future projects.
+
+Specifically look for:
+1. Project structure — how files/folders are organized (routes, middleware, services, etc.)
+2. Hono app initialization and configuration
+3. Router patterns — how routes are defined, grouped, and mounted
+4. Middleware usage — auth, logging, error handling, CORS, etc.
+5. Request/response patterns — how handlers are structured, how they return data
+6. Error handling patterns
+7. Any use of Hono's typed routes, validators (zod, valibot), or RPC features
+8. Database access patterns (if any)
+9. How the app is served (Bun.serve, etc.)
+10. Any testing patterns
+
+Read the key files — don't just list them. I need to understand the actual patterns and conventions used so I can distill them into a reusable template/standard.
+📋 Model: sonnet-4.5
+🤖 I'll thoroughly explore the `~/github/ianzepp/monk-api/` project to understand the Hono patterns and architecture used. Let me start by examining the project structure and then dive into the key implementation files.
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/monk-api/
+✅ Glob: pattern="**/*" path="/Users/ianzepp/github/ianzepp/monk-api"
+🤖 Let me focus on the source code structure:
+✅ Bash: find /Users/ianzepp/github/ianzepp/monk-api/src -type f -name "*.ts" -o -name "*.js" | head -50
+✅ Bash: tree -L 4 /Users/ianzepp/github/ianzepp/monk-api/src 2>/dev/null || find /Users/ianzepp/github/ianzepp/monk-api/src -type f | sort
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/package.json"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/README.md"
+🤖 Now let me examine the key files to understand the Hono patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/index.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/servers/http.ts"
+✅ Glob: pattern="**/routes.ts" path="/Users/ianzepp/github/ianzepp/monk-api/src/routes"
+🤖 Now let me look at some example route files to understand the patterns:
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/routes/auth/routes.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/routes/api/data/routes.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/routes/api/user/routes.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/middleware/index.ts"
+🤖 Now let me examine individual route handlers and middleware:
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/routes/auth/login/POST.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/api-helpers.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/routes/api/data/:model/GET.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/routes/api/data/:model/:id/GET.ts"
+🤖 Now let me look at middleware implementations:
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/middleware/auth-validator.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/middleware/response-transformer.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/middleware/body-parser.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/middleware/format-detector.ts"
+🤖 Let me check how testing is structured and look at app packages:
+✅ Bash: find /Users/ianzepp/github/ianzepp/monk-api/spec -name "*.test.ts" -type f | head -10
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/apps/loader.ts"
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/monk-api/packages/ | head -20
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/DEVELOPER.md"
+🤖 Let me look at a sample test file and an example app package:
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/spec/00-jwt-caching/http-client.test.ts"
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/monk-api/packages/todos/
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/packages/todos/src/index.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/tsconfig.json"
+🤖 Let me look at a few more key patterns - error handling and the context initializer:
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/errors/http-error.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/src/lib/middleware/context-initializer.ts"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/packages/todos/models/todos.yaml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/monk-api/packages/todos/app.yaml"
+🤖 Perfect! Now I have a comprehensive understanding of the Hono patterns used in this project. Let me compile a detailed documentation report.
+
+---
+
+# Hono Architecture & Patterns Documentation - monk-api
+
+Based on thorough exploration of `/Users/ianzepp/github/ianzepp/monk-api/`, this document distills the Hono patterns and conventions used in this production multi-tenant API into a reusable template/standard.
+
+---
+
+## 1. Project Structure
+
+### File Organization Pattern
+```
+src/
+├── index.ts                    # Main entry point - orchestrates startup
+├── servers/
+│   ├── http.ts                 # Hono app creation and Bun.serve
+│   ├── telnet.ts              # Alternative server interface
+│   ├── ssh.ts                 # Alternative server interface
+│   └── mcp.ts                 # MCP protocol server
+├── routes/                     # Route handlers organized by path
+│   ├── root/GET.ts            # Root endpoint (/)
+│   ├── health/GET.ts          # Health check
+│   ├── auth/
+│   │   ├── routes.ts          # Barrel export for auth routes
+│   │   ├── login/POST.ts      # Login endpoint
+│   │   └── register/POST.ts   # Registration endpoint
+│   ├── api/
+│   │   ├── data/
+│   │   │   ├── routes.ts      # Barrel export
+│   │   │   ├── :model/GET.ts  # List all records
+│   │   │   ├── :model/POST.ts # Create record
+│   │   │   └── :model/:id/GET.ts # Get single record
+│   │   ├── user/
+│   │   │   ├── routes.ts
+│   │   │   ├── GET.ts         # List users
+│   │   │   └── :id/GET.ts     # Get user
+│   │   └── ...
+│   └── docs/
+│       └── routes.ts
+├── lib/
+│   ├── middleware/            # Hono middleware
+│   │   ├── index.ts           # Barrel export
+│   │   ├── auth-validator.ts  # JWT/API key authentication
+│   │   ├── body-parser.ts     # Multi-format request parsing
+│   │   ├── format-detector.ts # Response format detection
+│   │   ├── response-transformer.ts # Response pipeline
+│   │   └── context-initializer.ts  # System context setup
+│   ├── api-helpers.ts         # Route wrappers and helpers
+│   ├── errors/
+│   │   └── http-error.ts      # Structured error handling
+│   ├── apps/
+│   │   └── loader.ts          # Dynamic app package loading
+│   └── ...
+└── observers/                 # Business logic hooks
+    └── ...
+```
+
+### Key Patterns
+
+**1. Routes are files matching URL paths:**
+- `/auth/login` → `src/routes/auth/login/POST.ts`
+- `/api/data/:model/:id` → `src/routes/api/data/:model/:id/GET.ts`
+
+**2. Barrel exports for route groups:**
+```typescript
+// src/routes/api/data/routes.ts
+export { default as ModelGet } from '@src/routes/api/data/:model/GET.js';
+export { default as RecordGet } from '@src/routes/api/data/:model/:id/GET.js';
+```
+
+**3. Middleware organized by concern:**
+- Request → Body Parser → Auth → Format Detection → Route Handler → Response Transformer
+
+---
+
+## 2. Hono App Initialization and Configuration
+
+### Main Entry Point (`src/index.ts`)
+```typescript
+// Environment setup
+import { loadEnv } from '@src/lib/env/load-env.js';
+loadEnv({ path: envFile, debug: true });
+
+// Infrastructure initialization
+await Infrastructure.initialize();
+
+// Observer system preload
+ObserverLoader.preloadObservers();
+
+// Create and start HTTP server
+import { startHttpServer } from '@src/servers/http.js';
+const httpServer = startHttpServer(httpPort);
+
+// Graceful shutdown
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
+// Export app for testing
+export { app };
+```
+
+### HTTP Server Setup (`src/servers/http.ts`)
+```typescript
+import { Hono } from 'hono';
+
+export function createHttpApp(): Hono {
+    const app = new Hono();
+    
+    // Global middleware (order matters!)
+    app.use('*', middleware.requestTrackerMiddleware);
+    app.use('*', async (c, next) => {
+        const start = Date.now();
+        await next();
+        console.info('Request completed', { 
+            method: c.req.method, 
+            path: c.req.path, 
+            duration: Date.now() - start 
+        });
+    });
+    
+    // Public routes (no auth)
+    app.get('/', RootGet);
+    app.get('/health', HealthGet);
+    
+    app.use('/auth/*', middleware.bodyParserMiddleware);
+    app.use('/auth/*', middleware.formatDetectorMiddleware);
+    app.use('/auth/*', middleware.responseTransformerMiddleware);
+    
+    // Protected routes (JWT required)
+    app.use('/api/*', middleware.bodyParserMiddleware);
+    app.use('/api/*', middleware.authValidatorMiddleware);
+    app.use('/api/*', middleware.formatDetectorMiddleware);
+    app.use('/api/*', middleware.responseTransformerMiddleware);
+    app.use('/api/*', middleware.contextInitializerMiddleware);
+    
+    // Mount routes
+    app.post('/auth/login', authRoutes.LoginPost);
+    app.post('/auth/register', authRoutes.RegisterPost);
+    app.get('/api/data/:model', dataRoutes.ModelGet);
+    app.post('/api/data/:model', dataRoutes.ModelPost);
+    app.get('/api/data/:model/:id', dataRoutes.RecordGet);
+    
+    // Error handling
+    app.onError((err, c) => createInternalError(c, err));
+    
+    // 404 handler
+    app.notFound((c) => {
+        return c.json({
+            success: false,
+            error: 'Not found',
+            error_code: 'NOT_FOUND',
+        }, 404);
+    });
+    
+    return app;
+}
+
+export function startHttpServer(port: number) {
+    const app = createHttpApp();
+    
+    const server = Bun.serve({
+        fetch: app.fetch,
+        port,
+    });
+    
+    console.info('HTTP server running', { port });
+    
+    return {
+        app,
+        server,
+        stop: () => server.stop(),
+    };
+}
+```
+
+**Key Patterns:**
+- Separate `createHttpApp()` from `startHttpServer()` for testability
+- Middleware applied per-route-group using `app.use('/path/*', ...)`
+- Order matters: body parser → auth → format detection → route → response transformer
+- Global error handler with `app.onError()`
+- Custom 404 handler with `app.notFound()`
+
+---
+
+## 3. Router Patterns - Routes Definition and Mounting
+
+### Route Handler Pattern
+
+**Simple Route (no transaction):**
+```typescript
+// src/routes/auth/login/POST.ts
+import type { Context } from 'hono';
+import { HttpErrors } from '@src/lib/errors/http-error.js';
+import { login } from '@src/lib/auth.js';
+
+export default async function (context: Context) {
+    const body = await context.req.json();
+    
+    // Input validation
+    if (!body.tenant) {
+        throw HttpErrors.badRequest('Tenant is required', 'AUTH_TENANT_MISSING');
+    }
+    
+    // Business logic
+    const result = await login({ tenant, username, password });
+    
+    if (!result.success) {
+        return context.json({
+            success: false,
+            error: result.error,
+            error_code: result.errorCode,
+        }, 401);
+    }
+    
+    // Success response
+    return context.json({
+        success: true,
+        data: {
+            token: result.token,
+            user: result.user,
+        },
+    });
+}
+```
+
+**Transaction-Wrapped Route:**
+```typescript
+// src/routes/api/data/:model/:id/GET.ts
+import { withTransaction } from '@src/lib/api-helpers.js';
+
+export default withTransaction(async ({ system, params }) => {
+    const { model, id } = params;
+    return await system.database.select404(model, { where: { id } });
+});
+```
+
+**Read-Only Search-Path Route (streaming support):**
+```typescript
+// src/routes/api/data/:model/GET.ts
+import { withSearchPath } from '@src/lib/api-helpers.js';
+
+export default withSearchPath(async ({ system, params }) => {
+    const { model } = params;
+    // Returns async generator - middleware handles streaming
+    return system.database.streamAny(model);
+});
+```
+
+### Route Wrapper Utilities (`src/lib/api-helpers.ts`)
+
+**`withTransaction()`** - For write operations:
+```typescript
+export function withTransaction(handler: RouteHandler) {
+    return async (context: Context) => {
+        const systemInit = context.get('systemInit') as SystemInit;
+        
+        try {
+            await runTransaction(systemInit, async (system) => {
+                const routeParams: RouteParams = {
+                    system,
+                    params: context.req.param(),
+                    query: context.req.query(),
+                    body: context.get('parsedBody'),
+                    method: context.req.method,
+                };
+                
+                const result = await handler(routeParams);
+                
+                // Handle async iterables (collect inside transaction)
+                if (isAsyncIterable(result)) {
+                    result = await collectAsyncIterable(result);
+                    context.set('streamable', true);
+                }
+                
+                context.set('routeResult', result);
+            });
+        } catch (error) {
+            if (isHttpError(error)) throw error;
+            return createInternalError(context, error);
+        }
+    };
+}
+```
+
+**`withSearchPath()`** - For read-only streaming:
+```typescript
+export function withSearchPath(handler: RouteHandler) {
+    return async (context: Context) => {
+        const systemInit = context.get('systemInit');
+        
+        try {
+            const result = await runWithSearchPath(systemInit, async (system) => {
+                const routeParams = { system, params, query, body, method };
+                return await handler(routeParams);
+            });
+            
+            context.set('routeResult', result);
+            if (isAsyncIterable(result)) {
+                context.set('streamable', true);
+            }
+        } catch (error) {
+            if (isHttpError(error)) throw error;
+            return createInternalError(context, error);
+        }
+    };
+}
+```
+
+**Key Patterns:**
+- Routes receive clean `{ system, params, query, body }` interface
+- Return data directly, wrappers handle response formatting
+- Async iterables automatically detected for streaming
+- Transaction lifecycle managed transparently
+- Errors bubble up to global error handler
+
+---
+
+## 4. Middleware Usage
+
+### Request Pipeline Order
+```
+Request
+  ↓
+Request Tracker (analytics, health check)
+  ↓
+Logging Middleware
+  ↓
+Body Parser (parse JSON/YAML/TOON/etc)
+  ↓
+Auth Validator (JWT/API key → systemInit)
+  ↓
+Format Detector (determine response format)
+  ↓
+Response Transformer (override context.json())
+  ↓
+Context Initializer (create System instance)
+  ↓
+Route Handler
+  ↓
+Response Transformer Pipeline (extract → format → encrypt)
+  ↓
+Response
+```
+
+### Auth Middleware (`src/lib/middleware/auth-validator.ts`)
+
+**Features:**
+- JWT token validation (Bearer token)
+- API key authentication (X-API-Key header)
+- User existence validation
+- Fresh permission loading from database
+- Creates `systemInit` context
+
+```typescript
+export async function authValidatorMiddleware(context: Context, next: Next) {
+    const apiKeyHeader = context.req.header('X-API-Key');
+    const authHeader = context.req.header('Authorization');
+    
+    let token = apiKeyHeader || authHeader?.substring(7); // Remove 'Bearer '
+    if (!token) {
+        throw HttpErrors.unauthorized('Authorization token required');
+    }
+    
+    let payload: JWTPayload;
+    let user: User;
+    
+    if (isValidApiKeyFormat(token)) {
+        // API key auth
+        const result = await authenticateApiKey(token, tenantHeader);
+        payload = result.payload;
+        user = result.user;
+    } else {
+        // JWT auth
+        payload = await verify(token, getJwtSecret());
+        user = await validateUser(payload.user_id, payload.db, payload.ns);
+    }
+    
+    // Create SystemInit with fresh permissions
+    const systemInit = systemInitFromJWT(payload, correlationId);
+    systemInit.accessRead = user.access_read;
+    systemInit.accessEdit = user.access_edit;
+    systemInit.accessFull = user.access_full;
+    
+    // Store in context
+    context.set('jwtPayload', payload);
+    context.set('systemInit', systemInit);
+    context.set('user', user);
+    
+    await next();
+}
+```
+
+### Body Parser Middleware (`src/lib/middleware/body-parser.ts`)
+
+**Features:**
+- Multi-format request parsing (JSON, YAML, TOON, TOML, MessagePack)
+- Content-Type detection with heuristics
+- Pluggable formatter system
+- Automatic format unavailable errors
+
+```typescript
+export async function bodyParserMiddleware(context: Context, next: Next) {
+    // Skip for GET/DELETE
+    if (['GET', 'DELETE', 'HEAD'].includes(context.req.method)) {
+        return await next();
+    }
+    
+    const contentType = context.req.header('content-type') || '';
+    const rawBody = new Uint8Array(await context.req.arrayBuffer());
+    
+    if (rawBody.length === 0) {
+        return await next();
+    }
+    
+    // Detect format (explicit Content-Type or heuristics)
+    const format = detectFormat(contentType, rawBody);
+    const formatter = getFormatter(format);
+    
+    if (!formatter) {
+        return formatUnavailableResponse(context, format);
+    }
+    
+    // Parse body
+    const parsedBody = formatter.decode(rawBody);
+    
+    // Store for route handlers
+    context.set('parsedBody', parsedBody);
+    
+    // Override context.req.json() for backwards compatibility
+    context.req.json = async () => parsedBody;
+    
+    await next();
+}
+```
+
+### Response Transformer Middleware (`src/lib/middleware/response-transformer.ts`)
+
+**Features:**
+- Single pipeline: field extraction → formatting → encryption
+- Overrides `context.json()` once (no re-parsing)
+- Query params: `?unwrap`, `?select=`, `?format=`, `?encrypt=`
+- Supports streaming responses
+
+```typescript
+export async function responseTransformerMiddleware(context: Context, next: Next) {
+    const originalJson = context.json.bind(context);
+    
+    // Override context.json() to intercept responses
+    context.json = function (data: any, init?: any) {
+        if (!data || typeof data !== 'object') {
+            return originalJson(data, init);
+        }
+        
+        // Step 1: Field Extraction (?unwrap, ?select=)
+        let result = applyFieldExtraction(data, context);
+        
+        // Step 2: Format Conversion (?format=yaml|toon|csv)
+        const formatted = applyFormatter(result, context);
+        
+        // Step 3: Encryption (?encrypt=pgp)
+        const { data: finalData, encrypted } = applyEncryption(formatted.data, context);
+        
+        // Return final response
+        const headers = {
+            'Content-Type': encrypted ? 'text/plain' : formatted.contentType
+        };
+        return new Response(finalData, { status, headers });
+    };
+    
+    await next();
+}
+```
+
+### Format Detector Middleware (`src/lib/middleware/format-detector.ts`)
+
+**Features:**
+- Multi-source format detection (query param → Accept header → JWT preference → default)
+- Stores format in context for response transformer
+
+```typescript
+export async function formatDetectorMiddleware(context: Context, next: Next) {
+    const format = resolveFormat(context);
+    context.set('responseFormat', format);
+    await next();
+}
+
+function resolveFormat(context: Context): ResponseFormat {
+    // Priority 1: Query parameter
+    const queryFormat = context.req.query('format');
+    if (queryFormat) return queryFormat;
+    
+    // Priority 2: Accept header
+    const acceptHeader = context.req.header('accept');
+    if (acceptHeader?.includes('application/yaml')) return 'yaml';
+    
+    // Priority 3: JWT preference
+    const jwtPayload = context.get('jwtPayload');
+    if (jwtPayload?.format) return jwtPayload.format;
+    
+    // Default: JSON
+    return 'json';
+}
+```
+
+**Key Patterns:**
+- Middleware modifies Hono context via `context.set(key, value)`
+- Each middleware has single responsibility
+- Middleware can override Hono methods (`context.json()`)
+- Order enforced via `app.use()` placement
+- Error handling via throwing `HttpError` instances
+
+---
+
+## 5. Request/Response Patterns
+
+### Handler Interface
+```typescript
+interface RouteParams {
+    system: System;              // Database/business logic access
+    params: Record<string, string>;  // Path params (:model, :id)
+    query: Record<string, string>;   // Query params (?foo=bar)
+    body?: any;                      // Parsed request body
+    method: string;                  // HTTP method
+}
+
+type RouteHandler = (params: RouteParams) => Promise<any>;
+```
+
+### Response Format
+```typescript
+// Success response
+{
+    success: true,
+    data: any,           // Result data
+    total?: number       // Optional: total count for pagination
+}
+
+// Error response
+{
+    success: false,
+    error: string,       // Human-readable message
+    error_code: string,  // Machine-readable code
+    data?: {             // Optional: error details
+        validation_errors?: any[],
+        dependencies?: string[]
+    }
+}
+```
+
+### Query Parameter Conventions
+
+**Filtering (handled by business logic):**
+- `?where[field]=value` - Exact match
+- `?where[field][$gt]=10` - Greater than
+- `?where[field][$in]=a,b,c` - In array
+- `?where[field][is]=null` - Null check
+
+**Response Transformation (handled by middleware):**
+- `?format=yaml` - Response format (json, yaml, toon, csv, etc.)
+- `?unwrap` - Remove `{success, data}` envelope
+- `?select=id,name` - Return only specific fields
+- `?stat=true` - Include timestamp fields
+- `?access=true` - Include ACL fields
+- `?encrypt=pgp` - Encrypt response
+
+**Key Patterns:**
+- Routes return data directly (no manual envelope wrapping)
+- Middleware handles envelope, formatting, field extraction
+- Consistent error format across all endpoints
+- Query params separated by concern (filtering vs formatting)
+
+---
+
+## 6. Error Handling Patterns
+
+### HttpError Class (`src/lib/errors/http-error.ts`)
+```typescript
+export class HttpError extends Error {
+    constructor(
+        public readonly statusCode: number,
+        message: string,
+        public readonly errorCode?: string,
+        public readonly details?: Record<string, any>
+    ) {
+        super(message);
+        Object.setPrototypeOf(this, HttpError.prototype);
+    }
+}
+
+export class HttpErrors {
+    static badRequest(message: string, errorCode = 'BAD_REQUEST', details?) {
+        return new HttpError(400, message, errorCode, details);
+    }
+    
+    static unauthorized(message = 'Unauthorized', errorCode = 'UNAUTHORIZED') {
+        return new HttpError(401, message, errorCode);
+    }
+    
+    static forbidden(message = 'Forbidden', errorCode = 'FORBIDDEN') {
+        return new HttpError(403, message, errorCode);
+    }
+    
+    static notFound(message = 'Not found', errorCode = 'NOT_FOUND') {
+        return new HttpError(404, message, errorCode);
+    }
+    
+    static conflict(message: string, errorCode = 'CONFLICT', details?) {
+        return new HttpError(409, message, errorCode, details);
+    }
+    
+    static internal(message = 'Internal server error', errorCode = 'INTERNAL_ERROR') {
+        return new HttpError(500, message, errorCode);
+    }
+}
+```
+
+### Usage in Routes
+```typescript
+// Throw structured errors
+if (!body.tenant) {
+    throw HttpErrors.badRequest('Tenant is required', 'AUTH_TENANT_MISSING');
+}
+
+// Error caught by global handler
+app.onError((err, c) => {
+    if (isHttpError(err)) {
+        return c.json({
+            success: false,
+            error: err.message,
+            error_code: err.errorCode,
+            data: err.details,
+        }, err.statusCode);
+    }
+    
+    // Unexpected errors
+    console.error('Unhandled error:', err);
+    return c.json({
+        success: false,
+        error: 'Internal server error',
+        error_code: 'INTERNAL_ERROR',
+    }, 500);
+});
+```
+
+**Key Patterns:**
+- Throw `HttpError` instances in business logic
+- Global `app.onError()` handler converts to response
+- Preserve stack traces for debugging
+- Structured error codes for client handling
+- Development mode includes stack traces in response
+
+---
+
+## 7. Typed Routes, Validators, RPC Features
+
+### Type Safety
+This project uses **TypeScript strict mode** but does NOT use Hono's built-in type system features like:
+- Hono's typed `Context<E>` generics
+- Hono's RPC client
+- Hono's validator middleware
+
+Instead, it uses:
+- **Manual type definitions** for route params
+- **Business logic validators** in the observer system
+- **In-process client** for internal API calls
+
+### Validation Pattern
+```typescript
+// Validation happens in observer pipeline (not middleware)
+// Example: src/observers/all/1/40-data-validator.ts
+export default class DataValidator extends BaseObserver {
+    ring = ObserverRing.InputValidation;
+    operations = ['create', 'update'];
+    
+    async execute(context: ObserverContext): Promise<void> {
+        const { model, data } = context;
+        
+        for (const record of data) {
+            model.validateOrThrow(record); // Throws ValidationError
+        }
+    }
+}
+```
+
+### In-Process Client (instead of Hono RPC)
+```typescript
+// src/lib/apps/in-process-client.ts
+export function createInProcessClient(context: Context, honoApp: Hono) {
+    const authHeader = context.req.header('Authorization');
+    
+    async function request(method: string, path: string, options) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+        };
+        
+        const req = new Request(`http://internal${path}`, { method, headers, body });
+        const res = await honoApp.fetch(req);
+        return res.json();
+    }
+    
+    return {
+        get: (path, query) => request('GET', path, { query }),
+        post: (path, body) => request('POST', path, { body }),
+        put: (path, body) => request('PUT', path, { body }),
+        delete: (path) => request('DELETE', path),
+    };
+}
+```
+
+**Key Patterns:**
+- Manual TypeScript types (not Hono generics)
+- Validation in business logic layer (observers)
+- In-process client for inter-route communication
+- No zod/valibot integration
+
+---
+
+## 8. Database Access Patterns
+
+### System Context
+```typescript
+// Created by contextInitializerMiddleware
+const system = new System(systemInit, options);
+context.set('system', system);
+
+// Available in routes via withTransaction()
+export default withTransaction(async ({ system, params }) => {
+    // Database operations
+    const record = await system.database.select404('users', { where: { id } });
+    
+    // Model introspection
+    const model = await system.describe.models.selectOne({ where: { model_name: 'users' }});
+    
+    return record;
+});
+```
+
+### Database Operations
+```typescript
+// CRUD operations
+system.database.createOne(model, data)
+system.database.selectOne(model, filter)
+system.database.select404(model, filter)  // Throws 404 if not found
+system.database.selectMany(model, filter)
+system.database.updateOne(model, id, updates)
+system.database.deleteOne(model, id)
+
+// Streaming (for large result sets)
+system.database.streamAny(model, filter)  // Returns AsyncGenerator
+
+// Bulk operations
+system.database.createMany(model, records)
+system.database.updateMany(model, filter, updates)
+
+// Aggregations
+system.database.aggregate(model, { $count: 'id' })
+system.database.aggregate(model, { $sum: 'amount', $groupBy: 'category' })
+```
+
+### Transaction Pattern
+```typescript
+// Automatic transaction wrapping
+export default withTransaction(async ({ system, params }) => {
+    // All operations inside same transaction
+    const user = await system.database.createOne('users', userData);
+    const profile = await system.database.createOne('profiles', { user_id: user.id });
+    
+    // Commit happens automatically on success
+    // Rollback happens automatically on error
+    return { user, profile };
+});
+```
+
+**Key Patterns:**
+- `System` class encapsulates database + describe services
+- Transactions managed by `withTransaction()` wrapper
+- Observer pipeline runs automatically on all operations
+- Streaming via async generators for large datasets
+- Multi-tenant isolation via PostgreSQL schemas or SQLite files
+
+---
+
+## 9. How the App is Served
+
+### Bun.serve Integration
+```typescript
+// src/servers/http.ts
+export function startHttpServer(port: number) {
+    const app = createHttpApp();  // Create Hono app
+    
+    const server = Bun.serve({
+        fetch: app.fetch,  // Pass Hono's fetch handler
+        port,
+    });
+    
+    console.info('HTTP server running', { port });
+    
+    return {
+        app,
+        server,
+        stop: () => server.stop(),
+    };
+}
+```
+
+### Multiple Server Types
+```typescript
+// src/index.ts
+const httpServer = startHttpServer(9001);
+const telnetServer = startTelnetServer(2323);
+const sshServer = startSSHServer(2222);
+const mcpServer = startMcpServer(httpServer.app, 3001);
+
+// Graceful shutdown
+const gracefulShutdown = async () => {
+    httpServer?.stop();
+    telnetServer?.stop();
+    sshServer?.stop();
+    mcpServer?.stop();
+    await DatabaseConnection.closeConnections();
+    process.exit(0);
+};
+```
+
+### Standalone Executable
+```bash
+# Build standalone binary with zero dependencies
+bun run build:standalone
+
+# Run without PostgreSQL (uses SQLite)
+./dist/monk-api
+```
+
+**Key Patterns:**
+- `Bun.serve()` wraps Hono's `app.fetch`
+- Return server handle for shutdown
+- Multiple servers share same Hono app
+- Graceful shutdown closes all connections
+- Compile to standalone executable
+
+---
+
+## 10. Testing Patterns
+
+### Test File Structure
+```typescript
+// spec/00-jwt-caching/http-client.test.ts
+import { describe, it, expect } from 'bun:test';
+import { HttpClient } from '../http-client.js';
+
+describe('HttpClient JWT Caching', () => {
+    it('should cache and retrieve auth token', () => {
+        const httpClient = new HttpClient('http://localhost:9001');
+        const testToken = 'test-jwt-token-12345';
+        
+        httpClient.setAuthToken(testToken);
+        expect(httpClient.getAuthToken()).toBe(testToken);
+    });
+    
+    it('should clear auth token', () => {
+        const httpClient = new HttpClient('http://localhost:9001');
+        
+        httpClient.setAuthToken('test-token');
+        httpClient.clearAuthToken();
+        
+        expect(httpClient.getAuthToken()).toBeUndefined();
+    });
+});
+```
+
+### Test Commands
+```bash
+# Run all tests
+bun test --concurrency 1 --timeout 30000 ./spec/**/*.test.ts
+
+# Run unit tests only
+bun test --timeout 5000 ./spec/**/*.unit.ts
+```
+
+**Key Patterns:**
+- Use Bun's built-in test runner
+- Place tests in `spec/` directory
+- Integration tests use fresh database per test
+- Unit tests for utilities and libraries
+- Serial test execution (`--concurrency 1`) for database tests
+
+---
+
+## 11. App Package System
+
+### App Structure
+```
+packages/todos/
+├── app.yaml              # App metadata
+├── models/
+│   └── todos.yaml       # Model definitions (auto-loaded)
+├── src/
+│   └── index.ts         # App entry point (exports createApp)
+└── package.json
+```
+
+### App Definition
+```yaml
+# packages/todos/app.yaml
+name: todos
+description: Todo list application
+```
+
+### Model Definition
+```yaml
+# packages/todos/models/todos.yaml
+model_name: todos
+description: Todo items
+external: false  # Install in user's tenant (default)
+
+fields:
+  - field_name: title
+    type: text
+    required: true
+  - field_name: status
+    type: text
+    default_value: pending
+```
+
+### App Entry Point
+```typescript
+// packages/todos/src/index.ts
+import { Hono } from 'hono';
+
+export interface AppContext {
+    client: any;       // In-process API client
+    token: string;     // App JWT token
+    appName: string;
+    tenantName: string;
+    honoApp: any;      // Main Hono app
+}
+
+export function createApp(context: AppContext): Hono {
+    const app = new Hono();
+    
+    // Define routes
+    app.get('/', async (c) => {
+        // Use in-process client to call main API
+        const client = createClient(c, context.honoApp);
+        const result = await client.get('/api/data/todos');
+        return c.json(result);
+    });
+    
+    return app;
+}
+```
+
+### Dynamic App Loading
+```typescript
+// src/servers/http.ts (simplified)
+app.all('/app/:appName/*', async (c) => {
+    const appName = c.req.param('appName');
+    
+    // Load app package
+    const { loadHybridApp } = await import('@src/lib/apps/loader.js');
+    const appInstance = await loadHybridApp(appName, app, c);
+    
+    if (!appInstance) {
+        return c.json({ success: false, error: 'App not found' }, 404);
+    }
+    
+    // Rewrite URL and forward request
+    const subPath = c.req.path.slice(`/app/${appName}`.length) || '/';
+    const url = new URL(c.req.url);
+    url.pathname = subPath;
+    
+    const newRequest = new Request(url.toString(), {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+        body: c.req.raw.body,
+    });
+    
+    return appInstance.fetch(newRequest);
+});
+```
+
+**Key Patterns:**
+- Apps are npm packages in `@monk-app/` scope
+- Models defined in YAML (auto-loaded and registered)
+- Apps export `createApp(context)` function returning Hono instance
+- Apps mounted at `/app/:appName/*`
+- Apps use in-process client to call main API
+- Models can be `external: true` (app namespace) or `external: false` (user namespace)
+
+---
+
+## Summary: Key Takeaways for Future Projects
+
+### 1. Project Architecture
+- **File-based routing**: Route file path matches URL path
+- **Barrel exports**: Clean imports via `routes.ts` re-exports
+- **Middleware per route group**: `app.use('/api/*', ...)` pattern
+- **Separation of concerns**: HTTP server, Hono app, business logic in distinct layers
+
+### 2. Middleware Pipeline
+```
+Body Parser → Auth → Format Detection → Route Handler → Response Transformer
+```
+- Order enforced via strategic `app.use()` placement
+- Each middleware modifies `context` for downstream use
+- Response transformer overrides `context.json()` for unified formatting
+
+### 3. Route Handlers
+- **Wrapper pattern**: `withTransaction()` and `withSearchPath()` clean up boilerplate
+- **Clean interface**: Routes receive `{ system, params, query, body }`
+- **Return data directly**: No manual envelope wrapping
+
+### 4. Error Handling
+- **Throw HttpError instances** in business logic
+- **Global error handler** in `app.onError()`
+- **Consistent response format** for all errors
+
+### 5. Testing
+- **Bun test runner** for fast execution
+- **Separate unit and integration tests**
+- **Fresh database per integration test**
+
+### 6. Extensibility
+- **App packages** for modular features
+- **Dynamic loading** at runtime
+- **In-process client** for inter-app communication
+
+This architecture provides a solid foundation for building scalable, multi-tenant APIs with Hono and Bun.
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 10 assistant
+📋 Tool calls: 33 total, 0 failed
+📋 Files: 25 read
+📋 Tokens: 26.2K in, 94 out
+📋 Cache: 1.5M read, 331.3K created

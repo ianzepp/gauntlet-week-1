@@ -1,0 +1,634 @@
+📋 Session: 0d21b26d-320b-4788-9d5e-40e15fede544
+📋 Project: /Users/ianzepp/github/gauntlet
+📋 Started: 2026-02-16T18:46:47.283+00:00
+📋 Version: 2.1.42
+📋 Branch: HEAD
+
+👤 Thoroughly explore the project at ~/github/ianzepp/prior/ to understand its architecture. I need to understand:
+
+1. What is the "monokernel" pattern? How is it structured?
+2. How do "frames" work as a communication method? What's the frame protocol/format?
+3. How does the WebSocket endpoint work (/api/ws)?
+4. How does auth work (/api/auth)?
+5. What's the database layer (PostgreSQL usage, schema patterns)?
+6. What's the overall project structure and key files?
+
+Be very thorough — read the main entry points, the kernel/frame/ws code, schema files, and any README or docs. I need enough detail to port these patterns to a new project.
+📋 Model: opus-4.6
+🤖 I'll start by exploring the project structure broadly, then dive into each area systematically.
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/prior/
+✅ Glob: pattern="**/*" path="/Users/ianzepp/github/ianzepp/prior"
+🤖 Let me get the source files specifically, excluding build artifacts.
+✅ Glob: pattern="**/*.rs" path="/Users/ianzepp/github/ianzepp/prior/kernel"
+✅ Glob: pattern="**/*.rs" path="/Users/ianzepp/github/ianzepp/prior/gateways"
+✅ Glob: pattern="**/*.rs" path="/Users/ianzepp/github/ianzepp/prior/cli"
+✅ Glob: pattern="**/*.rs" path="/Users/ianzepp/github/ianzepp/prior/utilities"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/README.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/CLAUDE.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/VISION.md"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/Cargo.toml"
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/prior/docs/
+✅ Bash: ls -la /Users/ianzepp/github/ianzepp/prior/config/
+✅ Glob: pattern="**/*.sql" path="/Users/ianzepp/github/ianzepp/prior"
+🤖 Now let me read the key source files in parallel.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/pipe.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/lib.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/config/default.toml"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/door/connect.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/door/types.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/ems/types.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/bridge.test.rs"
+🤖 Now let me read the kernel router, daemon, door module, room, EMS create/SQL, and the bridge module.
+✅ Glob: pattern="kernel/src/config*.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Glob: pattern="kernel/src/room/*.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Glob: pattern="kernel/src/ems/mod.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Glob: pattern="kernel/src/bridge*.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Glob: pattern="kernel/src/door/mod.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Glob: pattern="kernel/src/daemon*.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Glob: pattern="kernel/src/kernel/*.rs" path="/Users/ianzepp/github/ianzepp/prior"
+✅ Bash: find /Users/ianzepp/github/ianzepp/prior/kernel/src -name '*.rs' -not -name '*.test.rs' | sort
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router_dispatch.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router_state.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router_frames.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/frame_db.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/daemon.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/door/mod.rs"
+🤖 Now let me read the remaining key files: EMS mod (database layer), Room mod, config, and bridge.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/ems/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/ems/create.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/room/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/room/types.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/config.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/bridge.rs"
+🤖 Now let me check the room worker (the LLM coordination loop) and the LLM module quickly.
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/room/worker.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/mod.rs"
+✅ Read: file="/Users/ianzepp/github/ianzepp/prior/kernel/src/llm/types.rs"
+🤖 I now have a thorough understanding of the entire Prior codebase. Here is the comprehensive report.
+
+---
+
+# Prior Architecture Deep Dive
+
+## 1. The "Monokernel" Pattern
+
+Prior is a **frame-routed monokernel** -- a single Rust binary containing a central kernel event loop and multiple subsystems. The kernel's only job is routing; subsystems are isolated behind channel boundaries.
+
+### Structure
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/mod.rs`
+
+The `Kernel` struct holds:
+- **One inbound `mpsc` channel** -- everyone (callers, subsystems, bridges) sends frames here.
+- **A routing table** (`HashMap<String, mpsc::Sender<Frame>>`) mapping syscall prefixes to subsystem channels.
+- **A pending map** (`Arc<Mutex<HashMap<Uuid, Vec<Sender>>>>`) tracking which callers are waiting for responses to which request IDs.
+- **An active map** tracking which subsystem channel received a request (for cancel routing).
+- **An optional `FrameDb`** (SQLite) for frame persistence.
+- **A heartbeat broadcast channel** for periodic tick signals.
+
+### Subsystem Registration
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router.rs` (lines 158-163)
+
+```rust
+pub fn register(&mut self, prefix: &str) -> PipeEnd {
+    let (sub_end, kernel_end) = pipe(CHANNEL_BUFFER);
+    self.routes.insert(prefix.to_string(), kernel_end.sender());
+    self.pipe_ends.push(kernel_end);
+    sub_end
+}
+```
+
+Each subsystem gets a `PipeEnd` (bidirectional channel pair). The kernel keeps one end and gives the other to the subsystem. On `start()`, the kernel spawns bridge tasks that forward frames from each subsystem's kernel-side pipe end into the single inbound channel.
+
+### Routing Logic
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/router_dispatch.rs`
+
+The dispatch loop is simple:
+1. **Request frames**: Extract `prefix(syscall)` (e.g., "vfs" from "vfs:read"), look up in routing table, forward to subsystem channel, record the request ID in pending map (pointing back to caller's channel).
+2. **Response frames** (Item/Done/Error): Look up `parent_id` in pending map, forward to all registered callers. On terminal status, clean up pending and active entries.
+3. **Cancel frames**: Look up `parent_id` in active map, forward to the subsystem that received the original request.
+
+### Daemon Startup
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/daemon.rs`
+
+The `setup()` function orchestrates everything:
+```
+Kernel::new()
+  -> register("door")  -> Door subsystem
+  -> register("room")  -> Room subsystem
+  -> register("llm")   -> LLM subsystem
+  -> register("vfs")   -> VFS subsystem
+  -> register("ems")   -> EMS subsystem
+  -> register("cache") -> Cache subsystem
+  -> register("exec")  -> Exec subsystem
+  -> set_frame_db(...)  -> Frame persistence
+  -> start()            -> Spawn the routing loop
+```
+
+Each subsystem is started by calling `.start()` which spawns a tokio task. There are no globals or singletons -- everything is explicitly wired.
+
+### Registered Subsystems
+
+| Prefix | Subsystem | Responsibility |
+|--------|-----------|---------------|
+| `door` | Door | Per-connection session lifecycle, room membership |
+| `room` | Room | Conversation history, LLM coordination loop |
+| `llm` | LLM | Provider API calls (Anthropic, OpenAI) |
+| `vfs` | VFS | Sandboxed filesystem operations |
+| `ems` | EMS | Entity storage (SQLite CRUD) |
+| `cache` | Cache | In-memory key-value cache with TTL |
+| `exec` | Exec | Allowlisted command execution |
+| `frames` | (inline) | Frame history queries, handled directly by the router |
+
+---
+
+## 2. Frame Protocol
+
+### The Frame Type
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs`
+
+```rust
+pub struct Frame {
+    pub id: Uuid,                    // Unique ID, auto-generated
+    pub parent_id: Option<Uuid>,     // Correlation to request
+    pub ts: i64,                     // Millis since epoch (auto-set)
+    pub ms: Option<i64>,             // Timeout duration in millis
+    pub room: Option<String>,        // Room context
+    pub from: Option<String>,        // Actor/user attribution
+    pub syscall: String,             // "vfs:read", "ems:create", etc.
+    pub status: Status,              // request | item | done | error | cancel
+    pub data: HashMap<String, serde_json::Value>,  // Flat key-value payload
+}
+```
+
+### Status Lifecycle
+
+```rust
+pub enum Status {
+    Request,   // "Do this"
+    Item,      // "Here's a result" (0 or more)
+    Done,      // "Stream complete" (terminal)
+    Error,     // "Something broke" (terminal)
+    Cancel,    // "Abort in-flight request" (terminal)
+}
+```
+
+Every exchange follows one of these patterns:
+- `Request -> Item* -> Done` (success with 0+ results)
+- `Request -> Error` (failure)
+- `Cancel` (abort by parent_id)
+
+### Frame Construction (Builder Pattern)
+
+Frames are created through named constructors, never struct literals:
+
+```rust
+// Request
+Frame::request("vfs:read", data)
+    .with_room("project-alpha")
+    .with_from("head-01")
+    .with_content("hello")
+    .with_ms(5000)
+
+// Responses are built from the request
+let item = request_frame.item(data);
+let done = request_frame.done();
+let err = request_frame.error("something broke");
+let err = request_frame.error_from(&typed_error);  // structured error codes
+```
+
+Response frames automatically inherit `parent_id`, `room`, and `syscall` from the request.
+
+### Structured Error Codes
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/frame.rs` (lines 108-117)
+
+```rust
+pub trait ErrorCode: std::fmt::Display {
+    fn error_code(&self) -> &'static str;  // e.g., "E_NOT_FOUND"
+    fn retryable(&self) -> bool { false }
+}
+```
+
+Each subsystem implements this trait on its error enum. Error frames carry `code`, `message`, and `retryable` fields in `data`.
+
+### Routing Key
+
+The kernel routes on `syscall.prefix()` -- everything before the first `:`. "vfs:read" routes to "vfs", "ems:create" routes to "ems". The kernel never inspects `data`.
+
+### Data Conversion Pattern
+
+Every subsystem uses the same `from_data` / `to_data` helpers to marshal between `Frame.data` (untyped `HashMap<String, Value>`) and typed Rust structs:
+
+```rust
+pub fn from_data<T: DeserializeOwned>(data: &Data) -> Result<T, SubsystemError> {
+    let map: serde_json::Map<String, Value> = data.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+    serde_json::from_value(Value::Object(map)).map_err(...)
+}
+
+pub fn to_data<T: Serialize>(value: &T) -> Result<Data, SubsystemError> {
+    let v = serde_json::to_value(value)?;
+    // Must produce an object (flat map)
+    let Value::Object(map) = v else { return Err(...) };
+    Ok(map.into_iter().collect())
+}
+```
+
+---
+
+## 3. Pipe System (Channel Architecture)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/pipe.rs`
+
+### `pipe(capacity)` -> `(PipeEnd, PipeEnd)`
+
+Creates two crossed `mpsc` channels. Each `PipeEnd` can:
+- `send()` / `try_send()` -- raw frame sending
+- `recv()` -- raw frame receiving
+- `call(request)` -> `CallStream` -- send a request and get a correlated response stream
+- `caller()` -> `Caller` -- get a cloneable handle for concurrent outbound calls
+
+### Lazy Dispatcher
+
+The pipe starts in **Direct mode** (zero overhead). On first `call()`, it transitions to **Dispatched mode** by spawning a background task that:
+1. Reads the raw channel
+2. Checks each frame's `parent_id` against a pending map
+3. Routes matching responses to the correct `CallStream`
+4. Routes unmatched frames to the default `recv()` channel
+
+### `Caller` (Cloneable Call Handle)
+
+```rust
+#[derive(Clone)]
+pub struct Caller {
+    tx: mpsc::Sender<Frame>,
+    pending: Arc<Mutex<PendingMap>>,
+}
+```
+
+`Caller` allows multiple tasks to make concurrent outbound calls through the same pipe. Each call registers in the shared pending map and gets its own `CallStream`.
+
+### `CallStream`
+
+```rust
+pub struct CallStream {
+    rx: mpsc::UnboundedReceiver<Frame>,
+    id: Uuid,
+    pending: Arc<Mutex<PendingMap>>,
+}
+```
+
+Methods:
+- `recv()` -- get next response frame
+- `collect()` -- consume all frames until terminal status (Done/Error)
+- Drop impl: auto-cleans pending map entry
+
+---
+
+## 4. WebSocket Endpoint (`/api/ws`)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/ws.rs`
+
+### Lifecycle
+
+1. **Upgrade**: HTTP GET `/api/ws` -> WebSocket upgrade
+2. **Connect**: `door:connect` is called internally, a session UUID is generated and sent to the client as `{"session": "uuid"}`
+3. **Main loop** (tokio `select!`):
+   - **Client sends JSON** -> Parsed as `WsRequest { syscall, data, room?, from? }`
+     - If `door:*` prefix: routed through `Door::handle_frame()` (session-aware)
+     - If allowed prefix (room, llm, vfs, ems, cache): forwarded via `Caller::call()`, response stream relayed back via spawned task
+     - Otherwise: rejected
+   - **Broadcast frames** from `DoorRegistry` -> forwarded to client
+   - **Writer channel** from spawned relay tasks -> forwarded to client
+4. **Disconnect**: `door:disconnect` called, session cleaned up
+
+### Wire Format
+
+Client sends JSON objects (same schema as `POST /api/`):
+```json
+{"syscall": "door:join", "data": {"session": "...", "room": "general"}}
+{"syscall": "vfs:read", "data": {"path": "readme.md"}, "room": "general"}
+```
+
+Server sends JSON objects (one per frame):
+```json
+{"status": "item", "syscall": "vfs:read", "data": {"content": "..."}}
+{"status": "done", "syscall": "vfs:read"}
+```
+
+### REST API Routes
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/gateways/api/src/api.rs`
+
+| Route | Handler |
+|-------|---------|
+| `GET /healthz` | Health check |
+| `POST /api/` | Raw frame (syscall + data in body) |
+| `GET /api/ws` | WebSocket upgrade |
+| `GET /api/{prefix}/{op}` | Query params become frame data |
+| `POST /api/{prefix}/{op}` | JSON body becomes frame data |
+| `GET /api/{prefix}/{op}/{arg}` | `+ "path": arg` |
+| `POST /api/{prefix}/{op}/{arg}` | `+ "path": arg` |
+
+REST responses are streamed as NDJSON (newline-delimited JSON). Each frame in the `CallStream` becomes one line.
+
+The gateway uses **axum** as the HTTP framework.
+
+---
+
+## 5. Auth / Door System
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/door/mod.rs`
+
+### Design
+
+Door is **not authentication** -- it is **session and room membership management**. Gateways are trusted (they authenticate users). Door enforces session validity and room membership before forwarding messages.
+
+### Session Lifecycle
+
+1. **`door:connect`** -- Gateway calls with `{from: "username", room?: "general"}`. Door generates a UUID session ID, creates a `Session` record, optionally joins a room atomically. Returns `{session: "uuid"}`.
+
+2. **`door:join`** -- Moves the session to a new room. Previous room is parted. Registers a broadcast sender for the new room.
+
+3. **`door:message`** -- Validates session exists and is in the target room, resolves the `from` actor name, builds a `room:message` frame, forwards it through the kernel. Response stream is relayed back via a spawned task.
+
+4. **`door:disconnect`** -- Cancels all in-flight requests, removes session from all rooms, unregisters broadcast senders, cleans up.
+
+### DoorRegistry (Shared State)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/door/types.rs`
+
+```rust
+pub struct DoorRegistry {
+    inner: Arc<Mutex<RegistryInner>>,           // sessions + rooms
+    broadcast: Arc<Mutex<HashMap<String, Vec<Sender<Frame>>>>>,  // per-room broadcast
+}
+```
+
+- `sessions`: `HashMap<String, Session>` -- session ID -> Session (from, room)
+- `rooms`: `HashMap<String, HashSet<String>>` -- room name -> set of session IDs
+- `broadcast`: per-room list of `mpsc::Sender<Frame>` for fan-out
+- `room_entities`: cache of EMS entity IDs for rooms (dedup persistence)
+
+### Security Model
+
+- **Allowlist policy**: Only `room`, `llm`, `vfs`, `ems`, `cache` prefixes pass through Door. Other syscalls are rejected.
+- **Input validation**: `validate_name()` rejects empty strings and control characters in actor/room names.
+- **Room normalization**: `#channel` -> `channel`, `gwroom_hash` -> `hash` (strips gateway-specific prefixes).
+- **Server-generated session IDs**: Prevents session forgery.
+
+### Per-Connection Door Instance
+
+Each gateway connection gets its own `Door` instance:
+```rust
+pub struct Door {
+    caller: Caller,                    // kernel handle
+    registry: DoorRegistry,            // shared state (Arc)
+    client_tx: mpsc::Sender<Frame>,    // back to gateway socket
+    inflight: Arc<Mutex<HashSet<Uuid>>>, // tracked for cancel-on-disconnect
+}
+```
+
+---
+
+## 6. Database Layer (PostgreSQL/SQLite)
+
+Prior uses **SQLite** via **sqlx** (async). There are two databases:
+
+### Frame Database (`~/.prior/frames.db`)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/kernel/frame_db.rs`
+
+Schema:
+```sql
+CREATE TABLE IF NOT EXISTS frames (
+    seq       INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts        INTEGER NOT NULL DEFAULT ((unixepoch() * 1000)),
+    id        TEXT    NOT NULL,
+    parent_id TEXT,
+    syscall   TEXT    NOT NULL,
+    status    TEXT    NOT NULL,
+    room      TEXT,
+    [from]    TEXT,
+    data      TEXT    NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_frames_room_history
+    ON frames(syscall, status, room);
+```
+
+- Append-only log of every routed frame
+- `seq` column provides total ordering
+- `query_room_history()` reconstructs conversation turns using a UNION ALL query:
+  - User turns: `room:message` request frames with matching room
+  - Assistant turns: `room:message` item frames whose parent_id references a request in the room
+
+### Entity Database (`~/.prior/ems.sqlite`)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/ems/mod.rs`
+
+Schema:
+```sql
+CREATE TABLE IF NOT EXISTS entities (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      INTEGER NOT NULL,
+    kind    TEXT NOT NULL,
+    room    TEXT NOT NULL DEFAULT '',
+    status  TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '{}'
+);
+```
+
+- Single table for all entity kinds (tasks, needs, memories, rooms)
+- `kind` column discriminates entity type
+- `content` is a JSON blob stored as TEXT
+- CRUD operations: `ems:create`, `ems:read`, `ems:update`, `ems:delete`, `ems:exists`, `ems:list`, `ems:describe`
+- EMS runs 8 worker tasks from a shared work queue for concurrent request handling
+- Streaming list/describe results: one item frame per row
+
+### EMS Request/Response Types
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/ems/types.rs`
+
+```rust
+// Create
+pub struct CreateRequest { kind, status?, room?, content?, returning? }
+// -> EntityResponse { id, ts, kind, room, status, content? }
+
+// Read
+pub struct ReadRequest { kind, id }
+// -> EntityResponse
+
+// Update
+pub struct UpdateRequest { kind, id, status?, room?, content?, returning? }
+// -> EntityResponse or EntitySummary
+
+// List
+pub struct ListRequest { kind, offset?, limit?, order? }
+// -> EntitySummary* (or EntityResponse* with returning=true)
+
+// Describe
+pub struct DescribeRequest { kind? }
+// -> DescribeItem { kind, count }*
+```
+
+---
+
+## 7. Overall Project Structure
+
+```
+prior/
+├── Cargo.toml              # Workspace: kernel, gateways/*, cli, utilities/pipe
+├── CLAUDE.md               # Development standards
+├── README.md               # Architecture overview + frame protocol docs
+├── VISION.md               # Original design vision
+├── config/
+│   └── default.toml        # Workspace defaults (LLM, gateway binds, etc.)
+├── kernel/                 # Core library crate ("prior")
+│   └── src/
+│       ├── lib.rs          # Module declarations
+│       ├── frame.rs        # Frame type, Status, ErrorCode trait, builders
+│       ├── pipe.rs         # PipeEnd, Caller, CallStream, dispatcher
+│       ├── kernel/
+│       │   ├── mod.rs      # Public exports
+│       │   ├── router.rs   # Kernel struct, register(), start() event loop
+│       │   ├── router_dispatch.rs  # Frame dispatch (request/response/cancel routing)
+│       │   ├── router_state.rs     # RouterState, PendingRoutes, ActiveRequests
+│       │   ├── router_frames.rs    # Inline "frames:query" handler
+│       │   └── frame_db.rs         # SQLite frame log + room history queries
+│       ├── daemon.rs       # setup() orchestrator, subsystem wiring
+│       ├── config.rs       # Layered TOML config (default -> workspace -> user)
+│       ├── bridge.rs       # TCP transport (length-prefixed JSON frames)
+│       ├── door/           # Session + room membership management
+│       │   ├── mod.rs      # Door struct, handle_frame dispatch, relay_stream
+│       │   ├── types.rs    # DoorRegistry, Session, request/response types
+│       │   ├── connect.rs  # door:connect
+│       │   ├── disconnect.rs
+│       │   ├── join.rs     # door:join (room move)
+│       │   ├── part.rs
+│       │   ├── message.rs  # door:message -> room:message forwarding
+│       │   ├── rooms.rs    # door:rooms listing
+│       │   ├── send.rs     # door:send (broadcast, stub)
+│       │   └── persist.rs  # EMS persistence for rooms
+│       ├── room/           # Conversation + LLM coordination
+│       │   ├── mod.rs      # Room router: dispatches to per-room workers
+│       │   ├── types.rs    # Actor, HistoryEntry, RoomError
+│       │   ├── worker.rs   # Per-room worker task (JoinSet, cancel, tick)
+│       │   ├── join.rs     # room:join (add actor)
+│       │   ├── part.rs     # room:part (remove actor)
+│       │   ├── message.rs  # run_actor_loop (LLM -> tool dispatch -> LLM loop)
+│       │   ├── history.rs  # room:history query
+│       │   ├── list.rs     # room:list actors
+│       │   └── room_files.rs # File-based room config
+│       ├── llm/            # LLM provider abstraction
+│       │   ├── mod.rs      # Llm subsystem, handle_chat, history_to_messages
+│       │   ├── types.rs    # ChatRequest/Response, ContentBlock, Tool, Message
+│       │   ├── client.rs   # Anthropic Messages API client
+│       │   ├── openai_client.rs  # OpenAI Responses/Chat Completions client
+│       │   ├── config.rs   # LLM config loading
+│       │   ├── prompt_bundle.rs  # System prompt construction
+│       │   ├── trait_catalog.rs  # Personality trait markdown fragments
+│       │   └── memory.rs   # Memory fetch from EMS
+│       ├── vfs/            # Sandboxed filesystem
+│       │   ├── mod.rs, types.rs, mount.rs, memory.rs
+│       │   ├── read.rs, write.rs, mkdir.rs, unlink.rs, stat.rs, etc.
+│       │   └── ems_mount/  # VFS paths that map to EMS entities
+│       ├── ems/            # Entity storage
+│       │   ├── mod.rs      # Ems subsystem, 8-worker dispatch loop
+│       │   ├── types.rs    # Schema types, error, from_data/to_data
+│       │   ├── create.rs, read.rs, update.rs, delete.rs, list.rs, etc.
+│       ├── cache/          # In-memory KV cache
+│       ├── exec.rs         # Allowlisted command execution
+│       └── (*.test.rs)     # Tests co-located with source
+├── gateways/
+│   ├── api/                # REST + NDJSON + WebSocket gateway (axum)
+│   │   └── src/
+│   │       ├── lib.rs      # start() -> TcpListener + axum::serve
+│   │       ├── api.rs      # Routes, NDJSON streaming, prefix allowlist
+│   │       └── ws.rs       # WebSocket handler (session, bidirectional relay)
+│   ├── openai/             # OpenAI-compatible HTTP gateway
+│   ├── irc/                # IRC server gateway
+│   └── telnet/             # Telnet chat gateway
+├── cli/                    # CLI binary ("prior")
+│   └── src/
+│       ├── main.rs
+│       └── commands/       # run, init, config, doctor, frames, mounts, tail
+└── utilities/
+    └── pipe/               # Standalone pipe utility
+```
+
+### Configuration
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/config.rs`
+
+Three-layer merge: code defaults -> `config/default.toml` -> `~/.prior/config.toml`.
+
+Each layer uses `PartialConfig` structs with `Option<T>` fields -- only present values overwrite. Key config sections:
+
+```toml
+[llm]
+active = "default"
+[llm.configs.default]
+provider = "anthropic"
+api_key_env = "ANTHROPIC_API_KEY"
+model = "claude-sonnet-4-5-20250929"
+max_tokens = 4096
+system_prompt = "You are a helpful assistant."
+
+[gateway_api]
+bind_addr = "127.0.0.1:8082"
+
+[vfs]
+sandbox = "~/.prior/sandbox"
+[[vfs.mounts]]
+prefix = "project"
+host = "~/code/my-project"
+mode = "rw"
+
+[[rooms]]
+name = "general"
+actors = [{ llm = "default" }]
+wake_period = 60
+
+[bridge]
+listen = "127.0.0.1:9900"
+[bridge.remote]
+ems = "127.0.0.1:9901"
+```
+
+### Bridge (Cross-Process Routing)
+
+**File:** `/Users/ianzepp/github/ianzepp/prior/kernel/src/bridge.rs`
+
+Wire protocol: **length-prefixed JSON** (`[4 bytes BE length][N bytes JSON Frame]`). No handshake, no versioning. The `bridge()` function wires a `PipeEnd` to a `TcpStream` with two tasks (pipe->tcp, tcp->pipe). From the kernel's perspective, a bridged subsystem looks exactly like a local one -- both are `mpsc::Sender<Frame>`.
+
+### Key Design Principles for Porting
+
+1. **Frame is the universal message type** -- everything crosses boundaries as a Frame.
+2. **`from_data<T>()` / `to_data<T>()`** -- every subsystem uses the same pattern to marshal typed structs to/from Frame.data.
+3. **`pipe()` for bidirectional channels** with `Caller` for concurrent outbound calls.
+4. **Kernel routes by prefix only** -- never inspects data. Subsystems are opaque to each other.
+5. **No globals, no singletons** -- everything is passed explicitly.
+6. **Response shape is always `Item* -> Done` or `Error`** -- no special cases.
+7. **Each subsystem owns its error type** implementing `ErrorCode` for structured error frames with grepable `E_` codes.
+8. **Per-room worker tasks** in Room for parallelism across rooms with per-room ordering.
+9. **Door is the security boundary** -- validates sessions before forwarding, maintains an allowlist of passthrough prefixes.
+10. **SQLite via sqlx** for both frame persistence and entity storage, with separate database files.
+
+📋 --- Summary ---
+📋 Duration: 3m
+📋 Messages: 1 user, 7 assistant
+📋 Tool calls: 49 total, 0 failed
+📋 Files: 32 read
+📋 Tokens: 130.9K in, 284 out
+📋 Cache: 2.1M read, 812.3K created
