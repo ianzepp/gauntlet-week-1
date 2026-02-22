@@ -15,6 +15,7 @@
 mod db;
 mod frame;
 mod llm;
+mod mermaid;
 mod rate_limit;
 mod routes;
 mod services;

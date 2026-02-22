@@ -726,6 +726,7 @@ pub(crate) async fn execute_tool(
         "updateText" => execute_update_text(state, board_id, input, mutations).await,
         "updateTextStyle" => execute_update_text_style(state, board_id, input, mutations).await,
         "changeColor" => execute_change_color(state, board_id, input, mutations).await,
+        "createMermaidDiagram" => execute_create_mermaid_diagram(state, board_id, input, mutations).await,
         "getBoardState" => execute_get_board_state(state, board_id).await,
         _ => Ok(format!("unknown tool: {tool_name}")),
     }
@@ -1680,6 +1681,88 @@ async fn execute_change_color(
             Ok(format!("error changing color on {id}: {e}"))
         }
     }
+}
+
+async fn execute_create_mermaid_diagram(
+    state: &AppState,
+    board_id: Uuid,
+    input: &serde_json::Value,
+    mutations: &mut Vec<AiMutation>,
+) -> Result<String, AiError> {
+    let mermaid_text = input.get("mermaid").and_then(|v| v.as_str()).unwrap_or("");
+    if mermaid_text.trim().is_empty() {
+        return Ok("error: missing mermaid input".into());
+    }
+
+    let origin_x = input
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let origin_y = input
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let scale = input
+        .get("scale")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(1.0)
+        .clamp(0.5, 3.0);
+
+    let diagram = match crate::mermaid::parse(mermaid_text) {
+        Ok(d) => d,
+        Err(e) => return Ok(format!("error: failed to parse mermaid diagram: {e}")),
+    };
+
+    let descriptors = crate::mermaid::render_to_objects(&diagram, origin_x, origin_y, scale);
+    if descriptors.is_empty() {
+        return Ok("error: mermaid diagram produced no objects".into());
+    }
+
+    let mut created_count = 0_usize;
+    for desc in &descriptors {
+        let props = desc.props.clone();
+        let w = if desc.width > 0.0 { Some(desc.width) } else { None };
+        let h = if desc.height > 0.0 { Some(desc.height) } else { None };
+
+        match super::object::create_object(state, board_id, &desc.kind, desc.x, desc.y, w, h, 0.0, props, None, None)
+            .await
+        {
+            Ok(obj) => {
+                // Ensure dimensions are persisted for shapes that need them.
+                let obj = if (desc.kind == "frame" || desc.kind == "rectangle" || desc.kind == "text")
+                    && (desc.width > 0.0 || desc.height > 0.0)
+                {
+                    let mut data = Data::new();
+                    if desc.width > 0.0 {
+                        data.insert("width".into(), json!(desc.width));
+                    }
+                    if desc.height > 0.0 {
+                        data.insert("height".into(), json!(desc.height));
+                    }
+                    super::object::update_object(state, board_id, obj.id, &data, obj.version)
+                        .await
+                        .unwrap_or(obj)
+                } else {
+                    obj
+                };
+                mutations.push(AiMutation::Created(obj));
+                created_count += 1;
+            }
+            Err(e) => {
+                warn!(error = %e, kind = %desc.kind, "ai: mermaid object creation failed");
+            }
+        }
+    }
+
+    let participant_count = diagram.participants.len();
+    let message_count = diagram
+        .events
+        .iter()
+        .filter(|e| matches!(e, crate::mermaid::ast::Event::Message(_)))
+        .count();
+    Ok(format!(
+        "created {created_count} objects from Mermaid diagram ({participant_count} participants, {message_count} messages)"
+    ))
 }
 
 async fn execute_get_board_state(state: &AppState, board_id: Uuid) -> Result<String, AiError> {

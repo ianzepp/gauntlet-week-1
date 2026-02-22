@@ -258,6 +258,24 @@ pub(crate) fn board_tools() -> Vec<Tool> {
             }),
         },
         Tool {
+            name: "createMermaidDiagram".into(),
+            description: "Parse Mermaid sequence diagram syntax and render it as native board objects (rectangles, \
+                          arrows, text, connectors, frames). Supports participants, messages (solid/dashed/open/cross \
+                          arrows), notes, activation bars, and control flow blocks (loop, alt, opt, par, critical, \
+                          break)."
+                .into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "mermaid": { "type": "string", "description": "Mermaid sequenceDiagram syntax" },
+                    "x": { "type": "number", "description": "X origin for diagram placement (default 0)" },
+                    "y": { "type": "number", "description": "Y origin for diagram placement (default 0)" },
+                    "scale": { "type": "number", "description": "Scale factor 0.5-3.0 (default 1.0)" }
+                },
+                "required": ["mermaid"]
+            }),
+        },
+        Tool {
             name: "getBoardState".into(),
             description: "Retrieve the current state of all objects on the board. Use this to understand \
                           what's on the board before making changes."

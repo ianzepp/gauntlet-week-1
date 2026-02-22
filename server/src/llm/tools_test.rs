@@ -21,6 +21,7 @@ fn gauntlet_tools_match_board_tools() {
     assert!(names.contains(&"updateText"));
     assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
+    assert!(names.contains(&"createMermaidDiagram"));
     assert!(names.contains(&"getBoardState"));
 }
 
@@ -38,9 +39,9 @@ fn schema_shape_is_object() {
 }
 
 #[test]
-fn board_tools_returns_all_sixteen_tools() {
+fn board_tools_returns_all_seventeen_tools() {
     let tools = board_tools();
-    assert_eq!(tools.len(), 16);
+    assert_eq!(tools.len(), 17);
 }
 
 #[test]
@@ -62,6 +63,7 @@ fn board_tools_names_are_correct() {
     assert!(names.contains(&"updateText"));
     assert!(names.contains(&"updateTextStyle"));
     assert!(names.contains(&"changeColor"));
+    assert!(names.contains(&"createMermaidDiagram"));
     assert!(names.contains(&"getBoardState"));
 }
 
@@ -258,4 +260,29 @@ fn update_text_field_enum_matches_ui_fields() {
         .filter_map(serde_json::Value::as_str)
         .collect();
     assert_eq!(values, vec!["text", "title"]);
+}
+
+#[test]
+fn create_mermaid_diagram_requires_mermaid() {
+    let tools = board_tools();
+    let tool = tools
+        .iter()
+        .find(|t| t.name == "createMermaidDiagram")
+        .unwrap();
+    let required: Vec<&str> = tool
+        .input_schema
+        .get("required")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(required, vec!["mermaid"]);
+    // Verify optional properties exist.
+    let props = tool.input_schema.get("properties").unwrap();
+    assert!(props.get("mermaid").is_some());
+    assert!(props.get("x").is_some());
+    assert!(props.get("y").is_some());
+    assert!(props.get("scale").is_some());
 }
