@@ -122,23 +122,12 @@ pub fn map_modifiers(shift: bool, ctrl: bool, alt: bool, meta: bool) -> CanvasMo
 /// Prevents browser defaults (scrolling on arrow keys, browser find on `a`, etc.) while the
 /// canvas is focused.
 #[cfg(feature = "hydrate")]
-pub fn should_prevent_default_key(key: &str) -> bool {
+pub fn should_prevent_default_key(key: &str, ctrl: bool, meta: bool) -> bool {
+    let accel = ctrl || meta;
     matches!(
         key,
-        "Delete"
-            | "Backspace"
-            | "Escape"
-            | "Enter"
-            | "ArrowUp"
-            | "ArrowDown"
-            | "ArrowLeft"
-            | "ArrowRight"
-            | " "
-            | "a"
-            | "A"
-            | "g"
-            | "G"
-    )
+        "Delete" | "Backspace" | "Escape" | "Enter" | "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | " "
+    ) || (accel && matches!(key, "a" | "A" | "g" | "G" | "z" | "Z"))
 }
 
 /// Extract the pointer position from a `PointerEvent` as a canvas engine `Point`.

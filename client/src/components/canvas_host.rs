@@ -904,7 +904,7 @@ pub fn CanvasHost() -> impl IntoView {
                 if let Some(engine) = engine.borrow_mut().as_mut() {
                     let active_transform = active_transform_object_ids(engine);
                     sync_viewport(engine, &canvas_ref);
-                    if should_prevent_default_key(&key) {
+                    if should_prevent_default_key(&key, ev.ctrl_key(), ev.meta_key()) {
                         ev.prevent_default();
                     }
                     let key_for_engine = key.clone();

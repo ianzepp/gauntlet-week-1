@@ -9,6 +9,7 @@ use crate::input::{Button, DragAxis, InputState, Key, Modifiers, SelectionRect, 
 use crate::render;
 
 const EDGE_ATTACH_SNAP_PX: f64 = 16.0;
+const UNDO_STACK_LIMIT: usize = 64;
 
 #[cfg(test)]
 #[path = "engine_test.rs"]
@@ -70,6 +71,10 @@ pub struct EngineCore {
     pub viewport_height: f64,
     /// Device pixel ratio, used to scale canvas backing store.
     pub dpr: f64,
+    /// Bounded stack of local snapshots used by Cmd/Ctrl+Z.
+    undo_stack: Vec<UndoSnapshot>,
+    /// Snapshot captured at gesture start and committed on pointer-up if mutated.
+    pending_gesture_undo: Option<UndoSnapshot>,
 }
 
 impl Default for EngineCore {
@@ -82,8 +87,16 @@ impl Default for EngineCore {
             viewport_width: 0.0,
             viewport_height: 0.0,
             dpr: 1.0,
+            undo_stack: Vec::new(),
+            pending_gesture_undo: None,
         }
     }
+}
+
+#[derive(Clone)]
+struct UndoSnapshot {
+    objects: Vec<BoardObject>,
+    selected_ids: Vec<ObjectId>,
 }
 
 impl EngineCore {
@@ -98,6 +111,8 @@ impl EngineCore {
     /// Hydrate the document from a server snapshot.
     pub fn load_snapshot(&mut self, objects: Vec<BoardObject>) {
         self.doc.load_snapshot(objects);
+        self.undo_stack.clear();
+        self.pending_gesture_undo = None;
     }
 
     /// Apply a server broadcast: object created.
@@ -145,6 +160,7 @@ impl EngineCore {
         let Some(obj) = self.doc.get(id) else {
             return Action::None;
         };
+        let undo_before = self.capture_undo_snapshot();
 
         let existing = Props::new(&obj.props);
         if existing.head() == head && existing.text() == text && existing.foot() == foot {
@@ -160,6 +176,7 @@ impl EngineCore {
             ..Default::default()
         };
         if self.doc.apply_partial(id, &partial) {
+            self.push_undo_snapshot(undo_before);
             Action::ObjectUpdated { id: *id, fields: partial }
         } else {
             Action::None
@@ -192,6 +209,7 @@ impl EngineCore {
     pub fn on_pointer_down(&mut self, screen_pt: Point, button: Button, modifiers: Modifiers) -> Vec<Action> {
         let world_pt = self.screen_to_world(screen_pt);
         let mut actions = Vec::new();
+        let undo_before = self.capture_undo_snapshot();
 
         // Middle button, space+drag, or hand tool always pans.
         if button == Button::Middle || (button == Button::Primary && (self.ui.space_pan || self.ui.tool == Tool::Hand))
@@ -217,6 +235,10 @@ impl EngineCore {
                 self.handle_edge_tool_down(world_pt, tool, &mut actions);
             }
             _ => {}
+        }
+
+        if self.pending_gesture_undo.is_none() && self.is_mutating_input_state() {
+            self.pending_gesture_undo = Some(undo_before);
         }
 
         actions
@@ -405,6 +427,14 @@ impl EngineCore {
             }
         }
 
+        if self.actions_have_doc_mutation(&actions) {
+            if let Some(snapshot) = self.pending_gesture_undo.take() {
+                self.push_undo_snapshot(snapshot);
+            }
+        } else {
+            self.pending_gesture_undo = None;
+        }
+
         actions
     }
 
@@ -440,6 +470,7 @@ impl EngineCore {
                 self.ui.space_pan = true;
             }
             "Delete" | "Backspace" => {
+                let undo_before = self.capture_undo_snapshot();
                 let selected = self.ui.selected_ids.iter().copied().collect::<Vec<_>>();
                 let mut deleted_any = false;
                 for id in selected {
@@ -449,6 +480,7 @@ impl EngineCore {
                     deleted_any = true;
                 }
                 if deleted_any {
+                    self.push_undo_snapshot(undo_before);
                     actions.push(Action::RenderNeeded);
                 }
             }
@@ -486,25 +518,41 @@ impl EngineCore {
                 actions.push(Action::RenderNeeded);
             }
             "g" | "G" if accel && modifiers.shift => {
+                let undo_before = self.capture_undo_snapshot();
+                let mut changed_any = false;
                 for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
                     let partial = PartialBoardObject { group_id: Some(None), ..Default::default() };
-                    self.doc.apply_partial(&id, &partial);
-                    actions.push(Action::ObjectUpdated { id, fields: partial });
-                }
-                actions.push(Action::RenderNeeded);
-            }
-            "g" | "G" if accel => {
-                if self.ui.selected_ids.len() >= 2 {
-                    let group_id = uuid::Uuid::new_v4();
-                    for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
-                        let partial = PartialBoardObject { group_id: Some(Some(group_id)), ..Default::default() };
-                        self.doc.apply_partial(&id, &partial);
+                    if self.doc.apply_partial(&id, &partial) {
                         actions.push(Action::ObjectUpdated { id, fields: partial });
+                        changed_any = true;
                     }
+                }
+                if changed_any {
+                    self.push_undo_snapshot(undo_before);
                     actions.push(Action::RenderNeeded);
                 }
             }
+            "g" | "G" if accel => {
+                if self.ui.selected_ids.len() >= 2 {
+                    let undo_before = self.capture_undo_snapshot();
+                    let group_id = uuid::Uuid::new_v4();
+                    let mut changed_any = false;
+                    for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
+                        let partial = PartialBoardObject { group_id: Some(Some(group_id)), ..Default::default() };
+                        if self.doc.apply_partial(&id, &partial) {
+                            actions.push(Action::ObjectUpdated { id, fields: partial });
+                            changed_any = true;
+                        }
+                    }
+                    if changed_any {
+                        self.push_undo_snapshot(undo_before);
+                        actions.push(Action::RenderNeeded);
+                    }
+                }
+            }
+            "z" | "Z" if accel && !modifiers.shift => return self.undo(),
             "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
+                let undo_before = self.capture_undo_snapshot();
                 let step = if modifiers.shift { 10.0 } else { 1.0 };
                 let (dx, dy) = match key.0.as_str() {
                     "ArrowUp" => (0.0, -step),
@@ -513,15 +561,21 @@ impl EngineCore {
                     "ArrowRight" => (step, 0.0),
                     _ => (0.0, 0.0),
                 };
+                let mut changed_any = false;
                 for id in self.ui.selected_ids.iter().copied().collect::<Vec<_>>() {
                     if let Some(obj) = self.doc.get(&id) {
                         let partial =
                             PartialBoardObject { x: Some(obj.x + dx), y: Some(obj.y + dy), ..Default::default() };
-                        self.doc.apply_partial(&id, &partial);
-                        actions.push(Action::ObjectUpdated { id, fields: partial });
+                        if self.doc.apply_partial(&id, &partial) {
+                            actions.push(Action::ObjectUpdated { id, fields: partial });
+                            changed_any = true;
+                        }
                     }
                 }
-                actions.push(Action::RenderNeeded);
+                if changed_any {
+                    self.push_undo_snapshot(undo_before);
+                    actions.push(Action::RenderNeeded);
+                }
             }
             _ => {}
         }
@@ -561,6 +615,99 @@ impl EngineCore {
     #[must_use]
     pub fn object(&self, id: &ObjectId) -> Option<&BoardObject> {
         self.doc.get(id)
+    }
+
+    fn undo(&mut self) -> Vec<Action> {
+        let Some(target) = self.undo_stack.pop() else {
+            return Vec::new();
+        };
+        self.pending_gesture_undo = None;
+        self.input = InputState::Idle;
+        self.ui.marquee = None;
+
+        let mut actions = Vec::new();
+        let current = self.snapshot_objects_map();
+        let target_map = target
+            .objects
+            .iter()
+            .cloned()
+            .map(|obj| (obj.id, obj))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        for id in current.keys() {
+            if !target_map.contains_key(id) {
+                self.doc.remove(id);
+                self.ui.selected_ids.remove(id);
+                actions.push(Action::ObjectDeleted { id: *id });
+            }
+        }
+
+        for (id, target_obj) in &target_map {
+            match current.get(id) {
+                None => {
+                    self.doc.insert(target_obj.clone());
+                    actions.push(Action::ObjectCreated(target_obj.clone()));
+                }
+                Some(current_obj) => {
+                    if let Some(partial) = diff_partial(current_obj, target_obj) {
+                        self.doc.apply_partial(id, &partial);
+                        actions.push(Action::ObjectUpdated { id: *id, fields: partial });
+                    }
+                }
+            }
+        }
+
+        self.ui.selected_ids = target
+            .selected_ids
+            .into_iter()
+            .filter(|id| self.doc.get(id).is_some())
+            .collect();
+        actions.push(Action::RenderNeeded);
+        actions
+    }
+
+    fn capture_undo_snapshot(&self) -> UndoSnapshot {
+        UndoSnapshot {
+            objects: self.doc.sorted_objects().into_iter().cloned().collect(),
+            selected_ids: self.ui.selected_ids.iter().copied().collect(),
+        }
+    }
+
+    fn push_undo_snapshot(&mut self, snapshot: UndoSnapshot) {
+        self.pending_gesture_undo = None;
+        self.undo_stack.push(snapshot);
+        if self.undo_stack.len() > UNDO_STACK_LIMIT {
+            let drain = self.undo_stack.len() - UNDO_STACK_LIMIT;
+            self.undo_stack.drain(0..drain);
+        }
+    }
+
+    fn is_mutating_input_state(&self) -> bool {
+        matches!(
+            self.input,
+            InputState::DraggingObject { .. }
+                | InputState::DrawingShape { .. }
+                | InputState::ResizingObject { .. }
+                | InputState::RotatingObject { .. }
+                | InputState::DraggingEdgeEndpoint { .. }
+        )
+    }
+
+    fn actions_have_doc_mutation(&self, actions: &[Action]) -> bool {
+        actions.iter().any(|a| {
+            matches!(
+                a,
+                Action::ObjectCreated(_) | Action::ObjectUpdated { .. } | Action::ObjectDeleted { .. }
+            )
+        })
+    }
+
+    fn snapshot_objects_map(&self) -> std::collections::HashMap<ObjectId, BoardObject> {
+        self.doc
+            .sorted_objects()
+            .into_iter()
+            .map(|obj| (obj.id, obj.clone()))
+            .collect()
     }
 
     // =============================================================
@@ -1055,6 +1202,68 @@ impl EngineCore {
 
         obj_left <= rect_right && obj_right >= x && obj_top <= rect_bottom && obj_bottom >= y
     }
+}
+
+fn diff_partial(current: &BoardObject, target: &BoardObject) -> Option<PartialBoardObject> {
+    let mut partial = PartialBoardObject::default();
+    let mut changed = false;
+
+    if (current.x - target.x).abs() > f64::EPSILON {
+        partial.x = Some(target.x);
+        changed = true;
+    }
+    if (current.y - target.y).abs() > f64::EPSILON {
+        partial.y = Some(target.y);
+        changed = true;
+    }
+    if (current.width - target.width).abs() > f64::EPSILON {
+        partial.width = Some(target.width);
+        changed = true;
+    }
+    if (current.height - target.height).abs() > f64::EPSILON {
+        partial.height = Some(target.height);
+        changed = true;
+    }
+    if (current.rotation - target.rotation).abs() > f64::EPSILON {
+        partial.rotation = Some(target.rotation);
+        changed = true;
+    }
+    if current.z_index != target.z_index {
+        partial.z_index = Some(target.z_index);
+        changed = true;
+    }
+    if current.group_id != target.group_id {
+        partial.group_id = Some(target.group_id);
+        changed = true;
+    }
+
+    if current.props != target.props {
+        match (current.props.as_object(), target.props.as_object()) {
+            (Some(cur), Some(next)) => {
+                let mut patch = serde_json::Map::new();
+                for (k, next_v) in next {
+                    if cur.get(k) != Some(next_v) {
+                        patch.insert(k.clone(), next_v.clone());
+                    }
+                }
+                for k in cur.keys() {
+                    if !next.contains_key(k) {
+                        patch.insert(k.clone(), serde_json::Value::Null);
+                    }
+                }
+                if !patch.is_empty() {
+                    partial.props = Some(serde_json::Value::Object(patch));
+                    changed = true;
+                }
+            }
+            _ => {
+                partial.props = Some(target.props.clone());
+                changed = true;
+            }
+        }
+    }
+
+    if changed { Some(partial) } else { None }
 }
 
 fn normalize_angle_delta(delta: f64) -> f64 {

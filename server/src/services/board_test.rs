@@ -154,9 +154,9 @@ async fn part_board_keeps_dirty_board_loaded_if_flush_fails() {
 }
 
 #[test]
-fn role_satisfies_viewer_allows_view_only() {
+fn role_satisfies_viewer_allows_view_and_edit() {
     assert!(role_satisfies(BoardRole::Viewer, BoardPermission::View));
-    assert!(!role_satisfies(BoardRole::Viewer, BoardPermission::Edit));
+    assert!(role_satisfies(BoardRole::Viewer, BoardPermission::Edit));
     assert!(!role_satisfies(BoardRole::Viewer, BoardPermission::Admin));
 }
 

@@ -1752,6 +1752,44 @@ fn enter_without_selection_is_noop() {
 // =============================================================
 
 #[test]
+fn cmd_z_undoes_delete() {
+    let mut core = EngineCore::new();
+    let obj = make_object(ObjectKind::Rect, 0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
+
+    let delete_actions = core.on_key_down(Key("Delete".into()), no_modifiers());
+    assert!(has_object_deleted(&delete_actions));
+    assert!(core.object(&id).is_none());
+
+    let undo_actions = core.on_key_down(Key("z".into()), ctrl_modifier());
+    assert!(core.object(&id).is_some());
+    assert!(has_object_created(&undo_actions));
+    assert!(has_render_needed(&undo_actions));
+}
+
+#[test]
+fn cmd_z_undoes_arrow_nudge() {
+    let mut core = EngineCore::new();
+    let obj = make_object(ObjectKind::Rect, 0);
+    let id = obj.id;
+    core.apply_create(obj);
+    core.ui.selected_ids.clear();
+    core.ui.selected_ids.insert(id);
+
+    let move_actions = core.on_key_down(Key("ArrowRight".into()), no_modifiers());
+    assert!(has_object_updated(&move_actions));
+    assert_eq!(core.object(&id).expect("object should exist").x, 1.0);
+
+    let undo_actions = core.on_key_down(Key("z".into()), ctrl_modifier());
+    assert_eq!(core.object(&id).expect("object should exist").x, 0.0);
+    assert!(has_object_updated(&undo_actions));
+    assert!(has_render_needed(&undo_actions));
+}
+
+#[test]
 fn unknown_key_is_noop() {
     let mut core = EngineCore::new();
     let actions = core.on_key_down(Key("q".into()), no_modifiers());

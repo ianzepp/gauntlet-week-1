@@ -237,7 +237,8 @@ pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, 
 fn role_satisfies(role: BoardRole, permission: BoardPermission) -> bool {
     match permission {
         BoardPermission::View => true,
-        BoardPermission::Edit => matches!(role, BoardRole::Editor | BoardRole::Admin),
+        // Product policy: if a user can access (join/view) a board, they can edit it.
+        BoardPermission::Edit => true,
         BoardPermission::Admin => matches!(role, BoardRole::Admin),
     }
 }
@@ -268,7 +269,7 @@ pub async fn ensure_board_permission(
         return Ok(());
     }
 
-    if permission == BoardPermission::View && is_public {
+    if (permission == BoardPermission::View || permission == BoardPermission::Edit) && is_public {
         return Ok(());
     }
 
@@ -305,7 +306,8 @@ pub async fn client_has_permission(
     };
     match permission {
         BoardPermission::View => true,
-        BoardPermission::Edit => client.can_edit || client.can_admin,
+        // Product policy: connected users who can view can also edit.
+        BoardPermission::Edit => true,
         BoardPermission::Admin => client.can_admin,
     }
 }
