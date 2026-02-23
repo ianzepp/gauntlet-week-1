@@ -447,6 +447,7 @@ impl DocStore {
 
     /// Return objects that intersect the given world bounds, sorted by `(z_index, id)`.
     #[must_use]
+    #[allow(clippy::similar_names)]
     pub fn sorted_objects_in_bounds(&self, bounds: WorldBounds) -> Vec<&BoardObject> {
         let mut ids = HashSet::new();
         let min_bx = bucket_coord(bounds.min_x);
@@ -489,6 +490,7 @@ impl DocStore {
         self.objects.is_empty()
     }
 
+    #[allow(clippy::similar_names)]
     fn add_to_buckets(&mut self, id: ObjectId, bounds: WorldBounds) {
         let min_bx = bucket_coord(bounds.min_x);
         let min_by = bucket_coord(bounds.min_y);
@@ -501,6 +503,7 @@ impl DocStore {
         }
     }
 
+    #[allow(clippy::similar_names)]
     fn remove_from_buckets(&mut self, id: ObjectId, bounds: WorldBounds) {
         let min_bx = bucket_coord(bounds.min_x);
         let min_by = bucket_coord(bounds.min_y);
@@ -523,7 +526,9 @@ impl DocStore {
 }
 
 fn bucket_coord(world: f64) -> i32 {
-    (world / BUCKET_SIZE_WORLD).floor() as i32
+    #[allow(clippy::cast_possible_truncation)]
+    let coord = (world / BUCKET_SIZE_WORLD).floor() as i32;
+    coord
 }
 
 impl Default for DocStore {

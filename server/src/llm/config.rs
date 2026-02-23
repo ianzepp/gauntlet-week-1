@@ -44,7 +44,7 @@ impl LlmConfig {
     /// - `LLM_PROVIDER`: `anthropic` (default) or `openai`
     /// - `LLM_MODEL`: provider default when absent
     /// - `LLM_OPENAI_MODE`: `responses` (default) or `chat_completions`
-    /// - `LLM_OPENAI_BASE_URL`: default OpenAI API base URL
+    /// - `LLM_OPENAI_BASE_URL`: default `OpenAI` API base URL
     /// - `LLM_REQUEST_TIMEOUT_SECS`: default 120
     /// - `LLM_CONNECT_TIMEOUT_SECS`: default 10
     pub fn from_env() -> Result<Self, LlmError> {

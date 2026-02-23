@@ -427,7 +427,7 @@ impl EngineCore {
             }
         }
 
-        if self.actions_have_doc_mutation(&actions) {
+        if Self::actions_have_doc_mutation(&actions) {
             if let Some(snapshot) = self.pending_gesture_undo.take() {
                 self.push_undo_snapshot(snapshot);
             }
@@ -461,6 +461,7 @@ impl EngineCore {
     }
 
     /// Handle a key-down event. Returns actions for the host.
+    #[allow(clippy::too_many_lines)]
     pub fn on_key_down(&mut self, key: Key, modifiers: Modifiers) -> Vec<Action> {
         let mut actions = Vec::new();
         let accel = modifiers.ctrl || modifiers.meta;
@@ -693,7 +694,7 @@ impl EngineCore {
         )
     }
 
-    fn actions_have_doc_mutation(&self, actions: &[Action]) -> bool {
+    fn actions_have_doc_mutation(actions: &[Action]) -> bool {
         actions.iter().any(|a| {
             matches!(
                 a,
@@ -714,6 +715,7 @@ impl EngineCore {
     // Private helpers
     // =============================================================
 
+    #[allow(clippy::too_many_lines)]
     fn handle_select_down(&mut self, world_pt: Point, modifiers: Modifiers, actions: &mut Vec<Action>) {
         let selected_for_handles = if self.ui.selected_ids.len() == 1 {
             self.primary_selection()
@@ -1238,28 +1240,25 @@ fn diff_partial(current: &BoardObject, target: &BoardObject) -> Option<PartialBo
     }
 
     if current.props != target.props {
-        match (current.props.as_object(), target.props.as_object()) {
-            (Some(cur), Some(next)) => {
-                let mut patch = serde_json::Map::new();
-                for (k, next_v) in next {
-                    if cur.get(k) != Some(next_v) {
-                        patch.insert(k.clone(), next_v.clone());
-                    }
-                }
-                for k in cur.keys() {
-                    if !next.contains_key(k) {
-                        patch.insert(k.clone(), serde_json::Value::Null);
-                    }
-                }
-                if !patch.is_empty() {
-                    partial.props = Some(serde_json::Value::Object(patch));
-                    changed = true;
+        if let (Some(cur), Some(next)) = (current.props.as_object(), target.props.as_object()) {
+            let mut patch = serde_json::Map::new();
+            for (k, next_v) in next {
+                if cur.get(k) != Some(next_v) {
+                    patch.insert(k.clone(), next_v.clone());
                 }
             }
-            _ => {
-                partial.props = Some(target.props.clone());
+            for k in cur.keys() {
+                if !next.contains_key(k) {
+                    patch.insert(k.clone(), serde_json::Value::Null);
+                }
+            }
+            if !patch.is_empty() {
+                partial.props = Some(serde_json::Value::Object(patch));
                 changed = true;
             }
+        } else {
+            partial.props = Some(target.props.clone());
+            changed = true;
         }
     }
 

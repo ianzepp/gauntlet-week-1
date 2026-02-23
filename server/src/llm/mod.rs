@@ -20,7 +20,7 @@ use types::{ChatResponse, LlmError, Message, Tool};
 // CLIENT DISPATCH
 // =============================================================================
 
-/// Concrete LLM client that dispatches to either Anthropic or OpenAI.
+/// Concrete LLM client that dispatches to either Anthropic or `OpenAI`.
 ///
 /// Configured from environment variables by [`LlmClient::from_env`].
 pub struct LlmClient {

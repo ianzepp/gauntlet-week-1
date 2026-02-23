@@ -20,8 +20,8 @@ use crate::state::ui::{RightTab, UiState, ViewMode};
 /// Collapsible right sidebar with icon rail and expandable content panel.
 #[component]
 pub fn RightPanel() -> impl IntoView {
-    let ui = expect_context::<RwSignal<UiState>>();
     const SAVEPOINTS_ENABLED: bool = false;
+    let ui = expect_context::<RwSignal<UiState>>();
 
     let expanded = move || ui.get().right_panel_expanded;
     let active_tab = move || ui.get().right_tab;

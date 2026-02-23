@@ -118,6 +118,7 @@ pub fn extract_clip_from_object(obj: &BoardObject) -> Option<AnimationClip> {
 }
 
 #[must_use]
+#[allow(clippy::implicit_hasher)]
 pub fn project_clip_scene(
     base_objects: &HashMap<String, BoardObject>,
     active_board_id: Option<&str>,
@@ -230,7 +231,7 @@ fn apply_event(
             if obj.board_id.is_empty()
                 && let Some(board_id) = active_board_id
             {
-                obj.board_id = board_id.to_owned();
+                obj.board_id = board_id.to_string();
             }
             projected.insert(obj.id.clone(), obj);
         }
@@ -282,7 +283,7 @@ fn apply_patch(obj: &mut BoardObject, patch: &serde_json::Value) {
         obj.z_index = z_index;
     }
     if let Some(next_kind) = data.get("kind").and_then(serde_json::Value::as_str) {
-        obj.kind = next_kind.to_owned();
+        obj.kind = next_kind.to_string();
     }
     if let Some(group_id) = data.get("group_id") {
         obj.group_id = group_id.as_str().map(str::to_owned);

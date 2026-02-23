@@ -464,10 +464,12 @@ async fn stream_create_legacy(cli: &CliContext, args: StreamCreateArgs) -> Resul
     wait_for_terminal_response(&mut stream, &join_id, "board:join").await?;
 
     for index in 0..args.count {
+        #[allow(clippy::cast_precision_loss)]
+        let index_f64 = index as f64;
         let payload = serde_json::json!({
             "kind": "sticky_note",
-            "x": index as f64,
-            "y": index as f64,
+            "x": index_f64,
+            "y": index_f64,
             "width": 160.0,
             "height": 100.0,
             "rotation": 0.0,
@@ -521,10 +523,7 @@ async fn api_request(
 
     let response = request.send().await?;
     let status = response.status();
-    let value = response
-        .json::<Value>()
-        .await
-        .unwrap_or_else(|_| Value::Null);
+    let value = response.json::<Value>().await.unwrap_or(Value::Null);
 
     if !status.is_success() {
         return Err(CliError::ServerError {

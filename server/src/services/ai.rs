@@ -59,11 +59,10 @@ fn ai_enable_session_memory() -> bool {
     *VALUE.get_or_init(|| {
         std::env::var("AI_ENABLE_SESSION_MEMORY")
             .ok()
-            .map(|v| {
+            .map_or(DEFAULT_AI_ENABLE_SESSION_MEMORY, |v| {
                 let normalized = v.trim().to_ascii_lowercase();
                 matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
             })
-            .unwrap_or(DEFAULT_AI_ENABLE_SESSION_MEMORY)
     })
 }
 
@@ -173,6 +172,7 @@ pub enum AiMutation {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_field_names)]
 pub struct AiTraceSummary {
     pub total_duration_ms: i64,
     pub total_llm_duration_ms: i64,
@@ -638,7 +638,7 @@ fn truncate_text_for_session(text: &str) -> String {
 fn truncate_message_for_session(message: Message) -> Message {
     match message.content {
         Content::Text(text) => Message { role: message.role, content: Content::Text(truncate_text_for_session(&text)) },
-        other => Message { role: message.role, content: other },
+        Content::Blocks(_) => message,
     }
 }
 
@@ -952,8 +952,8 @@ async fn find_non_overlapping_position(
             (origin_x, origin_y)
         } else {
             let index = attempt - 1;
-            let col = (index % 4) as f64;
-            let row = (index / 4) as f64;
+            let col = f64::from(index % 4);
+            let row = f64::from(index / 4);
             (origin_x + (col * step_x), origin_y + (row * step_y))
         };
 
@@ -994,9 +994,8 @@ async fn execute_create_sticky_note(
 ) -> Result<String, AiError> {
     let title = input.get("title").and_then(|v| v.as_str()).unwrap_or("");
     let text = input.get("text").and_then(|v| v.as_str()).unwrap_or("");
-    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
-    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
+    let x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let y_opt = input.get("y").and_then(serde_json::Value::as_f64);
     let fill = input
         .get("fill")
         .and_then(|v| v.as_str())
@@ -1049,9 +1048,8 @@ async fn execute_create_shape(
     let Some(kind) = canonical_kind(requested_kind) else {
         return Ok("error: unsupported shape type".into());
     };
-    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
-    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
+    let x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let y_opt = input.get("y").and_then(serde_json::Value::as_f64);
     let fill = input
         .get("fill")
         .and_then(|v| v.as_str())
@@ -1158,9 +1156,8 @@ async fn execute_create_frame(
         .get("title")
         .and_then(|v| v.as_str())
         .unwrap_or("Untitled");
-    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
-    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
+    let x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let y_opt = input.get("y").and_then(serde_json::Value::as_f64);
     let stroke = input
         .get("stroke")
         .and_then(|v| v.as_str())
@@ -1212,13 +1209,11 @@ async fn execute_create_connector(
         .get("style")
         .and_then(|v| v.as_str())
         .unwrap_or("arrow");
-    let from_id = match from_id_raw.parse::<Uuid>() {
-        Ok(id) => id,
-        Err(_) => return Ok("error: missing or invalid fromId".into()),
+    let Ok(from_id) = from_id_raw.parse::<Uuid>() else {
+        return Ok("error: missing or invalid fromId".into());
     };
-    let to_id = match to_id_raw.parse::<Uuid>() {
-        Ok(id) => id,
-        Err(_) => return Ok("error: missing or invalid toId".into()),
+    let Ok(to_id) = to_id_raw.parse::<Uuid>() else {
+        return Ok("error: missing or invalid toId".into());
     };
 
     let kind = if style.eq_ignore_ascii_case("line") {
@@ -1294,9 +1289,8 @@ async fn execute_create_svg_object(
         Ok(s) => s,
         Err(msg) => return Ok(format!("error: {msg}")),
     };
-    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
-    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
+    let x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let y_opt = input.get("y").and_then(serde_json::Value::as_f64);
     let Some(width) = input.get("width").and_then(serde_json::Value::as_f64) else {
         return Ok("error: missing width".into());
     };
@@ -1427,9 +1421,8 @@ async fn execute_import_svg(
         Err(msg) => return Ok(format!("error: {msg}")),
     };
 
-    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
-    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
+    let x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let y_opt = input.get("y").and_then(serde_json::Value::as_f64);
     let scale = input
         .get("scale")
         .and_then(serde_json::Value::as_f64)
@@ -1915,9 +1908,8 @@ async fn execute_create_swot(
     input: &serde_json::Value,
     mutations: &mut Vec<AiMutation>,
 ) -> Result<String, AiError> {
-    let raw_x_opt = input.get("x").and_then(serde_json::Value::as_f64);
-    let raw_y_opt = input.get("y").and_then(serde_json::Value::as_f64);
-    let (x_opt, y_opt) = (raw_x_opt, raw_y_opt);
+    let x_opt = input.get("x").and_then(serde_json::Value::as_f64);
+    let y_opt = input.get("y").and_then(serde_json::Value::as_f64);
     let width = input
         .get("width")
         .and_then(serde_json::Value::as_f64)
@@ -2449,8 +2441,7 @@ fn normalize_animation_create_object(
     let object_board_id = source
         .get("board_id")
         .and_then(serde_json::Value::as_str)
-        .map(str::to_owned)
-        .unwrap_or_else(|| board_id.to_string());
+        .map_or_else(|| board_id.to_string(), str::to_owned);
 
     let props = if let Some(props) = source.get("props").and_then(serde_json::Value::as_object) {
         serde_json::Value::Object(props.clone())

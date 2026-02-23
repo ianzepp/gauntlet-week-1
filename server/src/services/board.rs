@@ -236,9 +236,8 @@ pub async fn list_boards(pool: &PgPool, user_id: Uuid) -> Result<Vec<BoardRow>, 
 
 fn role_satisfies(role: BoardRole, permission: BoardPermission) -> bool {
     match permission {
-        BoardPermission::View => true,
         // Product policy: if a user can access (join/view) a board, they can edit it.
-        BoardPermission::Edit => true,
+        BoardPermission::View | BoardPermission::Edit => true,
         BoardPermission::Admin => matches!(role, BoardRole::Admin),
     }
 }
@@ -305,9 +304,8 @@ pub async fn client_has_permission(
         return false;
     };
     match permission {
-        BoardPermission::View => true,
         // Product policy: connected users who can view can also edit.
-        BoardPermission::Edit => true,
+        BoardPermission::View | BoardPermission::Edit => true,
         BoardPermission::Admin => client.can_admin,
     }
 }

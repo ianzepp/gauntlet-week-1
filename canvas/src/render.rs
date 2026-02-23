@@ -346,6 +346,7 @@ fn render_svg_shape(ctx: &CanvasRenderingContext2d, shape: &SvgShape, stroke_sca
             if pts.len() >= 2 {
                 let mut d = format!("M{},{}", pts[0].0, pts[0].1);
                 for &(px, py) in &pts[1..] {
+                    #[allow(clippy::format_push_string)]
                     d.push_str(&format!("L{px},{py}"));
                 }
                 if matches!(shape.geometry, SvgGeometry::Polygon(_)) {
@@ -465,7 +466,7 @@ fn apply_svg_transform(ctx: &CanvasRenderingContext2d, transform: &str) -> Resul
         let args: Vec<f64> = args_str
             .split(|c: char| c == ',' || c.is_ascii_whitespace())
             .filter(|s| !s.is_empty())
-            .filter_map(|s| s.parse::<f64>().map_or(None, Some))
+            .filter_map(try_parse_f64)
             .collect();
         scan = &scan[paren_start + paren_end + 1..];
 
@@ -761,7 +762,7 @@ fn parse_points(raw: &str) -> Vec<(f64, f64)> {
     let nums: Vec<f64> = raw
         .split(|c: char| c == ',' || c.is_ascii_whitespace())
         .filter(|s| !s.is_empty())
-        .filter_map(|s| s.parse::<f64>().map_or(None, Some))
+        .filter_map(try_parse_f64)
         .collect();
     nums.chunks(2)
         .filter_map(|chunk| Some((chunk[0], *chunk.get(1)?)))
@@ -921,16 +922,18 @@ fn attr_value(tag: &str, attr: &str) -> Option<String> {
     Some(rest[..end].to_owned())
 }
 
+#[allow(clippy::manual_ok_err)]
+fn try_parse_f64(s: &str) -> Option<f64> {
+    if let Ok(n) = s.parse::<f64>() { Some(n) } else { None }
+}
+
 fn parse_svg_number(raw: &str) -> Option<f64> {
     let trimmed = raw.trim();
     let value = trimmed
         .strip_suffix("px")
         .or_else(|| trimmed.strip_suffix('%'))
         .unwrap_or(trimmed);
-    match value.parse::<f64>() {
-        Ok(number) => Some(number),
-        Err(_) => None,
-    }
+    try_parse_f64(value)
 }
 
 fn draw_diamond(ctx: &CanvasRenderingContext2d, obj: &BoardObject, props: &Props<'_>) -> Result<(), JsValue> {

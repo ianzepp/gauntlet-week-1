@@ -94,8 +94,7 @@ async fn redirect_board_root_to_app_board() -> Redirect {
 /// Resolve the path to the portfolio website directory.
 fn website_dir() -> PathBuf {
     std::env::var("WEBSITE_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../website"))
+        .map_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../website"), PathBuf::from)
 }
 
 /// Leptos SSR frontend: API routes + Leptos SSR at `/app` + portfolio at `/`.

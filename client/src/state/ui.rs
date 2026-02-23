@@ -24,6 +24,7 @@ pub enum ViewMode {
 /// In the full Leptos implementation, fields will be `RwSignal` types
 /// provided via context. For now they are plain fields.
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct UiState {
     pub dark_mode: bool,
     pub view_mode: ViewMode,

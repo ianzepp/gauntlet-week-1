@@ -337,7 +337,7 @@ pub async fn create_object_rest(
         group_id: body.group_id,
     };
 
-    board::flush_objects(&state.pool, &[object.clone()])
+    board::flush_objects(&state.pool, std::slice::from_ref(&object))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -380,6 +380,7 @@ pub async fn get_object(
 }
 
 #[derive(Deserialize)]
+#[allow(clippy::option_option)]
 pub struct PatchObjectBody {
     pub kind: Option<String>,
     pub x: Option<f64>,
@@ -443,7 +444,7 @@ pub async fn patch_object(
     }
     object.version = object.version.saturating_add(1);
 
-    board::flush_objects(&state.pool, &[object.clone()])
+    board::flush_objects(&state.pool, std::slice::from_ref(&object))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

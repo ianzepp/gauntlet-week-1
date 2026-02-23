@@ -171,7 +171,7 @@ pub fn CanvasHost() -> impl IntoView {
     let board = expect_context::<RwSignal<BoardState>>();
     let canvas_view = expect_context::<RwSignal<CanvasViewState>>();
     let sender = expect_context::<RwSignal<FrameSender>>();
-    let _ui = expect_context::<RwSignal<UiState>>();
+    let ui = expect_context::<RwSignal<UiState>>();
     let canvas_ref = NodeRef::<leptos::html::Canvas>::new();
     let compass_ref = NodeRef::<leptos::html::Div>::new();
     let _compass_drag_active = RwSignal::new(false);
@@ -2103,7 +2103,7 @@ pub fn CanvasHost() -> impl IntoView {
                 <div
                     id="right-dials-host"
                     class="right-panel__dials-mount"
-                    style=move || if _ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }
+                    style=move || if ui.get().view_mode == ViewMode::Trace { "display:none;" } else { "" }
                 >
                     <CompassDial
                         class="canvas-compass"
@@ -2141,8 +2141,8 @@ pub fn CanvasHost() -> impl IntoView {
                         on_pointer_move=on_zoom_pointer_move
                         on_pointer_up=on_zoom_pointer_up
                         on_readout_pointer_down=on_zoom_readout_pointer_down
-                        on_readout_click=on_zoom_reset.clone()
-                        on_readout_dblclick=on_zoom_reset.clone()
+                        on_readout_click=on_zoom_reset
+                        on_readout_dblclick=on_zoom_reset
                         on_reset_click=on_zoom_reset
                     />
                 </div>

@@ -80,9 +80,7 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
     let on_anim_fwd = move |_| {
         let board_state = board.get();
         let ui_state = ui.get();
-        let duration = resolve_active_clip(&board_state, &ui_state)
-            .map(|(_, clip)| clip.duration_ms)
-            .unwrap_or(0.0);
+        let duration = resolve_active_clip(&board_state, &ui_state).map_or(0.0, |(_, clip)| clip.duration_ms);
         let step = ui_state.animation_scrub_step_ms.max(1.0);
         ui.update(|u| {
             u.animation_playing = false;
@@ -161,6 +159,7 @@ pub fn StatusBar(on_help: Callback<()>) -> impl IntoView {
                                     }
                                     .into_any()
                                 } else {
+                                    #[allow(clippy::unit_arg)]
                                     view! { <></> }.into_any()
                                 }
                             }}
