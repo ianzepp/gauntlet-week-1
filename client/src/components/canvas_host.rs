@@ -2125,7 +2125,6 @@ pub fn CanvasHost() -> impl IntoView {
                         on_readout_click=on_compass_center_click
                         on_readout_dblclick=on_compass_center_click
                     />
-                    #[allow(clippy::clone_on_copy)]
                     <ZoomDial
                         class="canvas-zoom-wheel"
                         disabled_class=""
