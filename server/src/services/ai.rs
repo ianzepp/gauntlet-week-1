@@ -435,8 +435,20 @@ pub async fn handle_prompt_with_parent(
         }
 
         // Only carry the most recent tool-call exchange forward between tool rounds.
+        // Strip tool call inputs from the assistant message — large payloads (SVG, YAML, etc.)
+        // don't need to be replayed in history; only the tool id/name are needed for context.
+        let assistant_blocks = response
+            .content
+            .into_iter()
+            .map(|b| match b {
+                ContentBlock::ToolUse { id, name, .. } => {
+                    ContentBlock::ToolUse { id, name, input: serde_json::Value::Null }
+                }
+                other => other,
+            })
+            .collect();
         latest_tool_exchange = Some((
-            Message { role: "assistant".into(), content: Content::Blocks(response.content) },
+            Message { role: "assistant".into(), content: Content::Blocks(assistant_blocks) },
             Message { role: "user".into(), content: Content::Blocks(tool_results) },
         ));
 
