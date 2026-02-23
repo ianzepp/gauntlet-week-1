@@ -266,10 +266,9 @@ pub fn CanvasHost() -> impl IntoView {
     #[cfg(feature = "hydrate")]
     {
         Effect::new(move || {
-            // Re-run on route/mode transitions so dial hosts are re-parented
-            // even when board navigation changes mount timing.
+            // Re-run on mode transitions so dial hosts are re-parented
+            // when panel visibility changes.
             let _ = ui.get().view_mode;
-            let _ = board.get().board_id.clone();
             mount_dials_into_panels();
 
             // Also retry on the next tick to handle cases where panel mounts

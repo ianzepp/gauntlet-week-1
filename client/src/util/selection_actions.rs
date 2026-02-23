@@ -343,6 +343,7 @@ pub fn apply_selection_scale_drag(
     };
     let multiplier = selection_scale_multiplier(target_scale, drag_state.start_group_scale);
     board.update(|b| {
+        let mut changed = false;
         for seed in &drag_state.start_items {
             let Some(obj) = b.objects.get_mut(&seed.id) else {
                 continue;
@@ -359,6 +360,10 @@ pub fn apply_selection_scale_drag(
             obj.x = new_cx - (new_w * 0.5);
             obj.y = new_cy - (new_h * 0.5);
             upsert_object_scale_props(obj, next_scale, seed.base_width, seed.base_height);
+            changed = true;
+        }
+        if changed {
+            b.bump_scene_rev();
         }
     });
 }
@@ -427,6 +432,7 @@ pub fn apply_group_scale_target(board: RwSignal<BoardState>, sender: RwSignal<Fr
         return;
     }
     board.update(|b| {
+        let mut changed = false;
         for id in &selected {
             let Some(obj) = b.objects.get_mut(id) else {
                 continue;
@@ -443,6 +449,10 @@ pub fn apply_group_scale_target(board: RwSignal<BoardState>, sender: RwSignal<Fr
             obj.x = cx - (new_w * 0.5);
             obj.y = cy - (new_h * 0.5);
             upsert_object_scale_props(obj, target_scale, base_width, base_height);
+            changed = true;
+        }
+        if changed {
+            b.bump_scene_rev();
         }
     });
 
@@ -977,10 +987,15 @@ pub fn apply_selection_rotation_drag(
     let snapped_pointer = snap_fn(pointer_angle_deg, shift_snap);
     let delta = delta_fn(snapped_pointer, drag_state.start_pointer_angle_deg);
     board.update(|b| {
+        let mut changed = false;
         for (id, start_rotation) in &drag_state.start_rotations {
             if let Some(obj) = b.objects.get_mut(id) {
                 obj.rotation = normalize_fn(*start_rotation + delta);
+                changed = true;
             }
+        }
+        if changed {
+            b.bump_scene_rev();
         }
     });
 }
@@ -1040,10 +1055,15 @@ pub fn apply_group_rotation_target(
     let delta = delta_fn(target_deg, current);
 
     board.update(|b| {
+        let mut changed = false;
         for id in &selected {
             if let Some(obj) = b.objects.get_mut(id) {
                 obj.rotation = normalize_fn(obj.rotation + delta);
+                changed = true;
             }
+        }
+        if changed {
+            b.bump_scene_rev();
         }
     });
 
