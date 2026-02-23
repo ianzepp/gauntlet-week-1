@@ -268,7 +268,7 @@ pub fn CanvasHost() -> impl IntoView {
         Effect::new(move || {
             // Re-run on route/mode transitions so dial hosts are re-parented
             // even when board navigation changes mount timing.
-            let _ = _ui.get().view_mode;
+            let _ = ui.get().view_mode;
             let _ = board.get().board_id.clone();
             mount_dials_into_panels();
 
@@ -323,7 +323,7 @@ pub fn CanvasHost() -> impl IntoView {
         let engine = Rc::clone(&engine);
         let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let ui_state = _ui.get();
+            let ui_state = ui.get();
             let maybe_clip = board.with(|state| resolve_active_clip(state, &ui_state));
             if !ui_state.animation_playing {
                 animation_tick.borrow_mut().take();
@@ -331,12 +331,12 @@ pub fn CanvasHost() -> impl IntoView {
             }
             let Some((_clip_id, clip)) = maybe_clip else {
                 animation_tick.borrow_mut().take();
-                _ui.update(|u| u.animation_playing = false);
+                ui.update(|u| u.animation_playing = false);
                 return;
             };
             if clip.duration_ms <= 0.0 {
                 animation_tick.borrow_mut().take();
-                _ui.update(|u| u.animation_playing = false);
+                ui.update(|u| u.animation_playing = false);
                 return;
             }
             if animation_tick.borrow().is_some() {
@@ -345,7 +345,7 @@ pub fn CanvasHost() -> impl IntoView {
 
             let engine_for_tick = Rc::clone(&engine);
             let board_for_tick = board;
-            let ui_for_tick = _ui;
+            let ui_for_tick = ui;
             let canvas_view_for_tick = canvas_view;
             let render_raf_pending_for_tick = render_raf_pending;
             let tick = Interval::new(33, move || {
@@ -385,7 +385,7 @@ pub fn CanvasHost() -> impl IntoView {
         let canvas_ref_sync = canvas_ref.clone();
         let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let ui_state = _ui.get();
+            let ui_state = ui.get();
             let Some(scene_key) = board.with(|state| {
                 if state.join_streaming {
                     None
@@ -447,7 +447,7 @@ pub fn CanvasHost() -> impl IntoView {
     {
         let engine = Rc::clone(&engine);
         Effect::new(move || {
-            let tool = map_tool(_ui.get().active_tool);
+            let tool = map_tool(ui.get().active_tool);
             if let Some(engine) = engine.borrow_mut().as_mut() {
                 engine.set_tool(tool);
             }
@@ -460,7 +460,7 @@ pub fn CanvasHost() -> impl IntoView {
         let canvas_ref_home = canvas_ref.clone();
         let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let seq = _ui.get().home_viewport_seq;
+            let seq = ui.get().home_viewport_seq;
             if seq == last_home_viewport_seq.get_untracked() {
                 return;
             }
@@ -490,7 +490,7 @@ pub fn CanvasHost() -> impl IntoView {
         let canvas_ref_zoom = canvas_ref.clone();
         let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let ui_state = _ui.get();
+            let ui_state = ui.get();
             let seq = ui_state.zoom_override_seq;
             if seq == 0 || seq == last_zoom_override_seq.get_untracked() {
                 return;
@@ -533,7 +533,7 @@ pub fn CanvasHost() -> impl IntoView {
         let canvas_ref_center = canvas_ref.clone();
         let render_raf_pending = render_raf_pending;
         Effect::new(move || {
-            let ui_state = _ui.get();
+            let ui_state = ui.get();
             let seq = ui_state.view_center_override_seq;
             if seq == 0 || seq == last_center_override_seq.get_untracked() {
                 return;
@@ -621,7 +621,7 @@ pub fn CanvasHost() -> impl IntoView {
                     return;
                 }
                 let point = pointer_point(&ev);
-                if let Some((kind, width, height, props)) = placement_shape(_ui.get().active_tool) {
+                if let Some((kind, width, height, props)) = placement_shape(ui.get().active_tool) {
                     {
                         let engine_ref = engine.borrow();
                         if let Some(engine) = engine_ref.as_ref() {
@@ -630,7 +630,7 @@ pub fn CanvasHost() -> impl IntoView {
                         }
                     }
                     if let Some(engine) = engine.borrow_mut().as_mut() {
-                        _ui.update(|u| u.active_tool = ToolType::Select);
+                        ui.update(|u| u.active_tool = ToolType::Select);
                         preview_cursor.set(None);
                         render_and_track(engine, canvas_view);
                     }
@@ -673,7 +673,7 @@ pub fn CanvasHost() -> impl IntoView {
                 if board.get().selection.is_empty() {
                     return;
                 }
-                _ui.update(|u| {
+                ui.update(|u| {
                     u.object_text_dialog_seq = u.object_text_dialog_seq.saturating_add(1);
                 });
             }
@@ -707,7 +707,7 @@ pub fn CanvasHost() -> impl IntoView {
                     }
                     return;
                 }
-                if placement_shape(_ui.get().active_tool).is_some() {
+                if placement_shape(ui.get().active_tool).is_some() {
                     preview_cursor.set(Some(point));
                     if let Some(engine) = engine.borrow().as_ref() {
                         send_cursor_presence_if_needed(
@@ -895,9 +895,9 @@ pub fn CanvasHost() -> impl IntoView {
                 if board.get().follow_client_id.is_some() {
                     return;
                 }
-                if key == "Escape" && placement_shape(_ui.get().active_tool).is_some() {
+                if key == "Escape" && placement_shape(ui.get().active_tool).is_some() {
                     ev.prevent_default();
-                    _ui.update(|u| u.active_tool = ToolType::Select);
+                    ui.update(|u| u.active_tool = ToolType::Select);
                     preview_cursor.set(None);
                     return;
                 }
@@ -1937,7 +1937,7 @@ pub fn CanvasHost() -> impl IntoView {
     let preview_ghost = move || {
         #[cfg(feature = "hydrate")]
         {
-            if placement_shape(_ui.get().active_tool).is_none() {
+            if placement_shape(ui.get().active_tool).is_none() {
                 return None::<(String, String)>;
             }
             let point = preview_cursor
