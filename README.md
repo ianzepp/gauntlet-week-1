@@ -2,6 +2,12 @@
 
 A real-time collaborative whiteboard where multiple users draw, chat, and let AI rearrange things on a shared canvas — built entirely in Rust, from the server all the way down to the browser.
 
+## Docs
+
+- [AI Development Log](docs/ai-development-log.md) — what was built, how AI was used, key decisions
+- [AI Development Cost](docs/ai-dev-cost.md) — token usage and API spend for the sprint (Feb 16–22)
+- [Production Cost](docs/production-cost.md) — infrastructure and hosting costs
+
 ## Why This Exists
 
 This is a one-week sprint project for [The Gauntlet](https://www.yourfirstclient.com/the-gauntlet). The brief: build a collaborative whiteboard with AI integration. The twist I gave myself: do it all in Rust — server, frontend, canvas engine, wire protocol — no JavaScript runtime anywhere in the stack.
@@ -16,16 +22,18 @@ This is a one-week sprint project for [The Gauntlet](https://www.yourfirstclient
 
 ## Live Demo
 
-Deployed on Railway (as of 2026-02-20, URL may change):
-**https://gauntlet-week-1-production.up.railway.app/**
+**https://fieldboard.ianzepp.dev/**
 
-## Prerelease Video Demos
+## Video Demos
 
-Week 1 Day 2 (MVP):
-**https://www.loom.com/share/613a53b528ae431a81873c41583a11c2**
+Final submission:
+**https://www.loom.com/share/6cdbffede8c7452d860423b8f600a248**
 
 Week 1 Day 5 (Early Release):
 **https://www.loom.com/share/5d38b03c2450418ab11c29e0bbd28e52**
+
+Week 1 Day 2 (MVP):
+**https://www.loom.com/share/613a53b528ae431a81873c41583a11c2**
 
 ## Tech Stack
 
